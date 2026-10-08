@@ -44,6 +44,15 @@ SUBCATEGORY_STAGE = {
     "Observability": "observability",
 }
 
+# Sous-catégories dont les outils servent légitimement à plusieurs étapes.
+SUBCATEGORY_EXTRA_STAGES = {
+    "Automation & Configuration": ["deploy"],
+    "Security & Compliance": ["test", "platform"],
+    "Key Management": ["security"],
+    "Application Definition & Image Build": ["deploy"],
+    "Continuous Integration & Delivery": ["test", "deploy"],
+}
+
 
 @dataclass
 class Catalog:
@@ -61,6 +70,10 @@ class Catalog:
 
     def curated(self) -> list[Tool]:
         return [t for t in self.tools.values() if t.curated]
+
+    def can_place(self, tool_id: str, stage: str) -> bool:
+        tool = self.tools.get(tool_id)
+        return tool is not None and tool.can_go_in(stage)
 
     def providing(self, capability: str) -> list[Tool]:
         return [t for t in self.tools.values() if capability in t.provides and t.curated]
@@ -133,8 +146,9 @@ def build_catalog(data_dir: Path = DATA_DIR) -> Catalog:
     for tool in load_tool_files(data_dir / "catalog"):
         if tool.id in catalog.tools:
             raise ValueError(f"Identifiant de fiche en double : {tool.id}")
-        if tool.stage not in STAGE_IDS:
-            raise ValueError(f"{tool.id}: étape inconnue {tool.stage}")
+        for s in (tool.stage, *tool.extra_stages):
+            if s not in STAGE_IDS:
+                raise ValueError(f"{tool.id}: étape inconnue {s}")
         catalog.tools[tool.id] = tool
 
     index = load_landscape_index(data_dir / "landscape_index.json")
@@ -166,6 +180,7 @@ def build_catalog(data_dir: Path = DATA_DIR) -> Catalog:
             id=tid,
             name=entry["name"],
             stage=stage,
+            extra_stages=SUBCATEGORY_EXTRA_STAGES.get(entry.get("subcategory", ""), []),
             roles=[],
             description=entry.get("description") or "",
             homepage=entry.get("homepage_url"),

@@ -37,6 +37,7 @@
 - id: argo-events
   name: Argo Events
   stage: deploy
+  extra_stages: [platform]
   roles: [events]
   description: Déclenchement d'actions sur événements dans Kubernetes.
   license: Apache-2.0
@@ -208,6 +209,7 @@
 - id: kyverno
   name: Kyverno
   stage: platform
+  extra_stages: [security]
   roles: [admission-policy]
   description: Politiques Kubernetes en YAML (validation, mutation, vérification de signatures).
   license: Apache-2.0
@@ -217,6 +219,7 @@
 - id: gatekeeper
   name: OPA Gatekeeper
   stage: platform
+  extra_stages: [security]
   roles: [admission-policy]
   description: Contrôleur d'admission Kubernetes basé sur Open Policy Agent (Rego).
   license: Apache-2.0
@@ -227,6 +230,7 @@
 - id: cert-manager
   name: cert-manager
   stage: platform
+  extra_stages: [security]
   roles: [certificates]
   description: Émission et renouvellement de certificats X.509 dans Kubernetes.
   license: Apache-2.0
@@ -237,6 +241,7 @@
 - id: vault
   name: Vault
   stage: platform
+  extra_stages: [security]
   roles: [secrets]
   description: Coffre de secrets de HashiCorp, sous licence BSL depuis 2023.
   license: BSL-1.1
@@ -248,6 +253,7 @@
 - id: openbao
   name: OpenBao
   stage: platform
+  extra_stages: [security]
   roles: [secrets]
   description: Fork open source de Vault (Linux Foundation).
   license: MPL-2.0
@@ -258,6 +264,7 @@
 - id: external-secrets
   name: External Secrets Operator
   stage: platform
+  extra_stages: [security]
   roles: [secrets-sync]
   description: Synchronise des secrets externes (Vault, clouds) en Secrets Kubernetes.
   license: Apache-2.0
@@ -270,6 +277,7 @@
 - id: sops
   name: SOPS
   stage: platform
+  extra_stages: [security]
   roles: [secrets]
   description: Chiffrement de fichiers de secrets versionnés (age, KMS).
   license: MPL-2.0
@@ -280,6 +288,7 @@
   name: AWS Secrets Manager
   kind: service
   stage: platform
+  extra_stages: [security]
   roles: [secrets]
   description: Coffre de secrets managé AWS.
   license: proprietary
@@ -292,6 +301,7 @@
   name: Google Secret Manager
   kind: service
   stage: platform
+  extra_stages: [security]
   roles: [secrets]
   description: Coffre de secrets managé Google Cloud.
   license: proprietary
@@ -304,6 +314,7 @@
   name: Azure Key Vault
   kind: service
   stage: platform
+  extra_stages: [security]
   roles: [secrets]
   description: Coffre de secrets et de clés managé Azure.
   license: proprietary
@@ -363,6 +374,7 @@
 - id: falco
   name: Falco
   stage: platform
+  extra_stages: [security]
   roles: [runtime-security]
   description: Détection d'intrusion à l'exécution (appels système) ; fonctionne sur hôte Linux comme sur Kubernetes.
   license: Apache-2.0

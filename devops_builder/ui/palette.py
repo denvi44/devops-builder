@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..catalog import Catalog
-from ..model import STAGES, Tool
+from ..model import STAGE_LABELS, STAGES, Tool
 from . import theme
 from .widgets import KIND_ICONS, STAGE_ICONS, icon
 
@@ -26,6 +26,20 @@ MATURITY = [("", "Toutes maturités"), ("graduated", "CNCF graduated"), ("incuba
 
 
 class _Tree(QTreeWidget):
+    dragStarted = Signal(str)
+    dragFinished = Signal()
+
+    def startDrag(self, actions):  # noqa: N802
+        item = self.currentItem()
+        tid = item.data(0, Qt.ItemDataRole.UserRole) if item else None
+        if not tid:
+            return
+        self.dragStarted.emit(tid)
+        try:
+            super().startDrag(actions)
+        finally:
+            self.dragFinished.emit()
+
     def mimeData(self, items):  # noqa: N802 (API Qt)
         data = QMimeData()
         ids = [i.data(0, Qt.ItemDataRole.UserRole) for i in items if i.data(0, Qt.ItemDataRole.UserRole)]
@@ -170,6 +184,7 @@ class PaletteWidget(QWidget):
             meta.append(f"Fournisseur : {t.provider}")
         if t.kubernetes_only:
             meta.append("Kubernetes obligatoire")
+        meta.append("Étapes : " + ", ".join(STAGE_LABELS[s] for s in t.allowed_stages))
         if not t.curated:
             meta.append("Fiche non vérifiée")
         lines.append(" · ".join(meta))

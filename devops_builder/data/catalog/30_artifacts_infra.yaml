@@ -183,6 +183,7 @@
 - id: crossplane
   name: Crossplane
   stage: infrastructure
+  extra_stages: [platform]
   roles: [iac]
   description: Provisionnement d'infrastructure par des API Kubernetes.
   license: Apache-2.0
@@ -215,6 +216,7 @@
 - id: ansible
   name: Ansible
   stage: infrastructure
+  extra_stages: [deploy]
   roles: [config-mgmt, deploy]
   description: Configuration et déploiement sans agent, par SSH.
   license: GPL-3.0
@@ -434,6 +436,7 @@
 - id: minio
   name: MinIO
   stage: infrastructure
+  extra_stages: [platform]
   roles: [object-storage]
   description: Stockage objet compatible S3 autohébergé.
   license: AGPL-3.0

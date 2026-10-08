@@ -13,6 +13,7 @@
 - id: sonarqube
   name: SonarQube
   stage: test
+  extra_stages: [security]
   roles: [code-quality]
   description: Qualité de code et analyse statique. PostgreSQL requis en production ; l'édition gratuite n'analyse ni les branches ni les merge requests.
   homepage: https://www.sonarsource.com/products/sonarqube/
@@ -23,6 +24,7 @@
 - id: sonarqube-cloud
   name: SonarQube Cloud
   stage: test
+  extra_stages: [security]
   roles: [code-quality]
   description: Version SaaS de SonarQube.
   license: proprietary
@@ -32,6 +34,7 @@
 - id: semgrep
   name: Semgrep CE
   stage: test
+  extra_stages: [security]
   roles: [sast]
   description: Analyse statique de sécurité par motifs.
   license: LGPL-2.1
@@ -61,6 +64,7 @@
 - id: trivy
   name: Trivy
   stage: security
+  extra_stages: [test]
   roles: [vuln-scan, iac-scan]
   description: Scan de vulnérabilités (images, système de fichiers) et de configuration IaC.
   license: Apache-2.0
@@ -71,6 +75,7 @@
 - id: grype
   name: Grype
   stage: security
+  extra_stages: [test]
   roles: [vuln-scan]
   description: Scan de vulnérabilités d'images et de systèmes de fichiers.
   license: Apache-2.0
@@ -81,6 +86,7 @@
 - id: checkov
   name: Checkov
   stage: security
+  extra_stages: [test]
   roles: [iac-scan]
   description: Analyse de configuration IaC (Terraform, Kubernetes, Helm…).
   license: Apache-2.0
@@ -90,6 +96,7 @@
 - id: kics
   name: KICS
   stage: security
+  extra_stages: [test]
   roles: [iac-scan]
   description: Analyse de configuration IaC par Checkmarx.
   license: Apache-2.0
@@ -99,6 +106,7 @@
 - id: gitleaks
   name: Gitleaks
   stage: security
+  extra_stages: [test]
   roles: [secret-scan]
   description: Détection de secrets dans le dépôt Git.
   license: MIT
@@ -108,6 +116,7 @@
 - id: syft
   name: Syft
   stage: security
+  extra_stages: [artifacts]
   roles: [sbom]
   description: Génère un SBOM (SPDX, CycloneDX) d'une image.
   license: Apache-2.0
@@ -117,6 +126,7 @@
 - id: cosign
   name: Cosign
   stage: security
+  extra_stages: [artifacts]
   roles: [signing]
   description: Signature d'images (projet Sigstore), sans clé via OIDC en CI.
   license: Apache-2.0
@@ -128,6 +138,7 @@
 - id: snyk
   name: Snyk
   stage: security
+  extra_stages: [test]
   roles: [vuln-scan, sast]
   description: Plateforme SaaS de sécurité applicative.
   license: proprietary
@@ -138,6 +149,7 @@
 - id: kubescape
   name: Kubescape
   stage: security
+  extra_stages: [platform]
   roles: [k8s-posture]
   description: Posture de sécurité Kubernetes (manifestes, clusters).
   license: Apache-2.0

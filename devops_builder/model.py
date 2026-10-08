@@ -124,6 +124,17 @@ class Tool(BaseModel):
     curated: bool = True
     verified: str | None = None  # date de vérification de la fiche
     params: dict[str, Any] = Field(default_factory=dict)  # paramètres par défaut
+    # Étapes où l'outil peut aussi être posé, en plus de `stage` (étape principale).
+    extra_stages: list[str] = Field(default_factory=list)
+
+    @property
+    def allowed_stages(self) -> list[str]:
+        """Étapes autorisées, dans l'ordre du pipeline, étape principale incluse."""
+        allowed = {self.stage, *self.extra_stages}
+        return [s for s in STAGE_IDS if s in allowed]
+
+    def can_go_in(self, stage: str) -> bool:
+        return stage == self.stage or stage in self.extra_stages
 
     @property
     def is_oss(self) -> bool:

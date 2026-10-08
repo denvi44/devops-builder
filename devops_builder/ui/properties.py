@@ -99,6 +99,9 @@ class PropertiesPanel(QScrollArea):
         if tool.roles:
             lay.addWidget(section_title("Rôles"))
             lay.addWidget(FlowRow([chip(r) for r in tool.roles], per_row=3))
+        lay.addWidget(section_title("Étapes possibles"))
+        lay.addWidget(FlowRow([chip(STAGE_LABELS[s], primary=(s == tool.stage)) for s in tool.allowed_stages],
+                              per_row=2))
         lay.addWidget(section_title("S'exécute sur"))
         lay.addWidget(FlowRow([chip(HOSTING.get(h, h)) for h in tool.hosting], per_row=3))
         if tool.provides or tool.requires:

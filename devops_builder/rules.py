@@ -16,7 +16,7 @@ from typing import Any
 import yaml
 
 from .catalog import DATA_DIR, Catalog
-from .model import ENVIRONMENTS, TARGETS, BrickInstance, Project, Severity, Tool
+from .model import ENVIRONMENTS, STAGE_LABELS, TARGETS, BrickInstance, Project, Severity, Tool
 
 RULES_DIR = DATA_DIR / "rules"
 
@@ -30,6 +30,7 @@ FAMILIES = {
     "conformite": "Licence et conformité",
     "redondance": "Redondance",
     "catalogue": "Catalogue",
+    "placement": "Placement dans le pipeline",
 }
 
 
@@ -378,6 +379,22 @@ def h_license(rule: Rule, ctx: Context) -> list[Diagnostic]:
     return out
 
 
+@handler("placement")
+def h_placement(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    out = []
+    for p in ctx.placed:
+        if p.tool.can_go_in(p.stage):
+            continue
+        allowed = p.tool.allowed_stages
+        actions = [Action("move_brick", f"Déplacer vers « {STAGE_LABELS[s]} »", {"uid": p.brick.uid, "stage": s})
+                   for s in allowed]
+        actions.append(Action("remove_bricks", f"Retirer {p.tool.name}", {"uids": [p.brick.uid]}))
+        out.append(_diag(rule, _fmt(rule.message, tool=p.tool.name, stage=STAGE_LABELS[p.stage],
+                                    allowed=", ".join(STAGE_LABELS[s] for s in allowed)),
+                         [p.brick.uid], actions))
+    return out
+
+
 @handler("unverified")
 def h_unverified(rule: Rule, ctx: Context) -> list[Diagnostic]:
     return [
@@ -449,6 +466,8 @@ def apply_action(project: Project, action: Action, catalog: Catalog) -> None:
         else:
             project.remove(brick.uid)
             project.add(new_tool.id, new_tool.stage)
+    elif action.op == "move_brick":
+        project.move(args["uid"], args["stage"])
     elif action.op == "set_project":
         setattr(project, args["field"], args["value"])
     else:

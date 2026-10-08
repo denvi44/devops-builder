@@ -58,7 +58,14 @@ CASES = [
     ("R22", lambda: put(make(), "gitea", "github-actions"), Severity.WARNING),
     ("R23", lambda: put(make(), "harbor", "trivy"), Severity.INFO),
     ("R24", lambda: put(make(), "terraform"), Severity.INFO),
+    ("R25", lambda: _misplaced("traefik", "test"), Severity.BLOCKING),
 ]
+
+
+def _misplaced(tool_id: str, stage: str) -> Project:
+    p = make()
+    p.add(tool_id, stage)  # contourne l'interface, comme un fichier édité à la main
+    return p
 
 
 def test_toutes_les_regles_ont_un_cas():
@@ -125,3 +132,32 @@ def test_licence_politique_oss_only_devient_avertissement():
 def test_ovhcloud_partiel_non_bloque_en_secnumcloud():
     p = put(make("kubernetes-managed", secnumcloud=True), "ovhcloud", "ovh-mks")
     assert "R12" not in ids(p)
+
+
+def test_r25_correction_deplace_vers_une_etape_autorisee():
+    p = _misplaced("argo-cd", "source")
+    diag = next(d for d in ENGINE.evaluate(p) if d.rule_id == "R25")
+    move = next(a for a in diag.actions if a.op == "move_brick")
+    apply_action(p, move, CATALOG)
+    assert p.stages["deploy"][0].tool == "argo-cd"
+    assert "R25" not in ids(p)
+
+
+def test_etapes_secondaires_acceptees():
+    p = make("vm")
+    p.add("ansible", "deploy")
+    p.add("trivy", "test")
+    p.add("cosign", "artifacts")
+    assert "R25" not in ids(p)
+
+
+def test_toutes_les_fiches_ont_des_etapes_valides():
+    for t in CATALOG.tools.values():
+        assert t.stage in t.allowed_stages
+        assert t.can_go_in(t.stage)
+
+
+def test_exemples_bien_places():
+    from pathlib import Path
+    for path in (Path(__file__).parents[1] / "devops_builder" / "data" / "examples").glob("*.yaml"):
+        assert "R25" not in ids(Project.load(path)), path.name

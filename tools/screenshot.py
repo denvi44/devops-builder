@@ -41,6 +41,14 @@ def main() -> int:
     win.diagnostics.tree.setCurrentItem(win.diagnostics.tree.topLevelItem(0))
     app.processEvents()
     win.grab().save(str(out / f"02-diagnostics{suffix}.png"))
+
+    # 3. Pendant un glisser : colonnes compatibles en évidence
+    win._load(Project.load(DATA_DIR / "examples" / "01-web-hote-docker.devops.yaml"), None)
+    win.canvas.highlight("trivy")
+    win._explain_refusal("trivy", "deploy")
+    app.processEvents()
+    win.grab().save(str(out / f"03-glisser{suffix}.png"))
+    win.canvas.clear_highlight()
     print("captures écrites dans", out)
     return 0
 

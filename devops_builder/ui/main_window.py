@@ -118,6 +118,8 @@ class MainWindow(QMainWindow):
         self.canvas.brickMoved.connect(self.move_brick)
         self.canvas.deleteRequested.connect(self.remove_brick)
         self.canvas.shiftRequested.connect(self.shift_brick)
+        self.canvas.dropRefused.connect(self._explain_refusal)
+        self.canvas.set_placement_check(self.catalog.can_place)
         lay.addWidget(self.canvas, 1)
         self.setCentralWidget(central)
 
@@ -125,6 +127,8 @@ class MainWindow(QMainWindow):
         self.palette = PaletteWidget(self.catalog)
         self.palette.toolActivated.connect(lambda tid: self.add_tool(None, tid, -1))
         self.palette.toolSelected.connect(self._show_catalog_tool)
+        self.palette.tree.dragStarted.connect(self.canvas.highlight)
+        self.palette.tree.dragFinished.connect(self.canvas.clear_highlight)
         self.palette_dock = self._dock("Catalogue", self.palette, Qt.DockWidgetArea.LeftDockWidgetArea)
         self.palette_dock.setMinimumWidth(300)
 
@@ -332,21 +336,24 @@ class MainWindow(QMainWindow):
             self.canvas.select(self.selected)
             return
         target_stage = stage or tool.stage
+        if not tool.can_go_in(target_stage):
+            self._explain_refusal(tool_id, target_stage)
+            return
 
         def do(p: Project) -> None:
             b = p.add(tool_id, target_stage, None if index is None or index < 0 else index)
             self.selected = b.uid
 
         self.mutate(f"Ajouter {tool.name}", do)
-        if stage and stage != tool.stage:
-            self.statusBar().showMessage(
-                f"{tool.name} posé dans « {STAGE_LABELS[stage]} » (étape habituelle : {STAGE_LABELS[tool.stage]}).", 5000)
 
     def move_brick(self, uid: str, stage: str, index: int) -> None:
         found = self.project.find(uid)
         if not found:
             return
-        src_stage, src_idx, _ = found
+        src_stage, src_idx, brick = found
+        if not self.catalog.can_place(brick.tool, stage):
+            self._explain_refusal(brick.tool, stage)
+            return
         if src_stage == stage and index > src_idx:
             index -= 1
         self.selected = uid
@@ -356,11 +363,31 @@ class MainWindow(QMainWindow):
         found = self.project.find(uid)
         if not found:
             return
-        i = STAGE_IDS.index(found[0]) + delta
-        if 0 <= i < len(STAGE_IDS):
-            self.selected = uid
-            self.mutate("Déplacer la brique", lambda p: p.move(uid, STAGE_IDS[i]))
-            self.canvas.select(uid)
+        tool = self.catalog.get(found[2].tool)
+        if tool is None:
+            return
+        here = STAGE_IDS.index(found[0])
+        # Étape autorisée la plus proche dans la direction demandée.
+        candidates = [s for s in tool.allowed_stages
+                      if (STAGE_IDS.index(s) > here if delta > 0 else STAGE_IDS.index(s) < here)]
+        if not candidates:
+            where = "à droite" if delta > 0 else "à gauche"
+            self.statusBar().showMessage(
+                f"{tool.name} n'a pas d'autre étape possible {where} "
+                f"(étapes : {', '.join(STAGE_LABELS[s] for s in tool.allowed_stages)}).", 5000)
+            return
+        dest = candidates[0] if delta > 0 else candidates[-1]
+        self.selected = uid
+        self.mutate("Déplacer la brique", lambda p: p.move(uid, dest))
+        self.canvas.select(uid)
+
+    def _explain_refusal(self, tool_id: str, stage: str) -> None:
+        tool = self.catalog.get(tool_id)
+        if tool is None:
+            return
+        allowed = ", ".join(f"« {STAGE_LABELS[s]} »" for s in tool.allowed_stages)
+        self.statusBar().showMessage(
+            f"{tool.name} ne peut pas aller dans « {STAGE_LABELS[stage]} » : étapes possibles {allowed}.", 6000)
 
     def remove_brick(self, uid: str) -> None:
         found = self.project.find(uid)

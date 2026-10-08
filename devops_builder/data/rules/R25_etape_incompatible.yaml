@@ -1,0 +1,6 @@
+id: R25
+title: Brique dans une étape qui ne lui correspond pas
+family: placement
+severity: bloquant
+type: placement
+message: "{tool} est placé dans « {stage} », or il ne peut aller que dans : {allowed}."

@@ -61,7 +61,16 @@ QFrame#stageCard {{
     border: 1px solid {p.border};
     border-radius: 12px;
 }}
+QFrame#stageCard[dropState="ok"] {{
+    border: 2px solid {p.primary};
+    background: {p.surface};
+}}
+QFrame#stageCard[dropState="no"] {{
+    border: 1px dashed {p.border};
+    background: {p.background};
+}}
 QLabel#stageTitle {{ font-weight: 600; font-size: 14px; color: {p.text}; }}
+QFrame#stageCard[dropState="no"] QLabel#stageTitle {{ color: {p.text_muted}; }}
 QLabel#stageCount {{ color: {p.text_muted}; }}
 QLabel#sectionTitle {{ font-weight: 600; font-size: 13px; color: {p.text}; text-transform: none; }}
 QLabel#heroTitle {{ font-size: 20px; font-weight: 600; color: {p.text}; }}

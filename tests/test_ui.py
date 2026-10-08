@@ -37,13 +37,79 @@ def test_ajout_depuis_la_palette_et_annulation(win):
     assert "gitlab-ci" in win.project.tool_ids()
 
 
-def test_glisser_vers_une_autre_etape(win):
+def _drop(win, stage: str, mime: str, payload: str) -> bool:
+    """Envoie un vrai couple dragEnter / drop à la colonne ; retourne True si accepté."""
+    from PySide6.QtCore import QMimeData, QPoint, QPointF, Qt
+    from PySide6.QtGui import QDragEnterEvent, QDropEvent
+    from PySide6.QtWidgets import QApplication
+    lst = win.canvas.columns[stage].list
+    md = QMimeData()
+    md.setData(mime, payload.encode())
+    enter = QDragEnterEvent(QPoint(10, 10), Qt.DropAction.CopyAction, md,
+                            Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
+    lst.dragEnterEvent(enter)
+    if not enter.isAccepted():
+        return False
+    drop = QDropEvent(QPointF(10, 10), Qt.DropAction.CopyAction, md,
+                      Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
+    lst.dropEvent(drop)
+    QApplication.processEvents()  # la modification est différée après le glisser
+    return drop.isAccepted()
+
+
+def test_depot_refuse_dans_une_etape_incompatible(win):
+    from devops_builder.ui.palette import MIME_TOOL
     win._load(Project(name="t"), None)
-    win.canvas.toolDropped.emit("platform", "traefik", 0)
-    uid = win.project.stages["platform"][0].uid
-    win.canvas.brickMoved.emit(uid, "deploy", 0)
-    assert win.project.stages["deploy"][0].tool == "traefik"
-    assert win.project.stages["platform"] == []
+    assert not _drop(win, "test", MIME_TOOL, "traefik")
+    assert not _drop(win, "source", MIME_TOOL, "argo-cd")
+    assert win.project.all_bricks() == []
+    assert "ne peut pas aller" in win.statusBar().currentMessage()
+    assert _drop(win, "platform", MIME_TOOL, "traefik")
+    assert win.project.stages["platform"][0].tool == "traefik"
+
+
+def test_etape_secondaire_acceptee(win):
+    from devops_builder.ui.palette import MIME_TOOL
+    win._load(Project(name="t"), None)
+    assert _drop(win, "deploy", MIME_TOOL, "ansible")
+    assert win.project.stages["deploy"][0].tool == "ansible"
+
+
+def test_deplacement_de_brique_controle(win):
+    from devops_builder.ui.canvas import MIME_BRICK
+    win._load(Project(name="t"), None)
+    win.add_tool(None, "ansible", -1)
+    uid = win.project.bricks_for("ansible")[0].uid
+    assert not _drop(win, "observability", MIME_BRICK, f"{uid}|ansible")
+    assert win.project.stages["infrastructure"][0].uid == uid
+    assert _drop(win, "deploy", MIME_BRICK, f"{uid}|ansible")
+    assert win.project.stages["deploy"][0].uid == uid
+    # Signal direct (ancien chemin) : refusé aussi
+    win.canvas.brickMoved.emit(uid, "source", 0)
+    assert win.project.stages["source"] == []
+
+
+def test_mise_en_evidence_pendant_le_glisser(win):
+    win.canvas.highlight("argo-cd")
+    states = {sid: col.property("dropState") for sid, col in win.canvas.columns.items()}
+    assert states["deploy"] == "ok"
+    assert all(v == "no" for k, v in states.items() if k != "deploy")
+    win.canvas.clear_highlight()
+    assert all(col.property("dropState") == "" for col in win.canvas.columns.values())
+
+
+def test_alt_fleches_saute_aux_etapes_autorisees(win):
+    win._load(Project(name="t"), None)
+    win.add_tool(None, "ansible", -1)
+    uid = win.project.bricks_for("ansible")[0].uid
+    win.shift_brick(uid, +1)
+    assert win.project.find(uid)[0] == "deploy"
+    win.shift_brick(uid, +1)  # aucune étape autorisée plus à droite
+    assert win.project.find(uid)[0] == "deploy"
+    win.add_tool(None, "argo-cd", -1)
+    argo = win.project.bricks_for("argo-cd")[0].uid
+    win.shift_brick(argo, -1)
+    assert win.project.find(argo)[0] == "deploy"
 
 
 def test_doublon_refuse(win):

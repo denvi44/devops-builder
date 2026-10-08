@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QMimeData, QModelIndex, QRect, QSize, Qt, Signal
+from collections.abc import Callable
+
+from PySide6.QtCore import QMimeData, QModelIndex, QRect, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QFont, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -32,6 +34,7 @@ R_SUB = Qt.ItemDataRole.UserRole + 2
 R_SEV = Qt.ItemDataRole.UserRole + 3
 R_KIND = Qt.ItemDataRole.UserRole + 4
 R_CURATED = Qt.ItemDataRole.UserRole + 5
+R_TOOL = Qt.ItemDataRole.UserRole + 6
 COLUMN_WIDTH = 236
 CARD_HEIGHT = 58
 
@@ -102,10 +105,15 @@ class StageList(QListWidget):
     brickMoved = Signal(str, str, int)       # uid, stage, index
     deleteRequested = Signal(str)
     shiftRequested = Signal(str, int)        # uid, delta d'étape
+    dropRefused = Signal(str, str)           # tool_id, stage
+    dragStarted = Signal(str)                # tool_id
+    dragFinished = Signal()
 
     def __init__(self, stage: str, label: str, parent: QWidget | None = None):
         super().__init__(parent)
         self.stage = stage
+        self.drop_state = ""                 # "", "ok" ou "no" pendant un glisser
+        self.can_place: Callable[[str, str], bool] = lambda tool, stage: True
         self.setObjectName("stageList")
         self.setItemDelegate(BrickDelegate(self))
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -128,19 +136,41 @@ class StageList(QListWidget):
     def mimeData(self, items):  # noqa: N802
         data = QMimeData()
         if items:
-            data.setData(MIME_BRICK, items[0].data(R_UID).encode())
+            data.setData(MIME_BRICK, f"{items[0].data(R_UID)}|{items[0].data(R_TOOL)}".encode())
         return data
 
+    def startDrag(self, actions):  # noqa: N802
+        item = self.currentItem()
+        self.dragStarted.emit(item.data(R_TOOL) if item else "")
+        try:
+            super().startDrag(actions)
+        finally:
+            self.dragFinished.emit()
+
+    @staticmethod
+    def payload(md: QMimeData) -> tuple[str | None, str | None]:
+        """(uid, tool_id) transportés par un glisser ; uid vaut None depuis la palette."""
+        if md.hasFormat(MIME_TOOL):
+            return None, bytes(md.data(MIME_TOOL)).decode()
+        if md.hasFormat(MIME_BRICK):
+            uid, _, tool = bytes(md.data(MIME_BRICK)).decode().partition("|")
+            return uid, tool
+        return None, None
+
     def _accepts(self, event) -> bool:
-        md = event.mimeData()
-        return md.hasFormat(MIME_TOOL) or md.hasFormat(MIME_BRICK)
+        _, tool = self.payload(event.mimeData())
+        return tool is not None and self.can_place(tool, self.stage)
 
     def dragEnterEvent(self, event):  # noqa: N802
-        if self._accepts(event):
+        _, tool = self.payload(event.mimeData())
+        if tool is None:
+            event.ignore()
+        elif not self.can_place(tool, self.stage):
+            self.dropRefused.emit(tool, self.stage)
+            event.ignore()  # le curseur « interdit » s'affiche
+        else:
             event.setDropAction(Qt.DropAction.CopyAction if event.mimeData().hasFormat(MIME_TOOL) else Qt.DropAction.MoveAction)
             event.accept()
-        else:
-            event.ignore()
 
     def dragMoveEvent(self, event):  # noqa: N802
         if self._accepts(event):
@@ -158,12 +188,18 @@ class StageList(QListWidget):
         return idx.row() + (1 if event.position().y() > rect.center().y() else 0)
 
     def dropEvent(self, event):  # noqa: N802
-        md = event.mimeData()
+        uid, tool = self.payload(event.mimeData())
+        if tool is None or not self.can_place(tool, self.stage):
+            event.ignore()
+            return
         row = self._drop_row(event)
-        if md.hasFormat(MIME_TOOL):
-            self.toolDropped.emit(self.stage, bytes(md.data(MIME_TOOL)).decode(), row)
-        elif md.hasFormat(MIME_BRICK):
-            self.brickMoved.emit(bytes(md.data(MIME_BRICK)).decode(), self.stage, row)
+        stage = self.stage
+        # Le modèle est modifié après la fin du glisser : la liste source est encore
+        # dans sa boucle de glisser-déposer et ne doit pas être reconstruite ici.
+        if uid is None:
+            QTimer.singleShot(0, lambda: self.toolDropped.emit(stage, tool, row))
+        else:
+            QTimer.singleShot(0, lambda: self.brickMoved.emit(uid, stage, row))
         event.setDropAction(Qt.DropAction.CopyAction)  # le modèle se charge du déplacement
         event.accept()
 
@@ -182,16 +218,27 @@ class StageList(QListWidget):
 
     def paintEvent(self, event):  # noqa: N802
         super().paintEvent(event)
-        if self.count() == 0:
-            painter = QPainter(self.viewport())
-            pal = theme.current()
-            painter.setPen(QPen(theme.qcolor(pal.border), 1.5, Qt.PenStyle.DashLine))
-            r = self.viewport().rect().adjusted(4, 4, -4, -4)
-            r.setHeight(min(r.height(), 72))
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            painter.drawRoundedRect(r, 8, 8)
+        pal = theme.current()
+        painter = QPainter(self.viewport())
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        full = self.viewport().rect()
+        if self.drop_state == "no":
+            painter.fillRect(full, theme.qcolor(pal.background, 200))
             painter.setPen(theme.qcolor(pal.text_muted))
-            painter.drawText(r, Qt.AlignmentFlag.AlignCenter, "Glissez une brique ici")
+            painter.drawText(full.adjusted(8, 8, -8, -8), Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+                             "Étape non compatible")
+            return
+        if self.count() == 0 or self.drop_state == "ok":
+            r = full.adjusted(4, 4, -4, -4)
+            if self.count():
+                top = self.visualItemRect(self.item(self.count() - 1)).bottom() + 6
+                r.setTop(min(top, r.bottom() - 40))
+            r.setHeight(min(r.height(), 72))
+            ok = self.drop_state == "ok"
+            painter.setPen(QPen(theme.qcolor(pal.primary if ok else pal.border), 2 if ok else 1.5, Qt.PenStyle.DashLine))
+            painter.drawRoundedRect(r, 8, 8)
+            painter.setPen(theme.qcolor(pal.primary if ok else pal.text_muted))
+            painter.drawText(r, Qt.AlignmentFlag.AlignCenter, "Déposer ici" if ok else "Glissez une brique ici")
 
 
 class StageColumn(QFrame):
@@ -216,6 +263,14 @@ class StageColumn(QFrame):
         self.list = StageList(stage, label)
         lay.addWidget(self.list, 1)
 
+    def set_drop_state(self, state: str) -> None:
+        self.setProperty("dropState", state)
+        self.list.drop_state = state
+        for w in (self, *self.findChildren(QLabel)):
+            w.style().unpolish(w)
+            w.style().polish(w)
+        self.list.viewport().update()
+
 
 class PipelineCanvas(QScrollArea):
     selectionChanged = Signal(str)
@@ -223,6 +278,7 @@ class PipelineCanvas(QScrollArea):
     brickMoved = Signal(str, str, int)
     deleteRequested = Signal(str)
     shiftRequested = Signal(str, int)
+    dropRefused = Signal(str, str)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -244,10 +300,31 @@ class PipelineCanvas(QScrollArea):
             lst.brickMoved.connect(self.brickMoved)
             lst.deleteRequested.connect(self.deleteRequested)
             lst.shiftRequested.connect(self.shiftRequested)
+            lst.dropRefused.connect(self.dropRefused)
+            lst.dragStarted.connect(self.highlight)
+            lst.dragFinished.connect(self.clear_highlight)
             lst.itemSelectionChanged.connect(lambda l=lst: self._selection(l))
         self.row.addStretch(1)
         self.setWidget(inner)
         self._updating = False
+        self._can_place: Callable[[str, str], bool] = lambda tool, stage: True
+
+    # ------------------------------------------------------------ compatibilité
+    def set_placement_check(self, fn: Callable[[str, str], bool]) -> None:
+        self._can_place = fn
+        for col in self.columns.values():
+            col.list.can_place = fn
+
+    def highlight(self, tool_id: str) -> None:
+        """Pendant un glisser : colonnes compatibles en évidence, les autres grisées."""
+        if not tool_id:
+            return
+        for sid, col in self.columns.items():
+            col.set_drop_state("ok" if self._can_place(tool_id, sid) else "no")
+
+    def clear_highlight(self) -> None:
+        for col in self.columns.values():
+            col.set_drop_state("")
 
     def _selection(self, source: StageList) -> None:
         if self._updating:
@@ -274,6 +351,7 @@ class PipelineCanvas(QScrollArea):
                 item = QListWidgetItem()
                 name = t.name if t else b.tool
                 item.setData(R_UID, b.uid)
+                item.setData(R_TOOL, b.tool)
                 item.setData(R_NAME, name)
                 item.setData(R_SUB, self._subtitle(t) if t else "Fiche introuvable")
                 item.setData(R_SEV, severity.get(b.uid, ""))

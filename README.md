@@ -7,8 +7,8 @@ Application de bureau Python, en Material Design, pour composer un pipeline DevO
 ## Ce que fait l'application
 
 - **Catalogue** : 132 fiches vérifiées (outils, services managés, fournisseurs cloud) et l'ensemble du Landscape consultable, soit 1 192 entrées. Les entrées sans fiche sont marquées « non vérifiées ».
-- **Canevas** : neuf étapes en colonnes (source → observabilité). On y glisse des briques depuis la palette, ou on les ajoute par double-clic.
-- **Contrôle continu** : 25 règles (R00 à R24) couvrant la cible d'hébergement, l'exclusivité de rôle, les dépendances, les contrats entre étapes, la forge, le cycle de vie, la licence et la conformité (SecNumCloud, clés statiques). Chaque diagnostic propose des corrections en un clic, annulables.
+- **Canevas** : neuf étapes en colonnes (source → observabilité). On y glisse des briques depuis la palette, ou on les ajoute par double-clic. Chaque outil n'accepte que ses étapes : pendant un glisser, les colonnes compatibles sont mises en évidence, les autres grisées, et un dépôt hors étape est refusé avec un message.
+- **Contrôle continu** : 26 règles (R00 à R25) couvrant le placement dans les étapes, la cible d'hébergement, l'exclusivité de rôle, les dépendances, les contrats entre étapes, la forge, le cycle de vie, la licence et la conformité (SecNumCloud, clés statiques). Chaque diagnostic propose des corrections en un clic, annulables.
 - **Génération** : définitions CI, déploiement, IaC et plateforme, avec un rapport `PIPELINE.md` qui liste les briques, les licences, les variables CI à déclarer et les avertissements restants.
 
 ![Diagnostics et corrections](docs/captures/02-diagnostics.png)
@@ -31,7 +31,7 @@ Sous Linux, Qt a besoin des bibliothèques système habituelles (`libxkbcommon`,
 | Action | Comment |
 | --- | --- |
 | Ajouter une brique | Glisser depuis le catalogue, ou double-clic / Entrée |
-| Déplacer une brique | Glisser entre colonnes, ou Alt+← / Alt+→ |
+| Déplacer une brique | Glisser vers une colonne compatible, ou Alt+← / Alt+→ (saute à l'étape autorisée suivante) |
 | Retirer une brique | Suppr, ou bouton dans Propriétés |
 | Corriger un diagnostic | Sélectionner le diagnostic puis cliquer une correction (Entrée applique la première) |
 | Paramètres du projet | F2 : cible, environnement, langage, SecNumCloud, OIDC, politique de licence |
@@ -82,7 +82,9 @@ tests/              règles, générateurs, interface (hors écran)
 
 ### Ajouter un outil
 
-Ajouter une entrée dans un fichier de `data/catalog/` : rôles, cibles (`hosting`), capacités fournies et requises, forge, fournisseur, cycle de vie, date de vérification. Le schéma est validé au chargement.
+Ajouter une entrée dans un fichier de `data/catalog/` : étape principale (`stage`) et, s'il le faut, étapes secondaires (`extra_stages`), rôles, cibles (`hosting`), capacités fournies et requises, forge, fournisseur, cycle de vie, date de vérification. Le schéma est validé au chargement.
+
+Un outil ne peut être posé que dans `stage` ou `extra_stages`. Par exemple, Ansible va en Infrastructure ou Déploiement, et Trivy en Sécurité ou Tests & qualité. Les entrées non vérifiées du Landscape reçoivent des étapes déduites de leur sous-catégorie. La règle R25 bloque la génération si un fichier `.devops.yaml` édité à la main place une brique ailleurs, et propose de la déplacer.
 
 ### Ajouter une règle
 
@@ -104,7 +106,7 @@ pip install -e ".[dev]"
 QT_QPA_PLATFORM=offscreen pytest
 ```
 
-85 tests : un par règle, l'application de chaque correction proposée, une matrice de 11 combinaisons CI × déploiement × cloud validées contre les schémas, et l'interface pilotée hors écran.
+95 tests : un par règle, l'application de chaque correction proposée, une matrice de 11 combinaisons CI × déploiement × cloud validées contre les schémas, et l'interface pilotée hors écran, y compris de vrais événements de glisser-déposer refusés et acceptés.
 
 ## Limites connues
 
