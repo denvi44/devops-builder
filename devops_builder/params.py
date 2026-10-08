@@ -1,0 +1,100 @@
+"""Validation et résolution des paramètres de briques."""
+
+from __future__ import annotations
+
+import difflib
+import re
+from dataclasses import dataclass
+from typing import Any
+
+from .model import BrickInstance, ParamSpec, Project, Tool
+
+
+@dataclass
+class ParamIssue:
+    key: str
+    kind: str  # invalid | unknown | example | missing
+    message: str
+    suggestion: str | None = None  # clé proche pour une clé inconnue
+
+
+def resolve_default(spec: ParamSpec, project: Project | None) -> Any:
+    value = spec.default
+    if isinstance(value, str) and project is not None:
+        value = value.replace("{app}", project.app.image_name or "app")
+    return value
+
+
+def effective_params(tool: Tool, brick: BrickInstance | None, project: Project | None) -> dict[str, Any]:
+    """Valeurs utilisées à la génération : saisie > défaut > valeur d'exemple."""
+    out: dict[str, Any] = dict(tool.params)
+    for key, spec in tool.param_schema.items():
+        default = resolve_default(spec, project)
+        if default is not None:
+            out[key] = default
+        elif spec.example is not None:
+            out[key] = spec.example
+    if brick is not None:
+        for key, value in brick.params.items():
+            if value not in (None, ""):
+                out[key] = value
+    return out
+
+
+def check_value(spec: ParamSpec, value: Any) -> str | None:
+    """Message d'erreur si la valeur ne respecte pas le schéma, sinon None."""
+    if spec.type == "int":
+        if isinstance(value, bool) or not isinstance(value, int):
+            try:
+                int(str(value))
+            except ValueError:
+                return "doit être un nombre entier"
+        return None
+    if spec.type == "bool":
+        if not isinstance(value, bool):
+            return "doit valoir true ou false"
+        return None
+    text = str(value)
+    if spec.choices and text not in spec.choices:
+        return "doit être l'une des valeurs : " + ", ".join(spec.choices)
+    if spec.max_length is not None and len(text) > spec.max_length:
+        return f"dépasse {spec.max_length} caractères"
+    if spec.pattern and not re.fullmatch(spec.pattern, text):
+        return "format attendu : " + (spec.pattern_hint or spec.pattern)
+    return None
+
+
+def check_brick(tool: Tool, brick: BrickInstance, project: Project | None) -> list[ParamIssue]:
+    if not tool.param_schema:
+        return []
+    issues: list[ParamIssue] = []
+    known = list(tool.param_schema)
+    for key, value in brick.params.items():
+        spec = tool.param_schema.get(key)
+        if spec is None:
+            close = difflib.get_close_matches(key, known, n=1, cutoff=0.6)
+            issues.append(ParamIssue(key, "unknown", f"paramètre inconnu « {key} », ignoré à la génération",
+                                     close[0] if close else None))
+            continue
+        if value in (None, ""):
+            continue
+        err = check_value(spec, value)
+        if err:
+            issues.append(ParamIssue(key, "invalid", f"« {spec.label} » vaut « {value} » ; {err}"))
+    for key, spec in tool.param_schema.items():
+        given = brick.params.get(key)
+        if given not in (None, ""):
+            continue
+        default = resolve_default(spec, project)
+        if default is not None:
+            err = check_value(spec, default)
+            if err:  # défaut dérivé du projet (ex. nom d'image) incompatible
+                issues.append(ParamIssue(key, "invalid", f"« {spec.label} » vaut « {default} » (déduit du projet) ; {err}"))
+            continue
+        if spec.required and spec.example is not None:
+            issues.append(ParamIssue(key, "example",
+                                     f"« {spec.label} » non renseigné : la valeur d'exemple « {spec.example} » "
+                                     "sera écrite dans les fichiers"))
+        elif spec.required:
+            issues.append(ParamIssue(key, "missing", f"« {spec.label} » est obligatoire"))
+    return issues

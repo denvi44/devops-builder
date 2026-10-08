@@ -22,7 +22,6 @@
     containers: ecs-fargate
     ci: aws-codebuild
     scm: codecommit
-  params: {region: eu-west-3, role_arn: "arn:aws:iam::123456789012:role/ci-deploy"}
   verified: "2026-10-08"
 
 - id: gcp
@@ -45,11 +44,6 @@
     containers: cloud-run
     ci: google-cloud-build
     scm: secure-source-manager
-  params:
-    project_id: mon-projet
-    region: europe-west9
-    workload_identity_provider: projects/123456789/locations/global/workloadIdentityPools/ci/providers/gitlab
-    service_account: ci-deploy@mon-projet.iam.gserviceaccount.com
   verified: "2026-10-08"
 
 - id: azure
@@ -72,7 +66,6 @@
     containers: azure-container-apps
     ci: azure-pipelines
     scm: azure-repos
-  params: {location: francecentral, resource_group: rg-mon-projet}
   verified: "2026-10-08"
 
 - id: ovhcloud
@@ -90,7 +83,6 @@
     k8s.managed: ovh-mks
     registry: ovh-registry
     object-storage: ovh-object-storage
-  params: {service_name: "<id-projet-public-cloud>", endpoint: ovh-eu}
   verified: "2026-10-08"
 
 - id: outscale
@@ -106,7 +98,6 @@
   secnumcloud: "yes"
   services:
     k8s.managed: oks
-  params: {region: eu-west-2}
   verified: "2026-10-08"
 
 - id: scaleway
@@ -124,5 +115,4 @@
     k8s.managed: kapsule
     registry: scaleway-registry
     object-storage: scaleway-object-storage
-  params: {region: fr-par, zone: fr-par-1}
   verified: "2026-10-08"

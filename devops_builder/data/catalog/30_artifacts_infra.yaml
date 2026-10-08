@@ -10,7 +10,6 @@
   license: Apache-2.0
   hosting: [docker-host, vm, kubernetes]
   provides: [registry-oci, vuln-scan-embedded]
-  params: {url: registry.example.com}
   verified: "2026-10-08"
 
 - id: zot
@@ -21,7 +20,6 @@
   license: Apache-2.0
   hosting: [docker-host, vm, kubernetes]
   provides: [registry-oci]
-  params: {url: registry.example.com}
   verified: "2026-10-08"
 
 - id: distribution
@@ -33,7 +31,6 @@
   hosting: [docker-host, vm, kubernetes]
   provides: [registry-oci]
   landscape_name: Distribution
-  params: {url: registry.example.com}
   verified: "2026-10-08"
 
 - id: ghcr
@@ -44,7 +41,6 @@
   license: proprietary
   hosting: [saas]
   provides: [registry-oci]
-  params: {url: ghcr.io}
   verified: "2026-10-08"
 
 - id: nexus
@@ -55,7 +51,6 @@
   license: proprietary
   hosting: [docker-host, vm, kubernetes]
   provides: [registry-oci]
-  params: {url: nexus.example.com}
   verified: "2026-10-08"
 
 - id: artifactory
@@ -67,7 +62,6 @@
   hosting: [saas, docker-host, vm, kubernetes]
   provides: [registry-oci]
   landscape_name: JFrog Artifactory
-  params: {url: example.jfrog.io}
   verified: "2026-10-08"
 
 - id: ecr
@@ -81,7 +75,6 @@
   provides: [registry-oci]
   provider: aws
   landscape_name: Amazon Elastic Container Registry (ECR)
-  params: {repository: mon-app}
   verified: "2026-10-08"
 
 - id: artifact-registry
@@ -94,7 +87,6 @@
   hosting: [saas]
   provides: [registry-oci]
   provider: gcp
-  params: {repository: mon-app}
   verified: "2026-10-08"
 
 - id: gcr
@@ -123,7 +115,6 @@
   provides: [registry-oci]
   provider: azure
   landscape_name: Azure Registry
-  params: {registry_name: monappregistry}
   verified: "2026-10-08"
 
 - id: ovh-registry
@@ -148,7 +139,6 @@
   hosting: [saas]
   provides: [registry-oci]
   provider: scaleway
-  params: {namespace: mon-app}
   verified: "2026-10-08"
 
 # ------------------------------------------------------------ IaC et config
@@ -252,6 +242,7 @@
   license: Apache-2.0
   hosting: [vm]
   provides: [kubernetes-cluster]
+  requires: [cni]
   verified: "2026-10-08"
 
 - id: microk8s
@@ -297,7 +288,6 @@
   provides: [kubernetes-cluster, kubernetes-managed]
   provider: aws
   landscape_name: Amazon Elastic Container Service for Kubernetes (EKS)
-  params: {cluster_name: mon-cluster, region: eu-west-3, version: "1.33"}
   verified: "2026-10-08"
 
 - id: gke
@@ -311,7 +301,6 @@
   provides: [kubernetes-cluster, kubernetes-managed]
   provider: gcp
   landscape_name: Google Kubernetes Engine (GKE)
-  params: {cluster_name: mon-cluster, region: europe-west9}
   verified: "2026-10-08"
 
 - id: aks
@@ -325,7 +314,6 @@
   provides: [kubernetes-cluster, kubernetes-managed]
   provider: azure
   landscape_name: Azure Kubernetes Service (AKS)
-  params: {cluster_name: mon-cluster, region: francecentral}
   verified: "2026-10-08"
 
 - id: ovh-mks
@@ -339,7 +327,6 @@
   provides: [kubernetes-cluster, kubernetes-managed]
   provider: ovhcloud
   landscape_name: OVH Managed Kubernetes Service
-  params: {cluster_name: mon-cluster, region: GRA11}
   verified: "2026-10-08"
 
 - id: kapsule
@@ -353,7 +340,6 @@
   provides: [kubernetes-cluster, kubernetes-managed]
   provider: scaleway
   landscape_name: Scaleway Kubernetes Kapsule
-  params: {cluster_name: mon-cluster, region: fr-par}
   verified: "2026-10-08"
 
 - id: oks
@@ -366,7 +352,6 @@
   hosting: [saas]
   provides: [kubernetes-cluster, kubernetes-managed]
   provider: outscale
-  params: {cluster_name: mon-cluster}
   verified: "2026-10-08"
 
 # ------------------------------------------------------------- Stockage objet
@@ -380,7 +365,6 @@
   hosting: [saas]
   provides: [object-storage]
   provider: aws
-  params: {bucket: mon-projet-tfstate}
   verified: "2026-10-08"
 
 - id: gcs
@@ -393,7 +377,6 @@
   hosting: [saas]
   provides: [object-storage]
   provider: gcp
-  params: {bucket: mon-projet-tfstate}
   verified: "2026-10-08"
 
 - id: azure-blob
@@ -406,7 +389,6 @@
   hosting: [saas]
   provides: [object-storage]
   provider: azure
-  params: {storage_account: monprojettfstate, container: tfstate}
   verified: "2026-10-08"
 
 - id: ovh-object-storage

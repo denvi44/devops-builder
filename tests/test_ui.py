@@ -13,6 +13,16 @@ from devops_builder.catalog import DATA_DIR  # noqa: E402
 from devops_builder.model import Project  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def exceptions_dans_les_slots(monkeypatch):
+    """Qt affiche les exceptions levées dans un slot sans faire échouer le test : on les capture."""
+    import sys
+    errors: list[BaseException] = []
+    monkeypatch.setattr(sys, "excepthook", lambda typ, val, tb: errors.append(val))
+    yield
+    assert not errors, f"exception dans un slot Qt : {errors[0]!r}"
+
+
 @pytest.fixture(scope="module")
 def win(tmp_path_factory):
     os.environ["HOME"] = str(tmp_path_factory.mktemp("home"))
@@ -177,3 +187,46 @@ def test_palette_filtres(win):
     pal.landscape.setChecked(True)
     assert "fiches vérifiées" in pal.count.text()
     pal.landscape.setChecked(False)
+
+
+def test_formulaire_de_parametres(win):
+    from devops_builder.ui.param_form import ParamForm
+    win._load(Project(name="t", target="kubernetes-managed"), None)
+    win.add_tool(None, "aws", -1)
+    win.add_tool(None, "eks", -1)
+    uid = win.project.bricks_for("eks")[0].uid
+    win._focus_brick(uid)
+    form = win.properties.form
+    assert isinstance(form, ParamForm)
+    region = form.editors["region"]
+    region.setCurrentText("Paris")
+    assert form.errors["region"].isVisibleTo(form)          # erreur affichée pendant la saisie
+    region.setCurrentText("eu-west-1")
+    assert not form.errors["region"].isVisibleTo(form)
+    form.editors["cluster_name"].setText("prod")
+    form._commit()
+    assert win.project.find(uid)[2].params == {"region": "eu-west-1", "cluster_name": "prod"}
+    assert not [d for d in win.engine.evaluate(win.project) if d.rule_id in ("R32", "R34")]
+
+
+def test_parametre_inconnu_supprime_depuis_le_formulaire(win):
+    p = Project(name="t", target="kubernetes-managed")
+    p.add("aws", "infrastructure")
+    b = p.add("eks", "infrastructure")
+    b.params = {"clustr_name": "x", "cluster_name": "prod"}
+    win._load(p, None)
+    win._focus_brick(b.uid)
+    win.properties.form._drop_unknown("clustr_name")
+    assert win.project.find(b.uid)[2].params == {"cluster_name": "prod"}
+
+
+def test_formulaire_avec_valeurs_existantes_invalides(win):
+    p = Project(name="t", target="kubernetes-managed")
+    p.add("aws", "infrastructure")
+    b = p.add("eks", "infrastructure")
+    b.params = {"cluster_name": "prod", "region": "Paris"}
+    win._load(p, None)
+    win._focus_brick(b.uid)  # ne doit pas lever pendant la construction du formulaire
+    form = win.properties.form
+    assert form.editors["region"].currentText() == "Paris"
+    assert form.errors["region"].isVisibleTo(form)

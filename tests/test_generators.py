@@ -29,11 +29,13 @@ SCHEMAS = {
     "cloudbuild.yaml": "vendor.cloudbuild",
     ".woodpecker.yml": "vendor.woodpecker-ci",
     "deploy/docker-compose.yml": "vendor.compose-spec",
+    "renovate.json": "vendor.renovate",
+    ".github/dependabot.yml": "vendor.dependabot",
 }
 
 
-def project(target: str, *tools: str, **settings) -> Project:
-    p = Project(name="matrice", target=target, environment="production")
+def project(target: str, *tools: str, environment: str = "production", **settings) -> Project:
+    p = Project(name="matrice", target=target, environment=environment)
     for k, v in settings.items():
         setattr(p, k, v)
     for t in tools:
@@ -64,6 +66,14 @@ MATRIX = {
                                  "gcp", "artifact-registry", "gke", "kustomize", cloud_auth="static"),
     "gitlab-scaleway": project("kubernetes-managed", "gitlab", "gitlab-ci", "buildkit", "scaleway",
                                "scaleway-registry", "kapsule", "opentofu", "helm"),
+    "k3s-cilium-renovate": project("kubernetes", "gitlab", "gitlab-ci", "buildkit", "k3s", "cilium", "traefik",
+                                   "helm", "renovate", "prometheus"),
+    "rke2-cilium": project("kubernetes", "gitea", "woodpecker", "buildah", "zot", "rke2", "cilium", "helm"),
+    "kubeadm-calico": project("kubernetes", "gitlab", "gitlab-ci", "buildkit", "kubeadm", "calico", "kustomize"),
+    "github-dependabot": project("kubernetes-managed", "github", "github-actions", "buildkit", "aws", "ecr", "eks",
+                                 "opentofu", "s3", "helm", "dependabot", "cloudwatch"),
+    "aks-monitor": project("kubernetes-managed", "azure-repos", "azure-pipelines", "buildkit", "azure", "acr",
+                           "aks", "opentofu", "azure-blob", "helm", "azure-monitor"),
 }
 
 
@@ -132,3 +142,65 @@ def test_zip(tmp_path: Path):
     result = generate(MATRIX["gitlab-compose"], CATALOG)
     data = result.zip_bytes()
     assert data[:2] == b"PK"
+
+
+def test_toutes_les_briques_de_la_matrice_sont_couvertes():
+    for name, p in MATRIX.items():
+        result = generate(p, CATALOG)
+        assert result.ir.unsupported == [], (name, [t.name for t in result.ir.unsupported])
+
+
+def test_k3s_respecte_le_cni_et_l_entree_choisis():
+    files = generate(MATRIX["k3s-cilium-renovate"], CATALOG).files
+    script = files["infra/cluster/install-k3s.sh"]
+    assert "--flannel-backend=none" in script and "--disable-network-policy" in script
+    assert "--disable traefik" in script  # Traefik est installé par le chart, pas par k3s
+    install = files["platform/install.sh"]
+    assert install.index("cilium/cilium") < install.index("traefik/traefik")
+
+
+def test_rke2_installe_lui_meme_le_cni():
+    result = generate(MATRIX["rke2-cilium"], CATALOG)
+    assert "cni: cilium" in result.files["infra/cluster/install-rke2.sh"]
+    assert "cilium/cilium" not in result.files.get("platform/install.sh", "")
+    assert any("RKE2 installe" in n for n in result.ir.notes)
+
+
+def test_kubeadm_cidr_selon_le_cni():
+    script = generate(MATRIX["kubeadm-calico"], CATALOG).files["infra/cluster/install-kubeadm.sh"]
+    assert "--pod-network-cidr=192.168.0.0/16" in script
+
+
+def test_kind_desactive_le_cni_par_defaut():
+    p = project("kubernetes", "gitlab", "gitlab-ci", "buildkit", "kind", "cilium", "helm", environment="dev")
+    cfg = yaml.safe_load(generate(p, CATALOG).files["infra/cluster/kind.yaml"])
+    assert cfg["networking"]["disableDefaultCNI"] is True
+
+
+def test_dependabot_ecosystemes():
+    doc = yaml.safe_load(generate(MATRIX["github-dependabot"], CATALOG).files[".github/dependabot.yml"])
+    ecos = {u["package-ecosystem"] for u in doc["updates"]}
+    assert {"pip", "docker", "github-actions", "terraform"} <= ecos
+
+
+def test_cloudwatch_et_azure_monitor():
+    tf = generate(MATRIX["github-dependabot"], CATALOG).files["infra/terraform/main.tf"]
+    assert '"amazon-cloudwatch-observability"' in tf and "CloudWatchAgentServerPolicy" in tf
+    tf = generate(MATRIX["aks-monitor"], CATALOG).files["infra/terraform/main.tf"]
+    assert "oms_agent {" in tf and 'resource "azurerm_log_analytics_workspace" "main"' in tf
+
+
+def test_parametres_renseignes_ecrits_dans_la_ci(tmp_path):
+    p = MATRIX["github-dependabot"].clone()
+    p.bricks_for("aws")[0].params = {"role_arn": "arn:aws:iam::210987654321:role/ci", "region": "eu-west-1"}
+    result = generate(p, CATALOG)
+    wf = yaml.safe_load(result.files[".github/workflows/pipeline.yml"])
+    assert wf["env"]["IMAGE"].startswith("210987654321.dkr.ecr.eu-west-1.amazonaws.com/")
+    auth = [st for job in wf["jobs"].values() for st in job["steps"]
+            if st.get("uses", "").startswith("aws-actions/configure-aws-credentials")]
+    assert auth and all(st["with"]["role-to-assume"] == "arn:aws:iam::210987654321:role/ci" for st in auth)
+    g = project("kubernetes-managed", "gitlab", "gitlab-ci", "buildkit", "aws", "ecr", "eks", "opentofu", "s3", "helm")
+    g.bricks_for("aws")[0].params = {"role_arn": "arn:aws:iam::210987654321:role/ci"}
+    ci = yaml.safe_load(generate(g, CATALOG).files[".gitlab-ci.yml"])
+    assert ci["variables"]["AWS_ROLE_ARN"] == "arn:aws:iam::210987654321:role/ci"
+    assert ci["variables"]["AWS_ACCOUNT_ID"] == "210987654321"

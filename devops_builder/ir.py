@@ -12,6 +12,7 @@ from typing import Any
 
 from .catalog import Catalog
 from .model import Project, Tool
+from .params import effective_params
 
 CI_STAGES = ["build", "test", "security", "publish", "deploy", "infra"]
 
@@ -39,6 +40,7 @@ class Variable:
     name: str
     description: str
     secret: bool = True
+    value: str | None = None  # valeur connue (paramètre de brique) : écrite dans la CI
 
 
 @dataclass
@@ -56,20 +58,30 @@ class IR:
     steps: list[Step] = field(default_factory=list)
     variables: list[Variable] = field(default_factory=list)
     unsupported: list[Tool] = field(default_factory=list)
+    covered: set[str] = field(default_factory=set)   # briques pour lesquelles un fichier a été produit
+    notes: list[str] = field(default_factory=list)    # remarques reprises dans PIPELINE.md
+
+    def cover(self, *tool_ids: str) -> None:
+        self.covered.update(t for t in tool_ids if t)
 
     def has(self, tool_id: str) -> bool:
         return tool_id in self.project.tool_ids()
 
     def params(self, tool_id: str) -> dict[str, Any]:
+        """Paramètres effectifs : saisie de la brique > défaut > valeur d'exemple."""
         tool = self.catalog.get(tool_id)
-        merged = dict(tool.params) if tool else {}
-        for b in self.project.bricks_for(tool_id):
-            merged.update(b.params)
-        return merged
+        if tool is None:
+            return {}
+        bricks = self.project.bricks_for(tool_id)
+        return effective_params(tool, bricks[0] if bricks else None, self.project)
 
-    def add_var(self, name: str, description: str, secret: bool = True) -> None:
-        if all(v.name != name for v in self.variables):
-            self.variables.append(Variable(name, description, secret))
+    def add_var(self, name: str, description: str, secret: bool = True, value: str | None = None) -> None:
+        for v in self.variables:
+            if v.name == name:
+                if value and not v.value:
+                    v.value = value
+                return
+        self.variables.append(Variable(name, description, secret, value or None))
 
     @property
     def app(self) -> str:
@@ -119,7 +131,8 @@ def _image_ref(ir: IR) -> str:
     p = ir.params(reg.id)
     if reg.id == "ecr":
         region = ir.params("aws").get("region", "eu-west-3")
-        return f"$AWS_ACCOUNT_ID.dkr.ecr.{region}.amazonaws.com/{p.get('repository', app)}"
+        account = aws_account_id(ir) or "$AWS_ACCOUNT_ID"
+        return f"{account}.dkr.ecr.{region}.amazonaws.com/{p.get('repository', app)}"
     if reg.id in ("artifact-registry", "gcr"):
         g = ir.params("gcp")
         return f"{g.get('region', 'europe-west9')}-docker.pkg.dev/{g.get('project_id', 'mon-projet')}/{p.get('repository', app)}/{app}"
@@ -160,7 +173,8 @@ def registry_login(ir: IR, cli: str = "docker") -> list[str]:
         return [f'echo "$CI_REGISTRY_PASSWORD" | {cli} login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin']
     if reg and reg.id == "ecr":
         region = ir.params("aws").get("region", "eu-west-3")
-        ir.add_var("AWS_ACCOUNT_ID", "Identifiant du compte AWS du registre ECR", secret=False)
+        ir.add_var("AWS_ACCOUNT_ID", "Identifiant du compte AWS du registre ECR", secret=False,
+                   value=aws_account_id(ir))
         return [f'aws ecr get-login-password --region {region} | {cli} login --username AWS --password-stdin "{host}"']
     if reg and reg.id == "ghcr":
         return [f'echo "$GITHUB_TOKEN" | {cli} login ghcr.io -u "$GITHUB_ACTOR" --password-stdin']
@@ -436,23 +450,6 @@ def _add_steps(ir: IR) -> None:
     for c in clouds:
         _cloud_variables(ir, c)
 
-    # Outils sans prise en charge par les générateurs
-    handled = {st.tool for st in s} | {
-        "github", "gitlab", "gitea", "bitbucket", "azure-repos", "codecommit", "secure-source-manager",
-        "github-actions", "gitlab-ci", "gitea-actions", "jenkins", "woodpecker", "tekton",
-        "azure-pipelines", "aws-codebuild", "google-cloud-build", "harbor", "zot", "distribution", "ghcr",
-        "nexus", "artifactory", "ecr", "artifact-registry", "gcr", "acr", "ovh-registry",
-        "scaleway-registry", "opentofu", "terraform", "helm", "kustomize", "argo-cd", "flux",
-        "docker-compose", "ansible",
-    }
-    from .generators.iac import IAC_RESOURCES
-    from .generators.platform import COMPOSE_SERVICES, PLATFORM_CHARTS  # import local : évite un cycle
-    handled |= set(PLATFORM_CHARTS) | set(COMPOSE_SERVICES) | set(IAC_RESOURCES)
-    handled |= {p.id for p in ir.providers}
-    for _, b in project.all_bricks():
-        t = ir.catalog.get(b.tool)
-        if t and t.id not in handled and t not in ir.unsupported:
-            ir.unsupported.append(t)
 
 
 PROVIDER_ENV = {
@@ -465,24 +462,37 @@ PROVIDER_ENV = {
 }
 
 
+def aws_account_id(ir: IR) -> str | None:
+    """Compte AWS déduit de l'ARN du rôle de CI, s'il est renseigné."""
+    arn = str(ir.params("aws").get("role_arn") or "")
+    parts = arn.split(":")
+    return parts[4] if len(parts) > 5 and parts[4].isdigit() else None
+
+
 def _cloud_variables(ir: IR, cloud: str) -> None:
     oidc = ir.project.cloud_auth == "oidc"
     if cloud == "aws":
+        a = ir.params("aws")
         if oidc:
-            ir.add_var("AWS_ROLE_ARN", "Rôle IAM assumé par la CI via OIDC", secret=False)
+            ir.add_var("AWS_ROLE_ARN", "Rôle IAM assumé par la CI via OIDC", secret=False, value=a.get("role_arn"))
         else:
             ir.add_var("AWS_ACCESS_KEY_ID", "Clé d'accès AWS (statique, déconseillé)")
             ir.add_var("AWS_SECRET_ACCESS_KEY", "Secret de la clé d'accès AWS")
-        ir.add_var("AWS_REGION", "Région AWS", secret=False)
+        ir.add_var("AWS_REGION", "Région AWS", secret=False, value=a.get("region"))
     elif cloud == "gcp":
+        g = ir.params("gcp")
         if oidc:
-            ir.add_var("GCP_WORKLOAD_IDENTITY_PROVIDER", "Fournisseur Workload Identity Federation", secret=False)
-            ir.add_var("GCP_SERVICE_ACCOUNT", "Compte de service impersonné par la CI", secret=False)
+            ir.add_var("GCP_WORKLOAD_IDENTITY_PROVIDER", "Fournisseur Workload Identity Federation", secret=False,
+                       value=g.get("workload_identity_provider"))
+            ir.add_var("GCP_SERVICE_ACCOUNT", "Compte de service impersonné par la CI", secret=False,
+                       value=g.get("service_account"))
         else:
             ir.add_var("GCP_SA_KEY", "Clé JSON du compte de service (statique, déconseillé)")
     elif cloud == "azure":
-        ir.add_var("AZURE_CLIENT_ID", "Identifiant d'application Entra ID", secret=False)
-        ir.add_var("AZURE_TENANT_ID", "Identifiant du tenant Entra ID", secret=False)
-        ir.add_var("AZURE_SUBSCRIPTION_ID", "Identifiant d'abonnement Azure", secret=False)
+        z = ir.params("azure")
+        ir.add_var("AZURE_CLIENT_ID", "Identifiant d'application Entra ID", secret=False, value=z.get("client_id"))
+        ir.add_var("AZURE_TENANT_ID", "Identifiant du tenant Entra ID", secret=False, value=z.get("tenant_id"))
+        ir.add_var("AZURE_SUBSCRIPTION_ID", "Identifiant d'abonnement Azure", secret=False,
+                   value=z.get("subscription_id"))
         if not oidc:
             ir.add_var("AZURE_CLIENT_SECRET", "Secret d'application (statique, déconseillé)")

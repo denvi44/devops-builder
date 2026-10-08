@@ -104,9 +104,16 @@ COMPOSE_SERVICES: dict[str, dict] = {
 
 
 def install_script(ir: IR) -> dict[str, str]:
-    present = [t for t in PLATFORM_CHARTS if ir.has(t)]
+    from .extras import embedded_components
+
+    embedded = embedded_components(ir)
+    for tid, note in embedded.items():
+        ir.notes.append(note)
+        ir.cover(tid)
+    present = [t for t in PLATFORM_CHARTS if ir.has(t) and t not in embedded]
     if not present:
         return {}
+    ir.cover(*present)
     present.sort(key=lambda t: (FIRST.index(t) if t in FIRST else len(FIRST), t))
     repos: dict[str, str] = {}
     lines = ["#!/usr/bin/env bash", f"# {HEADER}",
@@ -135,7 +142,9 @@ def install_script(ir: IR) -> dict[str, str]:
 
 
 def compose_platform_services(ir: IR) -> dict[str, dict]:
-    return {t: COMPOSE_SERVICES[t] for t in COMPOSE_SERVICES if ir.has(t)}
+    services = {t: COMPOSE_SERVICES[t] for t in COMPOSE_SERVICES if ir.has(t)}
+    ir.cover(*services)
+    return services
 
 
 def platform_files(ir: IR) -> dict[str, str]:

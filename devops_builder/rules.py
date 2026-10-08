@@ -31,6 +31,8 @@ FAMILIES = {
     "redondance": "Redondance",
     "catalogue": "Catalogue",
     "placement": "Placement dans le pipeline",
+    "completude": "Complétude du pipeline",
+    "parametres": "Paramètres des briques",
 }
 
 
@@ -395,6 +397,184 @@ def h_placement(rule: Rule, ctx: Context) -> list[Diagnostic]:
     return out
 
 
+# --------------------------------------------------------------------------
+# Complétude
+# --------------------------------------------------------------------------
+CI_ROLES = {"image-build", "unit-tests", "code-quality", "sast", "vuln-scan", "iac-scan", "secret-scan",
+            "sbom", "signing", "deploy", "gitops", "iac"}
+CAP_LABELS = {  # complément de « a besoin … »
+    "git-server": "d'une forge Git",
+    "registry-oci": "d'un registre d'images OCI",
+    "secret-store": "d'un coffre de secrets",
+    "object-storage": "d'un stockage objet",
+    "metrics-prometheus": "de Prometheus",
+    "trace-storage": "d'un stockage de traces",
+    "cni": "d'un plugin réseau (CNI)",
+    "kubernetes-cluster": "d'un cluster Kubernetes",
+}
+MANAGED_TARGETS = ("kubernetes", "kubernetes-managed")
+
+
+def _needs_ci(tool: Tool) -> bool:
+    if tool.kind == "provider" or not tool.curated:
+        return False
+    if tool.kubernetes_only and "iac" in tool.roles:
+        return False  # Crossplane : réconcilié dans le cluster, pas en CI
+    return bool(CI_ROLES & set(tool.roles))
+
+
+def _add_actions(ctx: Context, tool_ids: list[str], limit: int = 4) -> list[Action]:
+    seen: list[str] = []
+    for tid in tool_ids:
+        if tid in ctx.catalog and tid not in seen and not ctx.has(tid):
+            seen.append(tid)
+    return [Action("add_brick", f"Ajouter {ctx.name(t)}", {"tool": t}) for t in seen[:limit]]
+
+
+def _present_providers(ctx: Context) -> list[Tool]:
+    return [p.tool for p in ctx.placed if p.tool.kind == "provider"]
+
+
+@handler("missing_ci")
+def h_missing_ci(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    if ctx.with_role("ci"):
+        return []
+    needing = [p for p in ctx.placed if _needs_ci(p.tool)]
+    if not needing:
+        return []
+    forges = _project_forges(ctx)
+    natives = [t.id for t in ctx.catalog.curated() if "ci" in t.roles and t.forges and forges & set(t.forges)]
+    natives.sort(key=lambda tid: (ctx.catalog[tid].kind != "tool", len(ctx.catalog[tid].forges), tid))
+    generic = ["jenkins", "woodpecker"] if forges else ["gitlab-ci", "github-actions", "jenkins"]
+    return [_diag(rule, _fmt(rule.message, tools=_names(needing)), [p.brick.uid for p in needing],
+                  _add_actions(ctx, natives + generic, 3))]
+
+
+@handler("build_without_registry")
+def h_build_without_registry(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    builders = ctx.with_role("image-build")
+    if not builders or ctx.with_role("registry"):
+        return []
+    forges = _project_forges(ctx)
+    if "gitlab" in forges:
+        return []  # registre intégré de GitLab ($CI_REGISTRY_IMAGE)
+    suggestions = [p.services["registry"] for p in _present_providers(ctx) if p.services.get("registry")]
+    if "github" in forges:
+        suggestions.append("ghcr")
+    suggestions += ["harbor", "zot"]
+    return [_diag(rule, _fmt(rule.message, tools=_names(builders)), [p.brick.uid for p in builders],
+                  _add_actions(ctx, suggestions))]
+
+
+@handler("deploy_without_build")
+def h_deploy_without_build(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    if ctx.with_role("image-build"):
+        return []
+    deployers = [p for p in ctx.placed if p.tool.curated and {"deploy", "gitops"} & set(p.tool.roles)
+                 and p.tool.id != "ansible"]
+    if not deployers:
+        return []
+    return [_diag(rule, _fmt(rule.message, tools=_names(deployers), app=ctx.project.app.image_name),
+                  [p.brick.uid for p in deployers], _add_actions(ctx, ["buildkit", "buildpacks", "buildah"], 3))]
+
+
+@handler("requires_generic")
+def h_requires_generic(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    skip = {tuple(x) for x in rule.params.get("skip", [])}
+    provider_ids = {t.id for t in _present_providers(ctx)}
+    target = ctx.project.target
+    no_cluster = not ctx.provides("kubernetes-cluster") and target in ("docker-host", "vm")
+    out = []
+    for p in ctx.placed:
+        for cap in p.tool.requires:
+            if (p.tool.id, cap) in skip or ctx.provides(cap):
+                continue
+            candidates = [t for t in ctx.catalog.providing(cap) if not (no_cluster and t.kubernetes_only)]
+            wanted_forges = set(p.tool.forges)
+            candidates.sort(key=lambda t, wf=wanted_forges: (
+                bool(wf) and t.forge not in wf,                                # forge compatible d'abord
+                t.provider not in provider_ids if t.provider else True,        # cloud déjà présent
+                t.kind != "tool", t.id))
+            out.append(_diag(rule, _fmt(rule.message, tool=p.tool.name, capability=CAP_LABELS.get(cap, cap)),
+                             [p.brick.uid], _add_actions(ctx, [t.id for t in candidates], 3)))
+    return out
+
+
+@handler("target_cluster")
+def h_target_cluster(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    target = ctx.project.target
+    clusters = ctx.with_role("kubernetes-cluster")
+    managed = [p for p in clusters if "kubernetes-managed" in p.tool.provides]
+    self_managed = [p for p in clusters if p not in managed]
+    tname = TARGETS.get(target, target)
+    out = []
+    if target in MANAGED_TARGETS and not clusters:
+        if target == "kubernetes-managed":
+            sugg = [p.services["k8s.managed"] for p in _present_providers(ctx) if p.services.get("k8s.managed")]
+            sugg = sugg or ["eks", "gke", "aks"]
+        else:
+            sugg = ["k3s", "rke2"]
+        msg = _fmt(rule.message, target=tname) + " Les déploiements utiliseront un kubeconfig fourni par la variable KUBECONFIG_DATA."
+        out.append(_diag(rule, msg, [], _add_actions(ctx, sugg, 3)))
+    if target == "kubernetes-managed" and self_managed:
+        out.append(_diag(rule, f"{_names(self_managed)} n'est pas un Kubernetes managé, or la cible est « {tname} ».",
+                         [p.brick.uid for p in self_managed],
+                         [Action("set_project", "Passer la cible en Kubernetes autogéré",
+                                 {"field": "target", "value": "kubernetes"})]))
+    if target in ("kubernetes", "docker-host") and managed:
+        out.append(_diag(rule, f"{_names(managed)} est un Kubernetes managé, or la cible est « {tname} ».",
+                         [p.brick.uid for p in managed],
+                         [Action("set_project", "Passer la cible en Kubernetes managé",
+                                 {"field": "target", "value": "kubernetes-managed"})]))
+    return out
+
+
+@handler("no_generator")
+def h_no_generator(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    from .generators import render  # import tardif : les générateurs dépendent des règles
+
+    try:
+        unsupported = render(ctx.project, ctx.catalog)[1].unsupported
+    except Exception:  # un projet bancal ne doit pas faire tomber l'évaluation
+        return []
+    out = []
+    for tool in unsupported:
+        if not tool.curated:
+            continue  # déjà signalé par R00
+        uids = [b.uid for b in ctx.project.bricks_for(tool.id)]
+        out.append(_diag(rule, _fmt(rule.message, tool=tool.name), uids, []))
+    return out
+
+
+# --------------------------------------------------------------------------
+# Paramètres
+# --------------------------------------------------------------------------
+@handler("params")
+def h_params(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    from .params import check_brick
+
+    kinds = set(rule.params["kinds"])
+    out = []
+    for p in ctx.placed:
+        for issue in check_brick(p.tool, p.brick, ctx.project):
+            if issue.kind not in kinds:
+                continue
+            actions: list[Action] = []
+            if issue.kind == "unknown":
+                if issue.suggestion:
+                    actions.append(Action("rename_param", f"Renommer en « {issue.suggestion} »",
+                                          {"uid": p.brick.uid, "old": issue.key, "new": issue.suggestion}))
+                actions.append(Action("remove_param", f"Supprimer « {issue.key} »",
+                                      {"uid": p.brick.uid, "key": issue.key}))
+            elif issue.kind == "invalid" and issue.key in p.brick.params:
+                spec = p.tool.param_schema[issue.key]
+                if spec.default is not None or spec.example is not None:
+                    actions.append(Action("remove_param", "Revenir à la valeur par défaut",
+                                          {"uid": p.brick.uid, "key": issue.key}))
+            out.append(_diag(rule, f"{p.tool.name} : {issue.message}.", [p.brick.uid], actions))
+    return out
+
+
 @handler("unverified")
 def h_unverified(rule: Rule, ctx: Context) -> list[Diagnostic]:
     return [
@@ -466,6 +646,15 @@ def apply_action(project: Project, action: Action, catalog: Catalog) -> None:
         else:
             project.remove(brick.uid)
             project.add(new_tool.id, new_tool.stage)
+    elif action.op in ("rename_param", "remove_param"):
+        found = project.find(args["uid"])
+        if found:
+            params = dict(found[2].params)
+            key = args["old"] if action.op == "rename_param" else args["key"]
+            value = params.pop(key, None)
+            if action.op == "rename_param" and value is not None:
+                params[args["new"]] = value
+            found[2].params = params
     elif action.op == "move_brick":
         project.move(args["uid"], args["stage"])
     elif action.op == "set_project":

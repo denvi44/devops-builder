@@ -1,0 +1,6 @@
+id: R28
+title: Étapes sans orchestrateur CI
+family: completude
+severity: bloquant
+type: missing_ci
+message: "Aucune CI ne lancera {tools} : ajouter un orchestrateur CI, sinon aucun fichier de pipeline n'est généré."

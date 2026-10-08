@@ -1,0 +1,6 @@
+id: R31
+title: Brique sans fichier généré
+family: completude
+severity: info
+type: no_generator
+message: "Aucun fichier n'est généré pour {tool} dans cette configuration : à configurer à la main (listé dans PIPELINE.md)."

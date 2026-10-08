@@ -1,0 +1,6 @@
+id: R26
+title: Image construite sans registre
+family: completude
+severity: bloquant
+type: build_without_registry
+message: "{tools} construit une image mais aucun registre ne la reçoit : l'image serait poussée vers une adresse d'exemple."

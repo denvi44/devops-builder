@@ -35,7 +35,7 @@
   homepage: https://about.gitea.com
   license: MIT
   hosting: [docker-host, vm, kubernetes]
-  provides: [git-server, registry-oci]
+  provides: [git-server]
   forge: gitea
   compatible_ci: [github-actions]
   verified: "2026-10-08"
@@ -100,6 +100,7 @@
   license: proprietary
   hosting: [saas, ci]
   forges: [github]
+  requires: [git-server]
   verified: "2026-10-08"
 
 - id: gitlab-ci
@@ -111,6 +112,7 @@
   hosting: [saas, ci]
   forges: [gitlab]
   landscape_name: GitLab
+  requires: [git-server]
   verified: "2026-10-08"
 
 - id: gitea-actions
@@ -121,6 +123,7 @@
   license: MIT
   hosting: [ci]
   forges: [gitea]
+  requires: [git-server]
   verified: "2026-10-08"
 
 - id: jenkins
@@ -130,6 +133,7 @@
   description: Serveur d'intégration continue autohébergé (Jenkinsfile déclaratif).
   license: MIT
   hosting: [docker-host, vm, kubernetes]
+  requires: [git-server]
   verified: "2026-10-08"
 
 - id: tekton
@@ -141,6 +145,7 @@
   license: Apache-2.0
   hosting: [kubernetes]
   alternatives_outside_k8s: [jenkins, woodpecker]
+  requires: [git-server]
   verified: "2026-10-08"
 
 - id: woodpecker
@@ -152,6 +157,7 @@
   hosting: [docker-host, vm, kubernetes]
   forges: [github, gitlab, gitea, bitbucket]
   landscape_name: Woodpecker CI
+  requires: [git-server]
   verified: "2026-10-08"
 
 - id: azure-pipelines
@@ -164,6 +170,7 @@
   hosting: [saas]
   forges: [azure-devops, github, bitbucket]
   provider: azure
+  requires: [git-server]
   verified: "2026-10-08"
 
 - id: aws-codebuild
@@ -176,6 +183,7 @@
   hosting: [saas]
   forges: [codecommit, github, bitbucket, gitlab]
   provider: aws
+  requires: [git-server]
   verified: "2026-10-08"
 
 - id: google-cloud-build
@@ -188,6 +196,7 @@
   hosting: [saas]
   forges: [github, gitlab, bitbucket, secure-source-manager]
   provider: gcp
+  requires: [git-server]
   verified: "2026-10-08"
 
 - id: argo-workflows
@@ -267,6 +276,7 @@
   license: AGPL-3.0
   hosting: [ci, saas]
   forges: [github, gitlab, gitea, bitbucket, azure-devops]
+  requires: [git-server]
   verified: "2026-10-08"
 
 - id: dependabot
@@ -278,4 +288,5 @@
   license: proprietary
   hosting: [saas]
   forges: [github]
+  requires: [git-server]
   verified: "2026-10-08"

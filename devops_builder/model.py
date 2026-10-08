@@ -74,6 +74,26 @@ class Severity(str, Enum):
         return {"bloquant": "Bloquant", "avertissement": "Avertissement", "info": "Info"}[self.value]
 
 
+class ParamSpec(BaseModel):
+    """Description d'un paramètre de brique, pour le formulaire et la validation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: str
+    type: Literal["string", "int", "bool"] = "string"
+    description: str = ""
+    # Vraie valeur par défaut, légitime en production. « {app} » = nom de l'image du projet.
+    default: Any = None
+    # Valeur d'exemple écrite dans les fichiers si rien n'est saisi ; signalée par R34.
+    example: str | None = None
+    required: bool = False
+    choices: list[str] = Field(default_factory=list)       # liste fermée
+    suggestions: list[str] = Field(default_factory=list)   # liste ouverte
+    pattern: str | None = None
+    pattern_hint: str = ""
+    max_length: int | None = None
+
+
 class LandscapeRef(BaseModel):
     category: str | None = None
     subcategory: str | None = None
@@ -124,6 +144,7 @@ class Tool(BaseModel):
     curated: bool = True
     verified: str | None = None  # date de vérification de la fiche
     params: dict[str, Any] = Field(default_factory=dict)  # paramètres par défaut
+    param_schema: dict[str, ParamSpec] = Field(default_factory=dict)
     # Étapes où l'outil peut aussi être posé, en plus de `stage` (étape principale).
     extra_stages: list[str] = Field(default_factory=list)
 

@@ -1,0 +1,287 @@
+# Schémas des paramètres de briques, par identifiant de fiche.
+# Champs : label, type (string|int|bool), description, default (légitime ; « {app} »
+# = nom de l'image du projet), example (écrit si rien n'est saisi, signalé par R34),
+# required, choices (liste fermée), suggestions (liste ouverte), pattern, pattern_hint.
+# Vérifié le 2026-10-08.
+
+_registry_url: &registry_url
+  url:
+    label: Adresse du registre
+    description: Nom d'hôte, éventuellement avec port, sans « https:// ».
+    example: registry.example.com
+    required: true
+    pattern: '[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?'
+    pattern_hint: "nom d'hôte sans schéma ni chemin, ex. registry.example.com ou registry.local:5000"
+
+harbor: *registry_url
+zot: *registry_url
+distribution: *registry_url
+nexus:
+  url:
+    label: Adresse du registre Docker de Nexus
+    description: Nom d'hôte du connecteur Docker de Nexus, sans « https:// ».
+    example: nexus.example.com
+    required: true
+    pattern: '[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?'
+    pattern_hint: "nom d'hôte sans schéma ni chemin, ex. nexus.example.com"
+artifactory:
+  url:
+    label: Adresse Artifactory
+    example: example.jfrog.io
+    required: true
+    pattern: '[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?'
+    pattern_hint: "nom d'hôte sans schéma ni chemin, ex. nexus.example.com"
+
+ecr:
+  repository:
+    label: Dépôt ECR
+    default: "{app}"
+    pattern: '(?:[a-z0-9]+(?:[._-][a-z0-9]+)*/)*[a-z0-9]+(?:[._-][a-z0-9]+)*'
+    pattern_hint: "minuscules, chiffres et . _ - /, sans séparateur au début ni à la fin"
+    max_length: 256
+artifact-registry:
+  repository:
+    label: Dépôt Artifact Registry
+    default: "{app}"
+    pattern: '[a-z]([a-z0-9-]*[a-z0-9])?'
+    pattern_hint: "minuscules, chiffres et tirets, commence par une lettre"
+    max_length: 63
+acr:
+  registry_name:
+    label: Nom du registre ACR
+    description: Unique dans tout Azure ; devient <nom>.azurecr.io.
+    example: monappregistry
+    required: true
+    pattern: '[a-zA-Z0-9]{5,50}'
+    pattern_hint: "5 à 50 caractères alphanumériques, sans tiret"
+scaleway-registry:
+  namespace:
+    label: Espace de noms
+    default: "{app}"
+    pattern: '[a-z0-9]([a-z0-9-]*[a-z0-9])?'
+    pattern_hint: "minuscules, chiffres et tirets"
+
+# ------------------------------------------------------------- Clusters
+eks:
+  cluster_name:
+    label: Nom du cluster
+    example: mon-cluster
+    required: true
+    pattern: '[0-9A-Za-z][A-Za-z0-9_-]*'
+    pattern_hint: "lettres, chiffres, - et _, commence par une lettre ou un chiffre"
+    max_length: 100
+  region:
+    label: Région AWS
+    default: eu-west-3
+    suggestions: [eu-west-3, eu-west-1, eu-west-2, eu-central-1, eu-central-2, eu-north-1, eu-south-1, eu-south-2, us-east-1, us-east-2, us-west-2, ca-central-1]
+    pattern: '[a-z]{2}(-gov)?-[a-z]+-[0-9]'
+    pattern_hint: "région AWS, ex. eu-west-3"
+  version:
+    label: Version de Kubernetes
+    default: "1.33"
+    suggestions: ["1.33", "1.32", "1.31"]
+    pattern: '1\.[0-9]{2}'
+    pattern_hint: "forme 1.xx, ex. 1.33"
+gke:
+  cluster_name:
+    label: Nom du cluster
+    example: mon-cluster
+    required: true
+    pattern: '[a-z]([-a-z0-9]{0,38}[a-z0-9])?'
+    pattern_hint: "40 caractères au plus, minuscules, chiffres et tirets, commence par une lettre"
+  region:
+    label: Région Google Cloud
+    default: europe-west9
+    suggestions: [europe-west9, europe-west1, europe-west3, europe-west4, europe-west6, europe-west8, europe-north1, europe-southwest1, us-central1, us-east1, us-east4]
+    pattern: '[a-z]+-[a-z]+[0-9]+'
+    pattern_hint: "région Google Cloud, ex. europe-west9"
+aks:
+  cluster_name:
+    label: Nom du cluster
+    example: mon-cluster
+    required: true
+    pattern: '[a-zA-Z0-9]([a-zA-Z0-9_-]{0,61}[a-zA-Z0-9])?'
+    pattern_hint: "63 caractères au plus, lettres, chiffres, - et _"
+ovh-mks:
+  cluster_name:
+    label: Nom du cluster
+    example: mon-cluster
+    required: true
+  region:
+    label: Région OVHcloud
+    default: GRA11
+    suggestions: [GRA11, GRA9, GRA7, SBG5, BHS5, DE1, UK1, WAW1, EU-WEST-PAR]
+    pattern: '[A-Z0-9-]{2,20}'
+    pattern_hint: "code de région OVHcloud en majuscules, ex. GRA11"
+kapsule:
+  cluster_name:
+    label: Nom du cluster
+    example: mon-cluster
+    required: true
+    pattern: '[a-z0-9]([a-z0-9-]*[a-z0-9])?'
+    pattern_hint: "minuscules, chiffres et tirets"
+oks:
+  cluster_name:
+    label: Nom du cluster
+    example: mon-cluster
+    required: true
+
+# ------------------------------------------------------------- Stockage objet
+s3:
+  bucket:
+    label: Bucket de l'état Terraform
+    description: Créé à part (amorçage), il porte l'état de la pile.
+    example: mon-projet-tfstate
+    required: true
+    pattern: '[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]'
+    pattern_hint: "3 à 63 caractères : minuscules, chiffres, points et tirets"
+gcs:
+  bucket:
+    label: Bucket de l'état Terraform
+    description: Créé à part (amorçage), il porte l'état de la pile.
+    example: mon-projet-tfstate
+    required: true
+    pattern: '[a-z0-9][a-z0-9._-]{1,61}[a-z0-9]'
+    pattern_hint: "3 à 63 caractères : minuscules, chiffres, points, tirets et _"
+azure-blob:
+  storage_account:
+    label: Compte de stockage
+    description: Unique dans tout Azure.
+    example: monprojettfstate
+    required: true
+    pattern: '[a-z0-9]{3,24}'
+    pattern_hint: "3 à 24 caractères, minuscules et chiffres uniquement"
+  container:
+    label: Conteneur
+    default: tfstate
+    pattern: '[a-z0-9](?!.*--)[a-z0-9-]{1,61}[a-z0-9]'
+    pattern_hint: "3 à 63 caractères, minuscules, chiffres et tirets non doublés"
+
+# ------------------------------------------------------------- Fournisseurs
+aws:
+  region:
+    label: Région AWS
+    default: eu-west-3
+    suggestions: [eu-west-3, eu-west-1, eu-west-2, eu-central-1, eu-central-2, eu-north-1, eu-south-1, eu-south-2, us-east-1, us-east-2, us-west-2, ca-central-1]
+    pattern: '[a-z]{2}(-gov)?-[a-z]+-[0-9]'
+    pattern_hint: "région AWS, ex. eu-west-3"
+  role_arn:
+    label: Rôle IAM de la CI (OIDC)
+    description: Rôle assumé par la CI. Vide = à déclarer comme variable CI AWS_ROLE_ARN.
+    pattern: 'arn:aws(-[a-z]+)?:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+'
+    pattern_hint: "ARN de rôle IAM, ex. arn:aws:iam::123456789012:role/ci-deploy"
+gcp:
+  project_id:
+    label: Identifiant du projet
+    example: mon-projet
+    required: true
+    pattern: '[a-z][a-z0-9-]{4,28}[a-z0-9]'
+    pattern_hint: "6 à 30 caractères : minuscules, chiffres et tirets, commence par une lettre"
+  region:
+    label: Région Google Cloud
+    default: europe-west9
+    suggestions: [europe-west9, europe-west1, europe-west3, europe-west4, europe-west6, europe-west8, europe-north1, europe-southwest1, us-central1, us-east1, us-east4]
+    pattern: '[a-z]+-[a-z]+[0-9]+'
+    pattern_hint: "région Google Cloud, ex. europe-west9"
+  workload_identity_provider:
+    label: Fournisseur Workload Identity
+    description: Vide = à déclarer comme variable CI GCP_WORKLOAD_IDENTITY_PROVIDER.
+    pattern: 'projects/[0-9]+/locations/global/workloadIdentityPools/[a-z0-9-]+/providers/[a-z0-9-]+'
+    pattern_hint: "projects/<numéro>/locations/global/workloadIdentityPools/<pool>/providers/<fournisseur>"
+  service_account:
+    label: Compte de service de la CI
+    description: Vide = à déclarer comme variable CI GCP_SERVICE_ACCOUNT.
+    pattern: '[a-z][a-z0-9-]{4,28}[a-z0-9]@[a-z0-9-]+\.iam\.gserviceaccount\.com'
+    pattern_hint: "adresse <nom>@<projet>.iam.gserviceaccount.com"
+azure:
+  location:
+    label: Région Azure
+    default: francecentral
+    suggestions: [francecentral, francesouth, westeurope, northeurope, germanywestcentral, switzerlandnorth, swedencentral, uksouth, eastus, eastus2, westus2]
+    pattern: '[a-z0-9]+'
+    pattern_hint: "nom de région Azure en minuscules, ex. francecentral"
+  resource_group:
+    label: Groupe de ressources
+    default: "rg-{app}"
+    pattern: '[-\w.()]{0,89}[-\w()]'
+    pattern_hint: "90 caractères au plus, lettres, chiffres, - _ . ( ), sans point final"
+  client_id:
+    label: Application Entra ID de la CI
+    description: Vide = à déclarer comme variable CI AZURE_CLIENT_ID.
+    pattern: '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+    pattern_hint: "identifiant au format UUID"
+  tenant_id:
+    label: Tenant Entra ID
+    description: Vide = à déclarer comme variable CI AZURE_TENANT_ID.
+    pattern: '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+    pattern_hint: "identifiant au format UUID"
+  subscription_id:
+    label: Abonnement Azure
+    description: Vide = à déclarer comme variable CI AZURE_SUBSCRIPTION_ID.
+    pattern: '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+    pattern_hint: "identifiant au format UUID"
+ovhcloud:
+  service_name:
+    label: Projet Public Cloud
+    description: Identifiant du projet Public Cloud (32 caractères hexadécimaux).
+    example: "<id-projet-public-cloud>"
+    required: true
+    pattern: '[0-9a-f]{32}'
+    pattern_hint: "32 caractères hexadécimaux"
+  endpoint:
+    label: Point d'accès API
+    default: ovh-eu
+    suggestions: [ovh-eu, ovh-ca, ovh-us]
+outscale:
+  region:
+    label: Région Outscale
+    default: eu-west-2
+    suggestions: [eu-west-2, cloudgouv-eu-west-1, us-east-2, us-west-1, ap-northeast-1]
+    pattern: '[a-z]+(-[a-z]+)+-[0-9]'
+    pattern_hint: "région Outscale, ex. eu-west-2"
+scaleway:
+  region:
+    label: Région Scaleway
+    default: fr-par
+    suggestions: [fr-par, nl-ams, pl-waw]
+    pattern: '[a-z]{2}-[a-z]{3}'
+    pattern_hint: "région Scaleway, ex. fr-par"
+  zone:
+    label: Zone Scaleway
+    default: fr-par-1
+    suggestions: [fr-par-1, fr-par-2, fr-par-3, nl-ams-1, nl-ams-2, nl-ams-3, pl-waw-1, pl-waw-2, pl-waw-3]
+    pattern: '[a-z]{2}-[a-z]{3}-[0-9]'
+    pattern_hint: "zone Scaleway, ex. fr-par-1"
+
+# ------------------------------------------------------------- Services de déploiement
+ecs-fargate:
+  cluster:
+    label: Cluster ECS
+    example: mon-cluster-ecs
+    required: true
+    pattern: '[a-zA-Z0-9_-]{1,255}'
+    pattern_hint: "lettres, chiffres, - et _"
+  service:
+    label: Service ECS
+    default: "{app}"
+    pattern: '[a-zA-Z0-9_-]{1,255}'
+    pattern_hint: "lettres, chiffres, - et _"
+cloud-run:
+  service:
+    label: Service Cloud Run
+    default: "{app}"
+    pattern: '[a-z]([-a-z0-9]{0,47}[a-z0-9])?'
+    pattern_hint: "49 caractères au plus, minuscules, chiffres et tirets, commence par une lettre"
+azure-container-apps:
+  app:
+    label: Application
+    default: "{app}"
+    pattern: '[a-z][a-z0-9-]{0,30}[a-z0-9]'
+    pattern_hint: "2 à 32 caractères, minuscules, chiffres et tirets, commence par une lettre"
+azure-key-vault:
+  vault_name:
+    label: Nom du coffre
+    description: Unique dans tout Azure.
+    default: "kv-{app}"
+    pattern: '[a-zA-Z](?!.*--)[a-zA-Z0-9-]{1,22}[a-zA-Z0-9]'
+    pattern_hint: "3 à 24 caractères, lettres, chiffres et tirets non doublés, commence par une lettre"

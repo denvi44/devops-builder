@@ -85,7 +85,6 @@
   hosting: [saas]
   provider: aws
   landscape_name: Amazon Elastic Container Service (ECS)
-  params: {cluster: mon-cluster-ecs, service: mon-app}
   verified: "2026-10-08"
 
 - id: cloud-run
@@ -98,7 +97,6 @@
   hosting: [saas]
   provider: gcp
   landscape_name: Google Cloud Run
-  params: {service: mon-app}
   verified: "2026-10-08"
 
 - id: azure-container-apps
@@ -110,7 +108,6 @@
   license: proprietary
   hosting: [saas]
   provider: azure
-  params: {app: mon-app}
   verified: "2026-10-08"
 
 # ---------------------------------------------------------------- Plateforme
@@ -121,6 +118,7 @@
   description: CNI à base d'eBPF, avec Gateway API et observabilité réseau.
   license: Apache-2.0
   hosting: [kubernetes]
+  provides: [cni]
   verified: "2026-10-08"
 
 - id: calico
@@ -130,6 +128,7 @@
   description: CNI et politiques réseau.
   license: Apache-2.0
   hosting: [kubernetes]
+  provides: [cni]
   landscape_name: Project Calico
   verified: "2026-10-08"
 
@@ -140,6 +139,7 @@
   description: CNI simple en overlay.
   license: Apache-2.0
   hosting: [kubernetes]
+  provides: [cni]
   verified: "2026-10-08"
 
 - id: istio
@@ -321,7 +321,6 @@
   hosting: [saas]
   provides: [secret-store]
   provider: azure
-  params: {vault_name: kv-mon-projet}
   verified: "2026-10-08"
 
 - id: longhorn

@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..catalog import Catalog
-from ..model import STAGE_LABELS, BrickInstance, Tool
+from ..model import STAGE_LABELS, BrickInstance, Project, Tool
 from . import theme
 from .widgets import FlowRow, chip, icon, muted, section_title
 
@@ -60,7 +60,7 @@ class PropertiesPanel(QScrollArea):
         lay.addWidget(muted("Sélectionnez une brique du pipeline ou un outil du catalogue pour afficher sa fiche."))
         self.setWidget(w)
 
-    def show_tool(self, tool: Tool, brick: BrickInstance | None = None) -> None:
+    def show_tool(self, tool: Tool, brick: BrickInstance | None = None, project: Project | None = None) -> None:
         self._uid = brick.uid if brick else None
         self._tool_id = tool.id
         pal = theme.current()
@@ -138,7 +138,17 @@ class PropertiesPanel(QScrollArea):
         if tool.verified:
             lay.addWidget(muted(f"Fiche vérifiée le {tool.verified}"))
 
-        if brick is not None:
+        if brick is not None and tool.param_schema:
+            from .param_form import ParamForm
+            lay.addWidget(section_title("Paramètres de la brique"))
+            self.form = ParamForm(tool, brick, project)
+            self.form.changed.connect(lambda params, uid=brick.uid: self.paramsChanged.emit(uid, params))
+            lay.addWidget(self.form)
+            delete = QPushButton(icon("mdi6.delete", pal.blocking), "Retirer la brique du pipeline")
+            delete.setProperty("class", "danger")
+            delete.clicked.connect(lambda: self.removeRequested.emit(brick.uid))
+            lay.addWidget(delete)
+        elif brick is not None:
             lay.addWidget(section_title("Paramètres de la brique"))
             lay.addWidget(muted("Valeurs YAML ; elles remplacent les valeurs par défaut de la fiche."))
             self.table = QTableWidget(0, 2)

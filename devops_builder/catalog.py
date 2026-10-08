@@ -136,6 +136,33 @@ def load_landscape_index(path: Path) -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _attach_param_schemas(catalog: Catalog, path: Path) -> None:
+    """Rattache data/params.yaml aux fiches ; contrôle le schéma au chargement."""
+    import re
+
+    from .model import ParamSpec
+    from .params import check_value
+
+    if not path.exists():
+        return
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    for tool_id, specs in data.items():
+        if tool_id.startswith("_"):
+            continue  # ancres YAML partagées
+        tool = catalog.tools.get(tool_id)
+        if tool is None:
+            raise ValueError(f"params.yaml : fiche inconnue {tool_id}")
+        if tool.params:
+            raise ValueError(f"{tool_id} : paramètres à la fois en ligne et dans params.yaml")
+        schema = {k: ParamSpec.model_validate(v) for k, v in specs.items()}
+        for key, spec in schema.items():
+            if spec.pattern:
+                re.compile(spec.pattern)
+            if spec.default is not None and "{app}" not in str(spec.default) and check_value(spec, spec.default):
+                raise ValueError(f"{tool_id}.{key} : la valeur par défaut ne respecte pas le schéma")
+        tool.param_schema = schema
+
+
 @lru_cache(maxsize=1)
 def default_catalog() -> Catalog:
     return build_catalog(DATA_DIR)
@@ -150,6 +177,8 @@ def build_catalog(data_dir: Path = DATA_DIR) -> Catalog:
             if s not in STAGE_IDS:
                 raise ValueError(f"{tool.id}: étape inconnue {s}")
         catalog.tools[tool.id] = tool
+
+    _attach_param_schemas(catalog, data_dir / "params.yaml")
 
     index = load_landscape_index(data_dir / "landscape_index.json")
     by_name = {e["name"].lower(): e for e in index}

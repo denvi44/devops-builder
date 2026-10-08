@@ -31,6 +31,7 @@ def compose(ir: IR) -> dict[str, str]:
     doc: dict = {"name": app, "services": services}
     if volumes:
         doc["volumes"] = {v: {} for v in volumes}
+    ir.cover("docker-compose")
     return {"deploy/docker-compose.yml": dump_yaml(doc)}
 
 
@@ -88,6 +89,7 @@ spec:
     - port: {{{{ .Values.service.port }}}}
       targetPort: {{{{ .Values.service.targetPort }}}}
 """
+    ir.cover("helm")
     return {
         f"{base}/Chart.yaml": dump_yaml(chart),
         f"{base}/values.yaml": dump_yaml(values),
@@ -115,6 +117,7 @@ def kustomize(ir: IR) -> dict[str, str]:
                "namespace": app, "resources": ["../../base"],
                "images": [{"name": app, "newName": image_name, "newTag": "latest"}]}
     root = "deploy/kustomize"
+    ir.cover("kustomize")
     return {
         f"{root}/base/deployment.yaml": dump_yaml(deployment),
         f"{root}/base/service.yaml": dump_yaml(service),
@@ -140,6 +143,7 @@ def argo_cd(ir: IR) -> dict[str, str]:
                            "syncOptions": ["CreateNamespace=true"]},
         },
     }
+    ir.cover("argo-cd")
     return {"deploy/argocd/application.yaml": dump_yaml(app)}
 
 
@@ -162,6 +166,7 @@ def flux(ir: IR) -> dict[str, str]:
                        "sourceRef": {"kind": "GitRepository", "name": "gitops"},
                        "targetNamespace": ir.app}}
         docs = [repo, ks]
+    ir.cover("flux")
     return {"deploy/flux/gitops.yaml": dump_yaml_docs(docs)}
 
 
@@ -200,13 +205,17 @@ def ansible(ir: IR) -> dict[str, str]:
         ],
     }]
     if ir.has("k3s"):
+        from .extras import k3s_exec_flags
         site.append({
             "name": "Installer k3s",
             "hosts": "k3s",
             "become": True,
             "tasks": [{"name": "Installer k3s (script officiel)",
                        "ansible.builtin.shell": "curl -sfL https://get.k3s.io | sh -",
+                       "environment": {"INSTALL_K3S_EXEC": k3s_exec_flags(ir)},
                        "args": {"creates": "/usr/local/bin/k3s"}}],
         })
+        ir.cover("k3s")
     files["ansible/site.yml"] = dump_yaml(site)
+    ir.cover("ansible")
     return files

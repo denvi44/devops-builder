@@ -49,6 +49,17 @@ def main() -> int:
     app.processEvents()
     win.grab().save(str(out / f"03-glisser{suffix}.png"))
     win.canvas.clear_highlight()
+
+    # 4. Paramètres typés : une région invalide et une clé mal orthographiée
+    p = Project.load(DATA_DIR / "examples" / "03-iac-aws-eks.devops.yaml")
+    eks = p.bricks_for("eks")[0]
+    eks.params = {"cluster_name": "plateforme-prod", "region": "Paris", "versoin": "1.33"}
+    win._load(p, None)
+    win._focus_brick(eks.uid)
+    win.diagnostics.tree.setCurrentItem(win.diagnostics.tree.topLevelItem(0))
+    win._focus_brick(eks.uid)
+    app.processEvents()
+    win.grab().save(str(out / f"04-parametres{suffix}.png"))
     print("captures écrites dans", out)
     return 0
 

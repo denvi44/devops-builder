@@ -8,10 +8,14 @@ Application de bureau Python, en Material Design, pour composer un pipeline DevO
 
 - **Catalogue** : 132 fiches vérifiées (outils, services managés, fournisseurs cloud) et l'ensemble du Landscape consultable, soit 1 192 entrées. Les entrées sans fiche sont marquées « non vérifiées ».
 - **Canevas** : neuf étapes en colonnes (source → observabilité). On y glisse des briques depuis la palette, ou on les ajoute par double-clic. Chaque outil n'accepte que ses étapes : pendant un glisser, les colonnes compatibles sont mises en évidence, les autres grisées, et un dépôt hors étape est refusé avec un message.
-- **Contrôle continu** : 26 règles (R00 à R25) couvrant le placement dans les étapes, la cible d'hébergement, l'exclusivité de rôle, les dépendances, les contrats entre étapes, la forge, le cycle de vie, la licence et la conformité (SecNumCloud, clés statiques). Chaque diagnostic propose des corrections en un clic, annulables.
+- **Contrôle continu** : 35 règles (R00 à R34) couvrant le placement dans les étapes, la complétude du pipeline, la cible d'hébergement, l'exclusivité de rôle, les dépendances, les contrats entre étapes, la forge, le cycle de vie, les paramètres, la licence et la conformité (SecNumCloud, clés statiques). Chaque diagnostic propose des corrections en un clic, annulables.
+- **Complétude** : un pipeline incomplet n'est plus déclaré prêt. C'est le cas d'une image construite sans registre, d'étapes sans orchestrateur CI, d'un outil privé d'une capacité requise (forge, CNI, coffre de secrets…) ou d'une cible Kubernetes sans cluster. Une brique pour laquelle aucun fichier n'est produit est signalée (R31), selon la même logique que le rapport.
+- **Paramètres typés** : les briques qui ont des réglages (clusters, registres, buckets, fournisseurs) affichent un formulaire avec listes de régions et contrôle des formats de nommage de chaque cloud. Une clé mal orthographiée est détectée avec la correction proposée, et une valeur d'exemple restée en place est signalée. Les valeurs saisies, comme le rôle IAM ou le projet GCP, sont écrites dans la CI au lieu d'être laissées à déclarer.
 - **Génération** : définitions CI, déploiement, IaC et plateforme, avec un rapport `PIPELINE.md` qui liste les briques, les licences, les variables CI à déclarer et les avertissements restants.
 
 ![Diagnostics et corrections](docs/captures/02-diagnostics.png)
+
+![Paramètres typés](docs/captures/04-parametres.png)
 
 ## Installation
 
@@ -56,10 +60,13 @@ devops-builder generate projet.devops.yaml -o sortie/   # --force pour passer ou
 | CI | GitLab CI, GitHub Actions, Gitea Actions, Jenkinsfile, Woodpecker, Tekton, Azure Pipelines, AWS CodeBuild, Google Cloud Build |
 | Déploiement | Docker Compose, chart Helm, Kustomize, Application Argo CD, Flux (GitRepository + Kustomization ou HelmRelease), playbooks Ansible |
 | Infrastructure | Terraform / OpenTofu : providers, backend d'état, ressources AWS, Google Cloud, Azure, OVHcloud, Scaleway |
-| Plateforme | `platform/install.sh` (charts Helm officiels) ou services Compose sur hôte Docker |
+| Clusters autogérés | Scripts d'installation k3s, RKE2, kubeadm, MicroK8s, kind, minikube, réglés selon le CNI et l'entrée choisis (par exemple, k3s sans Flannel ni Traefik intégrés quand Cilium et Traefik sont dans le pipeline) |
+| Plateforme | `platform/install.sh` (charts Helm officiels, sans réinstaller ce que le cluster fournit déjà) ou services Compose sur hôte Docker |
+| Dépendances | `renovate.json`, `.github/dependabot.yml` (écosystèmes déduits du langage, du build, de la CI et de l'IaC) |
+| Observabilité managée | Module CloudWatch sur EKS, Azure Monitor (Log Analytics) sur AKS ; Cloud Monitoring, intégré à GKE, est noté dans le rapport |
 | Authentification cloud | OIDC par défaut : rôle IAM, Workload Identity Federation, fédération Entra ID |
 
-Les fichiers générés sont un point de départ à relire. Les tests valident chaque sortie YAML contre les schémas officiels (GitLab CI, GitHub Workflows, Azure Pipelines, Cloud Build, Woodpecker, Compose) et passent les workflows GitHub dans actionlint. `terraform validate`, `helm lint` et `ansible-lint` ne sont pas exécutés : ils demandent un accès réseau aux registres de providers et de charts.
+Les fichiers générés sont un point de départ à relire. Les tests valident chaque sortie YAML contre les schémas officiels (GitLab CI, GitHub Workflows, Azure Pipelines, Cloud Build, Woodpecker, Compose, Renovate, Dependabot) et passent les workflows GitHub dans actionlint. `terraform validate`, `helm lint` et `ansible-lint` ne sont pas exécutés : ils demandent un accès réseau aux registres de providers et de charts.
 
 ## Organisation du code
 
@@ -69,9 +76,11 @@ devops_builder/
   catalog.py        chargement des fiches + index du Landscape
   rules.py          moteur de règles, handlers génériques, corrections
   ir.py             représentation intermédiaire neutre du pipeline
-  generators/       ci, deploy, iac, platform, report
+  generators/       ci, deploy, iac, platform, extras (dépendances, clusters), report
   ui/               interface PySide6 + qt-material
+  params.py         validation et valeurs effectives des paramètres
   data/catalog/     fiches YAML (une par outil)
+  data/params.yaml  schémas des paramètres de briques
   data/rules/       une règle YAML par fichier
   data/examples/    projets de référence
 tools/
@@ -84,11 +93,13 @@ tests/              règles, générateurs, interface (hors écran)
 
 Ajouter une entrée dans un fichier de `data/catalog/` : étape principale (`stage`) et, s'il le faut, étapes secondaires (`extra_stages`), rôles, cibles (`hosting`), capacités fournies et requises, forge, fournisseur, cycle de vie, date de vérification. Le schéma est validé au chargement.
 
+Si l'outil a des réglages, décrire ses paramètres dans `data/params.yaml` : libellé, type, valeur par défaut (`{app}` = nom de l'image du projet), valeur d'exemple, liste de choix ou de suggestions, motif et explication du format. Le formulaire et les règles R32 à R34 s'en déduisent. Une valeur par défaut qui ne respecte pas son propre motif est refusée au chargement.
+
 Un outil ne peut être posé que dans `stage` ou `extra_stages`. Par exemple, Ansible va en Infrastructure ou Déploiement, et Trivy en Sécurité ou Tests & qualité. Les entrées non vérifiées du Landscape reçoivent des étapes déduites de leur sous-catégorie. La règle R25 bloque la génération si un fichier `.devops.yaml` édité à la main place une brique ailleurs, et propose de la déplacer.
 
 ### Ajouter une règle
 
-Créer `data/rules/R25_....yaml` avec un `type` existant (`exclusive_role`, `conflict_pair`, `requires`, `lifecycle`, `target_mismatch`…), puis ajouter son cas dans `tests/test_rules.py`. Un nouveau type de règle s'écrit comme un handler dans `rules.py`.
+Créer `data/rules/R35_....yaml` avec un `type` existant (`exclusive_role`, `conflict_pair`, `requires`, `requires_generic`, `lifecycle`, `target_mismatch`, `params`…), puis ajouter son cas dans `tests/test_rules.py`. Un nouveau type de règle s'écrit comme un handler dans `rules.py`.
 
 ### Rafraîchir le Landscape
 
@@ -106,11 +117,13 @@ pip install -e ".[dev]"
 QT_QPA_PLATFORM=offscreen pytest
 ```
 
-95 tests : un par règle, l'application de chaque correction proposée, une matrice de 11 combinaisons CI × déploiement × cloud validées contre les schémas, et l'interface pilotée hors écran, y compris de vrais événements de glisser-déposer refusés et acceptés.
+140 tests : un par règle, l'application de chaque correction proposée, une matrice de 16 combinaisons CI × déploiement × cloud validées contre les schémas, avec contrôle qu'aucune brique n'y reste sans fichier, et l'interface pilotée hors écran : glisser-déposer, formulaire de paramètres. Toute exception levée dans un slot Qt fait échouer le test en cours.
 
 ## Limites connues
 
 - Les fiches sont datées du 8 octobre 2026 ; le cycle de vie des outils évolue vite (ingress-nginx, Kaniko, AWS App Mesh, Google Container Registry y sont déjà signalés).
-- OKS (Outscale) n'a pas de ressource Terraform générée : sa prise en charge par le provider `outscale/outscale` reste à vérifier.
+- OKS (Outscale) et Azure Container Apps n'ont pas de ressource Terraform générée : seul un commentaire est écrit, et R31 les signale. La prise en charge d'OKS par le provider `outscale/outscale` reste à vérifier.
+- RKE2 : le contrôleur d'entrée embarqué dépend de la version ; le script indique comment le désactiver mais ne le fait pas.
+- Renovate hors GitHub : `renovate.json` est généré, mais le job planifié qui lance Renovate reste à créer (expliqué dans `PIPELINE.md`).
 - Une brique issue du Landscape sans fiche n'est contrôlée par aucune règle et ne produit aucun fichier.
 - L'authentification cloud par OIDC n'est générée que pour GitLab CI et GitHub Actions. Gitea Actions reprend les actions GitHub, mais l'émission du jeton dépend de l'instance. Jenkins, Woodpecker, Tekton, Azure Pipelines et Cloud Build reposent sur des secrets ou sur l'identité du service.

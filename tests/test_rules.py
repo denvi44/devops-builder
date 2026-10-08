@@ -59,7 +59,22 @@ CASES = [
     ("R23", lambda: put(make(), "harbor", "trivy"), Severity.INFO),
     ("R24", lambda: put(make(), "terraform"), Severity.INFO),
     ("R25", lambda: _misplaced("traefik", "test"), Severity.BLOCKING),
+    ("R26", lambda: put(make("docker-host"), "github", "github-actions", "buildkit"), Severity.BLOCKING),
+    ("R27", lambda: put(make("docker-host"), "gitlab", "gitlab-ci", "docker-compose"), Severity.WARNING),
+    ("R28", lambda: put(make("docker-host"), "docker-compose"), Severity.BLOCKING),
+    ("R29", lambda: put(make(), "kubeadm"), Severity.BLOCKING),
+    ("R30", lambda: put(make("kubernetes-managed"), "helm"), Severity.WARNING),
+    ("R31", lambda: put(make(), "packer"), Severity.INFO),
+    ("R32", lambda: _with_params("eks", region="Paris"), Severity.BLOCKING),
+    ("R33", lambda: _with_params("eks", clustr_name="prod"), Severity.WARNING),
+    ("R34", lambda: _with_params("eks"), Severity.WARNING),
 ]
+
+
+def _with_params(tool_id: str, **params) -> Project:
+    p = put(make("kubernetes-managed"), "aws", tool_id)
+    p.bricks_for(tool_id)[0].params = dict(params)
+    return p
 
 
 def _misplaced(tool_id: str, stage: str) -> Project:
@@ -161,3 +176,74 @@ def test_exemples_bien_places():
     from pathlib import Path
     for path in (Path(__file__).parents[1] / "devops_builder" / "data" / "examples").glob("*.yaml"):
         assert "R25" not in ids(Project.load(path)), path.name
+
+
+# ---------------------------------------------------------------- complétude
+def _diag(p, rule_id):
+    return next(d for d in ENGINE.evaluate(p) if d.rule_id == rule_id)
+
+
+def test_r26_registre_integre_de_gitlab():
+    assert "R26" not in ids(put(make("docker-host"), "gitlab", "gitlab-ci", "buildkit"))
+
+
+def test_r26_propose_le_registre_du_cloud_present():
+    d = _diag(put(make("kubernetes-managed"), "github", "github-actions", "buildkit", "gcp"), "R26")
+    assert d.actions[0].args["tool"] == "artifact-registry"
+
+
+def test_r28_propose_la_ci_native_de_la_forge():
+    d = _diag(put(make("docker-host"), "gitea", "docker-compose"), "R28")
+    assert d.actions[0].args["tool"] == "gitea-actions"
+    apply_action(p := put(make("docker-host"), "gitea", "docker-compose"), _diag(p, "R28").actions[0], CATALOG)
+    assert "R28" not in ids(p)
+
+
+def test_r29_propose_la_forge_compatible_avec_la_ci():
+    d = _diag(put(make(), "gitlab-ci"), "R29")
+    assert d.actions[0].args["tool"] == "gitlab"
+
+
+def test_r29_ne_double_pas_les_regles_dediees():
+    found = [d.rule_id for d in ENGINE.evaluate(put(make(), "thanos"))]
+    assert found.count("R07") == 1
+    assert "R29" in found  # Thanos exige aussi un stockage objet, non couvert par R07
+
+
+def test_r30_cluster_manage_et_cible_autogeree():
+    d = _diag(put(make("kubernetes"), "aws", "eks"), "R30")
+    apply_action(p := put(make("kubernetes"), "aws", "eks"), d.actions[0], CATALOG)
+    assert p.target == "kubernetes-managed"
+
+
+def test_r31_disparait_quand_un_fichier_est_produit():
+    sans_eks = put(make("kubernetes-managed"), "gitlab", "gitlab-ci", "aws", "opentofu", "cloudwatch")
+    assert ids(sans_eks).get("R31") is Severity.INFO
+    avec_eks = put(make("kubernetes-managed"), "gitlab", "gitlab-ci", "aws", "opentofu", "eks", "cloudwatch")
+    assert "R31" not in ids(avec_eks)  # module complémentaire EKS généré
+
+
+# ---------------------------------------------------------------- paramètres
+def test_r33_renommer_la_cle():
+    p = _with_params("eks", clustr_name="prod")
+    d = _diag(p, "R33")
+    apply_action(p, d.actions[0], CATALOG)
+    assert p.bricks_for("eks")[0].params == {"cluster_name": "prod"}
+    assert "R33" not in ids(p)
+
+
+def test_r32_valeur_deduite_du_projet():
+    p = put(make("kubernetes-managed"), "gcp", "artifact-registry")
+    p.app.image_name = "Mon_App"
+    assert ids(p).get("R32") is Severity.BLOCKING
+
+
+def test_r32_url_avec_schema_refusee():
+    p = put(make(), "harbor")
+    p.bricks_for("harbor")[0].params = {"url": "https://registry.example.com"}
+    assert "nom d'hôte" in _diag(p, "R32").message
+
+
+def test_r34_disparait_quand_renseigne():
+    p = _with_params("eks", cluster_name="prod")
+    assert "R34" not in ids(p) and "R32" not in ids(p)

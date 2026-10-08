@@ -39,15 +39,20 @@ def report(ir: IR, diagnostics: list[Diagnostic], files: list[str]) -> dict[str,
             extra = f" ({', '.join(flags)})" if flags else ""
             out.append(f"{i}. {st.name}{extra}")
     if ir.variables:
-        out += ["", "## Variables CI à déclarer", "", "| Variable | Secret | Rôle |", "| --- | --- | --- |"]
+        out += ["", "## Variables CI", "",
+                "Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà écrites dans les fichiers.", "",
+                "| Variable | Secret | Valeur | Rôle |", "| --- | --- | --- | --- |"]
         for v in ir.variables:
-            out.append(f"| `{v.name}` | {'oui' if v.secret else 'non'} | {v.description} |")
+            value = f"`{v.value}`" if v.value else "à déclarer"
+            out.append(f"| `{v.name}` | {'oui' if v.secret else 'non'} | {value} | {v.description} |")
     remaining = [d for d in diagnostics]
     out += ["", "## Diagnostics restants", ""]
     if not remaining:
         out.append("Aucun.")
     for d in remaining:
         out.append(f"- **{d.severity.label}** ({d.rule_id}) — {d.message}")
+    if ir.notes:
+        out += ["", "## Notes", ""] + [f"- {n}" for n in ir.notes]
     if ir.unsupported:
         out += ["", "## À configurer à la main", "",
                 "Ces briques sont dans le pipeline mais aucun générateur ne les prend en charge :", ""]

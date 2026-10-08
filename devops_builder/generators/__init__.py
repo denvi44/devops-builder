@@ -45,20 +45,23 @@ class GenerationResult:
         return buf.getvalue()
 
 
-def generate(project: Project, catalog: Catalog, engine: RuleEngine | None = None,
-             allow_blocking: bool = False) -> GenerationResult:
-    from . import ci, deploy, iac, platform, report
+def render(project: Project, catalog: Catalog) -> tuple[dict[str, str], IR]:
+    """Produit les fichiers sans évaluer les règles ; renseigne ir.covered et ir.unsupported.
 
-    engine = engine or RuleEngine(catalog)
-    diagnostics = engine.evaluate(project)
-    blocking = RuleEngine.blocking(diagnostics)
-    if blocking and not allow_blocking:
-        raise BlockingDiagnostics(blocking)
+    Utilisé par generate() et par la règle R31 : le rapport et le diagnostic
+    disent donc exactement la même chose.
+    """
+    from . import ci, deploy, extras, iac, platform
 
     ir = build_ir(project, catalog)
     files: dict[str, str] = {}
     if ir.ci and ir.ci.id in ci.RENDERERS:
         files.update(ci.RENDERERS[ir.ci.id](ir))
+        ir.cover(ir.ci.id, *(st.tool for st in ir.steps))
+        for st in ir.steps:
+            ir.cover(*st.cloud)
+    if ir.forge:
+        ir.cover(ir.forge.id)  # brique de contexte : elle oriente CI, registre et GitOps
     if ir.has("docker-compose"):
         files.update(deploy.compose(ir))
     if ir.has("helm"):
@@ -74,6 +77,30 @@ def generate(project: Project, catalog: Catalog, engine: RuleEngine | None = Non
     if ir.iac and ir.iac.id in ("terraform", "opentofu") or ir.providers:
         files.update(iac.terraform(ir))
     files.update(platform.platform_files(ir))
+    files.update(extras.renovate(ir))
+    files.update(extras.dependabot(ir))
+    files.update(extras.clusters(ir))
+    if ir.registry and files:
+        ir.cover(ir.registry.id)  # sa référence d'image est écrite dans la CI ou le déploiement
+    seen: set[str] = set()
+    for _, b in project.all_bricks():
+        tool = catalog.get(b.tool)
+        if tool and tool.id not in ir.covered and tool.id not in seen:
+            ir.unsupported.append(tool)
+            seen.add(tool.id)
+    return files, ir
+
+
+def generate(project: Project, catalog: Catalog, engine: RuleEngine | None = None,
+             allow_blocking: bool = False) -> GenerationResult:
+    from . import report
+
+    engine = engine or RuleEngine(catalog)
+    diagnostics = engine.evaluate(project)
+    blocking = RuleEngine.blocking(diagnostics)
+    if blocking and not allow_blocking:
+        raise BlockingDiagnostics(blocking)
+    files, ir = render(project, catalog)
     files.update(report.report(ir, diagnostics, list(files) + ["PIPELINE.md", "devops-builder.yaml"]))
     files["devops-builder.yaml"] = project.to_yaml()
     return GenerationResult(files=files, ir=ir, diagnostics=diagnostics)

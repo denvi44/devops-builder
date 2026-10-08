@@ -296,7 +296,7 @@ class MainWindow(QMainWindow):
             if found:
                 tool = self.catalog.get(found[2].tool)
                 if tool:
-                    self.properties.show_tool(tool, found[2])
+                    self.properties.show_tool(tool, found[2], self.project)
                     return
         self.properties.show_empty()
 
@@ -421,7 +421,7 @@ class MainWindow(QMainWindow):
         tool = self.catalog.get(tool_id)
         if tool:
             existing = self.project.bricks_for(tool_id)
-            self.properties.show_tool(tool, existing[0] if existing else None)
+            self.properties.show_tool(tool, existing[0] if existing else None, self.project)
 
     def _focus_search(self) -> None:
         self.palette_dock.show()

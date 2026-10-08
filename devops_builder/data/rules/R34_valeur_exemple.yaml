@@ -1,0 +1,8 @@
+id: R34
+title: Valeur d'exemple conservée
+family: parametres
+severity: avertissement
+type: params
+params:
+  kinds: [example]
+message: "Valeur d'exemple"

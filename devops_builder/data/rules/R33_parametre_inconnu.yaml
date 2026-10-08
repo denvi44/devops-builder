@@ -1,0 +1,8 @@
+id: R33
+title: Paramètre inconnu
+family: parametres
+severity: avertissement
+type: params
+params:
+  kinds: [unknown]
+message: "Paramètre inconnu"

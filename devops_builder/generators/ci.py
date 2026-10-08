@@ -25,7 +25,8 @@ def gitlab_ci(ir: IR) -> dict[str, str]:
     used = [s for s in STAGE_ORDER if any(st.stage == s for st in steps)]
     doc: dict = {
         "stages": used,
-        "variables": {"TAG": "$CI_COMMIT_SHORT_SHA", "IMAGE": _image_value(ir, "$CI_COMMIT_SHORT_SHA")},
+        "variables": {"TAG": "$CI_COMMIT_SHORT_SHA", "IMAGE": _image_value(ir, "$CI_COMMIT_SHORT_SHA"),
+                      **{v.name: v.value for v in ir.variables if v.value and not v.secret}},
     }
     oidc = ir.project.cloud_auth == "oidc"
     for st in steps:
@@ -70,29 +71,39 @@ def _gha_cloud_steps(ir: IR, clouds: list[str]) -> list[dict]:
     static = ir.project.cloud_auth == "static"
     for c in clouds:
         if c == "aws":
-            w = {"aws-region": "${{ vars.AWS_REGION }}"}
+            w = {"aws-region": _gha_ref(ir, "AWS_REGION")}
             if static:
                 w |= {"aws-access-key-id": "${{ secrets.AWS_ACCESS_KEY_ID }}",
                       "aws-secret-access-key": "${{ secrets.AWS_SECRET_ACCESS_KEY }}"}
             else:
-                w["role-to-assume"] = "${{ vars.AWS_ROLE_ARN }}"
+                w["role-to-assume"] = _gha_ref(ir, "AWS_ROLE_ARN")
             out.append({"uses": "aws-actions/configure-aws-credentials@v4", "with": w})
         elif c == "gcp":
             w = ({"credentials_json": "${{ secrets.GCP_SA_KEY }}"} if static else
-                 {"workload_identity_provider": "${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}",
-                  "service_account": "${{ vars.GCP_SERVICE_ACCOUNT }}"})
+                 {"workload_identity_provider": _gha_ref(ir, "GCP_WORKLOAD_IDENTITY_PROVIDER"),
+                  "service_account": _gha_ref(ir, "GCP_SERVICE_ACCOUNT")})
             out.append({"uses": "google-github-actions/auth@v2", "with": w})
         elif c == "azure":
-            w = {"client-id": "${{ vars.AZURE_CLIENT_ID }}", "tenant-id": "${{ vars.AZURE_TENANT_ID }}",
-                 "subscription-id": "${{ vars.AZURE_SUBSCRIPTION_ID }}"}
+            w = {"client-id": _gha_ref(ir, "AZURE_CLIENT_ID"), "tenant-id": _gha_ref(ir, "AZURE_TENANT_ID"),
+                 "subscription-id": _gha_ref(ir, "AZURE_SUBSCRIPTION_ID")}
             if static:
                 w = {"creds": "${{ secrets.AZURE_CREDENTIALS }}"}
             out.append({"uses": "azure/login@v2", "with": w})
     return out
 
 
+def _gha_ref(ir: IR, name: str) -> str:
+    """Valeur littérale si le paramètre est renseigné, sinon référence à une variable de dépôt."""
+    var = next((v for v in ir.variables if v.name == name), None)
+    if var is not None and var.value and not var.secret:
+        return var.value
+    return "${{ vars." + name + " }}"
+
+
 def _gha_env_value(ir: IR, name: str) -> str:
     var = next((v for v in ir.variables if v.name == name), None)
+    if var is not None and var.value and not var.secret:
+        return var.value
     kind = "secrets" if (var is None or var.secret) else "vars"
     return "${{ " + f"{kind}.{name}" + " }}"
 
@@ -174,7 +185,7 @@ def jenkinsfile(ir: IR) -> dict[str, str]:
     plain = [v for v in ir.variables if not v.secret]
     env_lines = ["TAG = \"${env.GIT_COMMIT?.take(8)}\"", f"IMAGE = \"{ir.image_ref}:${{env.GIT_COMMIT?.take(8)}}\""]
     env_lines += [f"{v.name} = credentials('{v.name.lower().replace('_', '-')}')" for v in secrets]
-    env_lines += [f"{v.name} = '{'à-renseigner'}' // {v.description}" for v in plain]
+    env_lines += [f"{v.name} = '{v.value or 'à-renseigner'}' // {v.description}" for v in plain]
     stages = []
     for st in _ordered(ir):
         if st.docker:
@@ -222,7 +233,7 @@ def woodpecker(ir: IR) -> dict[str, str]:
         if st.docker:
             w["volumes"] = ["/var/run/docker.sock:/var/run/docker.sock"]
         env: dict = {v.name: {"from_secret": v.name.lower()} for v in ir.variables if v.secret}
-        env.update({v.name: "à-renseigner" for v in ir.variables if not v.secret})
+        env.update({v.name: v.value or "à-renseigner" for v in ir.variables if not v.secret})
         if env:
             w["environment"] = env
         if st.main_only:

@@ -1,0 +1,12 @@
+id: R29
+title: Capacité requise absente
+family: dependance
+severity: bloquant
+type: requires_generic
+params:
+  # Couples déjà traités par une règle dédiée (message et gravité spécifiques).
+  skip:
+    - [thanos, metrics-prometheus]   # R07
+    - [velero, object-storage]       # R08
+    - [jaeger, trace-storage]        # R19, seulement en production
+message: "{tool} a besoin {capability} : aucune brique du pipeline n'en fournit."

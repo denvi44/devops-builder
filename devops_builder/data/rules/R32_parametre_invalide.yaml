@@ -1,0 +1,8 @@
+id: R32
+title: Paramètre invalide ou manquant
+family: parametres
+severity: bloquant
+type: params
+params:
+  kinds: [invalid, missing]
+message: "Paramètre invalide"

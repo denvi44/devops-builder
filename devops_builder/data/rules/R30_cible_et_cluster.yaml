@@ -1,0 +1,6 @@
+id: R30
+title: Cible d'hébergement et cluster incohérents
+family: cible
+severity: avertissement
+type: target_cluster
+message: "La cible est « {target} » mais aucun cluster n'est décrit dans le pipeline."

@@ -1,0 +1,6 @@
+id: R27
+title: Déploiement sans construction d'image
+family: completude
+severity: avertissement
+type: deploy_without_build
+message: "{tools} déploie l'image « {app} » sans qu'aucune étape ne la construise : ajouter un build, ou vérifier que l'image est publiée ailleurs."

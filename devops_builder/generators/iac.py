@@ -60,6 +60,16 @@ def _resource(ir: IR, tool_id: str) -> str | None:
     p = ir.params(tool_id)
     app = ir.app
     if tool_id == "eks":
+        cw_policy = cw_addon = ""
+        if ir.has("cloudwatch"):
+            cw_policy = ('\n\n      iam_role_additional_policies = {\n'
+                         '        CloudWatchAgentServerPolicy = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"\n'
+                         '      }')
+            cw_addon = ('\n\n# --- Amazon CloudWatch (Container Insights)\n'
+                        'resource "aws_eks_addon" "cloudwatch" {\n'
+                        '  cluster_name = module.eks.cluster_name\n'
+                        '  addon_name   = "amazon-cloudwatch-observability"\n}')
+            ir.cover("cloudwatch")
         return f'''module "eks" {{
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.0"
@@ -74,10 +84,10 @@ def _resource(ir: IR, tool_id: str) -> str | None:
       instance_types = ["t3.large"]
       min_size       = 2
       max_size       = 4
-      desired_size   = 2
+      desired_size   = 2{cw_policy}
     }}
   }}
-}}'''
+}}{cw_addon}'''
     if tool_id == "ecr":
         return f'resource "aws_ecr_repository" "app" {{\n  name                 = "{p.get("repository", app)}"\n  image_tag_mutability = "IMMUTABLE"\n\n  image_scanning_configuration {{\n    scan_on_push = true\n  }}\n}}'
     if tool_id == "aws-secrets-manager":
@@ -86,6 +96,9 @@ def _resource(ir: IR, tool_id: str) -> str | None:
         return (f"# Le bucket {p.get('bucket')} porte l'état de cette pile : il est créé à part (amorçage),\n"
                 "# pas par la pile qui l'utilise.")
     if tool_id == "gke":
+        if ir.has("cloud-monitoring"):
+            ir.notes.append("Cloud Monitoring et Cloud Logging sont actifs par défaut sur GKE Autopilot : rien à installer.")
+            ir.cover("cloud-monitoring")
         return f'''resource "google_container_cluster" "main" {{
   name     = "{p.get("cluster_name")}"
   location = "{p.get("region", "europe-west9")}"
@@ -130,6 +143,17 @@ def _azure(ir: IR, tool_id: str, p: dict) -> str:
     app = ir.app
     loc = ir.params("azure").get("location", "francecentral")
     if tool_id == "aks":
+        oms = workspace = ""
+        if ir.has("azure-monitor"):
+            oms = ("\n\n  oms_agent {\n    log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id\n  }")
+            workspace = ('\n\n# --- Azure Monitor (Container Insights)\n'
+                         'resource "azurerm_log_analytics_workspace" "main" {\n'
+                         f'  name                = "log-{app}"\n'
+                         '  location            = azurerm_resource_group.main.location\n'
+                         '  resource_group_name = azurerm_resource_group.main.name\n'
+                         '  sku                 = "PerGB2018"\n'
+                         '  retention_in_days   = 30\n}')
+            ir.cover("azure-monitor")
         return f'''resource "azurerm_kubernetes_cluster" "main" {{
   name                = "{p.get("cluster_name")}"
   location            = azurerm_resource_group.main.location
@@ -144,8 +168,8 @@ def _azure(ir: IR, tool_id: str, p: dict) -> str:
 
   identity {{
     type = "SystemAssigned"
-  }}
-}}'''
+  }}{oms}
+}}{workspace}'''
     if tool_id == "acr":
         return (f'resource "azurerm_container_registry" "main" {{\n  name                = "{p.get("registry_name", "monappregistry")}"\n'
                 f'  resource_group_name = azurerm_resource_group.main.name\n  location            = azurerm_resource_group.main.location\n'
@@ -161,6 +185,9 @@ def _azure(ir: IR, tool_id: str, p: dict) -> str:
         return "# Azure Container Apps : ajouter azurerm_container_app_environment et azurerm_container_app."
     return ""
 
+
+# Ressources pour lesquelles seul un commentaire est écrit : elles restent à configurer.
+COMMENT_ONLY = {"oks", "azure-container-apps"}
 
 IAC_RESOURCES = {
     "eks", "ecr", "aws-secrets-manager", "s3", "gke", "artifact-registry", "gcr", "gcp-secret-manager",
@@ -188,6 +215,11 @@ def terraform(ir: IR) -> dict[str, str]:
             res = _resource(ir, b.tool)
             if res:
                 main_parts.append(f"# --- {ir.catalog[b.tool].name}\n{res}")
+                if b.tool not in COMMENT_ONLY:
+                    ir.cover(b.tool)
+    ir.cover(*(p.id for p in ir.providers))
+    if ir.iac and ir.iac.id in ("terraform", "opentofu"):
+        ir.cover(ir.iac.id)
     variables = [f"# {HEADER}"]
     if ir.has("eks"):
         variables += ['variable "vpc_id" {\n  type        = string\n  description = "VPC du cluster EKS"\n}',
