@@ -1,0 +1,11 @@
+id: R19
+title: Jaeger sans stockage persistant en production
+family: dependance
+severity: avertissement
+type: requires
+params:
+  tool: jaeger
+  capability: trace-storage
+  environments: [production]
+  add: [opensearch]
+message: "{tool} garde ses traces en mémoire sans backend de stockage : ajouter un stockage persistant pour la production."

@@ -1,0 +1,9 @@
+id: R17
+title: Docker Compose avec une cible Kubernetes
+family: contrat
+severity: avertissement
+type: target_mismatch
+params:
+  tool: docker-compose
+  targets: [kubernetes, kubernetes-managed]
+message: "{tool} ne se déploie pas sur « {target} » : convertir en chart Helm."

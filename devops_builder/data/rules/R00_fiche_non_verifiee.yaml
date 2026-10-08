@@ -1,0 +1,6 @@
+id: R00
+title: Brique issue du Landscape sans fiche
+family: catalogue
+severity: info
+type: unverified
+message: "{tool} vient du Landscape sans fiche de compatibilité : aucune règle ne peut la vérifier, et aucun fichier n'est généré pour elle."

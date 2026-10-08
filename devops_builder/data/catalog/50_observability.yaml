@@ -1,0 +1,155 @@
+# Fiches : observabilité. Vérifiées le 2026-10-08.
+
+- id: prometheus
+  name: Prometheus
+  stage: observability
+  roles: [metrics]
+  description: Collecte et stockage de métriques, alerting (Alertmanager).
+  license: Apache-2.0
+  hosting: [docker-host, vm, kubernetes]
+  provides: [metrics-prometheus]
+  verified: "2026-10-08"
+
+- id: thanos
+  name: Thanos
+  stage: observability
+  roles: [metrics-longterm]
+  description: Rétention longue durée et vue globale au-dessus de Prometheus.
+  license: Apache-2.0
+  hosting: [docker-host, vm, kubernetes]
+  requires: [metrics-prometheus, object-storage]
+  verified: "2026-10-08"
+
+- id: grafana
+  name: Grafana
+  stage: observability
+  roles: [dashboards]
+  description: Tableaux de bord multi-sources.
+  license: AGPL-3.0
+  hosting: [docker-host, vm, kubernetes, saas]
+  verified: "2026-10-08"
+
+- id: loki
+  name: Grafana Loki
+  stage: observability
+  roles: [logs]
+  description: Agrégation de journaux indexés par étiquettes.
+  license: AGPL-3.0
+  hosting: [docker-host, vm, kubernetes]
+  provides: [log-storage]
+  landscape_name: Grafana Loki
+  verified: "2026-10-08"
+
+- id: fluentd
+  name: Fluentd
+  stage: observability
+  roles: [log-shipper]
+  description: Collecte et routage de journaux.
+  license: Apache-2.0
+  hosting: [docker-host, vm, kubernetes]
+  verified: "2026-10-08"
+
+- id: fluent-bit
+  name: Fluent Bit
+  stage: observability
+  roles: [log-shipper]
+  description: Collecteur de journaux léger (rangé sous Fluentd dans le Landscape).
+  license: Apache-2.0
+  hosting: [docker-host, vm, kubernetes]
+  landscape_name: Fluentd
+  verified: "2026-10-08"
+
+- id: opensearch
+  name: OpenSearch
+  stage: observability
+  roles: [logs, search]
+  description: Moteur de recherche et d'analyse ; backend de stockage pour Jaeger.
+  license: Apache-2.0
+  hosting: [docker-host, vm, kubernetes]
+  provides: [log-storage, trace-storage]
+  verified: "2026-10-08"
+
+- id: jaeger
+  name: Jaeger
+  stage: observability
+  roles: [tracing]
+  description: Traçage distribué ; un stockage persistant est nécessaire en production.
+  license: Apache-2.0
+  hosting: [docker-host, vm, kubernetes]
+  requires: [trace-storage]
+  verified: "2026-10-08"
+
+- id: tempo
+  name: Grafana Tempo
+  stage: observability
+  roles: [tracing]
+  description: Stockage de traces sur stockage objet.
+  license: AGPL-3.0
+  hosting: [docker-host, vm, kubernetes]
+  provides: [trace-storage]
+  landscape_name: Grafana Tempo
+  verified: "2026-10-08"
+
+- id: otel-collector
+  name: OpenTelemetry Collector
+  stage: observability
+  roles: [telemetry-collector]
+  description: Collecte et export de traces, métriques et journaux (OTLP).
+  license: Apache-2.0
+  hosting: [docker-host, vm, kubernetes]
+  landscape_name: OpenTelemetry
+  verified: "2026-10-08"
+
+- id: opencost
+  name: OpenCost
+  stage: observability
+  roles: [cost]
+  description: Suivi des coûts Kubernetes.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  verified: "2026-10-08"
+
+- id: zabbix
+  name: Zabbix
+  stage: observability
+  roles: [metrics]
+  description: Supervision d'infrastructure classique (agents, SNMP).
+  license: AGPL-3.0
+  hosting: [docker-host, vm]
+  verified: "2026-10-08"
+
+- id: cloudwatch
+  name: Amazon CloudWatch
+  kind: service
+  stage: observability
+  roles: [metrics, logs]
+  description: Métriques et journaux managés AWS.
+  license: proprietary
+  hosting: [saas]
+  provider: aws
+  landscape_name: Amazon CloudWatch
+  verified: "2026-10-08"
+
+- id: cloud-monitoring
+  name: Google Cloud Monitoring et Logging
+  kind: service
+  stage: observability
+  roles: [metrics, logs, tracing]
+  description: Observabilité managée Google Cloud (anciennement Stackdriver).
+  license: proprietary
+  hosting: [saas]
+  provider: gcp
+  landscape_name: Google Stackdriver
+  verified: "2026-10-08"
+
+- id: azure-monitor
+  name: Azure Monitor
+  kind: service
+  stage: observability
+  roles: [metrics, logs, tracing]
+  description: Observabilité managée Azure (dont Application Insights).
+  license: proprietary
+  hosting: [saas]
+  provider: azure
+  landscape_name: Azure Monitor
+  verified: "2026-10-08"

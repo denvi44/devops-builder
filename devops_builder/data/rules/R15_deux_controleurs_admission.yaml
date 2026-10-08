@@ -1,0 +1,8 @@
+id: R15
+title: Deux contrôleurs d'admission
+family: exclusivite
+severity: avertissement
+type: exclusive_role
+params:
+  role: admission-policy
+message: "Deux contrôleurs d'admission ({tools}) appliqueraient des politiques en double : en garder un."

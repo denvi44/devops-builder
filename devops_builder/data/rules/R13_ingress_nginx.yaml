@@ -1,0 +1,8 @@
+id: R13
+title: ingress-nginx en fin de maintenance
+family: cycle-de-vie
+severity: avertissement
+type: lifecycle
+params:
+  tool: ingress-nginx
+message: "{tool} : {note} Passer à Gateway API."

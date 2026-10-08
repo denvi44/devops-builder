@@ -1,0 +1,10 @@
+id: R07
+title: Thanos sans Prometheus
+family: dependance
+severity: bloquant
+type: requires
+params:
+  tool: thanos
+  capability: metrics-prometheus
+  add: [prometheus]
+message: "{tool} s'appuie sur Prometheus, absent du pipeline."

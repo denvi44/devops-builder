@@ -1,0 +1,276 @@
+# Fiches : forges (Source) et outils de build / CI (Build)
+# Vérifiées le 2026-10-08.
+
+# ---------------------------------------------------------------- Forges
+- id: github
+  name: GitHub
+  stage: source
+  roles: [scm]
+  description: Forge Git hébergée (dépôts, revues, GitHub Actions, Packages).
+  homepage: https://github.com
+  license: proprietary
+  hosting: [saas]
+  provides: [git-server]
+  forge: github
+  landscape_name: GitHub Actions
+  verified: "2026-10-08"
+
+- id: gitlab
+  name: GitLab
+  stage: source
+  roles: [scm]
+  description: Forge Git avec CI intégrée et registre d'images ; édition CE autohébergeable.
+  homepage: https://about.gitlab.com
+  license: MIT
+  hosting: [saas, docker-host, vm, kubernetes]
+  provides: [git-server, registry-oci]
+  forge: gitlab
+  verified: "2026-10-08"
+
+- id: gitea
+  name: Gitea
+  stage: source
+  roles: [scm]
+  description: Forge Git légère autohébergée ; Gitea Actions reprend la syntaxe GitHub Actions.
+  homepage: https://about.gitea.com
+  license: MIT
+  hosting: [docker-host, vm, kubernetes]
+  provides: [git-server, registry-oci]
+  forge: gitea
+  compatible_ci: [github-actions]
+  verified: "2026-10-08"
+
+- id: bitbucket
+  name: Bitbucket Cloud
+  stage: source
+  roles: [scm]
+  description: Forge Git hébergée d'Atlassian.
+  homepage: https://bitbucket.org
+  license: proprietary
+  hosting: [saas]
+  provides: [git-server]
+  forge: bitbucket
+  verified: "2026-10-08"
+
+- id: azure-repos
+  name: Azure Repos
+  kind: service
+  stage: source
+  roles: [scm]
+  description: Dépôts Git d'Azure DevOps.
+  license: proprietary
+  hosting: [saas]
+  provides: [git-server]
+  forge: azure-devops
+  provider: azure
+  verified: "2026-10-08"
+
+- id: codecommit
+  name: AWS CodeCommit
+  kind: service
+  stage: source
+  roles: [scm]
+  description: Dépôts Git managés AWS ; de nouveau ouvert aux nouveaux clients depuis le 24 novembre 2025.
+  license: proprietary
+  hosting: [saas]
+  provides: [git-server]
+  forge: codecommit
+  provider: aws
+  verified: "2026-10-08"
+
+- id: secure-source-manager
+  name: Secure Source Manager
+  kind: service
+  stage: source
+  roles: [scm]
+  description: Forge Git managée de Google Cloud.
+  license: proprietary
+  hosting: [saas]
+  provides: [git-server]
+  forge: secure-source-manager
+  provider: gcp
+  verified: "2026-10-08"
+
+# ----------------------------------------------------------- Orchestrateurs CI
+- id: github-actions
+  name: GitHub Actions
+  stage: build
+  roles: [ci]
+  description: CI/CD intégrée à GitHub.
+  license: proprietary
+  hosting: [saas, ci]
+  forges: [github]
+  verified: "2026-10-08"
+
+- id: gitlab-ci
+  name: GitLab CI
+  stage: build
+  roles: [ci]
+  description: CI/CD intégrée à GitLab (.gitlab-ci.yml).
+  license: MIT
+  hosting: [saas, ci]
+  forges: [gitlab]
+  landscape_name: GitLab
+  verified: "2026-10-08"
+
+- id: gitea-actions
+  name: Gitea Actions
+  stage: build
+  roles: [ci]
+  description: CI intégrée à Gitea, syntaxe proche de GitHub Actions.
+  license: MIT
+  hosting: [ci]
+  forges: [gitea]
+  verified: "2026-10-08"
+
+- id: jenkins
+  name: Jenkins
+  stage: build
+  roles: [ci]
+  description: Serveur d'intégration continue autohébergé (Jenkinsfile déclaratif).
+  license: MIT
+  hosting: [docker-host, vm, kubernetes]
+  verified: "2026-10-08"
+
+- id: tekton
+  name: Tekton
+  stage: build
+  roles: [ci]
+  description: Pipelines CI/CD natifs Kubernetes (CRD Pipeline, Task).
+  license: Apache-2.0
+  hosting: [kubernetes]
+  alternatives_outside_k8s: [jenkins, woodpecker]
+  verified: "2026-10-08"
+
+- id: woodpecker
+  name: Woodpecker CI
+  stage: build
+  roles: [ci]
+  description: CI légère à base de conteneurs, compatible Gitea, GitHub, GitLab, Bitbucket.
+  license: Apache-2.0
+  hosting: [docker-host, vm, kubernetes]
+  forges: [github, gitlab, gitea, bitbucket]
+  landscape_name: Woodpecker CI
+  verified: "2026-10-08"
+
+- id: azure-pipelines
+  name: Azure Pipelines
+  kind: service
+  stage: build
+  roles: [ci]
+  description: CI/CD d'Azure DevOps.
+  license: proprietary
+  hosting: [saas]
+  forges: [azure-devops, github, bitbucket]
+  provider: azure
+  verified: "2026-10-08"
+
+- id: aws-codebuild
+  name: AWS CodeBuild
+  kind: service
+  stage: build
+  roles: [ci]
+  description: Service de build managé AWS (buildspec.yml).
+  license: proprietary
+  hosting: [saas]
+  forges: [codecommit, github, bitbucket, gitlab]
+  provider: aws
+  verified: "2026-10-08"
+
+- id: google-cloud-build
+  name: Google Cloud Build
+  kind: service
+  stage: build
+  roles: [ci]
+  description: Service de build managé Google Cloud (cloudbuild.yaml).
+  license: proprietary
+  hosting: [saas]
+  forges: [github, gitlab, bitbucket, secure-source-manager]
+  provider: gcp
+  verified: "2026-10-08"
+
+- id: argo-workflows
+  name: Argo Workflows
+  stage: build
+  roles: [workflow]
+  description: Moteur de workflows en conteneurs sur Kubernetes.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  landscape_name: Argo
+  verified: "2026-10-08"
+
+# ------------------------------------------------------------- Build d'images
+- id: buildkit
+  name: BuildKit (docker buildx)
+  stage: build
+  roles: [image-build]
+  description: Moteur de build d'images de Docker, utilisé par docker buildx.
+  license: Apache-2.0
+  hosting: [ci, cli]
+  provides: [oci-image]
+  verified: "2026-10-08"
+
+- id: buildah
+  name: Buildah
+  stage: build
+  roles: [image-build]
+  description: Build d'images OCI sans démon, rootless.
+  license: Apache-2.0
+  hosting: [ci, cli]
+  provides: [oci-image]
+  verified: "2026-10-08"
+
+- id: kaniko
+  name: Kaniko
+  stage: build
+  roles: [image-build]
+  description: Build d'images dans un conteneur sans démon Docker.
+  license: Apache-2.0
+  hosting: [ci, cli]
+  provides: [oci-image]
+  lifecycle: archived
+  lifecycle_note: Dépôt archivé le 3 juin 2025, plus maintenu.
+  replacements: [buildkit, buildah, buildpacks]
+  landscape_name: kaniko
+  verified: "2026-10-08"
+
+- id: buildpacks
+  name: Cloud Native Buildpacks
+  stage: build
+  roles: [image-build]
+  description: Construit une image depuis le code source sans Dockerfile (pack CLI).
+  license: Apache-2.0
+  hosting: [ci, cli]
+  provides: [oci-image]
+  landscape_name: Buildpacks
+  verified: "2026-10-08"
+
+- id: packer
+  name: Packer
+  stage: build
+  roles: [vm-image]
+  description: Construction d'images de machines virtuelles.
+  license: BSL-1.1
+  hosting: [ci, cli]
+  verified: "2026-10-08"
+
+# ------------------------------------------------------ Mises à jour de dépendances
+- id: renovate
+  name: Renovate
+  stage: build
+  roles: [dependency-update]
+  description: Ouvre automatiquement des merge requests de mise à jour des dépendances.
+  license: AGPL-3.0
+  hosting: [ci, saas]
+  forges: [github, gitlab, gitea, bitbucket, azure-devops]
+  verified: "2026-10-08"
+
+- id: dependabot
+  name: Dependabot
+  stage: build
+  roles: [dependency-update]
+  description: Mises à jour de dépendances intégrées à GitHub.
+  license: proprietary
+  hosting: [saas]
+  forges: [github]
+  verified: "2026-10-08"

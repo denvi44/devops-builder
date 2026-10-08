@@ -1,0 +1,6 @@
+id: R20
+title: Cluster et registre sur deux clouds différents
+family: contrat
+severity: avertissement
+type: cross_cloud
+message: "{cluster} tire ses images de {registry}, sur un autre cloud : authentification inter-cloud et frais de sortie à prévoir."

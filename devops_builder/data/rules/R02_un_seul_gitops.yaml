@@ -1,0 +1,8 @@
+id: R02
+title: Deux contrôleurs GitOps
+family: exclusivite
+severity: bloquant
+type: exclusive_role
+params:
+  role: gitops
+message: "Deux contrôleurs GitOps ({tools}) se disputeraient les mêmes ressources : n'en garder qu'un."

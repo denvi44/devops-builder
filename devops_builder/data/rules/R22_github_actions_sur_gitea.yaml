@@ -1,0 +1,8 @@
+id: R22
+title: Workflows GitHub Actions sur une forge compatible
+family: plateforme
+severity: avertissement
+type: forge
+params:
+  mode: compatible
+message: "{tool} sur {forge} : la syntaxe est reprise, mais chaque action tierce utilisée doit être vérifiée."

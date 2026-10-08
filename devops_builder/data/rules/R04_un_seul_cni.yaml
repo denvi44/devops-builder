@@ -1,0 +1,8 @@
+id: R04
+title: Plusieurs CNI
+family: exclusivite
+severity: bloquant
+type: exclusive_role
+params:
+  role: cni
+message: "Un seul CNI principal par cluster (sauf chaînage déclaré) ; présents : {tools}."

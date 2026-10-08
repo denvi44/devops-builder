@@ -1,0 +1,6 @@
+id: R21
+title: Clés cloud statiques en CI
+family: conformite
+severity: avertissement
+type: static_credentials
+message: "La CI utilise des clés d'accès statiques alors que {tools} accepte la fédération d'identité OIDC."

@@ -1,0 +1,370 @@
+# Fiches : déploiement et plateforme. Vérifiées le 2026-10-08.
+
+# --------------------------------------------------------------- Déploiement
+- id: argo-cd
+  name: Argo CD
+  stage: deploy
+  roles: [gitops, deploy]
+  description: Contrôleur GitOps qui synchronise le cluster sur un dépôt Git.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  requires: [git-server]
+  alternatives_outside_k8s: [ansible, docker-compose]
+  landscape_name: Argo
+  verified: "2026-10-08"
+
+- id: flux
+  name: Flux
+  stage: deploy
+  roles: [gitops, deploy]
+  description: Boîte à outils GitOps (Kustomization, HelmRelease).
+  license: Apache-2.0
+  hosting: [kubernetes]
+  requires: [git-server]
+  alternatives_outside_k8s: [ansible, docker-compose]
+  verified: "2026-10-08"
+
+- id: argo-rollouts
+  name: Argo Rollouts
+  stage: deploy
+  roles: [progressive-delivery]
+  description: Déploiements canary et blue-green sur Kubernetes.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  landscape_name: Argo
+  verified: "2026-10-08"
+
+- id: argo-events
+  name: Argo Events
+  stage: deploy
+  roles: [events]
+  description: Déclenchement d'actions sur événements dans Kubernetes.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  landscape_name: Argo
+  verified: "2026-10-08"
+
+- id: helm
+  name: Helm
+  stage: deploy
+  roles: [packaging, deploy]
+  description: Gestionnaire de paquets Kubernetes (charts).
+  license: Apache-2.0
+  hosting: [kubernetes]
+  alternatives_outside_k8s: [docker-compose, ansible]
+  verified: "2026-10-08"
+
+- id: kustomize
+  name: Kustomize
+  stage: deploy
+  roles: [packaging]
+  description: Personnalisation de manifestes Kubernetes sans template, intégrée à kubectl.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  alternatives_outside_k8s: [docker-compose]
+  verified: "2026-10-08"
+
+- id: docker-compose
+  name: Docker Compose
+  stage: deploy
+  roles: [deploy]
+  description: Déploiement multi-conteneurs sur un hôte Docker.
+  license: Apache-2.0
+  hosting: [docker-host, vm]
+  replacements: [helm]
+  verified: "2026-10-08"
+
+- id: ecs-fargate
+  name: Amazon ECS (Fargate)
+  kind: service
+  stage: deploy
+  roles: [deploy, serverless-containers]
+  description: Conteneurs managés AWS sans cluster à administrer.
+  license: proprietary
+  hosting: [saas]
+  provider: aws
+  landscape_name: Amazon Elastic Container Service (ECS)
+  params: {cluster: mon-cluster-ecs, service: mon-app}
+  verified: "2026-10-08"
+
+- id: cloud-run
+  name: Google Cloud Run
+  kind: service
+  stage: deploy
+  roles: [deploy, serverless-containers]
+  description: Conteneurs serverless de Google Cloud.
+  license: proprietary
+  hosting: [saas]
+  provider: gcp
+  landscape_name: Google Cloud Run
+  params: {service: mon-app}
+  verified: "2026-10-08"
+
+- id: azure-container-apps
+  name: Azure Container Apps
+  kind: service
+  stage: deploy
+  roles: [deploy, serverless-containers]
+  description: Conteneurs serverless d'Azure.
+  license: proprietary
+  hosting: [saas]
+  provider: azure
+  params: {app: mon-app}
+  verified: "2026-10-08"
+
+# ---------------------------------------------------------------- Plateforme
+- id: cilium
+  name: Cilium
+  stage: platform
+  roles: [cni, ingress]
+  description: CNI à base d'eBPF, avec Gateway API et observabilité réseau.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  verified: "2026-10-08"
+
+- id: calico
+  name: Calico
+  stage: platform
+  roles: [cni]
+  description: CNI et politiques réseau.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  landscape_name: Project Calico
+  verified: "2026-10-08"
+
+- id: flannel
+  name: Flannel
+  stage: platform
+  roles: [cni]
+  description: CNI simple en overlay.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  verified: "2026-10-08"
+
+- id: istio
+  name: Istio
+  stage: platform
+  roles: [service-mesh]
+  description: Service mesh (mTLS, trafic, observabilité).
+  license: Apache-2.0
+  hosting: [kubernetes]
+  verified: "2026-10-08"
+
+- id: linkerd
+  name: Linkerd
+  stage: platform
+  roles: [service-mesh]
+  description: Service mesh léger.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  verified: "2026-10-08"
+
+- id: app-mesh
+  name: AWS App Mesh
+  kind: service
+  stage: platform
+  roles: [service-mesh]
+  description: Service mesh managé AWS.
+  license: proprietary
+  hosting: [saas]
+  provider: aws
+  lifecycle: discontinued
+  lifecycle_note: Support arrêté le 30 septembre 2026 ; AWS oriente vers ECS Service Connect.
+  replacements: [istio, linkerd]
+  verified: "2026-10-08"
+
+- id: ingress-nginx
+  name: ingress-nginx
+  stage: platform
+  roles: [ingress]
+  description: Contrôleur Ingress communautaire basé sur NGINX.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  lifecycle: maintenance-ended
+  lifecycle_note: Maintenance arrêtée en mars 2026, plus de correctifs de sécurité.
+  replacements: [envoy-gateway, traefik, cilium]
+  alternatives_outside_k8s: [traefik]
+  verified: "2026-10-08"
+
+- id: traefik
+  name: Traefik
+  stage: platform
+  roles: [ingress]
+  description: Reverse proxy et contrôleur d'entrée, certificats ACME intégrés ; fonctionne sur hôte Docker comme sur Kubernetes.
+  license: MIT
+  hosting: [docker-host, vm, kubernetes]
+  verified: "2026-10-08"
+
+- id: envoy-gateway
+  name: Envoy Gateway
+  stage: platform
+  roles: [ingress]
+  description: Implémentation de Gateway API à base d'Envoy.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  alternatives_outside_k8s: [traefik]
+  verified: "2026-10-08"
+
+- id: kyverno
+  name: Kyverno
+  stage: platform
+  roles: [admission-policy]
+  description: Politiques Kubernetes en YAML (validation, mutation, vérification de signatures).
+  license: Apache-2.0
+  hosting: [kubernetes]
+  verified: "2026-10-08"
+
+- id: gatekeeper
+  name: OPA Gatekeeper
+  stage: platform
+  roles: [admission-policy]
+  description: Contrôleur d'admission Kubernetes basé sur Open Policy Agent (Rego).
+  license: Apache-2.0
+  hosting: [kubernetes]
+  landscape_name: Open Policy Agent (OPA)
+  verified: "2026-10-08"
+
+- id: cert-manager
+  name: cert-manager
+  stage: platform
+  roles: [certificates]
+  description: Émission et renouvellement de certificats X.509 dans Kubernetes.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  alternatives_outside_k8s: [traefik]
+  verified: "2026-10-08"
+
+- id: vault
+  name: Vault
+  stage: platform
+  roles: [secrets]
+  description: Coffre de secrets de HashiCorp, sous licence BSL depuis 2023.
+  license: BSL-1.1
+  hosting: [docker-host, vm, kubernetes]
+  provides: [secret-store]
+  alternatives: [openbao]
+  verified: "2026-10-08"
+
+- id: openbao
+  name: OpenBao
+  stage: platform
+  roles: [secrets]
+  description: Fork open source de Vault (Linux Foundation).
+  license: MPL-2.0
+  hosting: [docker-host, vm, kubernetes]
+  provides: [secret-store]
+  verified: "2026-10-08"
+
+- id: external-secrets
+  name: External Secrets Operator
+  stage: platform
+  roles: [secrets-sync]
+  description: Synchronise des secrets externes (Vault, clouds) en Secrets Kubernetes.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  requires: [secret-store]
+  alternatives_outside_k8s: [sops]
+  landscape_name: external-secrets
+  verified: "2026-10-08"
+
+- id: sops
+  name: SOPS
+  stage: platform
+  roles: [secrets]
+  description: Chiffrement de fichiers de secrets versionnés (age, KMS).
+  license: MPL-2.0
+  hosting: [ci, cli]
+  verified: "2026-10-08"
+
+- id: aws-secrets-manager
+  name: AWS Secrets Manager
+  kind: service
+  stage: platform
+  roles: [secrets]
+  description: Coffre de secrets managé AWS.
+  license: proprietary
+  hosting: [saas]
+  provides: [secret-store]
+  provider: aws
+  verified: "2026-10-08"
+
+- id: gcp-secret-manager
+  name: Google Secret Manager
+  kind: service
+  stage: platform
+  roles: [secrets]
+  description: Coffre de secrets managé Google Cloud.
+  license: proprietary
+  hosting: [saas]
+  provides: [secret-store]
+  provider: gcp
+  verified: "2026-10-08"
+
+- id: azure-key-vault
+  name: Azure Key Vault
+  kind: service
+  stage: platform
+  roles: [secrets]
+  description: Coffre de secrets et de clés managé Azure.
+  license: proprietary
+  hosting: [saas]
+  provides: [secret-store]
+  provider: azure
+  params: {vault_name: kv-mon-projet}
+  verified: "2026-10-08"
+
+- id: longhorn
+  name: Longhorn
+  stage: platform
+  roles: [storage]
+  description: Stockage bloc distribué pour Kubernetes.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  verified: "2026-10-08"
+
+- id: rook
+  name: Rook (Ceph)
+  stage: platform
+  roles: [storage]
+  description: Opérateur Ceph pour Kubernetes.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  landscape_name: Rook
+  verified: "2026-10-08"
+
+- id: velero
+  name: Velero
+  stage: platform
+  roles: [backup]
+  description: Sauvegarde et restauration de clusters Kubernetes vers un stockage objet.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  requires: [object-storage]
+  verified: "2026-10-08"
+
+- id: keda
+  name: KEDA
+  stage: platform
+  roles: [autoscaling]
+  description: Mise à l'échelle des charges Kubernetes sur événements.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  verified: "2026-10-08"
+
+- id: knative
+  name: Knative
+  stage: platform
+  roles: [serverless]
+  description: Serverless sur Kubernetes.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  verified: "2026-10-08"
+
+- id: falco
+  name: Falco
+  stage: platform
+  roles: [runtime-security]
+  description: Détection d'intrusion à l'exécution (appels système) ; fonctionne sur hôte Linux comme sur Kubernetes.
+  license: Apache-2.0
+  hosting: [docker-host, vm, kubernetes]
+  verified: "2026-10-08"

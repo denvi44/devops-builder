@@ -1,0 +1,8 @@
+id: R06
+title: CI ou outil lié à une autre forge
+family: plateforme
+severity: bloquant
+type: forge
+params:
+  mode: strict
+message: "{tool} ne fonctionne qu'avec {forges}, or la forge du projet est {forge}. Aligner la CI sur la forge ou déclarer un miroir."

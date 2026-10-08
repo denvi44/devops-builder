@@ -1,0 +1,8 @@
+id: R12
+title: Exigence SecNumCloud et cloud non qualifié
+family: conformite
+severity: bloquant
+type: sovereignty
+params:
+  suggest: [outscale]
+message: "Le projet exige SecNumCloud, or {tool} dépend de {provider}, dont les régions publiques ne sont pas qualifiées."

@@ -1,0 +1,38 @@
+format_version: 1
+name: Site web sur hôte Docker
+description: Application Python déployée par Ansible sur un hôte Docker, derrière Traefik.
+target: docker-host
+environment: production
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: site-web
+  port: 8000
+stages:
+  source:
+  - tool: gitlab
+  build:
+  - tool: gitlab-ci
+  - tool: buildkit
+  - tool: renovate
+  test:
+  - tool: unit-tests
+  - tool: sonarqube
+  security:
+  - tool: gitleaks
+  - tool: trivy
+  artifacts:
+  - tool: harbor
+    params: {url: registry.example.com}
+  infrastructure:
+  - tool: ansible
+  deploy:
+  - tool: docker-compose
+  platform:
+  - tool: traefik
+  observability:
+  - tool: prometheus
+  - tool: grafana
+  - tool: loki

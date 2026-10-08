@@ -1,0 +1,8 @@
+id: R11
+title: Google Container Registry arrêté
+family: cycle-de-vie
+severity: bloquant
+type: lifecycle
+params:
+  tool: gcr
+message: "{tool} : {note}"

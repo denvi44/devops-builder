@@ -1,0 +1,8 @@
+id: R14
+title: Kaniko archivé
+family: cycle-de-vie
+severity: avertissement
+type: lifecycle
+params:
+  tool: kaniko
+message: "{tool} : {note}"

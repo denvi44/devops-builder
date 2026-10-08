@@ -1,0 +1,8 @@
+id: R16
+title: Terraform et OpenTofu sur le même état
+family: contrat
+severity: avertissement
+type: conflict_pair
+params:
+  tools: [terraform, opentofu]
+message: "{tools} : un seul outil par état (le chiffrement d'état d'OpenTofu n'est pas lu par Terraform)."

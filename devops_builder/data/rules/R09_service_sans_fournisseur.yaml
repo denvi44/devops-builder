@@ -1,0 +1,6 @@
+id: R09
+title: Service managé sans son fournisseur
+family: dependance
+severity: bloquant
+type: requires_provider
+message: "{tool} est un service de {provider}, mais ce fournisseur n'est pas déclaré dans le pipeline."

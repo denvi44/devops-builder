@@ -1,0 +1,8 @@
+id: R10
+title: AWS App Mesh arrêté
+family: cycle-de-vie
+severity: bloquant
+type: lifecycle
+params:
+  tool: app-mesh
+message: "{tool} : {note}"

@@ -1,0 +1,145 @@
+# Fiches : tests, qualité et sécurité. Vérifiées le 2026-10-08.
+
+- id: unit-tests
+  name: Tests unitaires
+  stage: test
+  roles: [unit-tests]
+  description: Lance les tests du langage du projet (pytest, npm test, mvn verify, go test, dotnet test).
+  license: MIT
+  hosting: [ci]
+  curated: true
+  verified: "2026-10-08"
+
+- id: sonarqube
+  name: SonarQube
+  stage: test
+  roles: [code-quality]
+  description: Qualité de code et analyse statique. PostgreSQL requis en production ; l'édition gratuite n'analyse ni les branches ni les merge requests.
+  homepage: https://www.sonarsource.com/products/sonarqube/
+  license: LGPL-3.0
+  hosting: [docker-host, vm, kubernetes]
+  verified: "2026-10-08"
+
+- id: sonarqube-cloud
+  name: SonarQube Cloud
+  stage: test
+  roles: [code-quality]
+  description: Version SaaS de SonarQube.
+  license: proprietary
+  hosting: [saas]
+  verified: "2026-10-08"
+
+- id: semgrep
+  name: Semgrep CE
+  stage: test
+  roles: [sast]
+  description: Analyse statique de sécurité par motifs.
+  license: LGPL-2.1
+  hosting: [ci, cli]
+  verified: "2026-10-08"
+
+- id: litmus
+  name: LitmusChaos
+  stage: test
+  roles: [chaos]
+  description: Ingénierie du chaos sur Kubernetes.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  landscape_name: Litmus
+  verified: "2026-10-08"
+
+- id: chaos-mesh
+  name: Chaos Mesh
+  stage: test
+  roles: [chaos]
+  description: Ingénierie du chaos sur Kubernetes.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  verified: "2026-10-08"
+
+# ---------------------------------------------------------------- Sécurité
+- id: trivy
+  name: Trivy
+  stage: security
+  roles: [vuln-scan, iac-scan]
+  description: Scan de vulnérabilités (images, système de fichiers) et de configuration IaC.
+  license: Apache-2.0
+  hosting: [ci, cli, kubernetes]
+  provides: [vuln-scan]
+  verified: "2026-10-08"
+
+- id: grype
+  name: Grype
+  stage: security
+  roles: [vuln-scan]
+  description: Scan de vulnérabilités d'images et de systèmes de fichiers.
+  license: Apache-2.0
+  hosting: [ci, cli]
+  provides: [vuln-scan]
+  verified: "2026-10-08"
+
+- id: checkov
+  name: Checkov
+  stage: security
+  roles: [iac-scan]
+  description: Analyse de configuration IaC (Terraform, Kubernetes, Helm…).
+  license: Apache-2.0
+  hosting: [ci, cli]
+  verified: "2026-10-08"
+
+- id: kics
+  name: KICS
+  stage: security
+  roles: [iac-scan]
+  description: Analyse de configuration IaC par Checkmarx.
+  license: Apache-2.0
+  hosting: [ci, cli]
+  verified: "2026-10-08"
+
+- id: gitleaks
+  name: Gitleaks
+  stage: security
+  roles: [secret-scan]
+  description: Détection de secrets dans le dépôt Git.
+  license: MIT
+  hosting: [ci, cli]
+  verified: "2026-10-08"
+
+- id: syft
+  name: Syft
+  stage: security
+  roles: [sbom]
+  description: Génère un SBOM (SPDX, CycloneDX) d'une image.
+  license: Apache-2.0
+  hosting: [ci, cli]
+  verified: "2026-10-08"
+
+- id: cosign
+  name: Cosign
+  stage: security
+  roles: [signing]
+  description: Signature d'images (projet Sigstore), sans clé via OIDC en CI.
+  license: Apache-2.0
+  hosting: [ci, cli]
+  requires: [registry-oci]
+  landscape_name: sigstore
+  verified: "2026-10-08"
+
+- id: snyk
+  name: Snyk
+  stage: security
+  roles: [vuln-scan, sast]
+  description: Plateforme SaaS de sécurité applicative.
+  license: proprietary
+  hosting: [saas, ci]
+  provides: [vuln-scan]
+  verified: "2026-10-08"
+
+- id: kubescape
+  name: Kubescape
+  stage: security
+  roles: [k8s-posture]
+  description: Posture de sécurité Kubernetes (manifestes, clusters).
+  license: Apache-2.0
+  hosting: [ci, cli, kubernetes]
+  verified: "2026-10-08"

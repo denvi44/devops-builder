@@ -1,0 +1,10 @@
+id: R08
+title: Velero sans stockage objet
+family: dependance
+severity: bloquant
+type: requires
+params:
+  tool: velero
+  capability: object-storage
+  add: [minio, s3, gcs, azure-blob]
+message: "{tool} sauvegarde vers un stockage objet compatible S3 ; aucun n'est présent."

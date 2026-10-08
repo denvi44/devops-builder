@@ -1,0 +1,8 @@
+id: R24
+title: Licence non open source
+family: conformite
+severity: info
+type: license
+params:
+  licenses: [BSL-1.1]
+message: "{tool} est sous licence {license}."

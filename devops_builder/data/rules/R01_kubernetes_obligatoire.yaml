@@ -1,0 +1,8 @@
+id: R01
+title: Outil réservé à Kubernetes sur une cible sans cluster
+family: cible
+severity: bloquant
+type: hosting_kubernetes
+params:
+  cluster_suggestion: k3s
+message: "{tool} ne fonctionne que dans Kubernetes, or la cible est « {target} » et aucun cluster n'est présent."

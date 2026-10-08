@@ -1,0 +1,442 @@
+# Fiches : registres, IaC, clusters, fournisseurs cloud et services managés.
+# Vérifiées le 2026-10-08.
+
+# ----------------------------------------------------------------- Registres
+- id: harbor
+  name: Harbor
+  stage: artifacts
+  roles: [registry]
+  description: Registre OCI autohébergé avec RBAC, réplication et scanner Trivy intégré.
+  license: Apache-2.0
+  hosting: [docker-host, vm, kubernetes]
+  provides: [registry-oci, vuln-scan-embedded]
+  params: {url: registry.example.com}
+  verified: "2026-10-08"
+
+- id: zot
+  name: zot
+  stage: artifacts
+  roles: [registry]
+  description: Registre OCI natif, léger.
+  license: Apache-2.0
+  hosting: [docker-host, vm, kubernetes]
+  provides: [registry-oci]
+  params: {url: registry.example.com}
+  verified: "2026-10-08"
+
+- id: distribution
+  name: Distribution (registry)
+  stage: artifacts
+  roles: [registry]
+  description: Registre OCI de référence (image registry:2).
+  license: Apache-2.0
+  hosting: [docker-host, vm, kubernetes]
+  provides: [registry-oci]
+  landscape_name: Distribution
+  params: {url: registry.example.com}
+  verified: "2026-10-08"
+
+- id: ghcr
+  name: GitHub Container Registry
+  stage: artifacts
+  roles: [registry]
+  description: Registre d'images de GitHub Packages (ghcr.io).
+  license: proprietary
+  hosting: [saas]
+  provides: [registry-oci]
+  params: {url: ghcr.io}
+  verified: "2026-10-08"
+
+- id: nexus
+  name: Nexus Repository
+  stage: artifacts
+  roles: [artifact-repo, registry]
+  description: Dépôt d'artefacts (Maven, npm, PyPI, images) ; éditions Community et Pro.
+  license: proprietary
+  hosting: [docker-host, vm, kubernetes]
+  provides: [registry-oci]
+  params: {url: nexus.example.com}
+  verified: "2026-10-08"
+
+- id: artifactory
+  name: JFrog Artifactory
+  stage: artifacts
+  roles: [artifact-repo, registry]
+  description: Dépôt d'artefacts universel.
+  license: proprietary
+  hosting: [saas, docker-host, vm, kubernetes]
+  provides: [registry-oci]
+  landscape_name: JFrog Artifactory
+  params: {url: example.jfrog.io}
+  verified: "2026-10-08"
+
+- id: ecr
+  name: Amazon ECR
+  kind: service
+  stage: artifacts
+  roles: [registry]
+  description: Registre d'images managé AWS.
+  license: proprietary
+  hosting: [saas]
+  provides: [registry-oci]
+  provider: aws
+  landscape_name: Amazon Elastic Container Registry (ECR)
+  params: {repository: mon-app}
+  verified: "2026-10-08"
+
+- id: artifact-registry
+  name: Google Artifact Registry
+  kind: service
+  stage: artifacts
+  roles: [registry, artifact-repo]
+  description: Registre d'images et d'artefacts managé Google Cloud.
+  license: proprietary
+  hosting: [saas]
+  provides: [registry-oci]
+  provider: gcp
+  params: {repository: mon-app}
+  verified: "2026-10-08"
+
+- id: gcr
+  name: Google Container Registry
+  kind: service
+  stage: artifacts
+  roles: [registry]
+  description: Ancien registre d'images de Google Cloud (gcr.io).
+  license: proprietary
+  hosting: [saas]
+  provides: [registry-oci]
+  provider: gcp
+  lifecycle: discontinued
+  lifecycle_note: Arrêté le 18 mars 2025, remplacé par Artifact Registry.
+  replacements: [artifact-registry]
+  verified: "2026-10-08"
+
+- id: acr
+  name: Azure Container Registry
+  kind: service
+  stage: artifacts
+  roles: [registry]
+  description: Registre d'images managé Azure.
+  license: proprietary
+  hosting: [saas]
+  provides: [registry-oci]
+  provider: azure
+  landscape_name: Azure Registry
+  params: {registry_name: monappregistry}
+  verified: "2026-10-08"
+
+- id: ovh-registry
+  name: OVHcloud Managed Private Registry
+  kind: service
+  stage: artifacts
+  roles: [registry]
+  description: Registre privé managé OVHcloud, basé sur Harbor.
+  license: proprietary
+  hosting: [saas]
+  provides: [registry-oci]
+  provider: ovhcloud
+  verified: "2026-10-08"
+
+- id: scaleway-registry
+  name: Scaleway Container Registry
+  kind: service
+  stage: artifacts
+  roles: [registry]
+  description: Registre d'images managé Scaleway.
+  license: proprietary
+  hosting: [saas]
+  provides: [registry-oci]
+  provider: scaleway
+  params: {namespace: mon-app}
+  verified: "2026-10-08"
+
+# ------------------------------------------------------------ IaC et config
+- id: terraform
+  name: Terraform
+  stage: infrastructure
+  roles: [iac]
+  description: Infrastructure as code de HashiCorp, sous licence BSL depuis 2023.
+  license: BSL-1.1
+  hosting: [ci, cli]
+  alternatives: [opentofu]
+  verified: "2026-10-08"
+
+- id: opentofu
+  name: OpenTofu
+  stage: infrastructure
+  roles: [iac]
+  description: Fork open source de Terraform, projet CNCF.
+  license: MPL-2.0
+  hosting: [ci, cli]
+  verified: "2026-10-08"
+
+- id: pulumi
+  name: Pulumi
+  stage: infrastructure
+  roles: [iac]
+  description: IaC dans des langages généralistes.
+  license: Apache-2.0
+  hosting: [ci, cli]
+  verified: "2026-10-08"
+
+- id: crossplane
+  name: Crossplane
+  stage: infrastructure
+  roles: [iac]
+  description: Provisionnement d'infrastructure par des API Kubernetes.
+  license: Apache-2.0
+  hosting: [kubernetes]
+  alternatives_outside_k8s: [opentofu]
+  verified: "2026-10-08"
+
+- id: cloudformation
+  name: AWS CloudFormation
+  kind: service
+  stage: infrastructure
+  roles: [iac]
+  description: IaC native AWS.
+  license: proprietary
+  hosting: [saas]
+  provider: aws
+  verified: "2026-10-08"
+
+- id: bicep
+  name: Azure Bicep
+  kind: service
+  stage: infrastructure
+  roles: [iac]
+  description: Langage IaC natif Azure (compilé en ARM).
+  license: MIT
+  hosting: [ci, cli]
+  provider: azure
+  verified: "2026-10-08"
+
+- id: ansible
+  name: Ansible
+  stage: infrastructure
+  roles: [config-mgmt, deploy]
+  description: Configuration et déploiement sans agent, par SSH.
+  license: GPL-3.0
+  hosting: [ci, cli]
+  verified: "2026-10-08"
+
+# ------------------------------------------------------------ Clusters Kubernetes
+- id: k3s
+  name: k3s
+  stage: infrastructure
+  roles: [kubernetes-cluster]
+  description: Distribution Kubernetes légère, installable sur une VM.
+  license: Apache-2.0
+  hosting: [vm]
+  provides: [kubernetes-cluster]
+  verified: "2026-10-08"
+
+- id: rke2
+  name: RKE2
+  stage: infrastructure
+  roles: [kubernetes-cluster]
+  description: Distribution Kubernetes orientée sécurité (SUSE).
+  license: Apache-2.0
+  hosting: [vm]
+  provides: [kubernetes-cluster]
+  verified: "2026-10-08"
+
+- id: kubeadm
+  name: kubeadm
+  stage: infrastructure
+  roles: [kubernetes-cluster]
+  description: Outil officiel d'installation de cluster Kubernetes.
+  license: Apache-2.0
+  hosting: [vm]
+  provides: [kubernetes-cluster]
+  verified: "2026-10-08"
+
+- id: microk8s
+  name: MicroK8s
+  stage: infrastructure
+  roles: [kubernetes-cluster]
+  description: Distribution Kubernetes de Canonical.
+  license: Apache-2.0
+  hosting: [vm]
+  provides: [kubernetes-cluster]
+  verified: "2026-10-08"
+
+- id: kind
+  name: kind
+  stage: infrastructure
+  roles: [kubernetes-cluster]
+  description: Cluster Kubernetes dans Docker, pour le développement et les tests.
+  license: Apache-2.0
+  hosting: [docker-host]
+  provides: [kubernetes-cluster]
+  dev_only: true
+  verified: "2026-10-08"
+
+- id: minikube
+  name: minikube
+  stage: infrastructure
+  roles: [kubernetes-cluster]
+  description: Cluster Kubernetes local pour le développement.
+  license: Apache-2.0
+  hosting: [docker-host, vm]
+  provides: [kubernetes-cluster]
+  dev_only: true
+  verified: "2026-10-08"
+
+- id: eks
+  name: Amazon EKS
+  kind: service
+  stage: infrastructure
+  roles: [kubernetes-cluster]
+  description: Kubernetes managé AWS.
+  license: proprietary
+  hosting: [saas]
+  provides: [kubernetes-cluster, kubernetes-managed]
+  provider: aws
+  landscape_name: Amazon Elastic Container Service for Kubernetes (EKS)
+  params: {cluster_name: mon-cluster, region: eu-west-3, version: "1.33"}
+  verified: "2026-10-08"
+
+- id: gke
+  name: Google Kubernetes Engine
+  kind: service
+  stage: infrastructure
+  roles: [kubernetes-cluster]
+  description: Kubernetes managé Google Cloud.
+  license: proprietary
+  hosting: [saas]
+  provides: [kubernetes-cluster, kubernetes-managed]
+  provider: gcp
+  landscape_name: Google Kubernetes Engine (GKE)
+  params: {cluster_name: mon-cluster, region: europe-west9}
+  verified: "2026-10-08"
+
+- id: aks
+  name: Azure Kubernetes Service
+  kind: service
+  stage: infrastructure
+  roles: [kubernetes-cluster]
+  description: Kubernetes managé Azure.
+  license: proprietary
+  hosting: [saas]
+  provides: [kubernetes-cluster, kubernetes-managed]
+  provider: azure
+  landscape_name: Azure Kubernetes Service (AKS)
+  params: {cluster_name: mon-cluster, region: francecentral}
+  verified: "2026-10-08"
+
+- id: ovh-mks
+  name: OVHcloud Managed Kubernetes
+  kind: service
+  stage: infrastructure
+  roles: [kubernetes-cluster]
+  description: Kubernetes managé OVHcloud.
+  license: proprietary
+  hosting: [saas]
+  provides: [kubernetes-cluster, kubernetes-managed]
+  provider: ovhcloud
+  landscape_name: OVH Managed Kubernetes Service
+  params: {cluster_name: mon-cluster, region: GRA11}
+  verified: "2026-10-08"
+
+- id: kapsule
+  name: Scaleway Kapsule
+  kind: service
+  stage: infrastructure
+  roles: [kubernetes-cluster]
+  description: Kubernetes managé Scaleway.
+  license: proprietary
+  hosting: [saas]
+  provides: [kubernetes-cluster, kubernetes-managed]
+  provider: scaleway
+  landscape_name: Scaleway Kubernetes Kapsule
+  params: {cluster_name: mon-cluster, region: fr-par}
+  verified: "2026-10-08"
+
+- id: oks
+  name: Outscale Kubernetes as a Service (OKS)
+  kind: service
+  stage: infrastructure
+  roles: [kubernetes-cluster]
+  description: Kubernetes managé dédié d'Outscale, sur cloud qualifié SecNumCloud 3.2 ; disponible depuis mars 2025.
+  license: proprietary
+  hosting: [saas]
+  provides: [kubernetes-cluster, kubernetes-managed]
+  provider: outscale
+  params: {cluster_name: mon-cluster}
+  verified: "2026-10-08"
+
+# ------------------------------------------------------------- Stockage objet
+- id: s3
+  name: Amazon S3
+  kind: service
+  stage: infrastructure
+  roles: [object-storage]
+  description: Stockage objet AWS (état Terraform, sauvegardes).
+  license: proprietary
+  hosting: [saas]
+  provides: [object-storage]
+  provider: aws
+  params: {bucket: mon-projet-tfstate}
+  verified: "2026-10-08"
+
+- id: gcs
+  name: Google Cloud Storage
+  kind: service
+  stage: infrastructure
+  roles: [object-storage]
+  description: Stockage objet Google Cloud.
+  license: proprietary
+  hosting: [saas]
+  provides: [object-storage]
+  provider: gcp
+  params: {bucket: mon-projet-tfstate}
+  verified: "2026-10-08"
+
+- id: azure-blob
+  name: Azure Blob Storage
+  kind: service
+  stage: infrastructure
+  roles: [object-storage]
+  description: Stockage objet Azure.
+  license: proprietary
+  hosting: [saas]
+  provides: [object-storage]
+  provider: azure
+  params: {storage_account: monprojettfstate, container: tfstate}
+  verified: "2026-10-08"
+
+- id: ovh-object-storage
+  name: OVHcloud Object Storage
+  kind: service
+  stage: infrastructure
+  roles: [object-storage]
+  description: Stockage objet compatible S3 d'OVHcloud.
+  license: proprietary
+  hosting: [saas]
+  provides: [object-storage]
+  provider: ovhcloud
+  verified: "2026-10-08"
+
+- id: scaleway-object-storage
+  name: Scaleway Object Storage
+  kind: service
+  stage: infrastructure
+  roles: [object-storage]
+  description: Stockage objet compatible S3 de Scaleway.
+  license: proprietary
+  hosting: [saas]
+  provides: [object-storage]
+  provider: scaleway
+  verified: "2026-10-08"
+
+- id: minio
+  name: MinIO
+  stage: infrastructure
+  roles: [object-storage]
+  description: Stockage objet compatible S3 autohébergé.
+  license: AGPL-3.0
+  hosting: [docker-host, vm, kubernetes]
+  provides: [object-storage]
+  verified: "2026-10-08"

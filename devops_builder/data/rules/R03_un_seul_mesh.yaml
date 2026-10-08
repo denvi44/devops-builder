@@ -1,0 +1,8 @@
+id: R03
+title: Deux service mesh
+family: exclusivite
+severity: bloquant
+type: exclusive_role
+params:
+  role: service-mesh
+message: "Un cluster ne porte qu'un service mesh ; présents : {tools}."

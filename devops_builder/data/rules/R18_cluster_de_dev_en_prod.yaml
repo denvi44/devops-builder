@@ -1,0 +1,9 @@
+id: R18
+title: Cluster de développement en production
+family: cible
+severity: avertissement
+type: environment
+params:
+  environments: [production]
+  suggest: [k3s, rke2]
+message: "{tool} est réservé au développement ; l'environnement est « {env} »."
