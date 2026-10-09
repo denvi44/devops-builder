@@ -39,7 +39,7 @@ SUBCATEGORY_STAGE = {
     "Service Proxy": "platform",
     "API Gateway": "platform",
     "Service Mesh": "platform",
-    "Database": "platform",
+    "Database": "data",
     "Streaming & Messaging": "platform",
     "Application Definition & Image Build": "build",
     "Continuous Integration & Delivery": "build",
@@ -58,6 +58,7 @@ SUBCATEGORY_EXTRA_STAGES = {
     "Automation & Configuration": ["deploy"],
     "Security & Compliance": ["test", "platform"],
     "Key Management": ["security"],
+    "Database": ["platform"],  # rangées en Plateforme avant la 0.8 : les projets existants restent valides
     "Application Definition & Image Build": ["deploy"],
     "Continuous Integration & Delivery": ["test", "deploy"],
 }

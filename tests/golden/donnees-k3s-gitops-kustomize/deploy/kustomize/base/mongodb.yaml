@@ -1,0 +1,74 @@
+# Généré par DevOps Builder — à relire avant usage.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mon-app-mongodb
+  labels:
+    app: mon-app-mongodb
+spec:
+  selector:
+    app: mon-app-mongodb
+  ports:
+  - port: 27017
+    targetPort: 27017
+    name: mongodb
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mon-app-mongodb
+  labels:
+    app: mon-app-mongodb
+spec:
+  serviceName: mon-app-mongodb
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mon-app-mongodb
+  template:
+    metadata:
+      labels:
+        app: mon-app-mongodb
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:8.0
+        ports:
+        - containerPort: 27017
+          name: mongodb
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          value: app
+        - name: MONGO_INITDB_DATABASE
+          value: app
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mon-app-mongodb
+              key: password
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - mongosh --quiet --eval "db.adminCommand('ping').ok"
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 1Gi
+        volumeMounts:
+        - name: data
+          mountPath: /data/db
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi

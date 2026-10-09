@@ -14,6 +14,7 @@ STAGE_ICONS = {
     "security": "mdi6.shield-check",
     "artifacts": "mdi6.package-variant",
     "infrastructure": "mdi6.server",
+    "data": "mdi6.database",
     "deploy": "mdi6.rocket-launch",
     "platform": "mdi6.layers",
     "observability": "mdi6.chart-line",

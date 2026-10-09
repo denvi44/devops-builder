@@ -1,0 +1,130 @@
+# Généré par DevOps Builder — à relire avant usage.
+stages:
+- test
+- build
+- security
+- publish
+- deploy-dev
+- deploy-recette
+- deploy-production
+variables:
+  TAG: $CI_COMMIT_SHORT_SHA
+  IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+unit-tests:
+  stage: test
+  image:
+    name: python:3.12-slim
+    entrypoint:
+    - ''
+  script:
+  - pip install -r requirements.txt
+  - pytest -q
+build-image:
+  stage: build
+  image:
+    name: docker:27
+    entrypoint:
+    - ''
+  services:
+  - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: /certs
+  script:
+  - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  - docker buildx build --tag "$IMAGE" --push .
+gitleaks:
+  stage: security
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint:
+    - ''
+  script:
+  - gitleaks detect --source . --verbose
+trivy:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint:
+    - ''
+  variables:
+    TRIVY_USERNAME: $CI_REGISTRY_USER
+    TRIVY_PASSWORD: $CI_REGISTRY_PASSWORD
+  script:
+  - trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+cosign:
+  stage: publish
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  script:
+  - apk add --no-cache cosign
+  - echo "$CI_REGISTRY_PASSWORD" | cosign login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  - cosign sign --yes "$IMAGE"
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+deploy-dev:
+  stage: deploy-dev
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  environment:
+    name: dev
+  script:
+  - apk add --no-cache openssh-client
+  - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_DEV" "mkdir -p /opt/mon-app-dev"
+  - scp deploy/docker-compose.yml "$DEPLOY_HOST_DEV:/opt/mon-app-dev/docker-compose.yml"
+  - POSTGRESQL_PASSWORD="$POSTGRESQL_PASSWORD_DEV" VALKEY_PASSWORD="$VALKEY_PASSWORD_DEV" sh deploy/secrets.sh .secrets
+  - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_DEV" "mkdir -p /opt/mon-app-dev/secrets && chmod 700 /opt/mon-app-dev/secrets && tar -C /opt/mon-app-dev/secrets -xf - && chmod 600 /opt/mon-app-dev/secrets/*"
+  - rm -rf .secrets
+  - scp scripts/db-backup.sh "$DEPLOY_HOST_DEV:/opt/mon-app-dev/db-backup.sh"
+  - ssh "$DEPLOY_HOST_DEV" "cd /opt/mon-app-dev && IMAGE=$IMAGE docker compose -p mon-app-dev pull && IMAGE=$IMAGE docker compose -p mon-app-dev up -d"
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+deploy-recette:
+  stage: deploy-recette
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  environment:
+    name: recette
+  script:
+  - apk add --no-cache openssh-client
+  - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_RECETTE" "mkdir -p /opt/mon-app-recette"
+  - scp deploy/docker-compose.yml "$DEPLOY_HOST_RECETTE:/opt/mon-app-recette/docker-compose.yml"
+  - POSTGRESQL_PASSWORD="$POSTGRESQL_PASSWORD_RECETTE" VALKEY_PASSWORD="$VALKEY_PASSWORD_RECETTE" sh deploy/secrets.sh .secrets
+  - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_RECETTE" "mkdir -p /opt/mon-app-recette/secrets && chmod 700 /opt/mon-app-recette/secrets && tar -C /opt/mon-app-recette/secrets -xf - && chmod 600 /opt/mon-app-recette/secrets/*"
+  - rm -rf .secrets
+  - scp scripts/db-backup.sh "$DEPLOY_HOST_RECETTE:/opt/mon-app-recette/db-backup.sh"
+  - ssh "$DEPLOY_HOST_RECETTE" "cd /opt/mon-app-recette && IMAGE=$IMAGE docker compose -p mon-app-recette pull && IMAGE=$IMAGE docker compose -p mon-app-recette up -d"
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  needs:
+  - deploy-dev
+deploy-production:
+  stage: deploy-production
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  environment:
+    name: production
+  script:
+  - apk add --no-cache openssh-client
+  - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_PRODUCTION" "mkdir -p /opt/mon-app"
+  - scp deploy/docker-compose.yml "$DEPLOY_HOST_PRODUCTION:/opt/mon-app/docker-compose.yml"
+  - POSTGRESQL_PASSWORD="$POSTGRESQL_PASSWORD_PRODUCTION" VALKEY_PASSWORD="$VALKEY_PASSWORD_PRODUCTION" sh deploy/secrets.sh .secrets
+  - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_PRODUCTION" "mkdir -p /opt/mon-app/secrets && chmod 700 /opt/mon-app/secrets && tar -C /opt/mon-app/secrets -xf - && chmod 600 /opt/mon-app/secrets/*"
+  - rm -rf .secrets
+  - scp scripts/db-backup.sh "$DEPLOY_HOST_PRODUCTION:/opt/mon-app/db-backup.sh"
+  - ssh "$DEPLOY_HOST_PRODUCTION" "cd /opt/mon-app && IMAGE=$IMAGE docker compose -p mon-app pull && IMAGE=$IMAGE docker compose -p mon-app up -d"
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - deploy-recette

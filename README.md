@@ -6,17 +6,20 @@ Application de bureau Python, en Material Design, pour composer un pipeline DevO
 
 ![Analyse de l'application](docs/captures/14-application.png)
 
+![Étape Données](docs/captures/15-donnees.png)
+
 ## Ce que fait l'application
 
-- **L'application d'abord** : on désigne le dossier de l'application (carte de l'application dans la barre du projet, première page de l'assistant, ou `devops-builder init`). L'analyse lit, sans rien exécuter, le langage et son cadre (FastAPI, Django, Flask, Express, Next.js, Spring Boot, Gin, ASP.NET…), le port (EXPOSE du Dockerfile, sinon le port usuel du cadre), le Dockerfile, la CI et la forge déjà en place (fichiers de CI, dépôt distant), un chart Helm, Kustomize, Compose, Terraform ou OpenTofu, les tests et Renovate ou Dependabot. Chaque détection donne sa preuve, et les briques qui en découlent sont proposées : sans Dockerfile, l'image est construite par Buildpacks.
+- **L'application d'abord** : on désigne le dossier de l'application (carte de l'application dans la barre du projet, première page de l'assistant, ou `devops-builder init`). L'analyse lit, sans rien exécuter, le langage et son cadre (FastAPI, Django, Flask, Express, Next.js, Spring Boot, Gin, ASP.NET…), le port (EXPOSE du Dockerfile, sinon le port usuel du cadre), le Dockerfile, la CI et la forge déjà en place (fichiers de CI, dépôt distant), un chart Helm, Kustomize, Compose, Terraform ou OpenTofu, les tests, Renovate ou Dependabot, les bases de données (pilotes PostgreSQL, MySQL, MariaDB, MongoDB et Redis dans les dépendances, schéma Prisma, services Compose) et les migrations (Alembic, Django, Prisma, Knex, Sequelize, goose, golang-migrate). Chaque détection donne sa preuve, et les briques qui en découlent sont proposées : sans Dockerfile, l'image est construite par Buildpacks.
 - **Choix restreints par défaut** : la palette ne montre que les briques adaptées au projet. Elle écarte ce que la cible, la forge, la politique de licence, SecNumCloud ou le fournisseur cloud refuseraient, ainsi que les rôles déjà tenus (une forge, une CI, un GitOps, un CNI…). Une recherche montre tout, en grisant ce qui ne convient pas avec la raison ; « Adapté au projet » se décoche pour tout voir.
-- **Catalogue** : 132 fiches vérifiées (outils, services managés, fournisseurs cloud) et l'ensemble du Landscape consultable, soit 1 192 entrées. Les entrées sans fiche sont marquées « non vérifiées ».
-- **Canevas** : neuf étapes en colonnes (source → observabilité). On y glisse des briques depuis la palette, ou on les ajoute par double-clic. Chaque outil n'accepte que ses étapes : pendant un glisser, les colonnes compatibles sont mises en évidence, les autres grisées, et un dépôt hors étape est refusé avec un message.
+- **Données** : une étape « Données » entre Infrastructure et Déploiement. PostgreSQL, MariaDB, MySQL, MongoDB, Valkey et Redis tournent à côté de l'application : service Compose non publié sur l'hôte, avec volume, contrôle de santé et sauvegarde (`scripts/db-backup.sh`, planifiée par Ansible), ou StatefulSet sur Kubernetes. CloudNativePG gère PostgreSQL dans le cluster (une instance hors production, trois en production) ; Amazon RDS, Cloud SQL, Azure Database, Scaleway et OVHcloud sont décrits en Terraform, une instance par environnement, protégée et répliquée en production. L'application lit toujours l'URL complète dans `DATABASE_URL`, `MONGODB_URI` ou `REDIS_URL` ; le mot de passe est une variable CI secrète que `deploy/secrets.sh` ou un Secret Kubernetes lui transmet, jamais un fichier du dépôt. La brique « Migrations de schéma » lance la commande de l'application avec son image avant chaque démarrage (service Compose `migrate` ou initContainer). L'assistant demande la base et le cache, et choisit la brique selon l'hébergement : service managé du cloud, opérateur sur Kubernetes, conteneur sur un hôte Docker.
+- **Catalogue** : 145 fiches vérifiées (outils, services managés, fournisseurs cloud) et l'ensemble du Landscape consultable, soit 1 198 entrées. Les entrées sans fiche sont marquées « non vérifiées ».
+- **Canevas** : dix étapes en colonnes (source → observabilité). On y glisse des briques depuis la palette, ou on les ajoute par double-clic. Chaque outil n'accepte que ses étapes : pendant un glisser, les colonnes compatibles sont mises en évidence, les autres grisées, et un dépôt hors étape est refusé avec un message.
 - **Assistant de démarrage** : **Nouveau** pose cinq pages de questions (langage, forge, hébergement, cloud, environnements, sécurité, qualité, dépendances, observabilité, IaC) et construit un pipeline complet sans erreur bloquante. Les clouds proposés suivent l'hébergement choisi et l'exigence SecNumCloud. Ctrl+Maj+N ouvre un projet vide.
 - **Environnements et promotion** : une chaîne ordonnée de bac à sable, développement, recette, préproduction et production, par exemple développement → recette → production. La même image est promue d'un environnement au suivant, avec approbation avant la production. Chaque environnement peut viser son propre cluster et surcharger les paramètres d'une brique (nom du cluster, service Cloud Run…). Les variables CI, les namespaces, les values Helm et les overlays Kustomize sont déclinés par environnement.
 - **Ports** : la vue « Ports » (Ctrl+Maj+P) liste, pour chaque environnement, le port de l'application et ceux des briques (Grafana, Prometheus, Traefik, MinIO…), avec leur usage et leur exposition ; le rapport `PIPELINE.md` reprend le tableau et la fiche d'une brique ses ports. La règle R39 bloque deux services publiés sur le même port d'un hôte Docker et propose la correction. Des environnements qui partagent un hôte Docker (champ « Hôte Docker partagé ») voient leurs ports décalés de 10 000, production d'abord : les ports deviennent des variables du fichier Compose, et `deploy/env/<environnement>.env` est copié en `.env` lors du déploiement (SSH ou Ansible).
 - **Suggestions** : la fiche d'une brique propose les briques souvent associées (Trivy, Syft et Cosign après un build d'image, External Secrets avec un cluster managé…). Seules celles qui sont absentes et posables sur la cible apparaissent.
-- **Contrôle continu** : 40 règles (R00 à R39) couvrant le placement dans les étapes, la complétude du pipeline, la cible d'hébergement, l'exclusivité de rôle, les dépendances, les contrats entre étapes, la forge, le cycle de vie, les paramètres, la licence, la conformité (SecNumCloud, clés statiques) et les environnements (approbation de la production, cluster de chaque environnement, identifiants, collisions de namespaces, conflits de ports). Chaque diagnostic propose des corrections en un clic, annulables.
+- **Contrôle continu** : 44 règles (R00 à R43) couvrant le placement dans les étapes, la complétude du pipeline, la cible d'hébergement, l'exclusivité de rôle, les dépendances, les contrats entre étapes, la forge, le cycle de vie, les paramètres, la licence, la conformité (SecNumCloud, clés statiques) et les environnements (approbation de la production, cluster de chaque environnement, identifiants, collisions de namespaces, conflits de ports) et les données (base sans sauvegarde ou à instance unique en production sur Kubernetes, deux bases du même type). Chaque diagnostic propose des corrections en un clic, annulables.
 - **Complétude** : un pipeline incomplet n'est plus déclaré prêt. C'est le cas d'une image construite sans registre, d'étapes sans orchestrateur CI, d'un outil privé d'une capacité requise (forge, CNI, coffre de secrets…) ou d'une cible Kubernetes sans cluster. Une brique pour laquelle aucun fichier n'est produit est signalée (R31), selon la même logique que le rapport.
 - **Paramètres typés** : les briques qui ont des réglages (clusters, registres, buckets, fournisseurs) affichent un formulaire avec listes de régions et contrôle des formats de nommage de chaque cloud. Une clé mal orthographiée est détectée avec la correction proposée, et une valeur d'exemple restée en place est signalée. Les valeurs saisies, comme le rôle IAM ou le projet GCP, sont écrites dans la CI au lieu d'être laissées à déclarer.
 - **Génération** : définitions CI, déploiement, IaC et plateforme, avec un rapport `PIPELINE.md` qui liste les briques, les licences, les variables CI à déclarer et les avertissements restants.
@@ -83,7 +86,7 @@ Sous Linux, Qt a besoin des bibliothèques système habituelles (`libxkbcommon`,
 | Rechercher | Ctrl+F ; Ctrl+2 pour le pipeline, Ctrl+3 pour les diagnostics |
 | Thème sombre | Ctrl+T |
 
-Trois projets d'exemple sont fournis dans **Fichier › Ouvrir un exemple** : un site web sur hôte Docker, une API sur k3s en GitOps et une plateforme AWS EKS en OpenTofu.
+Quatre projets d'exemple sont fournis dans **Fichier › Ouvrir un exemple** : un site web sur hôte Docker, une API sur k3s en GitOps, une plateforme AWS EKS en OpenTofu et une boutique avec PostgreSQL, Valkey et migrations sur un hôte partagé.
 
 ### En ligne de commande
 
@@ -97,7 +100,7 @@ devops-builder catalog-check                            # --offline, --refresh, 
 devops-builder catalog-import "Keptn"                   # --id, --stage, --license, --offline
 devops-builder landscape-refresh                        # --source landscape.yml, --reset
 devops-builder scan ../mon-app                          # --json : ce que l'analyse trouve
-devops-builder init ../mon-app -o mon-app.devops.yaml   # --hosting, --cloud, --envs
+devops-builder init ../mon-app -o mon-app.devops.yaml   # --hosting, --cloud, --envs, --database
 ```
 
 `generate` n'écrase plus les fichiers retouchés à la main : il les liste, et `--overwrite` les remplace.
@@ -108,6 +111,7 @@ devops-builder init ../mon-app -o mon-app.devops.yaml   # --hosting, --cloud, --
 | --- | --- |
 | CI | GitLab CI, GitHub Actions, Gitea Actions, Jenkinsfile, Woodpecker, Tekton, Azure Pipelines, AWS CodeBuild, Google Cloud Build |
 | Déploiement | Docker Compose, chart Helm, Kustomize, Application Argo CD, Flux (GitRepository + Kustomization ou HelmRelease), playbooks Ansible |
+| Données | Services Compose (volume, santé, `deploy/secrets.sh`, `scripts/db-backup.sh`), StatefulSet et Secret dans le chart ou la base Kustomize, Cluster CloudNativePG, Terraform des bases managées (`outputs.tf`), service `migrate` ou initContainer de migrations |
 | Infrastructure | Terraform / OpenTofu : providers, backend d'état, ressources AWS, Google Cloud, Azure, OVHcloud, Scaleway |
 | Clusters autogérés | Scripts d'installation k3s, RKE2, kubeadm, MicroK8s, kind, minikube, réglés selon le CNI et l'entrée choisis (par exemple, k3s sans Flannel ni Traefik intégrés quand Cilium et Traefik sont dans le pipeline) |
 | Plateforme | `platform/install.sh` (charts Helm officiels, sans réinstaller ce que le cluster fournit déjà) ou services Compose sur hôte Docker |
@@ -127,7 +131,7 @@ devops_builder/
   catalog.py        chargement des fiches + index du Landscape
   rules.py          moteur de règles, handlers génériques, corrections
   ir.py             représentation intermédiaire neutre du pipeline
-  generators/       ci, deploy, iac, platform, extras (dépendances, clusters), report
+  generators/       ci, deploy, data (bases), iac, platform, extras (dépendances, clusters), report
   ui/               interface PySide6 + qt-material
   params.py         validation et valeurs effectives des paramètres (surcharges par environnement)
   starter.py        assistant de démarrage : réponses → projet
@@ -139,6 +143,7 @@ devops_builder/
   landscape.py      index du Landscape : construction, rafraîchissement, écarts
   userdata.py       dossier personnel (DEVOPS_BUILDER_HOME)
   ports.py          ports par environnement, hôtes partagés, conflits
+  databases.py      bases du pipeline : moteurs, modes (autogérée, opérateur, managée), connexion
   appscan.py        analyse du dossier de l'application
   compat.py         briques adaptées au projet (filtre de la palette)
   data/ports.yaml   ports par défaut des briques et leur usage
@@ -152,8 +157,9 @@ tools/
   build_landscape_index.py   rafraîchit l'index depuis landscape.yml
   screenshot.py              captures hors écran de l'interface
 tests/              règles, générateurs, interface (hors écran), non-régression
-  golden/           sorties figées de 131 projets (exemples, matrice, échantillon de l'assistant, environnements et ports)
-  data/legacy/      projets enregistrés par les versions 0.1 et 0.3
+  golden/           sorties figées de 142 projets (exemples, matrice, échantillon de l'assistant, environnements, ports, données)
+  data/legacy/      projets enregistrés par les versions 0.1, 0.3 et 0.7
+  minihelm.py       rendu des gabarits Helm générés, sans le binaire helm
 tools/compare_captures.py  écart visuel entre deux séries de captures
 ```
 
@@ -167,7 +173,7 @@ Un outil ne peut être posé que dans `stage` ou `extra_stages`. Par exemple, An
 
 ### Ajouter une règle
 
-Créer `data/rules/R40_....yaml` avec un `type` existant (`exclusive_role`, `conflict_pair`, `requires`, `requires_generic`, `lifecycle`, `target_mismatch`, `params`…), puis ajouter son cas dans `tests/test_rules.py`. Un nouveau type de règle s'écrit comme un handler dans `rules.py`.
+Créer `data/rules/R44_....yaml` avec un `type` existant (`exclusive_role`, `conflict_pair`, `requires`, `requires_generic`, `lifecycle`, `target_mismatch`, `params`…), puis ajouter son cas dans `tests/test_rules.py`. Un nouveau type de règle s'écrit comme un handler dans `rules.py`.
 
 ### Rafraîchir le Landscape
 
@@ -187,11 +193,11 @@ pip install -e ".[dev]"
 QT_QPA_PLATFORM=offscreen pytest
 ```
 
-452 tests : un par règle, l'application de chaque correction proposée, une matrice de combinaisons CI × déploiement × cloud × environnements validées contre les schémas, avec contrôle qu'aucune brique n'y reste sans fichier, les 15 300 combinaisons de l'assistant (aucune ne doit produire d'erreur bloquante), la validation, l'écriture prudente, l'export Git vers des dépôts locaux (dont les options de push GitLab), les scripts kind et variables CI contre des outils factices et une fausse API Gitea, l'entretien du catalogue contre une fausse API GitHub et GitLab, l'analyse d'applications Python, Node.js, Java, Go et .NET, la cohérence entre l'assistant et le filtre de la palette, le catalogue personnel et le rafraîchissement du Landscape, et l'interface pilotée hors écran : glisser-déposer, formulaire de paramètres, surcharges, éditeur d'environnements, assistant, dialogues de validation, de différences, d'export, d'entretien, de fiche, de ports et d'application, et la largeur minimale de la fenêtre (1 280 px au plus). Toute exception levée dans un slot Qt fait échouer le test en cours. Les tests utilisent un dossier personnel jetable : un catalogue personnel présent sur le poste ne les influence pas.
+549 tests : un par règle, l'application de chaque correction proposée, une matrice de combinaisons CI × déploiement × cloud × environnements validées contre les schémas, avec contrôle qu'aucune brique n'y reste sans fichier, les 15 300 combinaisons de l'assistant (aucune ne doit produire d'erreur bloquante), la validation, l'écriture prudente, l'export Git vers des dépôts locaux (dont les options de push GitLab), les scripts kind et variables CI contre des outils factices et une fausse API Gitea, l'entretien du catalogue contre une fausse API GitHub et GitLab, l'analyse d'applications Python, Node.js, Java, Go et .NET (dont leurs bases et migrations), les bases de données sur chaque cible (rendu du chart, Kustomize, script de secrets exécuté, format Terraform), la cohérence entre l'assistant et le filtre de la palette, le catalogue personnel et le rafraîchissement du Landscape, et l'interface pilotée hors écran : glisser-déposer, formulaire de paramètres, surcharges, éditeur d'environnements, assistant, dialogues de validation, de différences, d'export, d'entretien, de fiche, de ports et d'application, et la largeur minimale de la fenêtre (1 280 px au plus). Toute exception levée dans un slot Qt fait échouer le test en cours. Les tests utilisent un dossier personnel jetable : un catalogue personnel présent sur le poste ne les influence pas.
 
 ### Non-régression
 
-`tests/test_regression.py` compare tout ce que génèrent 131 projets (fichiers et diagnostics) à l'instantané de `tests/golden/`, et recharge les projets enregistrés par les versions précédentes. Après un changement voulu :
+`tests/test_regression.py` compare tout ce que génèrent 142 projets (fichiers et diagnostics) à l'instantané de `tests/golden/`, et recharge les projets enregistrés par les versions précédentes. Après un changement voulu :
 
 ```bash
 UPDATE_GOLDEN=1 pytest tests/test_regression.py
@@ -203,6 +209,7 @@ Pour l'interface, `tools/screenshot.py` refait les captures et `tools/compare_ca
 ## Limites connues
 
 - Les fiches sont datées du 8 octobre 2026 ; le cycle de vie des outils évolue vite (ingress-nginx, Kaniko, AWS App Mesh, Google Container Registry y sont déjà signalés).
+- Bases de données : les gabarits Helm sont vérifiés par un rendu interne (`tests/minihelm.py`) puis kubeconform, pas par `helm template` ; les ressources Terraform des bases managées par `tofu fmt`, pas par `tofu validate` (registres de providers injoignables pendant les tests). Sur un service serverless (Cloud Run, ECS, Azure Container Apps), l'URL de connexion se branche à la main ; `PIPELINE.md` donne la commande. Le mot de passe d'une base autogérée se limite aux caractères sûrs dans une URL (lettres, chiffres, `. _ ~ -`).
 - OKS (Outscale) et Azure Container Apps n'ont pas de ressource Terraform générée : seul un commentaire est écrit, et R31 les signale. La prise en charge d'OKS par le provider `outscale/outscale` reste à vérifier.
 - RKE2 : le contrôleur d'entrée embarqué dépend de la version ; le script indique comment le désactiver mais ne le fait pas.
 - Renovate hors GitHub : `renovate.json` est généré, mais le job planifié qui lance Renovate reste à créer (expliqué dans `PIPELINE.md`).

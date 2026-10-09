@@ -60,11 +60,13 @@ PLATFORM_CHARTS: dict[str, Chart] = {
     "gitea": Chart("gitea-charts", "https://dl.gitea.com/charts/", "gitea-charts/gitea", "gitea"),
     "jenkins": Chart("jenkins", "https://charts.jenkins.io", "jenkins/jenkins", "jenkins"),
     "crossplane": Chart("crossplane-stable", "https://charts.crossplane.io/stable", "crossplane-stable/crossplane", "crossplane-system"),
+    "cloudnative-pg": Chart("cnpg", "https://cloudnative-pg.github.io/charts", "cnpg/cloudnative-pg", "cnpg-system",
+                            note="Opérateur seulement : le Cluster PostgreSQL est livré avec l'application."),
     "kubescape": Chart("kubescape", "https://kubescape.github.io/helm-charts/", "kubescape/kubescape-operator", "kubescape"),
 }
 
 # Ordre d'installation : réseau, puis socle, puis le reste.
-FIRST = ["cilium", "calico", "cert-manager", "istio", "linkerd"]
+FIRST = ["cilium", "calico", "cert-manager", "istio", "linkerd", "cloudnative-pg"]
 
 # Services Compose pour une cible hôte Docker / VM.
 COMPOSE_SERVICES: dict[str, dict] = {

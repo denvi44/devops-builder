@@ -40,6 +40,17 @@ SERVERLESS_CLOUDS = ("aws", "gcp", "azure")
 SECNUMCLOUD_CLOUDS = ("outscale", "ovhcloud")
 OBSERVABILITY = {"prometheus": "Prometheus et Grafana", "cloud": "Service du cloud", "none": "Aucune"}
 IAC = {"opentofu": "OpenTofu", "terraform": "Terraform", "none": "Aucune"}
+DATABASES = {"none": "Aucune", "postgresql": "PostgreSQL", "mysql": "MySQL", "mariadb": "MariaDB",
+             "mongodb": "MongoDB"}
+# Valeur du paramètre « engine » d'une base managée, selon le moteur demandé
+MANAGED_ENGINE_PARAM = {
+    "aws-rds": {"postgresql": "postgres", "mysql": "mysql", "mariadb": "mariadb"},
+    "cloud-sql": {"postgresql": "postgres", "mysql": "mysql", "mariadb": "mysql"},
+    "azure-database": {"postgresql": "postgres", "mysql": "mysql", "mariadb": "mysql"},
+    "scaleway-rdb": {"postgresql": "PostgreSQL-16", "mysql": "MySQL-8", "mariadb": "MySQL-8"},
+    "ovh-databases": {"postgresql": "postgresql", "mysql": "mysql", "mariadb": "mysql"},
+}
+SERVERLESS_TOOLS = ("cloud-run", "ecs-fargate", "azure-container-apps")
 
 
 @dataclass
@@ -65,6 +76,9 @@ class StarterAnswers:
     k8s_deploy: str = "helm"          # « helm » ou « kustomize » (déjà présent dans l'application)
     dependency_tool: str | None = None  # outil déjà configuré dans l'application
     source: str = ""                  # dossier de l'application analysée
+    database: str = "none"            # moteur de la base principale (DATABASES)
+    cache: bool = False               # stockage clé-valeur Valkey (cache, sessions)
+    migrations: str = ""              # commande de migration de schéma, détectée dans l'application
 
 
 def clouds_for(hosting: str, secnumcloud: bool) -> list[str]:
@@ -93,6 +107,29 @@ def validate(a: StarterAnswers) -> list[str]:
         elif a.cloud not in allowed:
             problems.append("Choisir un cloud compatible avec cet hébergement.")
     return problems
+
+
+def database_brick(engine: str, project: Project, catalog: Catalog) -> tuple[str, dict]:
+    """Brique qui porte ce moteur dans ce projet : service managé du cloud, opérateur ou conteneur."""
+    from .databases import ENGINES
+    ids = project.tool_ids()
+    cluster = any((t := catalog.get(i)) and "kubernetes-cluster" in t.roles for i in ids)
+    kube = project.target in ("kubernetes", "kubernetes-managed") or cluster
+    serverless = any(i in SERVERLESS_TOOLS for i in ids)
+    if engine == "redis":
+        engine = "valkey"
+    if ENGINES[engine].family == "sql" and (project.target == "kubernetes-managed" or serverless):
+        for pid in sorted(ids):
+            prov = catalog.get(pid)
+            svc = prov.services.get("database") if prov and prov.kind == "provider" else None
+            if svc and svc in catalog:
+                value = MANAGED_ENGINE_PARAM.get(svc, {}).get(engine)
+                default = catalog[svc].param_schema.get("engine")
+                params = {"engine": value} if value and default and value != default.default else {}
+                return svc, params
+    if engine == "postgresql" and kube:
+        return "cloudnative-pg", {}
+    return engine, {}
 
 
 def build_starter(a: StarterAnswers, catalog: Catalog) -> Project:
@@ -176,6 +213,15 @@ def build_starter(a: StarterAnswers, catalog: Catalog) -> Project:
         if storage in ("s3", "gcs", "azure-blob"):
             add(storage)
 
+    # Données
+    if a.database in DATABASES and a.database != "none":
+        tool, params = database_brick(a.database, p, catalog)
+        add(tool, **params)
+    if a.cache:
+        add("valkey")
+    if a.migrations and (a.database != "none" or a.cache):
+        add("db-migrations", command=a.migrations)
+
     # Observabilité
     if a.observability == "prometheus" and a.hosting != "serverless":
         add("prometheus")
@@ -223,5 +269,15 @@ def answers_from_profile(profile, catalog: Catalog, base: StarterAnswers | None 
         a.dependency_tool = profile.dependencies
     if not profile.dockerfile:
         taken.append("construction par Buildpacks (pas de Dockerfile)")
+    main = next((e for e in profile.databases if e in DATABASES), None)
+    if main:
+        a.database = main
+        taken.append(f"base {DATABASES[main]} (pilote dans les dépendances)")
+    if any(e in ("valkey", "redis") for e in profile.databases):
+        a.cache = True
+        taken.append("cache Valkey (client Redis dans les dépendances)")
+    if profile.migrations:
+        a.migrations = profile.migrations
+        taken.append(f"migrations « {profile.migrations} »")
     return a, taken
 

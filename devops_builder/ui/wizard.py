@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFormLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QRadioButton,
@@ -23,6 +24,7 @@ from ..model import ENV_PRESETS, LANGUAGES, STAGE_LABELS, Project
 from ..rules import RuleEngine
 from ..starter import (
     CLOUDS,
+    DATABASES,
     FORGES,
     HOSTINGS,
     IAC,
@@ -139,6 +141,9 @@ class StarterWizard(QWizard):
             self.w_iac.setCurrentIndex(max(0, self.w_iac.findData(a.iac)))
         if hasattr(self, "w_deps"):
             self.w_deps.setChecked(a.dependencies)
+        if hasattr(self, "w_db"):
+            self.w_db.setCurrentIndex(max(0, self.w_db.findData(a.database)))
+            self.w_cache.setChecked(a.cache)
         self._answers = a
         lines = "".join(f"<li>{line}</li>" for line in self.profile.summary())
         self.w_found.setText(f"<b>Repris :</b> {', '.join(taken)}.<ul style='margin:4px 0'>{lines}</ul>")
@@ -208,6 +213,21 @@ class StarterWizard(QWizard):
         self.w_iac = QComboBox()
         for k, v in IAC.items():
             self.w_iac.addItem(v, k)
+        self.w_db = QComboBox()
+        for k, v in DATABASES.items():
+            self.w_db.addItem(v, k)
+        self.w_db.setToolTip("Service managé du cloud, opérateur CloudNativePG sur Kubernetes, "
+                             "ou conteneur à côté de l'application, selon l'hébergement.")
+        self.w_cache = QCheckBox("Cache et sessions (Valkey)")
+        db_row = QWidget()
+        db_lay = QHBoxLayout(db_row)
+        db_lay.setContentsMargins(0, 0, 0, 0)
+        db_lay.addWidget(self.w_db, 1)
+        db_lay.addWidget(self.w_cache)
+        for label, w in (("Base de données", self.w_db), ("Cache Valkey", self.w_cache),
+                         ("Observabilité", self.w_obs), ("Infrastructure as code", self.w_iac)):
+            w.setAccessibleName(label)
+        form.addRow("Base de données", db_row)
         form.addRow("Observabilité", self.w_obs)
         form.addRow("Infrastructure as code (cloud)", self.w_iac)
         lay.addLayout(form)
@@ -260,6 +280,7 @@ class StarterWizard(QWizard):
             a.ci = detected.ci if detected.forge == a.forge else None
             a.dockerfile, a.k8s_deploy = detected.dockerfile, detected.k8s_deploy
             a.dependency_tool, a.source = detected.dependency_tool, detected.source
+            a.migrations = detected.migrations
         return a
 
     def _collect(self) -> StarterAnswers:
@@ -276,6 +297,8 @@ class StarterWizard(QWizard):
             observability=self.w_obs.currentData() if hasattr(self, "w_obs") else "prometheus",
             iac=self.w_iac.currentData() if hasattr(self, "w_iac") else "opentofu",
             shared_host=self.w_shared.isChecked() if hasattr(self, "w_shared") else False,
+            database=self.w_db.currentData() if hasattr(self, "w_db") else "none",
+            cache=self.w_cache.isChecked() if hasattr(self, "w_cache") else False,
         )
 
     def project(self) -> Project:

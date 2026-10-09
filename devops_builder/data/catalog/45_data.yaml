@@ -1,0 +1,181 @@
+# Fiches : bases de données et migrations de schéma. Vérifiées le 2026-10-09.
+# Rôles : database (toute base), sql-database, document-database, key-value-store,
+# database-operator, managed-database. Capacité fournie : database.
+
+# ------------------------------------------------------------ Bases autogérées
+- id: postgresql
+  name: PostgreSQL
+  stage: data
+  extra_stages: [platform]  # rangées en Plateforme avant la 0.8 (entrées du Landscape)
+  roles: [database, sql-database]
+  description: Base relationnelle open source. Conteneur à côté de l'application (Compose) ou StatefulSet sur Kubernetes ; en production sur Kubernetes, préférer CloudNativePG ou un service managé.
+  homepage: https://www.postgresql.org/
+  license: PostgreSQL
+  hosting: [docker-host, vm, kubernetes]
+  provides: [database]
+  verified: "2026-10-09"
+
+- id: mariadb
+  name: MariaDB
+  stage: data
+  extra_stages: [platform]  # rangées en Plateforme avant la 0.8 (entrées du Landscape)
+  roles: [database, sql-database]
+  description: Base relationnelle compatible MySQL, développée par la fondation MariaDB.
+  homepage: https://mariadb.org/
+  license: GPL-2.0
+  hosting: [docker-host, vm, kubernetes]
+  provides: [database]
+  verified: "2026-10-09"
+
+- id: mysql
+  name: MySQL
+  stage: data
+  extra_stages: [platform]  # rangées en Plateforme avant la 0.8 (entrées du Landscape)
+  roles: [database, sql-database]
+  description: Base relationnelle d'Oracle (édition Community sous GPL) ; 8.4 est la version LTS.
+  homepage: https://www.mysql.com/
+  license: GPL-2.0
+  hosting: [docker-host, vm, kubernetes]
+  provides: [database]
+  alternatives: [mariadb]
+  verified: "2026-10-09"
+
+- id: mongodb
+  name: MongoDB
+  stage: data
+  extra_stages: [platform]  # rangées en Plateforme avant la 0.8 (entrées du Landscape)
+  roles: [database, document-database]
+  description: Base orientée documents. Licence SSPL, non reconnue open source par l'OSI.
+  homepage: https://www.mongodb.com/
+  license: SSPL-1.0
+  hosting: [docker-host, vm, kubernetes]
+  provides: [database]
+  verified: "2026-10-09"
+
+- id: valkey
+  name: Valkey
+  stage: data
+  extra_stages: [platform]  # rangées en Plateforme avant la 0.8 (entrées du Landscape)
+  roles: [database, key-value-store]
+  description: Stockage clé-valeur en mémoire (cache, sessions, files), fork open source de Redis porté par la Linux Foundation.
+  homepage: https://valkey.io/
+  license: BSD-3-Clause
+  hosting: [docker-host, vm, kubernetes]
+  provides: [database, key-value]
+  verified: "2026-10-09"
+
+- id: redis
+  name: Redis
+  stage: data
+  extra_stages: [platform]  # rangées en Plateforme avant la 0.8 (entrées du Landscape)
+  roles: [database, key-value-store]
+  description: Stockage clé-valeur en mémoire. Depuis Redis 8, au choix AGPLv3, RSALv2 ou SSPLv1.
+  homepage: https://redis.io/
+  license: AGPL-3.0
+  hosting: [docker-host, vm, kubernetes]
+  provides: [database, key-value]
+  alternatives: [valkey]
+  verified: "2026-10-09"
+
+# ------------------------------------------------------------ Opérateur Kubernetes
+- id: cloudnative-pg
+  name: CloudNativePG
+  stage: data
+  extra_stages: [platform]
+  roles: [database, sql-database, database-operator]
+  description: Opérateur PostgreSQL pour Kubernetes (CNCF) — réplication, bascule, sauvegardes ; crée lui-même le Secret de connexion.
+  homepage: https://cloudnative-pg.io/
+  license: Apache-2.0
+  hosting: [kubernetes]
+  provides: [database]
+  alternatives_outside_k8s: [postgresql]
+  verified: "2026-10-09"
+
+# ------------------------------------------------------------ Bases managées
+- id: aws-rds
+  name: Amazon RDS
+  kind: service
+  stage: data
+  extra_stages: [infrastructure]
+  roles: [database, sql-database, managed-database]
+  description: PostgreSQL, MySQL ou MariaDB managé par AWS ; mot de passe principal géré par Secrets Manager.
+  homepage: https://aws.amazon.com/rds/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [database]
+  provider: aws
+  verified: "2026-10-09"
+
+- id: cloud-sql
+  name: Google Cloud SQL
+  kind: service
+  stage: data
+  extra_stages: [infrastructure]
+  roles: [database, sql-database, managed-database]
+  description: PostgreSQL ou MySQL managé par Google Cloud.
+  homepage: https://cloud.google.com/sql
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [database]
+  provider: gcp
+  verified: "2026-10-09"
+
+- id: azure-database
+  name: Azure Database (serveur flexible)
+  kind: service
+  stage: data
+  extra_stages: [infrastructure]
+  roles: [database, sql-database, managed-database]
+  description: Azure Database for PostgreSQL ou for MySQL, serveur flexible.
+  homepage: https://azure.microsoft.com/products/postgresql
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [database]
+  provider: azure
+  verified: "2026-10-09"
+
+- id: scaleway-rdb
+  name: Scaleway Managed Database
+  kind: service
+  stage: data
+  extra_stages: [infrastructure]
+  roles: [database, sql-database, managed-database]
+  description: PostgreSQL ou MySQL managé par Scaleway, hébergé en France, aux Pays-Bas ou en Pologne.
+  homepage: https://www.scaleway.com/en/database/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [database]
+  provider: scaleway
+  verified: "2026-10-09"
+
+- id: ovh-databases
+  name: OVHcloud Public Cloud Databases
+  kind: service
+  stage: data
+  extra_stages: [infrastructure]
+  roles: [database, sql-database, managed-database]
+  description: PostgreSQL ou MySQL managé par OVHcloud.
+  homepage: https://www.ovhcloud.com/fr/public-cloud/databases/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [database]
+  provider: ovhcloud
+  verified: "2026-10-09"
+
+# ------------------------------------------------------------ Migrations
+- id: db-migrations
+  name: Migrations de schéma
+  stage: data
+  extra_stages: [deploy]
+  roles: [database-migrations]
+  description: Applique les migrations de l'application (Alembic, Django, Prisma, Knex, goose, EF Core…) avec l'image publiée, avant chaque démarrage.
+  license: MIT
+  repo: ""
+  hosting: [docker-host, vm, kubernetes]
+  requires: [database]
+  verified: "2026-10-09"

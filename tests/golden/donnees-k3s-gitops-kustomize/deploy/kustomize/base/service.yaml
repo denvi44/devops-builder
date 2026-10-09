@@ -1,0 +1,11 @@
+# Généré par DevOps Builder — à relire avant usage.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mon-app
+spec:
+  selector:
+    app: mon-app
+  ports:
+  - port: 80
+    targetPort: 8000

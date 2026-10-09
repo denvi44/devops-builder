@@ -180,6 +180,22 @@ class PropertiesPanel(QScrollArea):
             label.setToolTip(e.exposure)
             lay.addWidget(label)
 
+    def _connection_section(self, lay: QVBoxLayout, tool: Tool, project: Project) -> None:
+        from ..databases import databases
+        db = next((d for d in databases(project, self.catalog) if d.id == tool.id), None)
+        if db is None:
+            return
+        lay.addWidget(section_title("Connexion"))
+        lay.addWidget(muted(f"L'application lit l'URL de connexion dans {db.url_var}."))
+        suffix = "_<ENV>" if project.multi_env else ""
+        if db.mode == "operator":
+            text = "Mot de passe créé par l'opérateur (Secret « <cluster>-app ») : rien à déclarer."
+        elif db.mode == "managed":
+            text = f"URL à déclarer en variable CI {db.url_ci_var}{suffix}, après création de l'instance."
+        else:
+            text = f"Mot de passe à déclarer en variable CI {db.password_var}{suffix}."
+        lay.addWidget(muted(text))
+
     # ------------------------------------------------------------- brique posée
     def _brick_section(self, lay: QVBoxLayout, tool: Tool, brick: BrickInstance, project: Project | None) -> None:
         pal = theme.current()
@@ -240,6 +256,7 @@ class PropertiesPanel(QScrollArea):
             lay.addLayout(row)
         if project is not None:
             self._ports_section(lay, tool, project)
+            self._connection_section(lay, tool, project)
         delete = QPushButton(icon("mdi6.delete", pal.blocking), "Retirer la brique du pipeline")
         delete.setProperty("class", "danger")
         delete.clicked.connect(lambda: self.removeRequested.emit(brick.uid))

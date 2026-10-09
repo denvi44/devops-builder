@@ -26,6 +26,7 @@ STAGES: list[tuple[str, str]] = [
     ("security", "Sécurité"),
     ("artifacts", "Artefacts"),
     ("infrastructure", "Infrastructure"),
+    ("data", "Données"),
     ("deploy", "Déploiement"),
     ("platform", "Plateforme"),
     ("observability", "Observabilité"),
@@ -61,7 +62,7 @@ LANGUAGES: dict[str, str] = {
 # Licences considérées comme open source (OSI) pour le filtrage.
 OSS_LICENSES = {
     "Apache-2.0", "MIT", "BSD-2-Clause", "BSD-3-Clause", "MPL-2.0", "GPL-2.0",
-    "GPL-3.0", "LGPL-3.0", "AGPL-3.0", "EPL-2.0", "ISC", "LGPL-2.1",
+    "GPL-3.0", "LGPL-3.0", "AGPL-3.0", "EPL-2.0", "ISC", "LGPL-2.1", "PostgreSQL",
 }
 
 
@@ -349,6 +350,9 @@ class Project(BaseModel):
         data = self.model_dump(mode="json")
         if data.get("app", {}).get("source") == "":
             data["app"].pop("source")
+        if not data.get("stages", {}).get("data"):
+            # étape ajoutée en 0.8 : omise quand elle est vide, le fichier reste lisible par la 0.7
+            data.get("stages", {}).pop("data", None)
         for env in data.get("environments", []):
             # champs ajoutés en 0.6 : omis quand ils ne servent pas, le fichier reste lisible par la 0.5
             for key, default in (("host", ""), ("port_offset", None)):

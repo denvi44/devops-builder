@@ -17,6 +17,7 @@ from pathlib import Path
 import yaml
 
 from .catalog import Catalog
+from .databases import DATABASE_TOOLS, databases
 from .model import PORT_OFFSET_STEP, Environment, Project
 
 PORTS_FILE = Path(__file__).parent / "data" / "ports.yaml"
@@ -107,6 +108,19 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
             var = port_variable(cid, container) if host is not None and parametrized(project) else ""
             entries.append(PortEntry(env.id, env.display, cid, label, container, host, usage, exposure, group, var))
 
+        def add_databases(kube: bool, compose: bool = True) -> None:
+            for db in databases(project, catalog):
+                if db.mode == "managed":
+                    add(db.id, db.tool.name, db.engine.port, None, db.engine.label,
+                        "service managé, une instance par environnement")
+                elif kube:
+                    host = f"{name}-pg-rw" if db.mode == "operator" else f"{name}-{db.id}"
+                    add(db.id, db.tool.name, db.engine.port, None, db.engine.label,
+                        f"Service {host}, espace de noms {name}{suffix}, interne au cluster")
+                elif db.mode == "self-hosted" and compose:
+                    add(db.id, db.tool.name, db.engine.port, None, db.engine.label,
+                        f"réseau interne Compose (hôte « {db.id} »), non publié")
+
         if compose_publishes(project):
             if "traefik" in present:
                 add("app", name, app_port, None, "application",
@@ -120,6 +134,7 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
                 for host, container in _compose_ports(COMPOSE_SERVICES[tid].get("ports", [])):
                     add(tid, tool.name if tool else tid, container, host + offset,
                         ports.get(tid, {}).get(container, ""), "publié sur l'hôte Docker")
+            add_databases(False)
         elif project.target in KUBERNETES_TARGETS or any(
                 (t := catalog.get(tid)) and "kubernetes-cluster" in t.roles for tid in present):
             ingress = next((catalog[t].name for t in ("traefik", "ingress-nginx", "envoy-gateway") if t in present), None)
@@ -127,8 +142,9 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
             if ingress:
                 exposure += f", exposé par {ingress}"
             add("app", name, app_port, None, "application", exposure)
+            add_databases(True)
             for tid in present:
-                if tid in PLATFORM_CHARTS and tid in ports:
+                if tid in PLATFORM_CHARTS and tid in ports and tid not in DATABASE_TOOLS:
                     tool = catalog.get(tid)
                     for container, usage in ports[tid].items():
                         add(tid, tool.name if tool else tid, container, None, usage,
@@ -137,6 +153,7 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
             service = next((SERVERLESS[t] for t in present if t in SERVERLESS), None)
             add("app", name, app_port, None, "application",
                 f"{service} : URL HTTPS gérée par le service" if service else "port du conteneur")
+            add_databases(False, compose=False)
     _mark_conflicts(entries)
     return entries
 

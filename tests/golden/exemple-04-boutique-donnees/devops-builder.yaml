@@ -1,0 +1,87 @@
+format_version: 2
+name: Boutique avec base de données
+description: API Python sur hôte Docker avec PostgreSQL, cache Valkey et migrations
+  Alembic ; environnements hors production sur une même machine.
+target: docker-host
+environments:
+- id: dev
+  label: ''
+  kind: dev
+  approval: false
+  cluster: null
+  host: vm-hors-prod
+  overrides: {}
+- id: recette
+  label: ''
+  kind: recette
+  approval: false
+  cluster: null
+  host: vm-hors-prod
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: boutique
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: gitlab
+    params: {}
+  build:
+  - uid: brique002
+    tool: gitlab-ci
+    params: {}
+  - uid: brique003
+    tool: buildkit
+    params: {}
+  - uid: brique004
+    tool: renovate
+    params: {}
+  test:
+  - uid: brique005
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: brique006
+    tool: gitleaks
+    params: {}
+  - uid: brique007
+    tool: trivy
+    params: {}
+  artifacts: []
+  infrastructure: []
+  data:
+  - uid: brique008
+    tool: postgresql
+    params: {}
+  - uid: brique009
+    tool: valkey
+    params: {}
+  - uid: brique010
+    tool: db-migrations
+    params:
+      command: alembic upgrade head
+  deploy:
+  - uid: brique011
+    tool: docker-compose
+    params: {}
+  platform:
+  - uid: brique012
+    tool: traefik
+    params: {}
+  observability:
+  - uid: brique013
+    tool: prometheus
+    params: {}
+  - uid: brique014
+    tool: grafana
+    params: {}

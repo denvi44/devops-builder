@@ -1,0 +1,120 @@
+# Généré par DevOps Builder — à relire avant usage.
+stages:
+- test
+- build
+- security
+- deploy-dev
+- deploy-recette
+- deploy-production
+variables:
+  TAG: $CI_COMMIT_SHORT_SHA
+  IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+unit-tests:
+  stage: test
+  image:
+    name: python:3.12-slim
+    entrypoint:
+    - ''
+  script:
+  - pip install -r requirements.txt
+  - pytest -q
+build-image:
+  stage: build
+  image:
+    name: docker:27
+    entrypoint:
+    - ''
+  services:
+  - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: /certs
+  script:
+  - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  - docker buildx build --tag "$IMAGE" --push .
+gitleaks:
+  stage: security
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint:
+    - ''
+  script:
+  - gitleaks detect --source . --verbose
+trivy:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint:
+    - ''
+  variables:
+    TRIVY_USERNAME: $CI_REGISTRY_USER
+    TRIVY_PASSWORD: $CI_REGISTRY_PASSWORD
+  script:
+  - trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+deploy-dev:
+  stage: deploy-dev
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  environment:
+    name: dev
+  script:
+  - apk add --no-cache openssh-client
+  - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_DEV" "mkdir -p /opt/boutique-dev"
+  - scp deploy/docker-compose.yml "$DEPLOY_HOST_DEV:/opt/boutique-dev/docker-compose.yml"
+  - scp deploy/env/dev.env "$DEPLOY_HOST_DEV:/opt/boutique-dev/.env"
+  - POSTGRESQL_PASSWORD="$POSTGRESQL_PASSWORD_DEV" VALKEY_PASSWORD="$VALKEY_PASSWORD_DEV" sh deploy/secrets.sh .secrets
+  - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_DEV" "mkdir -p /opt/boutique-dev/secrets && chmod 700 /opt/boutique-dev/secrets && tar -C /opt/boutique-dev/secrets -xf - && chmod 600 /opt/boutique-dev/secrets/*"
+  - rm -rf .secrets
+  - scp scripts/db-backup.sh "$DEPLOY_HOST_DEV:/opt/boutique-dev/db-backup.sh"
+  - ssh "$DEPLOY_HOST_DEV" "cd /opt/boutique-dev && IMAGE=$IMAGE docker compose -p boutique-dev pull && IMAGE=$IMAGE docker compose -p boutique-dev up -d"
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+deploy-recette:
+  stage: deploy-recette
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  environment:
+    name: recette
+  script:
+  - apk add --no-cache openssh-client
+  - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_RECETTE" "mkdir -p /opt/boutique-recette"
+  - scp deploy/docker-compose.yml "$DEPLOY_HOST_RECETTE:/opt/boutique-recette/docker-compose.yml"
+  - scp deploy/env/recette.env "$DEPLOY_HOST_RECETTE:/opt/boutique-recette/.env"
+  - POSTGRESQL_PASSWORD="$POSTGRESQL_PASSWORD_RECETTE" VALKEY_PASSWORD="$VALKEY_PASSWORD_RECETTE" sh deploy/secrets.sh .secrets
+  - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_RECETTE" "mkdir -p /opt/boutique-recette/secrets && chmod 700 /opt/boutique-recette/secrets && tar -C /opt/boutique-recette/secrets -xf - && chmod 600 /opt/boutique-recette/secrets/*"
+  - rm -rf .secrets
+  - scp scripts/db-backup.sh "$DEPLOY_HOST_RECETTE:/opt/boutique-recette/db-backup.sh"
+  - ssh "$DEPLOY_HOST_RECETTE" "cd /opt/boutique-recette && IMAGE=$IMAGE docker compose -p boutique-recette pull && IMAGE=$IMAGE docker compose -p boutique-recette up -d"
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  needs:
+  - deploy-dev
+deploy-production:
+  stage: deploy-production
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  environment:
+    name: production
+  script:
+  - apk add --no-cache openssh-client
+  - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_PRODUCTION" "mkdir -p /opt/boutique"
+  - scp deploy/docker-compose.yml "$DEPLOY_HOST_PRODUCTION:/opt/boutique/docker-compose.yml"
+  - scp deploy/env/production.env "$DEPLOY_HOST_PRODUCTION:/opt/boutique/.env"
+  - POSTGRESQL_PASSWORD="$POSTGRESQL_PASSWORD_PRODUCTION" VALKEY_PASSWORD="$VALKEY_PASSWORD_PRODUCTION" sh deploy/secrets.sh .secrets
+  - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_PRODUCTION" "mkdir -p /opt/boutique/secrets && chmod 700 /opt/boutique/secrets && tar -C /opt/boutique/secrets -xf - && chmod 600 /opt/boutique/secrets/*"
+  - rm -rf .secrets
+  - scp scripts/db-backup.sh "$DEPLOY_HOST_PRODUCTION:/opt/boutique/db-backup.sh"
+  - ssh "$DEPLOY_HOST_PRODUCTION" "cd /opt/boutique && IMAGE=$IMAGE docker compose -p boutique pull && IMAGE=$IMAGE docker compose -p boutique up -d"
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - deploy-recette

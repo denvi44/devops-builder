@@ -1,0 +1,6 @@
+id: R41
+title: Base autogérée en production sur Kubernetes
+family: donnees
+severity: avertissement
+type: database_statefulset
+message: "{tool} est déployé en StatefulSet à une seule instance pour « {env} » : ni réplication ni bascule. En production, préférer un opérateur ou un service managé."

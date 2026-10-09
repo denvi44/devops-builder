@@ -73,6 +73,10 @@ CASES = [
     ("R37", lambda: _envs(None), Severity.BLOCKING),
     ("R38", lambda: _ecs_collision(), Severity.BLOCKING),
     ("R39", lambda: _port_clash(), Severity.BLOCKING),
+    ("R40", lambda: put(make(), "k3s", "helm", "cloudnative-pg"), Severity.WARNING),
+    ("R41", lambda: put(make(), "k3s", "helm", "postgresql"), Severity.WARNING),
+    ("R42", lambda: put(make("docker-host"), "docker-compose", "postgresql", "mariadb"), Severity.WARNING),
+    ("R43", lambda: put(make("docker-host"), "docker-compose", "valkey", "redis"), Severity.WARNING),
 ]
 
 

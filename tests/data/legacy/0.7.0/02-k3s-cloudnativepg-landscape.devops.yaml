@@ -1,0 +1,91 @@
+format_version: 2
+name: API
+description: ''
+target: kubernetes
+environments:
+- id: dev
+  label: ''
+  kind: dev
+  approval: false
+  cluster: null
+  overrides: {}
+- id: recette
+  label: ''
+  kind: recette
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: api
+  port: 3000
+stages:
+  source:
+  - uid: 1c93bc86
+    tool: github
+    params: {}
+  build:
+  - uid: 869f7b8d
+    tool: github-actions
+    params: {}
+  - uid: 5ea5bdd9
+    tool: buildkit
+    params: {}
+  - uid: 3a401de7
+    tool: dependabot
+    params: {}
+  test:
+  - uid: fa16e366
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: 60c10f71
+    tool: gitleaks
+    params: {}
+  - uid: 4f5438e5
+    tool: trivy
+    params: {}
+  - uid: ff15a5e0
+    tool: cosign
+    params: {}
+  artifacts:
+  - uid: d18865ba
+    tool: ghcr
+    params: {}
+  infrastructure:
+  - uid: 8d0ec5b8
+    tool: k3s
+    params: {}
+  deploy:
+  - uid: a0ba692d
+    tool: helm
+    params: {}
+  - uid: f6bf934d
+    tool: argo-cd
+    params: {}
+  platform:
+  - uid: ad115321
+    tool: traefik
+    params: {}
+  - uid: 0a34c9af
+    tool: cert-manager
+    params: {}
+  - uid: 8ec4a2b4
+    tool: lsc-cloudnativepg
+    params: {}
+  observability:
+  - uid: 8c3d7d1c
+    tool: prometheus
+    params: {}
+  - uid: 025cdebf
+    tool: grafana
+    params: {}

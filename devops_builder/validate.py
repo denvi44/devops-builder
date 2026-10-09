@@ -187,6 +187,23 @@ def _per_file(build: Callable[[list[str], str], list[str] | None]):
     return run
 
 
+def _run_compose(r: Runner, selected: list[str], cmd: list[str]) -> tuple[bool, str]:
+    """docker compose config, avec des fichiers de secrets vides là où la CI les écrira (env_file)."""
+    for rel in selected:
+        try:
+            doc = yaml.safe_load((r.root / rel).read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError:
+            continue
+        for svc in (doc.get("services") or {}).values():
+            for entry in (svc or {}).get("env_file") or []:
+                path = entry.get("path") if isinstance(entry, dict) else entry
+                target = (r.root / rel).parent / str(path)
+                if not target.exists():
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("", encoding="utf-8")
+    return _per_file(lambda c, rel: [*c, "-f", rel, "config", "-q"])(r, selected, cmd)
+
+
 def _schema_args(cmd: list[str], rel: str) -> list[str] | None:
     schema = SCHEMAS.get(rel)
     if schema is None:
@@ -306,8 +323,7 @@ CHECKS: list[Check] = [
           "pip install actionlint-py, ou https://github.com/rhysd/actionlint"),
     Check("shellcheck", "Scripts shell (ShellCheck)", _shell,
           _per_file(lambda cmd, rel: [*cmd, "-S", "warning", rel]), ("shellcheck",), "pip install shellcheck-py"),
-    Check("compose", "Docker Compose (docker compose config)", _compose,
-          _per_file(lambda cmd, rel: [*cmd, "-f", rel, "config", "-q"]), ("docker compose",),
+    Check("compose", "Docker Compose (docker compose config)", _compose, _run_compose, ("docker compose",),
           "Docker Desktop ou le plugin docker-compose"),
     Check("kubeconform", "Manifestes Kubernetes (kubeconform)", _k8s_manifests, _run_kubeconform, ("kubeconform",),
           "https://github.com/yannh/kubeconform/releases", network=True),

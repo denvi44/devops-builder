@@ -1,0 +1,96 @@
+format_version: 2
+name: Boutique
+description: ''
+target: docker-host
+environments:
+- id: sandbox
+  label: ''
+  kind: sandbox
+  approval: false
+  cluster: null
+  host: hors-production
+  overrides: {}
+- id: dev
+  label: ''
+  kind: dev
+  approval: false
+  cluster: null
+  host: hors-production
+  overrides: {}
+- id: recette
+  label: ''
+  kind: recette
+  approval: false
+  cluster: null
+  host: hors-production
+  overrides: {}
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  host: hors-production
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: boutique
+  port: 8080
+  source: /home/dev/boutique
+stages:
+  source:
+  - uid: c9d1cbe9
+    tool: gitlab
+    params: {}
+  build:
+  - uid: 62fa385a
+    tool: gitlab-ci
+    params: {}
+  - uid: 51a93394
+    tool: buildkit
+    params: {}
+  - uid: c7a3ece4
+    tool: renovate
+    params: {}
+  test:
+  - uid: 465ca505
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: f64b4e87
+    tool: gitleaks
+    params: {}
+  - uid: cfbf42dd
+    tool: trivy
+    params: {}
+  - uid: f345a647
+    tool: cosign
+    params: {}
+  artifacts: []
+  infrastructure: []
+  deploy:
+  - uid: 1758a6e8
+    tool: docker-compose
+    params: {}
+  platform:
+  - uid: 9dd108c0
+    tool: traefik
+    params: {}
+  - uid: 10b20057
+    tool: lsc-mongodb
+    params: {}
+  observability:
+  - uid: df3ac1a0
+    tool: prometheus
+    params: {}
+  - uid: 740d2357
+    tool: grafana
+    params: {}

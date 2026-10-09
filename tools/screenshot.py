@@ -74,6 +74,8 @@ def main() -> int:
     wiz.w_cloud.setCurrentIndex(max(0, wiz.w_cloud.findData("aws")))
     for b in wiz.g_envs.buttons():
         b.setChecked(b.property("key") == "dev-staging-prod")
+    wiz.w_db.setCurrentIndex(max(0, wiz.w_db.findData("postgresql")))
+    wiz.w_cache.setChecked(True)
     wiz.show()
     for _ in range(4):
         wiz.next()
@@ -230,6 +232,18 @@ def main() -> int:
         app.processEvents()
         appdlg.grab().save(str(out / f"14-application{suffix}.png"))
         appdlg.close()
+    # 15 : étape Données — base, cache et migrations, brique PostgreSQL sélectionnée
+    from devops_builder.model import env_preset
+    p = Project(name="Boutique", target="docker-host", environments=env_preset("dev-recette-prod"))
+    p.app.image_name = "boutique"
+    for t in ("gitlab", "gitlab-ci", "buildkit", "unit-tests", "trivy", "docker-compose", "traefik",
+              "postgresql", "valkey", "prometheus", "grafana"):
+        p.add(t, win.catalog[t].stage)
+    p.add("db-migrations", "data", command="alembic upgrade head")
+    win._load(p, None)
+    win._focus_brick(p.bricks_for("postgresql")[0].uid)
+    app.processEvents()
+    win.grab().save(str(out / f"15-donnees{suffix}.png"))
     print("captures écrites dans", out)
     return 0
 

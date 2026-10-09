@@ -36,6 +36,7 @@ FAMILIES = {
     "completude": "Complétude du pipeline",
     "parametres": "Paramètres des briques",
     "environnements": "Environnements",
+    "donnees": "Données",
 }
 
 
@@ -424,6 +425,7 @@ CAP_LABELS = {  # complément de « a besoin … »
     "trace-storage": "d'un stockage de traces",
     "cni": "d'un plugin réseau (CNI)",
     "kubernetes-cluster": "d'un cluster Kubernetes",
+    "database": "d'une base de données",
 }
 MANAGED_TARGETS = ("kubernetes", "kubernetes-managed")
 
@@ -771,6 +773,52 @@ def h_port_conflict(rule: Rule, ctx: Context) -> list[Diagnostic]:
                                   {"uids": [b.uid for b in ctx.project.bricks_for(tid)]}))
         bricks = [b.uid for tid in tools for b in ctx.project.bricks_for(tid)]
         out.append(_diag(rule, message, bricks, actions))
+    return out
+
+
+def _kube_databases(ctx: Context) -> list[Placed]:
+    """Bases autogérées ou opérateur qui tournent dans un cluster (pas de Compose pour les porter)."""
+    from .databases import ENGINES, OPERATORS
+    on_cluster = ctx.project.target in MANAGED_TARGETS or bool(ctx.with_role("kubernetes-cluster"))
+    if not on_cluster or ctx.has("docker-compose"):
+        return []
+    return [p for p in ctx.placed if p.tool.id in ENGINES or p.tool.id in OPERATORS]
+
+
+def _prod_envs(ctx: Context) -> list:
+    return [e for e in ctx.project.environments if e.kind == "production"]
+
+
+@handler("database_backup")
+def h_database_backup(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    from .databases import ENGINES
+    prod = _prod_envs(ctx)
+    if not prod or ctx.has("velero"):
+        return []
+    out = []
+    for p in _kube_databases(ctx):
+        if p.tool.id in ENGINES and ENGINES[p.tool.id].family == "key-value":
+            continue  # cache : la persistance du volume suffit en général
+        actions = _add_actions(ctx, ["velero"], 1)
+        out.append(_diag(rule, _fmt(rule.message, tool=p.tool.name, env=prod[0].display), [p.brick.uid], actions))
+    return out
+
+
+@handler("database_statefulset")
+def h_database_statefulset(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    from .databases import ENGINES
+    prod = _prod_envs(ctx)
+    if not prod:
+        return []
+    out = []
+    managed = [prov.services.get("database") for prov in _present_providers(ctx)]
+    for p in _kube_databases(ctx):
+        engine = ENGINES.get(p.tool.id)
+        if engine is None or engine.family == "key-value":
+            continue
+        candidates = (["cloudnative-pg"] if p.tool.id == "postgresql" else []) + [m for m in managed if m]
+        actions = _replace_actions(ctx, p, [c for c in candidates if not ctx.has(c)])
+        out.append(_diag(rule, _fmt(rule.message, tool=p.tool.name, env=prod[0].display), [p.brick.uid], actions))
     return out
 
 

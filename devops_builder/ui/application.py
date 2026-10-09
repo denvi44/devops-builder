@@ -74,7 +74,8 @@ class ApplicationDialog(QDialog):
         self.resize(760, 620)
         lay = QVBoxLayout(self)
         lay.addWidget(muted("Désigner le dossier de l'application : DevOps Builder y lit le langage, le port, le "
-                            "Dockerfile, la CI et la forge déjà en place, et propose les briques qui vont avec."))
+                            "Dockerfile, les bases de données, la CI et la forge déjà en place, et propose les "
+                            "briques qui vont avec."))
         form = QFormLayout()
         self.folder = FolderPicker(project.app.source)
         self.folder.scan.clicked.connect(self.analyse)
@@ -151,5 +152,6 @@ class ApplicationDialog(QDialog):
         project.app.port = self.port.value()
         for tool_id in self.chosen_bricks():
             if not project.bricks_for(tool_id):
-                project.add(tool_id, self.catalog[tool_id].stage)
+                params = appscan.proposed_params(self.profile, tool_id, project, self.catalog) if self.profile else {}
+                project.add(tool_id, self.catalog[tool_id].stage, **params)
 

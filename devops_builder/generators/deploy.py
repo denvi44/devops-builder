@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ..ir import IR
+from . import data
 from .common import HEADER, dump_yaml, dump_yaml_docs
 from .platform import compose_platform_services
 
@@ -42,6 +43,7 @@ def compose(ir: IR) -> dict[str, str]:
     else:
         service["ports"] = [_published(ir, "app", port, port)]
     services = {app: service}
+    services.update(data.compose_parts(ir, service, service["image"]))
     services.update(compose_platform_services(ir))
     files: dict[str, str] = {}
     if parametrized(ir.project):
@@ -60,6 +62,8 @@ def compose(ir: IR) -> dict[str, str]:
     doc: dict = {"name": app, "services": services}
     if volumes:
         doc["volumes"] = {v: {} for v in volumes}
+    files.update(data.secrets_script(ir))
+    files.update(data.backup_script(ir))
     ir.cover("docker-compose")
     files["deploy/docker-compose.yml"] = dump_yaml(doc)
     return files
@@ -77,6 +81,8 @@ def helm_chart(ir: IR) -> dict[str, str]:
         "service": {"type": "ClusterIP", "port": 80, "targetPort": port},
         "resources": {"requests": {"cpu": "100m", "memory": "128Mi"}, "limits": {"memory": "256Mi"}},
     }
+    db_values, db_templates, db_env, db_init = data.helm_parts(ir)
+    values.update(db_values)
     deployment = f"""apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -107,6 +113,10 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
 """
+    if db_env:
+        deployment += _indent({"env": db_env}, 10)
+    if db_init:
+        deployment = deployment.replace("      containers:\n", _indent({"initContainers": db_init}, 6) + "      containers:\n", 1)
     service = f"""apiVersion: v1
 kind: Service
 metadata:
@@ -124,15 +134,24 @@ spec:
     if ir.multi_env:
         for env in ir.envs:
             env_files[ir.helm_values(env)] = dump_yaml(
-                {"replicaCount": REPLICAS[env.kind], "image": {"tag": "latest"}},
+                {"replicaCount": REPLICAS[env.kind], "image": {"tag": "latest"}, **data.helm_env_values(ir, env)},
                 f"{HEADER} Valeurs propres à l'environnement « {env.display} ».")
+    data.gitops_note(ir)
     return {
         **env_files,
         f"{base}/Chart.yaml": dump_yaml(chart),
         f"{base}/values.yaml": dump_yaml(values),
         f"{base}/templates/deployment.yaml": deployment,
         f"{base}/templates/service.yaml": service,
+        **{f"{base}/{k}": v for k, v in db_templates.items()},
     }
+
+
+def _indent(obj: dict, spaces: int) -> str:
+    """Fragment YAML indenté, à insérer dans un gabarit Helm écrit à la main."""
+    import yaml
+    text = yaml.safe_dump(obj, sort_keys=False, allow_unicode=True, width=200)
+    return "".join(" " * spaces + line + "\n" for line in text.splitlines())
 
 
 def kustomize(ir: IR) -> dict[str, str]:
@@ -147,8 +166,14 @@ def kustomize(ir: IR) -> dict[str, str]:
     }
     service = {"apiVersion": "v1", "kind": "Service", "metadata": {"name": app},
                "spec": {"selector": {"app": app}, "ports": [{"port": 80, "targetPort": port}]}}
+    db_files, db_resources, db_env, db_init = data.kustomize_parts(ir)
+    pod = deployment["spec"]["template"]["spec"]
+    if db_env:
+        pod["containers"][0]["env"] = db_env
+    if db_init:
+        deployment["spec"]["template"]["spec"] = {"initContainers": db_init, **pod}
     base_k = {"apiVersion": "kustomize.config.k8s.io/v1beta1", "kind": "Kustomization",
-              "resources": ["deployment.yaml", "service.yaml"]}
+              "resources": ["deployment.yaml", "service.yaml", *db_resources]}
     image_name = ir.image_ref  # référence sans tag ; le tag est posé par la CI
     root = "deploy/kustomize"
     ir.cover("kustomize")
@@ -156,13 +181,19 @@ def kustomize(ir: IR) -> dict[str, str]:
         f"{root}/base/deployment.yaml": dump_yaml(deployment),
         f"{root}/base/service.yaml": dump_yaml(service),
         f"{root}/base/kustomization.yaml": dump_yaml(base_k),
+        **{f"{root}/base/{k}": v for k, v in db_files.items()},
     }
+    if not ir.has("helm"):
+        data.gitops_note(ir)
     for env in ir.envs:
         overlay: dict = {"apiVersion": "kustomize.config.k8s.io/v1beta1", "kind": "Kustomization",
                          "namespace": ir.namespace(env), "resources": ["../../base"],
                          "images": [{"name": app, "newName": image_name, "newTag": "latest"}]}
         if ir.multi_env:
             overlay["replicas"] = [{"name": app, "count": REPLICAS[env.kind]}]
+        patches = data.kustomize_patches(ir, env)
+        if patches:
+            overlay["patches"] = patches
         files[f"{ir.overlay(env)}/kustomization.yaml"] = dump_yaml(overlay)
     return files
 
@@ -237,6 +268,26 @@ def _ports_shifted(ir: IR) -> bool:
     return parametrized(ir.project)
 
 
+def _ansible_db_tasks(ir: IR) -> list[dict]:
+    """Secrets des bases (écrits par deploy/secrets.sh dans la CI) et sauvegarde planifiée."""
+    tasks: list[dict] = []
+    if data.needs_secrets(ir):
+        tasks.append({"name": "Copier les secrets des bases de données",
+                      "ansible.builtin.copy": {"src": "../.secrets/", "dest": "{{ app_dir }}/secrets/",
+                                               "mode": "0600", "directory_mode": "0700"},
+                      "no_log": True})
+    if data.backup_script(ir):
+        tasks += [
+            {"name": "Copier le script de sauvegarde des bases",
+             "ansible.builtin.copy": {"src": f"../{data.BACKUP_SCRIPT}", "dest": "{{ app_dir }}/db-backup.sh",
+                                      "mode": "0750"}},
+            {"name": "Planifier la sauvegarde quotidienne des bases",
+             "ansible.builtin.cron": {"name": "sauvegarde des bases {{ project }}", "hour": "3", "minute": "15",
+                                      "job": "{{ app_dir }}/db-backup.sh {{ app_dir }} >/dev/null"}},
+        ]
+    return tasks
+
+
 def ansible(ir: IR) -> dict[str, str]:
     files: dict[str, str] = {}
     for env in ir.envs:
@@ -259,6 +310,7 @@ def ansible(ir: IR) -> dict[str, str]:
             *([{"name": "Copier les ports de l'environnement",
                 "ansible.builtin.copy": {"src": "../deploy/env/{{ deploy_env }}.env", "dest": "{{ app_dir }}/.env"}}]
               if _ports_shifted(ir) else []),
+            *_ansible_db_tasks(ir),
             {"name": "Démarrer les services",
              "community.docker.docker_compose_v2": {"project_src": "{{ app_dir }}", "project_name": "{{ project }}",
                                                     "pull": "always",

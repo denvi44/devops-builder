@@ -88,7 +88,7 @@ fi
 
 kubectl --context "$CTX" create namespace "$NAMESPACE" --dry-run=client -o yaml \
   | kubectl --context "$CTX" apply -f - >/dev/null
-
+@DB_SETUP@
 @DEPLOY@
 
 if [ "$MODE" = dry-run ]; then
@@ -97,7 +97,7 @@ if [ "$MODE" = dry-run ]; then
 fi
 
 step "Attente du déploiement"
-if ! kubectl --context "$CTX" -n "$NAMESPACE" rollout status "deployment/$APP" --timeout=180s; then
+if ! kubectl --context "$CTX" -n "$NAMESPACE" rollout status "deployment/$APP" --timeout=@TIMEOUT@; then
   echo "Le déploiement n'a pas abouti. Événements récents :" >&2
   kubectl --context "$CTX" -n "$NAMESPACE" get events --sort-by=.lastTimestamp | tail -n 15 >&2 || true
   exit 1
@@ -134,10 +134,10 @@ if [ "$MODE" = deploy ]; then
   step "Installation du chart Helm"
   helm --kube-context "$CTX" upgrade --install "$APP" "$CHART" -n "$NAMESPACE" "${VALUES[@]}" \
     --set image.repository="${IMAGE%:*}" --set image.tag="${IMAGE##*:}" \
-    --set image.pullPolicy=IfNotPresent --set replicaCount=1
+    --set image.pullPolicy=IfNotPresent --set replicaCount=1@HELM_DB@
 else
   step "Rendu du chart Helm et dry-run serveur"
-  helm template "$APP" "$CHART" -n "$NAMESPACE" "${VALUES[@]}" \
+  helm template "$APP" "$CHART" -n "$NAMESPACE" "${VALUES[@]}"@HELM_DB@ \
     | kubectl --context "$CTX" -n "$NAMESPACE" apply --dry-run=server -f -
 fi"""
 
@@ -155,6 +155,47 @@ else
 fi"""
 
 
+_CNPG = r"""
+step "Installation de l'opérateur CloudNativePG"
+helm repo add cnpg https://cloudnative-pg.github.io/charts >/dev/null 2>&1 || true
+helm repo update cnpg >/dev/null
+helm --kube-context "$CTX" upgrade --install cnpg cnpg/cloudnative-pg -n cnpg-system --create-namespace --wait
+"""
+
+
+def _databases(ir: IR, helm: bool) -> tuple[str, str, bool]:
+    """Préparation des bases pour kind : opérateur, mots de passe de test, URL des bases managées."""
+    from . import data
+    dbs = data.kube_dbs(ir)
+    if not dbs:
+        return "", "", False
+    setup = _CNPG if any(d.mode == "operator" for d in dbs) else ""
+    flags: list[str] = []
+    for db in dbs:
+        k = db.id.replace("-", "_")
+        if db.mode == "operator":
+            if helm:
+                flags.append(f"--set database.{k}.instances=1")
+            continue
+        if db.mode == "self-hosted":
+            value, field = "kindtest", "password"
+            url = db.url(f"{ir.app}-{db.id}", value)
+        else:
+            value, field = '"${KIND_' + db.url_ci_var + ':-' + db.url("127.0.0.1", "kindtest") + '}"', "url"
+            url = value
+        if helm:
+            flags.append(f"--set database.{k}.createSecret=true --set-string database.{k}.{field}={value}")
+        else:
+            lits = (f"--from-literal=password={value} --from-literal=url={url}" if db.mode == "self-hosted"
+                    else f"--from-literal=url={value}")
+            setup += (f'kubectl --context "$CTX" -n "$NAMESPACE" create secret generic {ir.app}-{db.id} {lits} '
+                      '--dry-run=client -o yaml | kubectl --context "$CTX" apply -f - >/dev/null\n')
+    helm_db = "".join(f" \\\n    {f}" for f in flags)
+    if any(d.mode == "managed" for d in dbs):
+        setup = ("# Base managée : non joignable depuis kind ; KIND_<VARIABLE> désigne une base de test.\n" + setup)
+    return setup, helm_db, True
+
+
 def kind_test(ir: IR, files: dict[str, str]) -> dict[str, str]:
     helm = any(f.startswith(f"charts/{ir.app}/") for f in files)
     kustomize = any(f.startswith("deploy/kustomize/overlays/") for f in files)
@@ -164,16 +205,21 @@ def kind_test(ir: IR, files: dict[str, str]) -> dict[str, str]:
     default = next((e.id for k in ("dev", "sandbox") for e in ir.envs if e.kind == k), envs[0])
     cases = "\n".join(f"  {e.id}) NAMESPACE={shlex.quote(ir.namespace(e))} ;;" for e in ir.envs)
     deploy = _HELM if helm else _KUSTOMIZE.replace("@OVERLAYS@", "deploy/kustomize/overlays")
+    db_setup, helm_db, with_db = _databases(ir, helm)
     text = (_TEMPLATE
+            .replace("@DEPLOY@", deploy)
             .replace("@HEADER@", HEADER)
             .replace("@APP@", shlex.quote(ir.app))
             .replace("@ENVS@", ", ".join(envs))
             .replace("@DEFAULT@", default)
             .replace("@CLUSTER@", f"{ir.app}-test"[:40])
             .replace("@CASES@", cases)
-            .replace("@NEED_HELM@", 'need helm "https://helm.sh/docs/intro/install/"\n' if helm else "")
-            .replace("@PORT@", str(ir.project.app.port))
-            .replace("@DEPLOY@", deploy))
+            .replace("@NEED_HELM@", 'need helm "https://helm.sh/docs/intro/install/"\n'
+                     if helm or "helm repo add" in db_setup else "")
+            .replace("@DB_SETUP@", db_setup)
+            .replace("@HELM_DB@", helm_db)
+            .replace("@TIMEOUT@", "420s" if with_db else "180s")
+            .replace("@PORT@", str(ir.project.app.port)))
     ir.notes.append(f"`{KIND_TEST}` déploie le pipeline dans un cluster kind jetable "
                     f"({'chart Helm' if helm else 'overlay Kustomize'}) : utile avant la première mise en production.")
     return {KIND_TEST: text}

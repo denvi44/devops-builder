@@ -288,3 +288,221 @@ azure-key-vault:
     default: "kv-{app}"
     pattern: '[a-zA-Z](?!.*--)[a-zA-Z0-9-]{1,22}[a-zA-Z0-9]'
     pattern_hint: "3 à 24 caractères, lettres, chiffres et tirets non doublés, commence par une lettre"
+
+# ------------------------------------------------------------- Bases de données
+_db_name: &db_name
+  label: Base
+  description: Nom de la base créée pour l'application.
+  default: app
+  pattern: '[a-z][a-z0-9_]{0,62}'
+  pattern_hint: "minuscules, chiffres et _, commence par une lettre"
+_db_user: &db_user
+  label: Utilisateur
+  description: Compte de l'application ; son mot de passe est une variable CI secrète.
+  default: app
+  pattern: '[a-z][a-z0-9_]{0,31}'
+  pattern_hint: "minuscules, chiffres et _, commence par une lettre (« admin » et « root » sont réservés par certains services)"
+_db_storage: &db_storage
+  label: Volume (Kubernetes)
+  description: Taille du volume persistant sur Kubernetes.
+  default: 10Gi
+  pattern: '[0-9]+(Mi|Gi|Ti)'
+  pattern_hint: "taille Kubernetes, ex. 10Gi"
+
+postgresql:
+  version:
+    label: Version
+    description: Étiquette de l'image officielle postgres.
+    default: "18"
+    suggestions: ["18", "17", "16"]
+    pattern: '[0-9]{2}(\.[0-9]+)?(-[a-z0-9]+)?'
+    pattern_hint: "version majeure, ex. 18 ou 17-alpine"
+  database: *db_name
+  user: *db_user
+  storage: *db_storage
+mariadb:
+  version:
+    label: Version
+    default: "11.8"
+    suggestions: ["11.8", "11.4", "10.11"]
+    pattern: '[0-9]{2}\.[0-9]+(\.[0-9]+)?'
+    pattern_hint: "version, ex. 11.8 (LTS)"
+  database: *db_name
+  user: *db_user
+  storage: *db_storage
+mysql:
+  version:
+    label: Version
+    default: "8.4"
+    suggestions: ["8.4", "9.4"]
+    pattern: '[0-9]\.[0-9]+(\.[0-9]+)?'
+    pattern_hint: "version, ex. 8.4 (LTS)"
+  database: *db_name
+  user: *db_user
+  storage: *db_storage
+mongodb:
+  version:
+    label: Version
+    default: "8.0"
+    suggestions: ["8.0", "7.0"]
+    pattern: '[0-9]\.[0-9]+(\.[0-9]+)?'
+    pattern_hint: "version, ex. 8.0"
+  database: *db_name
+  user: *db_user
+  storage: *db_storage
+valkey:
+  version:
+    label: Version
+    default: "8"
+    suggestions: ["8", "8.1", "9"]
+    pattern: '[0-9]+(\.[0-9]+)*(-[a-z0-9]+)?'
+    pattern_hint: "version, ex. 8 ou 8.1-alpine"
+  storage:
+    <<: *db_storage
+    default: 1Gi
+redis:
+  version:
+    label: Version
+    default: "8"
+    suggestions: ["8", "7.4"]
+    pattern: '[0-9]+(\.[0-9]+)*(-[a-z0-9]+)?'
+    pattern_hint: "version, ex. 8"
+  storage:
+    <<: *db_storage
+    default: 1Gi
+cloudnative-pg:
+  version:
+    label: Version de PostgreSQL
+    description: Image ghcr.io/cloudnative-pg/postgresql.
+    default: "17"
+    suggestions: ["18", "17", "16"]
+    pattern: '[0-9]{2}(\.[0-9]+)?'
+    pattern_hint: "version majeure, ex. 17"
+  database: *db_name
+  user: *db_user
+  storage: *db_storage
+
+_managed_instance: &managed_instance
+  per_env: true
+  label: Nom de l'instance
+  description: Reçoit le suffixe de l'environnement hors production.
+  default: "{app}"
+  pattern: '[a-z][a-z0-9-]{0,40}[a-z0-9]'
+  pattern_hint: "minuscules, chiffres et tirets, commence par une lettre"
+aws-rds:
+  engine:
+    label: Moteur
+    default: postgres
+    choices: [postgres, mysql, mariadb]
+  version:
+    label: Version du moteur
+    description: Vide = version majeure récente du moteur choisi.
+    pattern: '[0-9]+(\.[0-9]+)*'
+    pattern_hint: "ex. 17, 8.4 ou 11.4"
+  instance: *managed_instance
+  instance_class:
+    label: Classe d'instance
+    default: db.t4g.micro
+    suggestions: [db.t4g.micro, db.t4g.small, db.t4g.medium, db.m7g.large, db.r7g.large]
+    pattern: 'db\.[a-z0-9]+\.[a-z0-9]+'
+    pattern_hint: "classe RDS, ex. db.t4g.micro"
+  storage_gb:
+    label: Stockage (Go)
+    type: int
+    default: 20
+  database: *db_name
+  user: *db_user
+cloud-sql:
+  engine:
+    label: Moteur
+    default: postgres
+    choices: [postgres, mysql]
+  version:
+    label: Version du moteur
+    description: Vide = version majeure récente du moteur choisi.
+    pattern: '[0-9]+(_[0-9]+)?'
+    pattern_hint: "ex. 17 ou 8_4"
+  instance: *managed_instance
+  tier:
+    label: Gabarit
+    default: db-custom-1-3840
+    suggestions: [db-f1-micro, db-g1-small, db-custom-1-3840, db-custom-2-7680, db-custom-4-15360]
+    pattern: 'db-[a-z0-9-]+'
+    pattern_hint: "gabarit Cloud SQL, ex. db-custom-1-3840"
+  database: *db_name
+  user: *db_user
+azure-database:
+  engine:
+    label: Moteur
+    default: postgres
+    choices: [postgres, mysql]
+  version:
+    label: Version du moteur
+    description: Vide = version majeure récente du moteur choisi.
+    pattern: '[0-9]+(\.[0-9]+)*'
+    pattern_hint: "ex. 16 ou 8.0.21"
+  instance:
+    <<: *managed_instance
+    label: Nom du serveur
+    description: Unique dans tout Azure ; reçoit le suffixe de l'environnement hors production.
+    default: "{app}-db"
+  sku:
+    label: SKU
+    default: B_Standard_B1ms
+    suggestions: [B_Standard_B1ms, B_Standard_B2s, GP_Standard_D2s_v3, GP_Standard_D4s_v3]
+    pattern: '(B|GP|MO)_Standard_[A-Za-z0-9_]+'
+    pattern_hint: "SKU du serveur flexible, ex. B_Standard_B1ms"
+  database: *db_name
+  user: *db_user
+scaleway-rdb:
+  engine:
+    label: Moteur
+    default: PostgreSQL-16
+    choices: [PostgreSQL-17, PostgreSQL-16, PostgreSQL-15, MySQL-8]
+  instance: *managed_instance
+  node_type:
+    label: Type de nœud
+    default: DB-DEV-S
+    suggestions: [DB-DEV-S, DB-DEV-M, DB-PLAY2-PICO, DB-PRO2-XXS, DB-PRO2-XS]
+    pattern: 'DB-[A-Z0-9-]+'
+    pattern_hint: "type de nœud Scaleway, ex. DB-DEV-S"
+  database: *db_name
+  user: *db_user
+ovh-databases:
+  engine:
+    label: Moteur
+    default: postgresql
+    choices: [postgresql, mysql]
+  version:
+    label: Version du moteur
+    default: "16"
+    suggestions: ["17", "16", "15", "8"]
+    pattern: '[0-9]+(\.[0-9]+)?'
+    pattern_hint: "ex. 16 ou 8"
+  instance: *managed_instance
+  plan:
+    label: Offre
+    default: essential
+    suggestions: [essential, business, enterprise, discovery, production, advanced]
+  flavor:
+    label: Gabarit
+    default: db1-4
+    suggestions: [db1-4, db1-7, db1-15, db1-30]
+    pattern: 'db[0-9]+-[0-9]+'
+    pattern_hint: "gabarit OVHcloud, ex. db1-4"
+  region:
+    label: Région
+    default: GRA
+    suggestions: [GRA, SBG, BHS, DE, UK, WAW]
+    pattern: '[A-Z]{2,4}'
+    pattern_hint: "code de région OVHcloud en majuscules, ex. GRA"
+  database: *db_name
+  user: *db_user
+
+db-migrations:
+  command:
+    label: Commande de migration
+    description: Exécutée avec l'image de l'application avant son démarrage, dans chaque environnement.
+    example: "alembic upgrade head"
+    required: true
+    suggestions: ["alembic upgrade head", "python manage.py migrate --noinput", "npx prisma migrate deploy", "npx knex migrate:latest", "npx sequelize-cli db:migrate", "goose -dir migrations up", "dotnet ef database update"]

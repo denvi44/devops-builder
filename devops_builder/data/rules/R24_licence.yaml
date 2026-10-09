@@ -4,5 +4,5 @@ family: conformite
 severity: info
 type: license
 params:
-  licenses: [BSL-1.1]
+  licenses: [BSL-1.1, SSPL-1.0]
 message: "{tool} est sous licence {license}."

@@ -26,3 +26,10 @@ argo-cd:        {8080: "API et interface (service 80/443)"}
 argo-workflows: {2746: "serveur et interface"}
 chaos-mesh:     {2333: "tableau de bord"}
 nexus:          {8081: "interface et dépôts"}
+postgresql:     {5432: "PostgreSQL"}
+cloudnative-pg: {5432: "PostgreSQL (service <cluster>-rw)"}
+mariadb:        {3306: "MariaDB"}
+mysql:          {3306: "MySQL"}
+mongodb:        {27017: "MongoDB"}
+valkey:         {6379: "Valkey"}
+redis:          {6379: "Redis"}

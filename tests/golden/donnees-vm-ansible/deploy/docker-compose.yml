@@ -1,0 +1,65 @@
+# Généré par DevOps Builder — à relire avant usage.
+name: mon-app
+services:
+  mon-app:
+    image: ${IMAGE:-$CI_REGISTRY_IMAGE:latest}
+    restart: unless-stopped
+    environment:
+      PORT: '8000'
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.mon-app.rule=Host(`mon-app.example.com`)
+    - traefik.http.routers.mon-app.entrypoints=websecure
+    - traefik.http.services.mon-app.loadbalancer.server.port=8000
+    env_file:
+    - secrets/app.env
+    depends_on:
+      mariadb:
+        condition: service_healthy
+  mariadb:
+    image: mariadb:11.8
+    restart: unless-stopped
+    environment:
+      MARIADB_USER: app
+      MARIADB_DATABASE: app
+      MARIADB_RANDOM_ROOT_PASSWORD: '1'
+    env_file:
+    - secrets/mariadb.env
+    volumes:
+    - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - healthcheck.sh --connect --innodb_initialized
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+  traefik:
+    image: traefik:v3.1
+    command:
+    - --providers.docker=true
+    - --providers.docker.exposedbydefault=false
+    - --entrypoints.web.address=:80
+    - --entrypoints.websecure.address=:443
+    ports:
+    - 80:80
+    - 443:443
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+    - 9090:9090
+    volumes:
+    - prometheus-data:/prometheus
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+    - 3000:3000
+    volumes:
+    - grafana-data:/var/lib/grafana
+volumes:
+  grafana-data: {}
+  mariadb-data: {}
+  prometheus-data: {}

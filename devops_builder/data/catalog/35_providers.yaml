@@ -14,6 +14,7 @@
   auth: [oidc, static]
   secnumcloud: "no"
   services:
+    database: aws-rds
     k8s.managed: eks
     registry: ecr
     secrets: aws-secrets-manager
@@ -36,6 +37,7 @@
   auth: [oidc, static]
   secnumcloud: "no"
   services:
+    database: cloud-sql
     k8s.managed: gke
     registry: artifact-registry
     secrets: gcp-secret-manager
@@ -58,6 +60,7 @@
   auth: [oidc, static]
   secnumcloud: "no"
   services:
+    database: azure-database
     k8s.managed: aks
     registry: acr
     secrets: azure-key-vault
@@ -80,6 +83,7 @@
   auth: [static]
   secnumcloud: partial
   services:
+    database: ovh-databases
     k8s.managed: ovh-mks
     registry: ovh-registry
     object-storage: ovh-object-storage
@@ -112,6 +116,7 @@
   auth: [static]
   secnumcloud: unknown
   services:
+    database: scaleway-rdb
     k8s.managed: kapsule
     registry: scaleway-registry
     object-storage: scaleway-object-storage

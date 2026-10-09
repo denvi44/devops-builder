@@ -1,0 +1,8 @@
+id: R43
+title: Deux stockages clé-valeur
+family: donnees
+severity: avertissement
+type: exclusive_role
+params:
+  role: key-value-store
+message: "Deux stockages clé-valeur ({tools}) remplissent le même rôle : n'en garder qu'un."

@@ -79,6 +79,23 @@ def extra_cases(catalog) -> dict[str, Project]:
         if env.kind != "production" and hasattr(env, "host"):
             env.host = "vm-hors-prod"
     out["ports-hote-partage"] = shared
+    # 0.8 : étape Données — base autogérée, opérateur, services managés, migrations
+    if "database" in getattr(StarterAnswers, "__dataclass_fields__", {}):
+        db_cases = {
+            "donnees-hote-docker": dict(hosting="docker-host", envs="dev-recette-prod", database="postgresql",
+                                        cache=True, migrations="alembic upgrade head"),
+            "donnees-vm-ansible": dict(hosting="vm", envs="prod", database="mariadb"),
+            "donnees-k3s-cloudnativepg": dict(hosting="kubernetes", envs="dev-staging-prod", database="postgresql",
+                                              migrations="npx prisma migrate deploy"),
+            "donnees-k3s-gitops-kustomize": dict(hosting="kubernetes", envs="staging-prod", gitops=True,
+                                                 k8s_deploy="kustomize", database="mongodb", cache=True),
+            "donnees-serverless-gcp": dict(hosting="serverless", cloud="gcp", envs="prod", database="postgresql"),
+        }
+        for cloud in ("aws", "gcp", "azure", "scaleway", "ovhcloud"):
+            db_cases[f"donnees-managee-{cloud}"] = dict(hosting="kubernetes-managed", cloud=cloud, envs="staging-prod",
+                                                       database="mysql" if cloud == "azure" else "postgresql")
+        for name, answers in db_cases.items():
+            out[name] = build_starter(StarterAnswers(forge="gitlab", **answers), catalog)
     return out
 
 

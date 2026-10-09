@@ -132,6 +132,8 @@ def main(argv: list[str] | None = None) -> int:
     it.add_argument("-o", "--output", required=True, help="Fichier projet à écrire (.devops.yaml)")
     it.add_argument("--hosting", help="Hébergement : docker-host, vm, kubernetes, kubernetes-managed, serverless")
     it.add_argument("--cloud", help="Cloud pour kubernetes-managed ou serverless (aws, gcp, azure…)")
+    it.add_argument("--database", choices=["none", "postgresql", "mysql", "mariadb", "mongodb"],
+                    help="Base de données principale (par défaut : celle que l'analyse a détectée)")
     it.add_argument("--envs", default="staging-prod", help="Modèle d'environnements (prod, staging-prod, …)")
     args = parser.parse_args(argv)
 
@@ -237,6 +239,8 @@ def _app_command(args) -> int:
         answers.hosting = args.hosting
     if args.cloud:
         answers.cloud = args.cloud
+    if args.database:
+        answers.database = args.database
     problems = validate(answers)
     if problems:
         print("Réponses incomplètes : " + " ".join(problems) + " (préciser --hosting/--cloud).")

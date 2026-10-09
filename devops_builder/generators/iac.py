@@ -221,12 +221,16 @@ IAC_RESOURCES = {
 
 
 def terraform(ir: IR) -> dict[str, str]:
+    from . import data
     if not ir.providers and not any(ir.has(t) for t in IAC_RESOURCES):
         return {}
+    db_blocks, db_variables, db_outputs = data.terraform_blocks(ir)
     required = []
     for p in ir.providers:
         src, ver = PROVIDER_SOURCES.get(p.id, (p.terraform_provider, ">= 0"))
         required.append(f'    {PROVIDER_LOCAL.get(p.id, p.id)} = {{\n      source  = "{src}"\n      version = "{ver}"\n    }}')
+    if data.needs_random(ir):
+        required.append('    random = {\n      source  = "hashicorp/random"\n      version = "~> 3.6"\n    }')
     versions = (f"# {HEADER}\nterraform {{\n  required_version = \">= 1.6\"\n\n  required_providers {{\n"
                 + "\n".join(required) + "\n  }\n\n" + _backend(ir) + "\n}\n")
     main_parts = [f"# {HEADER}", _providers_block(ir)]
@@ -254,6 +258,7 @@ def terraform(ir: IR) -> dict[str, str]:
             main_parts.append(f"# --- {name}\n{res}")
             if b.tool not in COMMENT_ONLY:
                 ir.cover(b.tool)
+    main_parts += db_blocks
     ir.cover(*(p.id for p in ir.providers))
     if ir.iac and ir.iac.id in ("terraform", "opentofu"):
         ir.cover(ir.iac.id)
@@ -266,8 +271,12 @@ def terraform(ir: IR) -> dict[str, str]:
         variables.append(f'variable "gcp_project_id" {{\n  type    = string\n  default = "{pid}"\n}}')
     if ir.has("ovhcloud"):
         variables.append('variable "ovh_service_name" {\n  type        = string\n  description = "Identifiant du projet Public Cloud OVHcloud"\n}')
-    return {
+    variables += db_variables
+    files = {
         f"{DIR}/versions.tf": versions,
         f"{DIR}/main.tf": "\n\n".join(x for x in main_parts if x) + "\n",
         f"{DIR}/variables.tf": "\n\n".join(variables) + "\n",
     }
+    if db_outputs:
+        files[f"{DIR}/outputs.tf"] = "\n\n".join([f"# {HEADER}", *db_outputs]) + "\n"
+    return files

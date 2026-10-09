@@ -28,6 +28,25 @@ CI_FILES = [(".gitlab-ci.yml", "gitlab-ci"), (".github/workflows", "github-actio
             ("Jenkinsfile", "jenkins"), (".woodpecker.yml", "woodpecker"), (".woodpecker", "woodpecker"),
             ("azure-pipelines.yml", "azure-pipelines"), ("buildspec.yml", "aws-codebuild"),
             ("cloudbuild.yaml", "google-cloud-build"), (".tekton", "tekton")]
+# Pilotes et bibliothèques qui trahissent une base : (moteur, motif cherché dans les dépendances)
+DB_DRIVERS: dict[str, list[tuple[str, str]]] = {
+    "python": [("postgresql", r"\b(psycopg2?(-binary)?|asyncpg|pg8000)\b"), ("mysql", r"\b(mysqlclient|pymysql|aiomysql|mysql-connector-python)\b"),
+               ("mariadb", r"^\s*\"?mariadb\b"), ("mongodb", r"\b(pymongo|motor|mongoengine|beanie)\b"),
+               ("valkey", r"\b(redis|valkey|django-redis|celery\[redis\])\b")],
+    "node": [("postgresql", r'"(pg|postgres|pg-promise)"'), ("mysql", r'"(mysql2?)"'), ("mariadb", r'"mariadb"'),
+             ("mongodb", r'"(mongodb|mongoose)"'), ("valkey", r'"(redis|ioredis|iovalkey|@valkey/valkey-glide)"')],
+    "java": [("postgresql", r"<artifactId>postgresql</artifactId>|org\.postgresql"),
+             ("mysql", r"mysql-connector-j|mysql-connector-java"), ("mariadb", r"mariadb-java-client"),
+             ("mongodb", r"mongodb-driver|spring-boot-starter-data-mongodb"),
+             ("valkey", r"jedis|lettuce-core|spring-boot-starter-data-redis")],
+    "go": [("postgresql", r"jackc/pgx|lib/pq"), ("mysql", r"go-sql-driver/mysql"),
+           ("mongodb", r"go\.mongodb\.org/mongo-driver"), ("valkey", r"redis/go-redis|go-redis/redis|valkey-io/valkey-go")],
+    "dotnet": [("postgresql", r"Npgsql"), ("mysql", r"MySql\.Data|MySqlConnector|Pomelo\.EntityFrameworkCore\.MySql"),
+               ("mongodb", r"MongoDB\.Driver"), ("valkey", r"StackExchange\.Redis")],
+}
+COMPOSE_DB_IMAGES = [("postgresql", r"image:\s*['\"]?(\S*/)?postgres(ql)?[:'\"\s]"), ("mariadb", r"image:\s*['\"]?(\S*/)?mariadb[:'\"\s]"),
+                     ("mysql", r"image:\s*['\"]?(\S*/)?mysql[:'\"\s]"), ("mongodb", r"image:\s*['\"]?(\S*/)?mongo(db)?[:'\"\s]"),
+                     ("valkey", r"image:\s*['\"]?(\S*/)?(valkey|redis)[:'\"\s]")]
 FORGE_HOSTS = [("github.com", "github"), ("gitlab", "gitlab"), ("bitbucket.org", "bitbucket"),
                ("dev.azure.com", "azure-repos"), ("visualstudio.com", "azure-repos"), ("codeberg.org", "gitea"),
                ("gitea", "gitea")]
@@ -54,6 +73,8 @@ class AppProfile:
     iac: str | None = None
     dependencies: str | None = None
     has_tests: bool = False
+    databases: list[str] = field(default_factory=list)   # moteurs détectés, le principal d'abord
+    migrations: str | None = None                        # commande de migration de schéma
     evidence: list[str] = field(default_factory=list)
 
     @property
@@ -116,6 +137,7 @@ def scan(path: str | Path) -> AppProfile:
     _deploy(root, p, files, names)
     _ci_and_forge(root, p)
     _iac(root, p, files)
+    _databases(root, p, files, top)
     if any(n in names for n in ("renovate.json", "renovate.json5", ".renovaterc")):
         p.dependencies = "renovate"
         p.evidence.append("Renovate : configuration présente")
@@ -273,6 +295,81 @@ def _iac(root: Path, p: AppProfile, files: list[Path]) -> None:
     p.evidence.append(f"{'OpenTofu' if tofu else 'Terraform'} : fichiers .tf dans {folder}")
 
 
+def _dependency_text(root: Path, p: AppProfile, top: dict[str, Path], files: list[Path]) -> str:
+    names = {"python": ("pyproject.toml", "requirements.txt", "setup.py", "Pipfile", "poetry.lock"),
+             "node": ("package.json",), "java": ("pom.xml", "build.gradle", "build.gradle.kts"), "go": ("go.mod",)}
+    if p.language == "dotnet":
+        return "\n".join(_read(f) for f in files if f.suffix in (".csproj", ".fsproj"))
+    text = "\n".join(_read(top[n]) for n in names.get(p.language, ()) if n in top)
+    if p.language == "python":
+        text += "\n".join(_read(f) for f in files if f.parent == root and re.match(r"requirements.*\.txt$", f.name))
+    return text
+
+
+def _databases(root: Path, p: AppProfile, files: list[Path], top: dict[str, Path]) -> None:
+    """Bases utilisées par l'application (pilotes, schéma Prisma, Compose) et ses migrations."""
+    deps = _dependency_text(root, p, top, files)
+    found: list[tuple[str, str]] = []
+
+    def hit(engine: str, proof: str) -> None:
+        if engine not in [e for e, _ in found]:
+            found.append((engine, proof))
+
+    prisma = next((f for f in files if f.name == "schema.prisma"), None)
+    if prisma:
+        m = re.search(r'provider\s*=\s*"(postgresql|mysql|mongodb|cockroachdb)"', _read(prisma))
+        if m and m.group(1) != "cockroachdb":
+            hit({"postgresql": "postgresql", "mysql": "mysql", "mongodb": "mongodb"}[m.group(1)],
+                f"schéma Prisma {_rel(root, prisma)}")
+    flags = re.M | (re.I if p.language == "python" else 0)
+    for engine, pattern in DB_DRIVERS.get(p.language, []):
+        if re.search(pattern, deps, flags):
+            hit(engine, "pilote dans les dépendances")
+    compose = next((f for f in files if f.name in ("docker-compose.yml", "docker-compose.yaml", "compose.yaml", "compose.yml")), None)
+    if compose:
+        text = _read(compose)
+        for engine, pattern in COMPOSE_DB_IMAGES:
+            if re.search(pattern, text, re.I):
+                hit(engine, f"service de {_rel(root, compose)}")
+    found.sort(key=lambda x: x[0] == "valkey")  # la base principale avant le cache
+    labels = {"postgresql": "PostgreSQL", "mysql": "MySQL", "mariadb": "MariaDB", "mongodb": "MongoDB",
+              "valkey": "Redis / Valkey"}
+    for engine, proof in found:
+        p.databases.append(engine)
+        p.evidence.append(f"Base {labels[engine]} : {proof}")
+    _migrations(root, p, files, top, deps, prisma)
+
+
+def _migrations(root: Path, p: AppProfile, files: list[Path], top: dict[str, Path], deps: str,
+                prisma: Path | None) -> None:
+    names = {f.name for f in files}
+    found: tuple[str, str] | None = None
+    if p.language == "python":
+        if "alembic.ini" in names or re.search(r"\balembic\b", deps, re.I):
+            found = ("alembic upgrade head", "Alembic")
+        elif p.framework == "django" and "manage.py" in top:
+            found = ("python manage.py migrate --noinput", "Django")
+    elif p.language == "node":
+        if prisma and re.search(r'"prisma"', deps):
+            found = ("npx prisma migrate deploy", "Prisma")
+        elif any(n.startswith("knexfile.") for n in names):
+            found = ("npx knex migrate:latest", "Knex")
+        elif ".sequelizerc" in names or '"sequelize-cli"' in deps:
+            found = ("npx sequelize-cli db:migrate", "Sequelize")
+    elif p.language == "go":
+        if "pressly/goose" in deps:
+            found = ('goose -dir migrations postgres "$DATABASE_URL" up', "goose")
+        elif "golang-migrate/migrate" in deps:
+            found = ('migrate -path migrations -database "$DATABASE_URL" up', "golang-migrate")
+    elif p.language == "java" and re.search(r"flyway-core|liquibase-core", deps):
+        tool = "Flyway" if "flyway" in deps else "Liquibase"
+        p.evidence.append(f"Migrations {tool} : appliquées par l'application à son démarrage")
+        return
+    if found:
+        p.migrations = found[0]
+        p.evidence.append(f"Migrations {found[1]} : {found[0]}")
+
+
 def to_json(p: AppProfile) -> dict:
     data = {k: v for k, v in p.__dict__.items() if k != "path"}
     data["path"] = str(p.path)
@@ -320,4 +417,31 @@ def proposed_bricks(profile: AppProfile, project, catalog) -> list[tuple[str, st
         offer(profile.iac, "fichiers .tf présents")
     if profile.dependencies and "dependency-update" not in roles:
         offer(profile.dependencies, "mises à jour de dépendances déjà configurées")
+    from .databases import ENGINES
+    from .starter import database_brick
+    families = {ENGINES[e].family for e in profile.databases if e in ENGINES}
+    held = {f for f, role in (("sql", "sql-database"), ("document", "document-database"),
+                              ("key-value", "key-value-store")) if role in roles}
+    for engine in profile.databases:
+        family = ENGINES[engine].family
+        if family in held:
+            continue
+        tool_id, _ = database_brick(engine, project, catalog)
+        offer(tool_id, f"{ENGINES[engine].label} utilisé par l'application" if tool_id == engine
+              else f"{ENGINES[engine].label} utilisé par l'application, porté par {catalog[tool_id].name}")
+        held.add(family)
+    if profile.migrations and (families or "database" in roles):
+        offer("db-migrations", f"migrations « {profile.migrations} »")
     return out
+
+
+def proposed_params(profile: AppProfile, tool_id: str, project, catalog) -> dict:
+    """Paramètres à poser avec une brique proposée (moteur d'une base managée, commande de migration)."""
+    from .starter import database_brick
+    if tool_id == "db-migrations" and profile.migrations:
+        return {"command": profile.migrations}
+    for engine in profile.databases:
+        tid, params = database_brick(engine, project, catalog)
+        if tid == tool_id:
+            return params
+    return {}

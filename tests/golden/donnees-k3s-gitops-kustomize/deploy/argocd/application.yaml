@@ -1,0 +1,48 @@
+# Généré par DevOps Builder — à relire avant usage.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mon-app-staging
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: mon-app
+    environment: staging
+spec:
+  project: default
+  source:
+    repoURL: https://git.example.com/groupe/gitops.git
+    targetRevision: main
+    path: deploy/kustomize/overlays/staging
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mon-app-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mon-app
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: mon-app
+    environment: production
+spec:
+  project: default
+  source:
+    repoURL: https://git.example.com/groupe/gitops.git
+    targetRevision: main
+    path: deploy/kustomize/overlays/production
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mon-app
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true

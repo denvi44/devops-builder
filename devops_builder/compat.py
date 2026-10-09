@@ -16,7 +16,9 @@ from .model import TARGETS, Project, Tool
 # Rôles tenus par une seule brique dans un pipeline, en plus des règles d'exclusivité
 SINGLE_ROLES = {"ci": "orchestrateur CI", "scm": "forge"}
 ROLE_LABELS = {"gitops": "outil GitOps", "service-mesh": "maillage de services", "cni": "CNI",
-               "admission-policy": "contrôleur d'admission"}
+               "admission-policy": "contrôleur d'admission", "sql-database": "base relationnelle",
+               "key-value-store": "stockage clé-valeur"}
+FEMININE = {"forge", "base relationnelle"}  # accord de « déjà choisi »
 
 
 @lru_cache(maxsize=1)
@@ -71,7 +73,7 @@ def incompatibility(tool: Tool, project: Project, catalog: Catalog) -> str | Non
         if role in tool.roles:
             holder = next((t for t in present if role in t.roles), None)
             if holder is not None:
-                return f"{label} déjà choisi : {holder.name}"
+                return f"{label} déjà {'choisie' if label in FEMININE else 'choisi'} : {holder.name}"
     for a, b in pairs:
         other = b if tool.id == a else a if tool.id == b else None
         if other in ids:

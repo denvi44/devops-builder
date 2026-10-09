@@ -308,11 +308,17 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
     target = ir.project.target
     app = ir.app
     ns = ir.namespace(env)
+    from .generators import data as dbgen
     if ir.has("docker-compose") and target in ("docker-host", "vm"):
+        secrets: list[str] = []
+        if dbgen.needs_secrets(ir):
+            prefix = dbgen.env_prefix(dbgen.secret_bindings(ir, env, dbgen.compose_dbs(ir)))
+            secrets = [f"{prefix}sh {dbgen.SECRETS_SCRIPT} .secrets"]
         if ir.has("ansible"):
             ir.add_var("SSH_PRIVATE_KEY", "Clé SSH de déploiement vers les hôtes")
             return Step("deploy", "Déploiement Ansible + Compose", "deploy", "alpine/ansible:latest", [
                 SSH_SETUP,
+                *secrets,
                 "ansible-galaxy collection install community.docker",
                 f'ansible-playbook -i {ir.inventory(env)} ansible/deploy.yml -e "image=$IMAGE" -e "project={ns}"'
                 + (f' -e "deploy_env={env.id}"' if _ports_shifted(ir) else "")],
@@ -327,6 +333,11 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
             f'ssh -o StrictHostKeyChecking=accept-new "${host}" "mkdir -p /opt/{ns}"',
             f'scp deploy/docker-compose.yml "${host}:/opt/{ns}/docker-compose.yml"',
             *([f'scp deploy/env/{env.id}.env "${host}:/opt/{ns}/.env"'] if _ports_shifted(ir) else []),
+            *([*secrets,
+               f'tar -C .secrets -cf - . | ssh "${host}" "mkdir -p /opt/{ns}/secrets && chmod 700 /opt/{ns}/secrets '
+               f'&& tar -C /opt/{ns}/secrets -xf - && chmod 600 /opt/{ns}/secrets/*"',
+               "rm -rf .secrets"] if secrets else []),
+            *([f'scp {dbgen.BACKUP_SCRIPT} "${host}:/opt/{ns}/db-backup.sh"'] if dbgen.backup_script(ir) else []),
             f'ssh "${host}" "cd /opt/{ns} && IMAGE=$IMAGE docker compose -p {ns} pull && IMAGE=$IMAGE docker compose -p {ns} up -d"'],
             tool="docker-compose")
     if ir.has("argo-cd") or ir.has("flux"):
@@ -353,12 +364,13 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
         return Step("deploy", "Déploiement Helm", "deploy", ka.image, [
             *ka.script,
             f'helm upgrade --install {app} charts/{app}{extra} --namespace {ns} --create-namespace '
-            f'--set image.repository="${{IMAGE%:*}}" --set image.tag="$TAG" --wait'],
+            f'--set image.repository="${{IMAGE%:*}}" --set image.tag="$TAG"{dbgen.helm_set_flags(ir, env)} --wait'],
             tool="helm", cloud=ka.cloud)
     if ir.has("kustomize"):
         ka = _kube_access(ir, False, env)
         return Step("deploy", "Déploiement Kustomize", "deploy", ka.image, [
             *ka.script,
+            *dbgen.kubectl_secret_lines(ir, env, ns),
             f"cd {ir.overlay(env)}",
             'sed -i "s|newTag: .*|newTag: \\"$TAG\\"|" kustomization.yaml',
             "kubectl apply -k ."],

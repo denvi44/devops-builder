@@ -1,0 +1,8 @@
+id: R42
+title: Deux bases relationnelles
+family: donnees
+severity: avertissement
+type: exclusive_role
+params:
+  role: sql-database
+message: "Deux bases relationnelles ({tools}) : l'application lit DATABASE_URL pour la première et <BRIQUE>_URL pour les suivantes. N'en garder qu'une si ce n'est pas voulu."
