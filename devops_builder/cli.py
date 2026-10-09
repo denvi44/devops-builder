@@ -9,6 +9,8 @@
     python -m devops_builder catalog-check [--offline] [--apply] [--report rapport.md]
     python -m devops_builder catalog-import "Nom dans le Landscape" [--id …] [--stage …]
     python -m devops_builder landscape-refresh [--source landscape.yml] [--reset]
+    python -m devops_builder scan ../mon-app [--json]
+    python -m devops_builder init ../mon-app -o mon-app.devops.yaml [--hosting …] [--envs …]
 """
 
 from __future__ import annotations
@@ -122,8 +124,19 @@ def main(argv: list[str] | None = None) -> int:
     lr = sub.add_parser("landscape-refresh", help="Télécharger le Landscape à jour et reconstruire l'index")
     lr.add_argument("--source", help="Fichier ou URL de landscape.yml (défaut : dépôt cncf/landscape)")
     lr.add_argument("--reset", action="store_true", help="Revenir à l'index livré avec l'application")
+    sc = sub.add_parser("scan", help="Analyser le dossier d'une application")
+    sc.add_argument("folder")
+    sc.add_argument("--json", action="store_true", help="Sortie JSON")
+    it = sub.add_parser("init", help="Créer un projet à partir du dossier d'une application")
+    it.add_argument("folder")
+    it.add_argument("-o", "--output", required=True, help="Fichier projet à écrire (.devops.yaml)")
+    it.add_argument("--hosting", help="Hébergement : docker-host, vm, kubernetes, kubernetes-managed, serverless")
+    it.add_argument("--cloud", help="Cloud pour kubernetes-managed ou serverless (aws, gcp, azure…)")
+    it.add_argument("--envs", default="staging-prod", help="Modèle d'environnements (prod, staging-prod, …)")
     args = parser.parse_args(argv)
 
+    if args.cmd in ("scan", "init"):
+        return _app_command(args)
     if args.cmd is None:
         from .ui.app import run
         return run()
@@ -197,6 +210,44 @@ def main(argv: list[str] | None = None) -> int:
         _skipped_hint(changes)
         return 0
     return 0
+
+
+def _app_command(args) -> int:
+    import json
+
+    from . import appscan
+    from .starter import StarterAnswers, answers_from_profile, build_starter, validate
+    try:
+        profile = appscan.scan(args.folder)
+    except ValueError as exc:
+        print(exc)
+        return 1
+    if args.cmd == "scan":
+        if args.json:
+            print(json.dumps(appscan.to_json(profile), ensure_ascii=False, indent=2))
+        else:
+            print(f"{profile.path} : {profile.image_name}")
+            for line in profile.summary():
+                print(f"  · {line}")
+        return 0
+    catalog = default_catalog()
+    base = StarterAnswers(envs=args.envs)
+    answers, taken = answers_from_profile(profile, catalog, base)
+    if args.hosting:
+        answers.hosting = args.hosting
+    if args.cloud:
+        answers.cloud = args.cloud
+    problems = validate(answers)
+    if problems:
+        print("Réponses incomplètes : " + " ".join(problems) + " (préciser --hosting/--cloud).")
+        return 1
+    project = build_starter(answers, catalog)
+    project.save(args.output)
+    print(f"Projet écrit dans {args.output} ; repris de l'analyse : {', '.join(taken)}.")
+    diags = RuleEngine(catalog).evaluate(project)
+    blocking = RuleEngine.blocking(diags)
+    print(f"{len(project.all_bricks())} briques, {len(diags)} diagnostic(s)" + (f", dont {len(blocking)} bloquant(s)" if blocking else "") + ".")
+    return 1 if blocking else 0
 
 
 def _catalog_command(args) -> int:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QButtonGroup,
     QCheckBox,
@@ -78,7 +79,16 @@ class StarterWizard(QWizard):
         return page, QVBoxLayout(page)
 
     def _page_project(self) -> QWizardPage:
-        page, lay = self._page("Projet", "Le nom et l'application à construire.")
+        page, lay = self._page("Application", "Le dossier de l'application à mettre en pipeline : son analyse "
+                                              "pré-remplit les réponses suivantes.")
+        from .application import FolderPicker
+        self.w_folder = FolderPicker()
+        self.w_folder.scan.clicked.connect(self.analyse)
+        lay.addWidget(self.w_folder)
+        self.w_found = muted("Facultatif : sans dossier, les réponses partent des valeurs par défaut.")
+        self.w_found.setTextFormat(Qt.TextFormat.RichText)
+        lay.addWidget(self.w_found)
+        self.profile = None
         form = QFormLayout()
         self.w_name = QLineEdit("Mon projet")
         self.w_language = QComboBox()
@@ -104,6 +114,34 @@ class StarterWizard(QWizard):
         self.g_forge.buttonToggled.connect(lambda *_: self._update_ci_label())
         self._update_ci_label()
         return page
+
+    def analyse(self) -> None:
+        from .. import appscan
+        from ..starter import answers_from_profile
+        path = self.w_folder.path()
+        if not path:
+            self.w_found.setText("Choisir d'abord le dossier de l'application.")
+            return
+        try:
+            self.profile = appscan.scan(path)
+        except ValueError as exc:
+            self.w_found.setText(str(exc))
+            return
+        a, taken = answers_from_profile(self.profile, self.catalog, self.collect())
+        self.w_name.setText(a.name)
+        self.w_language.setCurrentIndex(max(0, self.w_language.findData(a.language)))
+        self.w_image.setText(a.image_name)
+        self.w_port.setValue(a.port)
+        for group, key in ((self.g_forge, a.forge), (self.g_hosting, a.hosting)):
+            for b in group.buttons():
+                b.setChecked(b.property("key") == key)
+        if hasattr(self, "w_iac") and a.iac:
+            self.w_iac.setCurrentIndex(max(0, self.w_iac.findData(a.iac)))
+        if hasattr(self, "w_deps"):
+            self.w_deps.setChecked(a.dependencies)
+        self._answers = a
+        lines = "".join(f"<li>{line}</li>" for line in self.profile.summary())
+        self.w_found.setText(f"<b>Repris :</b> {', '.join(taken)}.<ul style='margin:4px 0'>{lines}</ul>")
 
     def _update_ci_label(self) -> None:
         ci = self.catalog.get(NATIVE_CI.get(_checked(self.g_forge), ""))
@@ -216,6 +254,15 @@ class StarterWizard(QWizard):
 
     # ---------------------------------------------------------------- résultat
     def collect(self) -> StarterAnswers:
+        a = self._collect()
+        detected = getattr(self, "_answers", None)
+        if detected is not None:  # ce que l'analyse a vu et que l'assistant ne demande pas
+            a.ci = detected.ci if detected.forge == a.forge else None
+            a.dockerfile, a.k8s_deploy = detected.dockerfile, detected.k8s_deploy
+            a.dependency_tool, a.source = detected.dependency_tool, detected.source
+        return a
+
+    def _collect(self) -> StarterAnswers:
         return StarterAnswers(
             name=self.w_name.text(), language=self.w_language.currentData(), image_name=self.w_image.text(),
             port=self.w_port.value(), forge=_checked(self.g_forge), hosting=_checked(self.g_hosting),

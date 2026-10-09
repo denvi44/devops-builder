@@ -110,6 +110,12 @@ class MainWindow(QMainWindow):
         self.title.setMinimumWidth(120)
         self.title.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
         bar.addWidget(self.title)
+        self.app_btn = QPushButton()
+        self.app_btn.setObjectName("appCard")
+        self.app_btn.setToolTip("L'application mise en pipeline : dossier, analyse, langage, port")
+        self.app_btn.setAccessibleName("Application")
+        self.app_btn.clicked.connect(self.edit_application)
+        bar.addWidget(self.app_btn)
         # Les puces prennent la place qui reste : sur un petit écran elles sont rognées au lieu
         # d'imposer à la fenêtre une largeur minimale plus grande que l'écran.
         self.chips_area = QScrollArea()
@@ -211,6 +217,8 @@ class MainWindow(QMainWindow):
         self.a_settings = self._act("Paramètres du projet…", self.edit_settings, "F2", "mdi6.cog-outline")
         self.a_ports = self._act("Ports et exposition…", self.show_ports, "Ctrl+Shift+P", "mdi6.lan",
                                  "Ports de l'application et des briques, par environnement (Ctrl+Maj+P)")
+        self.a_application = self._act("Application…", self.edit_application, "Ctrl+Shift+A", "mdi6.application-cog-outline",
+                                       "Dossier de l'application, analyse, langage et port (Ctrl+Maj+A)")
         self.a_validate = self._act("Valider…", self.validate, "Ctrl+Shift+V", "mdi6.check-decagram-outline",
                                     "Contrôler les fichiers générés avec les outils installés, puis tester dans kind (Ctrl+Maj+V)")
         self.a_undo = self.undo_stack.createUndoAction(self, "Annuler")
@@ -268,6 +276,7 @@ class MainWindow(QMainWindow):
         e = mb.addMenu("&Édition")
         e.addActions([self.a_undo, self.a_redo, self.a_delete])
         p = mb.addMenu("&Projet")
+        p.addAction(self.a_application)
         p.addAction(self.a_settings)
         p.addAction(self.a_generate)
         p.addAction(self.a_validate)
@@ -309,7 +318,7 @@ class MainWindow(QMainWindow):
             self.selected = None
         self.canvas.rebuild(self.project, self.catalog, {k: v.value for k, v in worst.items()}, self.selected)
         self.diagnostics.set_diagnostics(diags)
-        self.palette.set_target(self.project.target)
+        self.palette.set_project(self.project)
         self._update_project_bar()
         self._update_title()
         blocking = sum(1 for d in diags if d.severity is Severity.BLOCKING)
@@ -321,8 +330,14 @@ class MainWindow(QMainWindow):
             self._show_selected()
 
     def _update_project_bar(self) -> None:
+        from .application import LANGUAGE_ICONS, app_label
         p = self.project
         self.title.setText(p.name)
+        name = p.app.image_name if len(p.app.image_name) <= 22 else p.app.image_name[:21] + "…"
+        self.app_btn.setText(f"{name} :{p.app.port}" + ("" if p.app.source else " · dossier ?"))
+        self.app_btn.setIcon(icon(LANGUAGE_ICONS.get(p.app.language, "mdi6.application-outline"), theme.current().primary))
+        self.app_btn.setToolTip(f"Application {app_label(p)}\nDossier : {p.app.source}" if p.app.source
+                                else f"Application {app_label(p)}\nDésigner son dossier pour l'analyser (Ctrl+Maj+A)")
         clear_layout(self.chips_box)
         self.chips_box.addWidget(chip(TARGETS[p.target], primary=True, tooltip="Cible d'hébergement"))
         for i, env in enumerate(p.environments):
@@ -578,6 +593,12 @@ class MainWindow(QMainWindow):
             dlg.tabs.setCurrentWidget(dlg.envs_editor)
         if dlg.exec():
             self.mutate("Paramètres du projet", dlg.apply_to)
+
+    def edit_application(self) -> None:
+        from .application import ApplicationDialog
+        dlg = ApplicationDialog(self.project, self.catalog, self)
+        if dlg.exec():
+            self.mutate("Application", dlg.apply_to)
 
     def show_ports(self) -> None:
         from .ports import PortsDialog

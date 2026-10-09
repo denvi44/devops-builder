@@ -4,8 +4,12 @@ Application de bureau Python, en Material Design, pour composer un pipeline DevO
 
 ![Pipeline de référence](docs/captures/01-pipeline.png)
 
+![Analyse de l'application](docs/captures/14-application.png)
+
 ## Ce que fait l'application
 
+- **L'application d'abord** : on désigne le dossier de l'application (carte de l'application dans la barre du projet, première page de l'assistant, ou `devops-builder init`). L'analyse lit, sans rien exécuter, le langage et son cadre (FastAPI, Django, Flask, Express, Next.js, Spring Boot, Gin, ASP.NET…), le port (EXPOSE du Dockerfile, sinon le port usuel du cadre), le Dockerfile, la CI et la forge déjà en place (fichiers de CI, dépôt distant), un chart Helm, Kustomize, Compose, Terraform ou OpenTofu, les tests et Renovate ou Dependabot. Chaque détection donne sa preuve, et les briques qui en découlent sont proposées : sans Dockerfile, l'image est construite par Buildpacks.
+- **Choix restreints par défaut** : la palette ne montre que les briques adaptées au projet. Elle écarte ce que la cible, la forge, la politique de licence, SecNumCloud ou le fournisseur cloud refuseraient, ainsi que les rôles déjà tenus (une forge, une CI, un GitOps, un CNI…). Une recherche montre tout, en grisant ce qui ne convient pas avec la raison ; « Adapté au projet » se décoche pour tout voir.
 - **Catalogue** : 132 fiches vérifiées (outils, services managés, fournisseurs cloud) et l'ensemble du Landscape consultable, soit 1 192 entrées. Les entrées sans fiche sont marquées « non vérifiées ».
 - **Canevas** : neuf étapes en colonnes (source → observabilité). On y glisse des briques depuis la palette, ou on les ajoute par double-clic. Chaque outil n'accepte que ses étapes : pendant un glisser, les colonnes compatibles sont mises en évidence, les autres grisées, et un dépôt hors étape est refusé avec un message.
 - **Assistant de démarrage** : **Nouveau** pose cinq pages de questions (langage, forge, hébergement, cloud, environnements, sécurité, qualité, dépendances, observabilité, IaC) et construit un pipeline complet sans erreur bloquante. Les clouds proposés suivent l'hébergement choisi et l'exigence SecNumCloud. Ctrl+Maj+N ouvre un projet vide.
@@ -68,7 +72,8 @@ Sous Linux, Qt a besoin des bibliothèques système habituelles (`libxkbcommon`,
 | Déplacer une brique | Glisser vers une colonne compatible, ou Alt+← / Alt+→ (saute à l'étape autorisée suivante) |
 | Retirer une brique | Suppr, ou bouton dans Propriétés |
 | Corriger un diagnostic | Sélectionner le diagnostic puis cliquer une correction (Entrée applique la première) |
-| Nouveau projet | Ctrl+N : assistant ; Ctrl+Maj+N : projet vide |
+| Nouveau projet | Ctrl+N : assistant, qui commence par le dossier de l'application ; Ctrl+Maj+N : projet vide |
+| Application | Ctrl+Maj+A, ou la carte de l'application dans la barre du projet : dossier, analyse, langage, port |
 | Paramètres du projet | F2 : cible, langage, SecNumCloud, OIDC, politique de licence ; onglet Environnements (type, cluster, hôte Docker partagé, décalage des ports) |
 | Ports | Ctrl+Maj+P, ou le bouton « Ports » de la barre du projet |
 | Surcharger un paramètre | Sélectionner la brique, choisir l'environnement au-dessus du formulaire ; un champ vide hérite de la valeur commune |
@@ -91,6 +96,8 @@ devops-builder export-git projet.devops.yaml --repo ../depot   # --branch, --no-
 devops-builder catalog-check                            # --offline, --refresh, --apply, --report rapport.md
 devops-builder catalog-import "Keptn"                   # --id, --stage, --license, --offline
 devops-builder landscape-refresh                        # --source landscape.yml, --reset
+devops-builder scan ../mon-app                          # --json : ce que l'analyse trouve
+devops-builder init ../mon-app -o mon-app.devops.yaml   # --hosting, --cloud, --envs
 ```
 
 `generate` n'écrase plus les fichiers retouchés à la main : il les liste, et `--overwrite` les remplace.
@@ -132,6 +139,8 @@ devops_builder/
   landscape.py      index du Landscape : construction, rafraîchissement, écarts
   userdata.py       dossier personnel (DEVOPS_BUILDER_HOME)
   ports.py          ports par environnement, hôtes partagés, conflits
+  appscan.py        analyse du dossier de l'application
+  compat.py         briques adaptées au projet (filtre de la palette)
   data/ports.yaml   ports par défaut des briques et leur usage
   suggest.py        briques souvent associées
   data/catalog/     fiches YAML (une par outil)
@@ -178,7 +187,7 @@ pip install -e ".[dev]"
 QT_QPA_PLATFORM=offscreen pytest
 ```
 
-430 tests : un par règle, l'application de chaque correction proposée, une matrice de combinaisons CI × déploiement × cloud × environnements validées contre les schémas, avec contrôle qu'aucune brique n'y reste sans fichier, les 15 300 combinaisons de l'assistant (aucune ne doit produire d'erreur bloquante), la validation, l'écriture prudente, l'export Git vers des dépôts locaux (dont les options de push GitLab), les scripts kind et variables CI contre des outils factices et une fausse API Gitea, l'entretien du catalogue contre une fausse API GitHub et GitLab, le catalogue personnel et le rafraîchissement du Landscape, et l'interface pilotée hors écran : glisser-déposer, formulaire de paramètres, surcharges, éditeur d'environnements, assistant, dialogues de validation, de différences, d'export, d'entretien, de fiche et de ports. Toute exception levée dans un slot Qt fait échouer le test en cours. Les tests utilisent un dossier personnel jetable : un catalogue personnel présent sur le poste ne les influence pas.
+452 tests : un par règle, l'application de chaque correction proposée, une matrice de combinaisons CI × déploiement × cloud × environnements validées contre les schémas, avec contrôle qu'aucune brique n'y reste sans fichier, les 15 300 combinaisons de l'assistant (aucune ne doit produire d'erreur bloquante), la validation, l'écriture prudente, l'export Git vers des dépôts locaux (dont les options de push GitLab), les scripts kind et variables CI contre des outils factices et une fausse API Gitea, l'entretien du catalogue contre une fausse API GitHub et GitLab, l'analyse d'applications Python, Node.js, Java, Go et .NET, la cohérence entre l'assistant et le filtre de la palette, le catalogue personnel et le rafraîchissement du Landscape, et l'interface pilotée hors écran : glisser-déposer, formulaire de paramètres, surcharges, éditeur d'environnements, assistant, dialogues de validation, de différences, d'export, d'entretien, de fiche, de ports et d'application, et la largeur minimale de la fenêtre (1 280 px au plus). Toute exception levée dans un slot Qt fait échouer le test en cours. Les tests utilisent un dossier personnel jetable : un catalogue personnel présent sur le poste ne les influence pas.
 
 ### Non-régression
 

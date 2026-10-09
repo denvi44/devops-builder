@@ -206,6 +206,30 @@ def main() -> int:
     app.processEvents()
     ports.grab().save(str(out / f"13-ports{suffix}.png"))
     ports.close()
+    # 14 : l'application d'abord — analyse d'un dossier d'exemple
+    from devops_builder.ui.application import ApplicationDialog
+    with tempfile.TemporaryDirectory() as tmp:
+        demo = Path(tmp) / "commandes-api"
+        for rel, content in {
+            "pyproject.toml": '[project]\nname = "commandes-api"\ndependencies = ["fastapi", "uvicorn"]\n',
+            "tests/test_api.py": "def test_ok():\n    assert True\n",
+            "Dockerfile": "FROM python:3.12-slim\nEXPOSE 8081\n",
+            "charts/commandes/Chart.yaml": "apiVersion: v2\nname: commandes\nversion: 0.1.0\n",
+            ".git/config": '[remote "origin"]\n\turl = git@gitlab.example.fr:equipe/commandes-api.git\n',
+            "renovate.json": "{}",
+        }.items():
+            (demo / rel).parent.mkdir(parents=True, exist_ok=True)
+            (demo / rel).write_text(content)
+        p = Project(name="Commandes", target="kubernetes")
+        p.add("gitlab", "source")
+        win._load(p, None)
+        appdlg = ApplicationDialog(win.project, win.catalog, win)
+        appdlg.folder.edit.setText(str(demo))
+        appdlg.analyse()
+        appdlg.show()
+        app.processEvents()
+        appdlg.grab().save(str(out / f"14-application{suffix}.png"))
+        appdlg.close()
     print("captures écrites dans", out)
     return 0
 

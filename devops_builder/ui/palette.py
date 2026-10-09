@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QMimeData, QPoint, Qt, Signal
+from PySide6.QtCore import QMimeData, QPoint, QSettings, Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -63,6 +63,8 @@ class PaletteWidget(QWidget):
         super().__init__(parent)
         self.catalog = catalog
         self.target: str | None = None
+        self.project = None
+        self.reasons: dict[str, str] = {}
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(8, 8, 8, 8)
@@ -89,8 +91,13 @@ class PaletteWidget(QWidget):
         lay.addLayout(row)
 
         self.oss = QCheckBox("Open source uniquement")
-        self.compatible = QCheckBox("Compatible avec la cible")
-        self.compatible.setToolTip("Masque les outils réservés à Kubernetes quand la cible n'en a pas.")
+        self.compatible = QCheckBox("Adapté au projet")
+        self.compatible.setToolTip("Masque les briques que le projet écarterait : cible, forge, licence, SecNumCloud, "
+                                   "fournisseur cloud, rôle déjà tenu. Une recherche montre tout, en grisant ce qui ne "
+                                   "convient pas.")
+        self.compatible.setChecked(QSettings("DevOpsBuilder", "DevOpsBuilder").value("palette/adapted", True, type=bool))
+        self.compatible.toggled.connect(
+            lambda on: QSettings("DevOpsBuilder", "DevOpsBuilder").setValue("palette/adapted", on))
         self.landscape = QCheckBox("Inclure tout le Landscape (non vérifié)")
         self.landscape.setToolTip("Ajoute les ~1 000 entrées du CNCF Landscape sans fiche de compatibilité.")
         for cb in (self.oss, self.compatible, self.landscape):
@@ -110,6 +117,7 @@ class PaletteWidget(QWidget):
         lay.addWidget(self.tree, 1)
 
         self.count = QLabel()
+        self.count.setWordWrap(True)
         self.count.setObjectName("muted")
         lay.addWidget(self.count)
 
@@ -128,6 +136,15 @@ class PaletteWidget(QWidget):
         if self.compatible.isChecked():
             self.refresh()
 
+    def set_project(self, project) -> None:
+        """Le projet courant détermine les briques proposées par défaut."""
+        key = (project.target, project.license_policy, project.secnumcloud, frozenset(project.tool_ids()))
+        self.project = project
+        self.target = project.target
+        if key != getattr(self, "_project_key", None):
+            self._project_key = key
+            self.refresh()
+
     def refresh(self) -> None:
         tools = self.catalog.search(
             text=self.search.text(),
@@ -135,9 +152,19 @@ class PaletteWidget(QWidget):
             include_uncurated=self.landscape.isChecked(),
             oss_only=self.oss.isChecked(),
             maturity=self.maturity.currentData() or None,
-            target=self.target if self.compatible.isChecked() else None,
         )
+        from ..compat import adapted
+        self.reasons = adapted(tools, self.project, self.catalog)[1] if self.project is not None else {}
+        hidden = 0
+        if self.compatible.isChecked() and not self.search.text().strip():
+            hidden = sum(1 for t in tools if t.id in self.reasons)
+            tools = [t for t in tools if t.id not in self.reasons]
         self.tree.setUpdatesEnabled(False)
+        # garder les groupes ouverts et la position de défilement d'un rafraîchissement à l'autre
+        opened = {self.tree.topLevelItem(i).data(0, Qt.ItemDataRole.UserRole + 1)
+                  for i in range(self.tree.topLevelItemCount()) if self.tree.topLevelItem(i).isExpanded()}
+        scroll = self.tree.verticalScrollBar().value()
+        first = self.tree.topLevelItemCount() == 0
         self.tree.clear()
         groups: dict[str, QTreeWidgetItem] = {}
         pal = theme.current()
@@ -148,6 +175,7 @@ class PaletteWidget(QWidget):
             f = g.font(0)
             f.setBold(True)
             g.setFont(0, f)
+            g.setData(0, Qt.ItemDataRole.UserRole + 1, sid)
             groups[sid] = g
         for t in tools:
             item = QTreeWidgetItem([self._label(t)])
@@ -158,17 +186,30 @@ class PaletteWidget(QWidget):
             item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled)
             if not t.curated:
                 item.setForeground(0, theme.qcolor(pal.text_muted))
+            why = self.reasons.get(t.id)
+            if why:
+                item.setForeground(0, theme.qcolor(pal.text_muted))
+                item.setText(0, item.text(0) + "  ⊘")
+                item.setToolTip(0, f"<b>Écarté pour ce projet :</b> {why}<br>" + self._tooltip(t))
             groups[t.stage].addChild(item)
         for sid, _ in STAGES:
             g = groups[sid]
             if g.childCount():
                 g.setText(0, f"{g.text(0)}  ({g.childCount()})")
                 self.tree.addTopLevelItem(g)
-                g.setExpanded(bool(self.search.text()) or self.stage.currentData() == sid or len(tools) < 60)
+                auto = bool(self.search.text()) or self.stage.currentData() == sid or len(tools) < 60
+                g.setExpanded(auto if (first or self.search.text()) else (sid in opened or auto))
         self.tree.setUpdatesEnabled(True)
+        if not first and not self.search.text():
+            self.tree.verticalScrollBar().setValue(scroll)
         curated = sum(1 for t in tools if t.curated)
         mine = sum(1 for t in tools if t.origin == "utilisateur")
-        self.count.setText(f"{len(tools)} outils · {curated} fiches vérifiées" + (f" dont {mine} personnelle(s)" if mine else ""))
+        text = f"{len(tools)} outils · {curated} fiches vérifiées" + (f" dont {mine} personnelle(s)" if mine else "")
+        if hidden:
+            text += f" · {hidden} masqué(s), inadapté(s) au projet"
+        self.count.setText(text)
+        self.count.setToolTip("Décocher « Adapté au projet », ou rechercher un nom, pour voir les briques masquées."
+                              if hidden else "")
 
     @staticmethod
     def _label(t: Tool) -> str:

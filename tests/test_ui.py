@@ -587,3 +587,73 @@ def test_vue_des_ports(win):
     texts = [w.text() for w in win.properties.findChildren(QLabel)]
     assert "Ports" in texts and any(t.startswith("3000 → 3000 (interface web)") for t in texts)
     assert any(d.rule_id == "R39" for d in win.engine.evaluate(win.project))
+
+
+# ------------------------------------------------------------------ application et catalogue adapté
+def test_catalogue_adapte_par_defaut(win):
+    p = Project(name="t", target="docker-host")
+    for t in ("gitlab", "gitlab-ci"):
+        p.add(t, win.catalog[t].stage)
+    win._load(p, None)
+    pal = win.palette
+    assert pal.compatible.isChecked() and "masqué" in pal.count.text()
+    shown = {pal.tree.topLevelItem(i).child(j).data(0, 0x0100)
+             for i in range(pal.tree.topLevelItemCount()) for j in range(pal.tree.topLevelItem(i).childCount())}
+    assert "argo-cd" not in shown and "github-actions" not in shown and "jenkins" not in shown
+    assert "trivy" in shown and "docker-compose" in shown
+    pal.search.setText("argo cd")                       # une recherche montre tout, grisé avec la raison
+    item = pal.tree.topLevelItem(0).child(0)
+    assert item.text(0).endswith("⊘") and "Kubernetes" in item.toolTip(0)
+    pal.search.clear()
+    pal.compatible.setChecked(False)
+    assert "masqué" not in pal.count.text()
+    pal.compatible.setChecked(True)
+
+
+def test_carte_et_dialogue_application(win, tmp_path, monkeypatch):
+    from test_app import fastapi as _unused  # noqa: F401
+    from test_app import tree
+
+    from devops_builder.ui.application import ApplicationDialog
+    root = tree(tmp_path / "commandes", {"package.json": '{"name": "commandes", "dependencies": {"express": "4"}}',
+                                         "Dockerfile": "FROM node:22\nEXPOSE 4000\n"})
+    p = Project(name="t", target="docker-host")
+    p.add("gitlab", "source")
+    win._load(p, None)
+    assert "dossier ?" in win.app_btn.text()
+    dlg = ApplicationDialog(win.project, win.catalog, win)
+    dlg.folder.edit.setText(str(root))
+    dlg.analyse()
+    assert dlg.port.value() == 4000 and dlg.language.currentData() == "node" and dlg.image.text() == "commandes"
+    proposed = [dlg.bricks.item(i).data(0x0100) for i in range(dlg.bricks.count())]
+    assert proposed[:2] == ["gitlab-ci", "buildkit"]
+    win.mutate("Application", dlg.apply_to)
+    assert win.project.app.port == 4000 and {"gitlab-ci", "buildkit"} <= win.project.tool_ids()
+    assert win.app_btn.text() == "commandes :4000" and "Node.js" in win.app_btn.toolTip()
+    win.undo_stack.undo()
+    assert win.project.app.port == 8000
+    dlg.close()
+
+
+def test_assistant_part_de_l_application(win, tmp_path):
+    from test_app import GIT_CONFIG, tree
+
+    from devops_builder.ui.wizard import StarterWizard
+    root = tree(tmp_path / "relais", {"go.mod": "module github.com/izinum/relais\n",
+                                      ".git/config": GIT_CONFIG.format(url="https://github.com/izinum/relais.git"),
+                                      "deploy/kustomization.yaml": "resources: []"})
+    wiz = StarterWizard(win.catalog, win.engine, win)
+    wiz.w_folder.edit.setText(str(root))
+    wiz.analyse()
+    assert wiz.w_image.text() == "relais" and wiz.w_port.value() == 8080
+    assert "Repris" in wiz.w_found.text() and "Kustomize" in wiz.w_found.text()
+    p = wiz.project()
+    assert {"github", "github-actions", "buildpacks", "kustomize", "k3s"} <= p.tool_ids()
+    assert p.app.source == str(root.resolve())
+    wiz.close()
+
+
+def test_fenetre_tient_sur_un_ecran_de_portable(win):
+    """Régression 0.5 : la fenêtre imposait 1 776 px de large, plus que l'écran d'un MacBook."""
+    win._load(Project.load(DATA_DIR / "examples" / "02-api-k3s-gitops.devops.yaml"), None)
+    assert win.minimumSizeHint().width() <= 1280

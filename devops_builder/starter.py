@@ -61,6 +61,10 @@ class StarterAnswers:
     dependencies: bool = True         # Renovate ou Dependabot
     iac: str = "opentofu"             # pour un cloud
     shared_host: bool = False         # hôte Docker : environnements hors production sur une même machine
+    dockerfile: bool = True           # sans Dockerfile, l'image est construite par Buildpacks
+    k8s_deploy: str = "helm"          # « helm » ou « kustomize » (déjà présent dans l'application)
+    dependency_tool: str | None = None  # outil déjà configuré dans l'application
+    source: str = ""                  # dossier de l'application analysée
 
 
 def clouds_for(hosting: str, secnumcloud: bool) -> list[str]:
@@ -103,6 +107,7 @@ def build_starter(a: StarterAnswers, catalog: Catalog) -> Project:
     p.app.language = a.language
     p.app.image_name = a.image_name.strip() or "mon-app"
     p.app.port = a.port
+    p.app.source = a.source
     p.target = {"serverless": "docker-host"}.get(a.hosting, a.hosting)
 
     def add(tool_id: str, **params) -> None:
@@ -116,12 +121,15 @@ def build_starter(a: StarterAnswers, catalog: Catalog) -> Project:
     add(a.forge)
     ci = a.ci or NATIVE_CI[a.forge]
     add(ci)
-    add("buildah" if ci == "tekton" else "buildkit")
+    add("buildah" if ci == "tekton" else "buildkit" if a.dockerfile else "buildpacks")
     add("unit-tests")
     if a.quality:
         add("sonarqube")
     if a.dependencies:
-        add("dependabot" if a.forge == "github" else "renovate")
+        tool = a.dependency_tool if a.dependency_tool in ("renovate", "dependabot") else None
+        if tool == "dependabot" and a.forge != "github":
+            tool = None
+        add(tool or ("dependabot" if a.forge == "github" else "renovate"))
 
     # Registre
     if provider and provider.services.get("registry"):
@@ -149,12 +157,12 @@ def build_starter(a: StarterAnswers, catalog: Catalog) -> Project:
         add("traefik")
     elif a.hosting == "kubernetes":
         add("k3s")
-        add("helm")
+        add("kustomize" if a.k8s_deploy == "kustomize" else "helm")
         add("traefik")
         add("cert-manager")
     elif a.hosting == "kubernetes-managed" and provider:
         add(provider.services["k8s.managed"])
-        add("helm")
+        add("kustomize" if a.k8s_deploy == "kustomize" else "helm")
         add("cert-manager")
     elif a.hosting == "serverless" and provider:
         add(provider.services["containers"])
@@ -175,3 +183,45 @@ def build_starter(a: StarterAnswers, catalog: Catalog) -> Project:
     elif a.observability == "cloud" and provider and provider.services.get("observability"):
         add(provider.services["observability"])
     return p
+
+
+def answers_from_profile(profile, catalog: Catalog, base: StarterAnswers | None = None) -> tuple[StarterAnswers, list[str]]:
+    """Réponses de l'assistant déduites de l'analyse de l'application, et ce qui a été repris."""
+    from dataclasses import replace
+    a = replace(base) if base else StarterAnswers()
+    taken: list[str] = []
+    a.name = profile.name or a.name
+    a.image_name = profile.image_name or a.image_name
+    a.source = str(profile.path)
+    if profile.language in ("python", "node", "java", "go", "dotnet", "other"):
+        a.language = profile.language
+    if profile.port:
+        a.port = profile.port
+    a.dockerfile = profile.dockerfile
+    taken.append("nom, langage et port de l'application")
+    if profile.forge in FORGES:
+        a.forge = profile.forge
+        taken.append(f"forge {FORGES[profile.forge]} (dépôt distant)")
+    if profile.ci and profile.ci != NATIVE_CI.get(a.forge):
+        ci, forge_tool = catalog.get(profile.ci), catalog.get(a.forge)
+        if ci and forge_tool and (not ci.forges or forge_tool.forge in ci.forges):
+            a.ci = profile.ci
+            taken.append(f"CI existante {ci.name}")
+    hint = profile.hosting_hint
+    if hint == "kubernetes" and a.hosting not in ("kubernetes", "kubernetes-managed"):
+        a.hosting = "kubernetes"
+        taken.append("hébergement Kubernetes (manifestes ou chart présents)")
+    elif hint == "docker-host" and a.hosting not in ("docker-host", "vm"):
+        a.hosting = "docker-host"
+        taken.append("hébergement sur hôte Docker (fichier Compose présent)")
+    if profile.kustomize and not profile.helm:
+        a.k8s_deploy = "kustomize"
+    if profile.iac:
+        a.iac = profile.iac
+    if profile.dependencies:
+        a.dependencies = True
+        a.dependency_tool = profile.dependencies
+    if not profile.dockerfile:
+        taken.append("construction par Buildpacks (pas de Dockerfile)")
+    return a, taken
+

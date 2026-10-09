@@ -197,6 +197,7 @@ class AppSettings(BaseModel):
     language: str = "python"
     image_name: str = "mon-app"
     port: int = 8000
+    source: str = ""  # dossier de l'application sur le poste (analyse, test kind, export Git)
 
 
 class Environment(BaseModel):
@@ -346,6 +347,8 @@ class Project(BaseModel):
     # -------------------------------------------------------------- persistence
     def to_yaml(self) -> str:
         data = self.model_dump(mode="json")
+        if data.get("app", {}).get("source") == "":
+            data["app"].pop("source")
         for env in data.get("environments", []):
             # champs ajoutés en 0.6 : omis quand ils ne servent pas, le fichier reste lisible par la 0.5
             for key, default in (("host", ""), ("port_offset", None)):
