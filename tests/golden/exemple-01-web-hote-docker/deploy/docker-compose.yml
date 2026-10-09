@@ -1,0 +1,51 @@
+# Généré par DevOps Builder — à relire avant usage.
+name: site-web
+services:
+  site-web:
+    image: ${IMAGE:-registry.example.com/site-web/site-web:latest}
+    restart: unless-stopped
+    environment:
+      PORT: '8000'
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.site-web.rule=Host(`site-web.example.com`)
+    - traefik.http.routers.site-web.entrypoints=websecure
+    - traefik.http.services.site-web.loadbalancer.server.port=8000
+  traefik:
+    image: traefik:v3.1
+    command:
+    - --providers.docker=true
+    - --providers.docker.exposedbydefault=false
+    - --entrypoints.web.address=:80
+    - --entrypoints.websecure.address=:443
+    ports:
+    - 80:80
+    - 443:443
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+    - 9090:9090
+    volumes:
+    - prometheus-data:/prometheus
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+    - 3000:3000
+    volumes:
+    - grafana-data:/var/lib/grafana
+  loki:
+    image: grafana/loki:latest
+    ports:
+    - 3100:3100
+  sonarqube:
+    image: sonarqube:community
+    ports:
+    - 9002:9000
+    volumes:
+    - sonarqube-data:/opt/sonarqube/data
+volumes:
+  grafana-data: {}
+  prometheus-data: {}
+  sonarqube-data: {}

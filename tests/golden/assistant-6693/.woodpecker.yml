@@ -1,0 +1,212 @@
+# Généré par DevOps Builder — à relire avant usage. Les étapes Docker montent le socket de l'hôte : dépôt de confiance requis.
+steps:
+- name: unit-tests
+  image: python:3.12-slim
+  commands:
+  - export TAG="${CI_COMMIT_SHA:0:8}"
+  - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
+  - pip install -r requirements.txt
+  - pytest -q
+  environment:
+    SONAR_TOKEN:
+      from_secret: sonar_token
+    REGISTRY_USER:
+      from_secret: registry_user
+    REGISTRY_PASSWORD:
+      from_secret: registry_password
+    KUBECONFIG_DATA_DEV:
+      from_secret: kubeconfig_data_dev
+    KUBECONFIG_DATA_STAGING:
+      from_secret: kubeconfig_data_staging
+    KUBECONFIG_DATA_PRODUCTION:
+      from_secret: kubeconfig_data_production
+    SONAR_HOST_URL: à-renseigner
+- name: sonarqube
+  image: sonarsource/sonar-scanner-cli:latest
+  commands:
+  - export TAG="${CI_COMMIT_SHA:0:8}"
+  - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
+  - sonar-scanner -Dsonar.projectKey=mon-app -Dsonar.host.url=$$SONAR_HOST_URL -Dsonar.token=$$SONAR_TOKEN
+  environment:
+    SONAR_TOKEN:
+      from_secret: sonar_token
+    REGISTRY_USER:
+      from_secret: registry_user
+    REGISTRY_PASSWORD:
+      from_secret: registry_password
+    KUBECONFIG_DATA_DEV:
+      from_secret: kubeconfig_data_dev
+    KUBECONFIG_DATA_STAGING:
+      from_secret: kubeconfig_data_staging
+    KUBECONFIG_DATA_PRODUCTION:
+      from_secret: kubeconfig_data_production
+    SONAR_HOST_URL: à-renseigner
+- name: build-image
+  image: docker:27
+  commands:
+  - export TAG="${CI_COMMIT_SHA:0:8}"
+  - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
+  - echo "$$REGISTRY_PASSWORD" | docker login "registry.example.com" -u "$$REGISTRY_USER" --password-stdin
+  - docker buildx build --tag "$$IMAGE" --push .
+  volumes:
+  - /var/run/docker.sock:/var/run/docker.sock
+  environment:
+    SONAR_TOKEN:
+      from_secret: sonar_token
+    REGISTRY_USER:
+      from_secret: registry_user
+    REGISTRY_PASSWORD:
+      from_secret: registry_password
+    KUBECONFIG_DATA_DEV:
+      from_secret: kubeconfig_data_dev
+    KUBECONFIG_DATA_STAGING:
+      from_secret: kubeconfig_data_staging
+    KUBECONFIG_DATA_PRODUCTION:
+      from_secret: kubeconfig_data_production
+    SONAR_HOST_URL: à-renseigner
+- name: gitleaks
+  image: zricethezav/gitleaks:latest
+  commands:
+  - export TAG="${CI_COMMIT_SHA:0:8}"
+  - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
+  - gitleaks detect --source . --verbose
+  environment:
+    SONAR_TOKEN:
+      from_secret: sonar_token
+    REGISTRY_USER:
+      from_secret: registry_user
+    REGISTRY_PASSWORD:
+      from_secret: registry_password
+    KUBECONFIG_DATA_DEV:
+      from_secret: kubeconfig_data_dev
+    KUBECONFIG_DATA_STAGING:
+      from_secret: kubeconfig_data_staging
+    KUBECONFIG_DATA_PRODUCTION:
+      from_secret: kubeconfig_data_production
+    SONAR_HOST_URL: à-renseigner
+- name: trivy
+  image: aquasec/trivy:latest
+  commands:
+  - export TAG="${CI_COMMIT_SHA:0:8}"
+  - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
+  - trivy image --exit-code 1 --severity HIGH,CRITICAL "$$IMAGE"
+  environment:
+    SONAR_TOKEN:
+      from_secret: sonar_token
+    REGISTRY_USER:
+      from_secret: registry_user
+    REGISTRY_PASSWORD:
+      from_secret: registry_password
+    KUBECONFIG_DATA_DEV:
+      from_secret: kubeconfig_data_dev
+    KUBECONFIG_DATA_STAGING:
+      from_secret: kubeconfig_data_staging
+    KUBECONFIG_DATA_PRODUCTION:
+      from_secret: kubeconfig_data_production
+    SONAR_HOST_URL: à-renseigner
+- name: cosign
+  image: alpine:3.20
+  commands:
+  - export TAG="${CI_COMMIT_SHA:0:8}"
+  - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
+  - apk add --no-cache cosign
+  - echo "$$REGISTRY_PASSWORD" | cosign login "registry.example.com" -u "$$REGISTRY_USER" --password-stdin
+  - cosign sign --yes "$$IMAGE"
+  environment:
+    SONAR_TOKEN:
+      from_secret: sonar_token
+    REGISTRY_USER:
+      from_secret: registry_user
+    REGISTRY_PASSWORD:
+      from_secret: registry_password
+    KUBECONFIG_DATA_DEV:
+      from_secret: kubeconfig_data_dev
+    KUBECONFIG_DATA_STAGING:
+      from_secret: kubeconfig_data_staging
+    KUBECONFIG_DATA_PRODUCTION:
+      from_secret: kubeconfig_data_production
+    SONAR_HOST_URL: à-renseigner
+  when:
+  - branch: main
+    event: push
+- name: deploy-dev
+  image: alpine:3.20
+  commands:
+  - export TAG="${CI_COMMIT_SHA:0:8}"
+  - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
+  - apk add --no-cache curl bash openssl
+  - curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  - echo "$$KUBECONFIG_DATA_DEV" | base64 -d > /tmp/kubeconfig
+  - export KUBECONFIG=/tmp/kubeconfig
+  - helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-dev.yaml --namespace mon-app-dev --create-namespace --set image.repository="$${IMAGE%:*}" --set image.tag="$$TAG" --wait
+  environment:
+    SONAR_TOKEN:
+      from_secret: sonar_token
+    REGISTRY_USER:
+      from_secret: registry_user
+    REGISTRY_PASSWORD:
+      from_secret: registry_password
+    KUBECONFIG_DATA_DEV:
+      from_secret: kubeconfig_data_dev
+    KUBECONFIG_DATA_STAGING:
+      from_secret: kubeconfig_data_staging
+    KUBECONFIG_DATA_PRODUCTION:
+      from_secret: kubeconfig_data_production
+    SONAR_HOST_URL: à-renseigner
+  when:
+  - branch: main
+    event: push
+- name: deploy-staging
+  image: alpine:3.20
+  commands:
+  - export TAG="${CI_COMMIT_SHA:0:8}"
+  - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
+  - apk add --no-cache curl bash openssl
+  - curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  - echo "$$KUBECONFIG_DATA_STAGING" | base64 -d > /tmp/kubeconfig
+  - export KUBECONFIG=/tmp/kubeconfig
+  - helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-staging.yaml --namespace mon-app-staging --create-namespace --set image.repository="$${IMAGE%:*}" --set image.tag="$$TAG" --wait
+  environment:
+    SONAR_TOKEN:
+      from_secret: sonar_token
+    REGISTRY_USER:
+      from_secret: registry_user
+    REGISTRY_PASSWORD:
+      from_secret: registry_password
+    KUBECONFIG_DATA_DEV:
+      from_secret: kubeconfig_data_dev
+    KUBECONFIG_DATA_STAGING:
+      from_secret: kubeconfig_data_staging
+    KUBECONFIG_DATA_PRODUCTION:
+      from_secret: kubeconfig_data_production
+    SONAR_HOST_URL: à-renseigner
+  when:
+  - branch: main
+    event: push
+- name: deploy-production
+  image: alpine:3.20
+  commands:
+  - export TAG="${CI_COMMIT_SHA:0:8}"
+  - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
+  - apk add --no-cache curl bash openssl
+  - curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  - echo "$$KUBECONFIG_DATA_PRODUCTION" | base64 -d > /tmp/kubeconfig
+  - export KUBECONFIG=/tmp/kubeconfig
+  - helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-production.yaml --namespace mon-app --create-namespace --set image.repository="$${IMAGE%:*}" --set image.tag="$$TAG" --wait
+  environment:
+    SONAR_TOKEN:
+      from_secret: sonar_token
+    REGISTRY_USER:
+      from_secret: registry_user
+    REGISTRY_PASSWORD:
+      from_secret: registry_password
+    KUBECONFIG_DATA_DEV:
+      from_secret: kubeconfig_data_dev
+    KUBECONFIG_DATA_STAGING:
+      from_secret: kubeconfig_data_staging
+    KUBECONFIG_DATA_PRODUCTION:
+      from_secret: kubeconfig_data_production
+    SONAR_HOST_URL: à-renseigner
+  when:
+  - branch: main
+    event: manual

@@ -1,0 +1,108 @@
+# Généré par DevOps Builder — à relire avant usage. Pour Azure, préférer une connexion de service à fédération d'identité (tâche AzureCLI@2).
+trigger:
+- main
+variables:
+  TAG: $(Build.SourceVersion)
+  IMAGE: registry.example.com/mon-app/mon-app:$(Build.SourceVersion)
+stages:
+- stage: test
+  jobs:
+  - job: unit_tests
+    displayName: Tests unitaires
+    pool:
+      vmImage: ubuntu-latest
+    container: python:3.12-slim
+    steps:
+    - script: |
+        pip install -r requirements.txt
+        pytest -q
+      displayName: Tests unitaires
+      env:
+        SONAR_TOKEN: $(SONAR_TOKEN)
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+        GITOPS_TOKEN: $(GITOPS_TOKEN)
+  - job: sonarqube
+    displayName: Qualité SonarQube
+    pool:
+      vmImage: ubuntu-latest
+    container: sonarsource/sonar-scanner-cli:latest
+    steps:
+    - script: |
+        sonar-scanner -Dsonar.projectKey=mon-app -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN
+      displayName: Qualité SonarQube
+      env:
+        SONAR_TOKEN: $(SONAR_TOKEN)
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+        GITOPS_TOKEN: $(GITOPS_TOKEN)
+- stage: build
+  jobs:
+  - job: build_image
+    displayName: Build et publication de l'image (BuildKit (docker buildx))
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: |
+        echo "$REGISTRY_PASSWORD" | docker login "registry.example.com" -u "$REGISTRY_USER" --password-stdin
+        docker buildx build --tag "$IMAGE" --push .
+      displayName: Build et publication de l'image (BuildKit (docker buildx))
+      env:
+        SONAR_TOKEN: $(SONAR_TOKEN)
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+        GITOPS_TOKEN: $(GITOPS_TOKEN)
+- stage: deploy_staging
+  displayName: Déploiement — Préproduction
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: deploy_staging
+    displayName: Mise à jour GitOps (Argo CD) — Préproduction
+    environment: staging
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+          - script: |
+              apk add --no-cache git yq
+              git clone "https://oauth2:$GITOPS_TOKEN@$GITOPS_REPO" gitops
+              cd gitops
+              yq -i '.image.tag = strenv(TAG)' charts/mon-app/values-staging.yaml
+              git config user.email "ci@example.com" && git config user.name "CI"
+              git commit -am "deploy(staging): mon-app $TAG" && git push origin HEAD
+            displayName: Mise à jour GitOps (Argo CD) — Préproduction
+            env:
+              SONAR_TOKEN: $(SONAR_TOKEN)
+              REGISTRY_USER: $(REGISTRY_USER)
+              REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+              GITOPS_TOKEN: $(GITOPS_TOKEN)
+- stage: deploy_production
+  displayName: Déploiement — Production
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: deploy_production
+    displayName: Mise à jour GitOps (Argo CD) — Production
+    environment: production
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+          - script: |
+              apk add --no-cache git yq
+              git clone "https://oauth2:$GITOPS_TOKEN@$GITOPS_REPO" gitops
+              cd gitops
+              yq -i '.image.tag = strenv(TAG)' charts/mon-app/values-production.yaml
+              git config user.email "ci@example.com" && git config user.name "CI"
+              git commit -am "deploy(production): mon-app $TAG" && git push origin HEAD
+            displayName: Mise à jour GitOps (Argo CD) — Production
+            env:
+              SONAR_TOKEN: $(SONAR_TOKEN)
+              REGISTRY_USER: $(REGISTRY_USER)
+              REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+              GITOPS_TOKEN: $(GITOPS_TOKEN)

@@ -1,0 +1,2 @@
+avertissement R34 Amazon ECS (Fargate) : « Cluster ECS » non renseigné : la valeur d'exemple « mon-cluster-ecs » sera écrite dans les fichiers.
+avertissement R34 Amazon S3 : « Bucket de l'état Terraform » non renseigné : la valeur d'exemple « mon-projet-tfstate » sera écrite dans les fichiers.

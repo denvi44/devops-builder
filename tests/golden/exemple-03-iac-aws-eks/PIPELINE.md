@@ -1,0 +1,87 @@
+# Plateforme AWS EKS — pipeline généré
+
+Généré par DevOps Builder le AAAA-MM-JJ. Cible : Kubernetes managé (cloud).
+
+## Environnements
+
+Ordre de promotion : la même image est déployée successivement dans chaque environnement.
+
+| Environnement | Type | Approbation | Cluster | Espace de noms / projet |
+| --- | --- | --- | --- | --- |
+| Préproduction (`staging`) | Préproduction | non | Amazon EKS `plateforme-preprod` | `commandes-staging` |
+| Production (`production`) | Production | oui | Amazon EKS `plateforme-prod` | `commandes` |
+
+## Briques
+
+| Étape | Brique | Licence | Fiche |
+| --- | --- | --- | --- |
+| Source | GitLab | MIT | vérifiée |
+| Build | GitLab CI | MIT | vérifiée |
+| Build | BuildKit (docker buildx) | Apache-2.0 | vérifiée |
+| Tests & qualité | Tests unitaires | MIT | vérifiée |
+| Sécurité | Checkov | Apache-2.0 | vérifiée |
+| Sécurité | Trivy | Apache-2.0 | vérifiée |
+| Artefacts | Amazon ECR | proprietary | vérifiée |
+| Infrastructure | Amazon Web Services | proprietary | vérifiée |
+| Infrastructure | OpenTofu | MPL-2.0 | vérifiée |
+| Infrastructure | Amazon EKS | proprietary | vérifiée |
+| Infrastructure | Amazon S3 | proprietary | vérifiée |
+| Déploiement | Helm | Apache-2.0 | vérifiée |
+| Plateforme | AWS Secrets Manager | proprietary | vérifiée |
+| Plateforme | External Secrets Operator | Apache-2.0 | vérifiée |
+| Plateforme | cert-manager | Apache-2.0 | vérifiée |
+| Plateforme | Velero | Apache-2.0 | vérifiée |
+| Observabilité | Prometheus | Apache-2.0 | vérifiée |
+| Observabilité | Amazon CloudWatch | proprietary | vérifiée |
+
+## Étapes CI
+
+Orchestrateur : GitLab CI. Image publiée : `$AWS_ACCOUNT_ID.dkr.ecr.eu-west-3.amazonaws.com/commandes:<commit>`.
+
+1. Tests unitaires
+2. Analyse IaC Checkov (non bloquant)
+3. Build et publication de l'image (BuildKit (docker buildx))
+4. Scan de vulnérabilités Trivy
+5. Plan OpenTofu
+6. Application OpenTofu (branche principale, manuel)
+7. Déploiement Helm — Préproduction (branche principale)
+8. Déploiement Helm — Production (branche principale, manuel)
+
+## Variables CI
+
+Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà écrites dans les fichiers.
+
+| Variable | Secret | Valeur | Rôle |
+| --- | --- | --- | --- |
+| `AWS_ACCOUNT_ID` | non | à déclarer | Identifiant du compte AWS du registre ECR |
+| `AWS_ROLE_ARN` | non | à déclarer | Rôle IAM assumé par la CI via OIDC |
+| `AWS_REGION` | non | `eu-west-3` | Région AWS |
+
+## Diagnostics restants
+
+Aucun.
+
+## Notes
+
+- Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
+- Amazon EKS : 2 clusters distincts (un par nom d'environnement), décrits dans la même pile.
+- `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
+- `scripts/ci-variables.sh` déclare les 2 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
+
+## Fichiers générés
+
+- `.gitlab-ci.yml`
+- `PIPELINE.md`
+- `charts/commandes/Chart.yaml`
+- `charts/commandes/templates/deployment.yaml`
+- `charts/commandes/templates/service.yaml`
+- `charts/commandes/values-production.yaml`
+- `charts/commandes/values-staging.yaml`
+- `charts/commandes/values.yaml`
+- `devops-builder.yaml`
+- `infra/terraform/main.tf`
+- `infra/terraform/variables.tf`
+- `infra/terraform/versions.tf`
+- `platform/install.sh`
+- `scripts/ci-variables.sh`
+- `scripts/test-kind.sh`

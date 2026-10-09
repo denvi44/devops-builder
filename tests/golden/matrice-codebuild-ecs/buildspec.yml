@@ -1,0 +1,29 @@
+# Généré par DevOps Builder — à relire avant usage. Activer le mode privilégié du projet CodeBuild (Docker).
+version: 0.2
+phases:
+  build:
+    commands:
+    - export TAG="${CODEBUILD_RESOLVED_SOURCE_VERSION:0:8}"
+    - export IMAGE="$AWS_ACCOUNT_ID.dkr.ecr.eu-west-3.amazonaws.com/mon-app:$TAG"
+    - echo "--- Tests unitaires"
+    - docker run --rm -v "$PWD":/src -w /src --entrypoint sh -e TAG -e IMAGE python:3.12-slim -c 'pip install -r requirements.txt && pytest -q'
+    - echo "--- Build et publication de l'image (BuildKit (docker buildx))"
+    - '# Identifiants AWS fournis par AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY'
+    - apk add --no-cache aws-cli || true
+    - aws ecr get-login-password --region eu-west-3 | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.eu-west-3.amazonaws.com"
+    - docker buildx build --tag "$IMAGE" --push .
+    - echo "--- Scan de vulnérabilités Grype"
+    - '# Identifiants AWS fournis par AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY'
+    - apk add --no-cache curl
+    - curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+    - grype "$IMAGE" --fail-on high
+    - echo "--- SBOM Syft"
+    - docker run --rm -v "$PWD":/src -w /src --entrypoint sh -e TAG -e IMAGE alpine:3.20 -c 'apk add --no-cache curl && curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s
+      -- -b /usr/local/bin && syft "$IMAGE" -o spdx-json > sbom.spdx.json'
+    - echo "--- Déploiement ECS"
+    - '# Identifiants AWS fournis par AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY'
+    - aws ecs update-service --cluster mon-cluster-ecs --service mon-app --force-new-deployment
+artifacts:
+  files:
+  - '**/*'
+  discard-paths: 'no'

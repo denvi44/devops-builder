@@ -1,0 +1,38 @@
+# Généré par DevOps Builder — à relire avant usage.
+name: mon-app
+services:
+  mon-app:
+    image: ${IMAGE:-registry.example.com/mon-app/mon-app:latest}
+    restart: unless-stopped
+    environment:
+      PORT: '8000'
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.mon-app.rule=Host(`mon-app.example.com`)
+    - traefik.http.routers.mon-app.entrypoints=websecure
+    - traefik.http.services.mon-app.loadbalancer.server.port=8000
+  traefik:
+    image: traefik:v3.1
+    command:
+    - --providers.docker=true
+    - --providers.docker.exposedbydefault=false
+    - --entrypoints.web.address=:80
+    - --entrypoints.websecure.address=:443
+    ports:
+    - 80:80
+    - 443:443
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+  zot:
+    image: ghcr.io/project-zot/zot-linux-amd64:latest
+    ports:
+    - 5000:5000
+  gitea:
+    image: gitea/gitea:latest
+    ports:
+    - 3001:3000
+    - '2222:22'
+    volumes:
+    - gitea-data:/data
+volumes:
+  gitea-data: {}

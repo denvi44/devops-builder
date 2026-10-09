@@ -1,0 +1,73 @@
+# Généré par DevOps Builder — à relire avant usage. Le clone du dépôt (tâche git-clone du Hub) et les secrets sont à brancher sur l'espace « source ».
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: mon-app-pipeline
+spec:
+  params:
+  - name: tag
+    type: string
+    description: Tag de l'image (commit)
+  workspaces:
+  - name: source
+  tasks:
+  - name: build-image
+    workspaces:
+    - name: source
+      workspace: source
+    taskSpec:
+      workspaces:
+      - name: source
+      steps:
+      - name: build-image
+        image: quay.io/buildah/stable:latest
+        workingDir: $(workspaces.source.path)
+        env:
+        - name: TAG
+          value: $(params.tag)
+        - name: IMAGE
+          value: registry.example.com/mon-app/mon-app:$(params.tag)
+        script: |
+          #!/bin/sh
+          set -e
+          echo "$REGISTRY_PASSWORD" | buildah login "registry.example.com" -u "$REGISTRY_USER" --password-stdin
+          buildah build --tag "$IMAGE" .
+          buildah push "$IMAGE"
+      params:
+      - name: tag
+        type: string
+    params:
+    - name: tag
+      value: $(params.tag)
+  - name: deploy-staging
+    workspaces:
+    - name: source
+      workspace: source
+    taskSpec:
+      workspaces:
+      - name: source
+      steps:
+      - name: deploy-staging
+        image: alpine:3.20
+        workingDir: $(workspaces.source.path)
+        env:
+        - name: TAG
+          value: $(params.tag)
+        - name: IMAGE
+          value: registry.example.com/mon-app/mon-app:$(params.tag)
+        script: |
+          #!/bin/sh
+          set -e
+          apk add --no-cache curl bash openssl
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          echo "$KUBECONFIG_DATA_STAGING" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+          helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-staging.yaml --namespace mon-app-staging --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait
+      params:
+      - name: tag
+        type: string
+    params:
+    - name: tag
+      value: $(params.tag)
+    runAfter:
+    - build-image

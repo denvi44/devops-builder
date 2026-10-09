@@ -1,0 +1,1 @@
+info R23 Harbor embarque déjà Trivy comme scanner ; l'étape Trivy en CI reste utile pour bloquer avant la publication.

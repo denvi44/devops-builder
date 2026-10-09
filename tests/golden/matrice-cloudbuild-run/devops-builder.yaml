@@ -1,0 +1,55 @@
+format_version: 2
+name: matrice
+description: ''
+target: docker-host
+environments:
+- id: production
+  label: ''
+  kind: production
+  approval: false
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: github
+    params: {}
+  build:
+  - uid: brique002
+    tool: google-cloud-build
+    params: {}
+  - uid: brique003
+    tool: buildpacks
+    params: {}
+  test:
+  - uid: brique004
+    tool: unit-tests
+    params: {}
+  security: []
+  artifacts:
+  - uid: brique005
+    tool: artifact-registry
+    params: {}
+  infrastructure:
+  - uid: brique006
+    tool: gcp
+    params: {}
+  - uid: brique007
+    tool: gcs
+    params: {}
+  - uid: brique008
+    tool: opentofu
+    params: {}
+  deploy:
+  - uid: brique009
+    tool: cloud-run
+    params: {}
+  platform: []
+  observability: []

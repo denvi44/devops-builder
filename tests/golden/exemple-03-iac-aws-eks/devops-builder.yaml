@@ -1,0 +1,98 @@
+format_version: 2
+name: Plateforme AWS EKS
+description: 'Infrastructure OpenTofu sur AWS : un cluster EKS de préproduction et
+  un de production, CI GitLab avec fédération d''identité OIDC et approbation avant
+  la production.'
+target: kubernetes-managed
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides:
+    eks:
+      cluster_name: plateforme-prod
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: java
+  image_name: commandes
+  port: 8080
+stages:
+  source:
+  - uid: brique001
+    tool: gitlab
+    params: {}
+  build:
+  - uid: brique002
+    tool: gitlab-ci
+    params: {}
+  - uid: brique003
+    tool: buildkit
+    params: {}
+  test:
+  - uid: brique004
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: brique005
+    tool: checkov
+    params: {}
+  - uid: brique006
+    tool: trivy
+    params: {}
+  artifacts:
+  - uid: brique007
+    tool: ecr
+    params:
+      repository: commandes
+  infrastructure:
+  - uid: brique008
+    tool: aws
+    params:
+      region: eu-west-3
+  - uid: brique009
+    tool: opentofu
+    params: {}
+  - uid: brique010
+    tool: eks
+    params:
+      cluster_name: plateforme-preprod
+      region: eu-west-3
+      version: '1.33'
+  - uid: brique011
+    tool: s3
+    params:
+      bucket: plateforme-prod-tfstate
+  deploy:
+  - uid: brique012
+    tool: helm
+    params: {}
+  platform:
+  - uid: brique013
+    tool: aws-secrets-manager
+    params: {}
+  - uid: brique014
+    tool: external-secrets
+    params: {}
+  - uid: brique015
+    tool: cert-manager
+    params: {}
+  - uid: brique016
+    tool: velero
+    params: {}
+  observability:
+  - uid: brique017
+    tool: prometheus
+    params: {}
+  - uid: brique018
+    tool: cloudwatch
+    params: {}

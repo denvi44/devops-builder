@@ -1,0 +1,68 @@
+# Généré par DevOps Builder — à relire avant usage. Les secrets se déclarent via availableSecrets (Secret Manager).
+steps:
+- id: unit-tests
+  name: python:3.12-slim
+  entrypoint: sh
+  args:
+  - -c
+  - |-
+    export TAG="$SHORT_SHA"
+    export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$SHORT_SHA"
+    pip install -r requirements.txt
+    pytest -q
+- id: build-image
+  name: gcr.io/cloud-builders/docker
+  entrypoint: sh
+  args:
+  - -c
+  - |-
+    export TAG="$SHORT_SHA"
+    export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$SHORT_SHA"
+    echo "$$GCP_SA_KEY" > /tmp/gcp-key.json
+    export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+    if command -v gcloud >/dev/null; then gcloud auth activate-service-account --key-file /tmp/gcp-key.json; fi
+    echo "$$REGISTRY_PASSWORD" | docker login "europe-west9-docker.pkg.dev" -u "$$REGISTRY_USER" --password-stdin
+    pack build "$$IMAGE" --builder paketobuildpacks/builder-jammy-base --publish
+- id: iac-plan
+  name: ghcr.io/opentofu/opentofu:1.10
+  entrypoint: sh
+  args:
+  - -c
+  - |-
+    export TAG="$SHORT_SHA"
+    export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$SHORT_SHA"
+    echo "$$GCP_SA_KEY" > /tmp/gcp-key.json
+    export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+    if command -v gcloud >/dev/null; then gcloud auth activate-service-account --key-file /tmp/gcp-key.json; fi
+    cd infra/terraform
+    tofu init -input=false
+    tofu validate
+    tofu plan -input=false -out=plan.tfplan
+- id: iac-apply
+  name: ghcr.io/opentofu/opentofu:1.10
+  entrypoint: sh
+  args:
+  - -c
+  - |-
+    export TAG="$SHORT_SHA"
+    export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$SHORT_SHA"
+    echo "$$GCP_SA_KEY" > /tmp/gcp-key.json
+    export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+    if command -v gcloud >/dev/null; then gcloud auth activate-service-account --key-file /tmp/gcp-key.json; fi
+    cd infra/terraform
+    tofu init -input=false
+    tofu apply -input=false plan.tfplan
+- id: deploy
+  name: google/cloud-sdk:slim
+  entrypoint: sh
+  args:
+  - -c
+  - |-
+    export TAG="$SHORT_SHA"
+    export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$SHORT_SHA"
+    echo "$$GCP_SA_KEY" > /tmp/gcp-key.json
+    export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+    if command -v gcloud >/dev/null; then gcloud auth activate-service-account --key-file /tmp/gcp-key.json; fi
+    gcloud run deploy mon-app --image "$$IMAGE" --region europe-west9 --project mon-projet
+options:
+  logging: CLOUD_LOGGING_ONLY

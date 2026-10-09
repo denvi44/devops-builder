@@ -1,0 +1,1 @@
+avertissement R34 Scaleway Kapsule : « Nom du cluster » non renseigné : la valeur d'exemple « mon-cluster » sera écrite dans les fichiers.

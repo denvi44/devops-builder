@@ -1,0 +1,4 @@
+avertissement R14 Kaniko : Dépôt archivé le 3 juin 2025, plus maintenu.
+avertissement R21 La CI utilise des clés d'accès statiques alors que Google Cloud accepte la fédération d'identité OIDC.
+avertissement R34 Google Cloud : « Identifiant du projet » non renseigné : la valeur d'exemple « mon-projet » sera écrite dans les fichiers.
+avertissement R34 Google Kubernetes Engine : « Nom du cluster » non renseigné : la valeur d'exemple « mon-cluster » sera écrite dans les fichiers.

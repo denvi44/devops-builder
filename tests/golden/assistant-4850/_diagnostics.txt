@@ -1,0 +1,2 @@
+avertissement R34 Azure Container Registry : « Nom du registre ACR » non renseigné : la valeur d'exemple « monappregistry » sera écrite dans les fichiers.
+avertissement R34 Azure Kubernetes Service : « Nom du cluster » non renseigné : la valeur d'exemple « mon-cluster » sera écrite dans les fichiers.

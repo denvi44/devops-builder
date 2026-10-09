@@ -1,0 +1,46 @@
+format_version: 2
+name: matrice
+description: ''
+target: kubernetes
+environments:
+- id: production
+  label: ''
+  kind: production
+  approval: false
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: gitlab
+    params: {}
+  build:
+  - uid: brique002
+    tool: gitlab-ci
+    params: {}
+  - uid: brique003
+    tool: buildkit
+    params: {}
+  test: []
+  security: []
+  artifacts: []
+  infrastructure:
+  - uid: brique004
+    tool: kubeadm
+    params: {}
+  deploy:
+  - uid: brique005
+    tool: kustomize
+    params: {}
+  platform:
+  - uid: brique006
+    tool: calico
+    params: {}
+  observability: []

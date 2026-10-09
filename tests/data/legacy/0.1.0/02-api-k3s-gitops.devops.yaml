@@ -1,0 +1,45 @@
+format_version: 1
+name: API sur k3s en GitOps
+description: API Node.js construite sur GitHub, signée, déployée par Argo CD sur un cluster k3s.
+target: kubernetes
+environment: production
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: node
+  image_name: api
+  port: 3000
+stages:
+  source:
+  - tool: github
+  build:
+  - tool: github-actions
+  - tool: buildkit
+  - tool: dependabot
+  test:
+  - tool: unit-tests
+  - tool: semgrep
+  security:
+  - tool: trivy
+  - tool: syft
+  - tool: cosign
+  artifacts:
+  - tool: ghcr
+  infrastructure:
+  - tool: k3s
+  deploy:
+  - tool: helm
+  - tool: argo-cd
+  platform:
+  - tool: cilium
+  - tool: envoy-gateway
+  - tool: cert-manager
+  - tool: kyverno
+  - tool: external-secrets
+  - tool: openbao
+  observability:
+  - tool: prometheus
+  - tool: grafana
+  - tool: otel-collector
+  - tool: tempo

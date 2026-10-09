@@ -1,0 +1,198 @@
+# Gitea Actions reprend la syntaxe GitHub Actions ; vérifier la disponibilité des actions
+# tierces et l'émission de jetons OIDC sur votre instance (act_runner).
+# Généré par DevOps Builder — à relire avant usage.
+name: Pipeline Mon projet
+'on':
+  push:
+    branches:
+    - main
+  pull_request: {}
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+env:
+  TAG: ${{ github.sha }}
+  IMAGE: registry.example.com/mon-app/mon-app:${{ github.sha }}
+  SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+  REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+  OSC_ACCESS_KEY: ${{ secrets.OSC_ACCESS_KEY }}
+  OSC_SECRET_KEY: ${{ secrets.OSC_SECRET_KEY }}
+  KUBECONFIG_DATA_STAGING: ${{ secrets.KUBECONFIG_DATA_STAGING }}
+  KUBECONFIG_DATA_PRODUCTION: ${{ secrets.KUBECONFIG_DATA_PRODUCTION }}
+jobs:
+  unit-tests:
+    name: Tests unitaires
+    runs-on: ubuntu-latest
+    container: python:3.12-slim
+    steps:
+    - uses: actions/checkout@v4
+    - name: Tests unitaires
+      run: |
+        pip install -r requirements.txt
+        pytest -q
+  sonarqube:
+    name: Qualité SonarQube
+    runs-on: ubuntu-latest
+    container: sonarsource/sonar-scanner-cli:latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Qualité SonarQube
+      run: |
+        sonar-scanner -Dsonar.projectKey=mon-app -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN
+  build-image:
+    name: Build et publication de l'image (BuildKit (docker buildx))
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    steps:
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v3
+    - name: Build et publication de l'image (BuildKit (docker buildx))
+      run: |
+        echo "$REGISTRY_PASSWORD" | docker login "registry.example.com" -u "$REGISTRY_USER" --password-stdin
+        docker buildx build --tag "$IMAGE" --push .
+  gitleaks:
+    name: Recherche de secrets
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    - build-image
+    container: zricethezav/gitleaks:latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Recherche de secrets
+      run: |
+        gitleaks detect --source . --verbose
+  trivy:
+    name: Scan de vulnérabilités Trivy
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    - build-image
+    container: aquasec/trivy:latest
+    env:
+      TRIVY_USERNAME: ${{ secrets.REGISTRY_USER }}
+      TRIVY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+    steps:
+    - uses: actions/checkout@v4
+    - name: Scan de vulnérabilités Trivy
+      run: |
+        trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+  cosign:
+    name: Signature de l'image (Cosign)
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    - build-image
+    - gitleaks
+    - trivy
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - uses: actions/checkout@v4
+    - uses: sigstore/cosign-installer@v3
+    - name: Signature de l'image (Cosign)
+      run: |
+        echo "$REGISTRY_PASSWORD" | cosign login "registry.example.com" -u "$REGISTRY_USER" --password-stdin
+        cosign sign --yes "$IMAGE"
+  iac-plan:
+    name: Plan Terraform
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    - build-image
+    - gitleaks
+    - trivy
+    - cosign
+    steps:
+    - uses: actions/checkout@v4
+    - &id001
+      uses: hashicorp/setup-terraform@v3
+    - name: Plan Terraform
+      run: |
+        cd infra/terraform
+        terraform init -input=false
+        terraform validate
+        terraform plan -input=false -out=plan.tfplan
+    - uses: actions/upload-artifact@v4
+      with:
+        name: iac-plan
+        path: infra/terraform/plan.tfplan
+  iac-apply:
+    name: Application Terraform
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    - build-image
+    - gitleaks
+    - trivy
+    - cosign
+    - iac-plan
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+    - uses: actions/checkout@v4
+    - *id001
+    - uses: actions/download-artifact@v4
+      with:
+        name: iac-plan
+        path: infra/terraform
+    - name: Application Terraform
+      run: |
+        cd infra/terraform
+        terraform init -input=false
+        terraform apply -input=false plan.tfplan
+  deploy-staging:
+    name: Déploiement Helm — Préproduction
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    - build-image
+    - gitleaks
+    - trivy
+    - cosign
+    - iac-plan
+    - iac-apply
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    steps:
+    - uses: actions/checkout@v4
+    - &id002
+      uses: azure/setup-helm@v4
+    - name: Déploiement Helm — Préproduction
+      run: |
+        echo "$KUBECONFIG_DATA_STAGING" | base64 -d > /tmp/kubeconfig
+        export KUBECONFIG=/tmp/kubeconfig
+        helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-staging.yaml --namespace mon-app-staging --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait
+  deploy-production:
+    name: Déploiement Helm — Production
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    - build-image
+    - gitleaks
+    - trivy
+    - cosign
+    - iac-plan
+    - iac-apply
+    - deploy-staging
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+    - uses: actions/checkout@v4
+    - *id002
+    - name: Déploiement Helm — Production
+      run: |
+        echo "$KUBECONFIG_DATA_PRODUCTION" | base64 -d > /tmp/kubeconfig
+        export KUBECONFIG=/tmp/kubeconfig
+        helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-production.yaml --namespace mon-app --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait

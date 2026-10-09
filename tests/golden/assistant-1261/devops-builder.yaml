@@ -1,0 +1,82 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: kubernetes-managed
+environments:
+- id: dev
+  label: ''
+  kind: dev
+  approval: false
+  cluster: null
+  overrides: {}
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: gitlab
+    params: {}
+  build:
+  - uid: brique002
+    tool: gitlab-ci
+    params: {}
+  - uid: brique003
+    tool: buildkit
+    params: {}
+  - uid: brique004
+    tool: renovate
+    params: {}
+  test:
+  - uid: brique005
+    tool: unit-tests
+    params: {}
+  - uid: brique006
+    tool: sonarqube
+    params: {}
+  security: []
+  artifacts:
+  - uid: brique007
+    tool: artifact-registry
+    params: {}
+  infrastructure:
+  - uid: brique008
+    tool: gcp
+    params: {}
+  - uid: brique009
+    tool: gke
+    params: {}
+  - uid: brique010
+    tool: opentofu
+    params: {}
+  - uid: brique011
+    tool: gcs
+    params: {}
+  deploy:
+  - uid: brique012
+    tool: helm
+    params: {}
+  - uid: brique013
+    tool: argo-cd
+    params: {}
+  platform:
+  - uid: brique014
+    tool: cert-manager
+    params: {}
+  observability: []

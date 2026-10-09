@@ -1,0 +1,76 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: kubernetes
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: true
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: github
+    params: {}
+  build:
+  - uid: brique002
+    tool: github-actions
+    params: {}
+  - uid: brique003
+    tool: buildkit
+    params: {}
+  - uid: brique004
+    tool: dependabot
+    params: {}
+  test:
+  - uid: brique005
+    tool: unit-tests
+    params: {}
+  - uid: brique006
+    tool: sonarqube
+    params: {}
+  security:
+  - uid: brique007
+    tool: gitleaks
+    params: {}
+  - uid: brique008
+    tool: trivy
+    params: {}
+  - uid: brique009
+    tool: cosign
+    params: {}
+  artifacts:
+  - uid: brique010
+    tool: ghcr
+    params: {}
+  infrastructure:
+  - uid: brique011
+    tool: k3s
+    params: {}
+  deploy:
+  - uid: brique012
+    tool: helm
+    params: {}
+  platform:
+  - uid: brique013
+    tool: traefik
+    params: {}
+  - uid: brique014
+    tool: cert-manager
+    params: {}
+  observability: []

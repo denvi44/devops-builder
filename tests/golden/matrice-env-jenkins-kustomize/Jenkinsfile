@@ -1,0 +1,72 @@
+// Généré par DevOps Builder — à relire avant usage.
+// Identifiants : créer dans Jenkins des credentials « secret text » nommés comme indiqué.
+pipeline {
+    agent none
+    options { timestamps() }
+    environment {
+        TAG = "${env.GIT_COMMIT?.take(8)}"
+        IMAGE = "registry.example.com/mon-app/mon-app:${env.GIT_COMMIT?.take(8)}"
+        REGISTRY_USER = credentials('registry-user')
+        REGISTRY_PASSWORD = credentials('registry-password')
+        KUBECONFIG_DATA_DEV = credentials('kubeconfig-data-dev')
+        KUBECONFIG_DATA_STAGING = credentials('kubeconfig-data-staging')
+        KUBECONFIG_DATA_PRODUCTION = credentials('kubeconfig-data-production')
+    }
+    stages {
+        stage('Build et publication de l’image (BuildKit (docker buildx))') {
+            agent any  // nécessite Docker sur l'agent
+            steps {
+                sh '''
+                echo "$REGISTRY_PASSWORD" | docker login "registry.example.com" -u "$REGISTRY_USER" --password-stdin
+                docker buildx build --tag "$IMAGE" --push .
+                '''
+            }
+        }
+        stage('Déploiement Kustomize — Développement') {
+            agent { docker { image 'alpine:3.20'; args '--entrypoint= -u root' } }
+            when { branch 'main' }
+            steps {
+                sh '''
+                apk add --no-cache curl bash openssl
+                curl -fsSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -fsSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x /usr/local/bin/kubectl
+                echo "$KUBECONFIG_DATA_DEV" | base64 -d > /tmp/kubeconfig
+                export KUBECONFIG=/tmp/kubeconfig
+                cd deploy/kustomize/overlays/dev
+                sed -i "s|newTag: .*|newTag: \\"$TAG\\"|" kustomization.yaml
+                kubectl apply -k .
+                '''
+            }
+        }
+        stage('Déploiement Kustomize — Préproduction') {
+            agent { docker { image 'alpine:3.20'; args '--entrypoint= -u root' } }
+            when { branch 'main' }
+            steps {
+                sh '''
+                apk add --no-cache curl bash openssl
+                curl -fsSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -fsSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x /usr/local/bin/kubectl
+                echo "$KUBECONFIG_DATA_STAGING" | base64 -d > /tmp/kubeconfig
+                export KUBECONFIG=/tmp/kubeconfig
+                cd deploy/kustomize/overlays/staging
+                sed -i "s|newTag: .*|newTag: \\"$TAG\\"|" kustomization.yaml
+                kubectl apply -k .
+                '''
+            }
+        }
+        stage('Déploiement Kustomize — Production') {
+            agent { docker { image 'alpine:3.20'; args '--entrypoint= -u root' } }
+            when { branch 'main' }
+            input { message 'Déployer en Production ?' }
+            steps {
+                sh '''
+                apk add --no-cache curl bash openssl
+                curl -fsSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -fsSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x /usr/local/bin/kubectl
+                echo "$KUBECONFIG_DATA_PRODUCTION" | base64 -d > /tmp/kubeconfig
+                export KUBECONFIG=/tmp/kubeconfig
+                cd deploy/kustomize/overlays/production
+                sed -i "s|newTag: .*|newTag: \\"$TAG\\"|" kustomization.yaml
+                kubectl apply -k .
+                '''
+            }
+        }
+    }
+}

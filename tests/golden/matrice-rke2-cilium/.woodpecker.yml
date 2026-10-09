@@ -1,0 +1,37 @@
+# Généré par DevOps Builder — à relire avant usage. Les étapes Docker montent le socket de l'hôte : dépôt de confiance requis.
+steps:
+- name: build-image
+  image: quay.io/buildah/stable:latest
+  commands:
+  - export TAG="${CI_COMMIT_SHA:0:8}"
+  - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
+  - echo "$$REGISTRY_PASSWORD" | buildah login "registry.example.com" -u "$$REGISTRY_USER" --password-stdin
+  - buildah build --tag "$$IMAGE" .
+  - buildah push "$$IMAGE"
+  environment:
+    REGISTRY_USER:
+      from_secret: registry_user
+    REGISTRY_PASSWORD:
+      from_secret: registry_password
+    KUBECONFIG_DATA:
+      from_secret: kubeconfig_data
+- name: deploy
+  image: alpine:3.20
+  commands:
+  - export TAG="${CI_COMMIT_SHA:0:8}"
+  - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
+  - apk add --no-cache curl bash openssl
+  - curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  - echo "$$KUBECONFIG_DATA" | base64 -d > /tmp/kubeconfig
+  - export KUBECONFIG=/tmp/kubeconfig
+  - helm upgrade --install mon-app charts/mon-app --namespace mon-app --create-namespace --set image.repository="$${IMAGE%:*}" --set image.tag="$$TAG" --wait
+  environment:
+    REGISTRY_USER:
+      from_secret: registry_user
+    REGISTRY_PASSWORD:
+      from_secret: registry_password
+    KUBECONFIG_DATA:
+      from_secret: kubeconfig_data
+  when:
+  - branch: main
+    event: push

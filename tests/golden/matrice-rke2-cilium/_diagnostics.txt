@@ -1,0 +1,1 @@
+avertissement R34 zot : « Adresse du registre » non renseigné : la valeur d'exemple « registry.example.com » sera écrite dans les fichiers.

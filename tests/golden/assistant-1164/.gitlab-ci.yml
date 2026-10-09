@@ -1,0 +1,153 @@
+# Généré par DevOps Builder — à relire avant usage.
+stages:
+- test
+- build
+- infra
+- deploy-dev
+- deploy-staging
+- deploy-production
+variables:
+  TAG: $CI_COMMIT_SHORT_SHA
+  IMAGE: $AWS_ACCOUNT_ID.dkr.ecr.eu-west-3.amazonaws.com/mon-app:$CI_COMMIT_SHORT_SHA
+  AWS_REGION: eu-west-3
+unit-tests:
+  stage: test
+  image:
+    name: python:3.12-slim
+    entrypoint:
+    - ''
+  script:
+  - pip install -r requirements.txt
+  - pytest -q
+sonarqube:
+  stage: test
+  image:
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint:
+    - ''
+  script:
+  - sonar-scanner -Dsonar.projectKey=mon-app -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN
+build-image:
+  stage: build
+  image:
+    name: docker:27
+    entrypoint:
+    - ''
+  services:
+  - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: /certs
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - apk add --no-cache aws-cli || true
+  - aws ecr get-login-password --region eu-west-3 | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.eu-west-3.amazonaws.com"
+  - docker buildx build --tag "$IMAGE" --push .
+iac-plan:
+  stage: infra
+  image:
+    name: hashicorp/terraform:1.9
+    entrypoint:
+    - ''
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - cd infra/terraform
+  - terraform init -input=false
+  - terraform validate
+  - terraform plan -input=false -out=plan.tfplan
+  artifacts:
+    paths:
+    - infra/terraform/plan.tfplan
+    expire_in: 1 week
+iac-apply:
+  stage: infra
+  image:
+    name: hashicorp/terraform:1.9
+    entrypoint:
+    - ''
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - cd infra/terraform
+  - terraform init -input=false
+  - terraform apply -input=false plan.tfplan
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - iac-plan
+deploy-dev:
+  stage: deploy-dev
+  image:
+    name: amazon/aws-cli:latest
+    entrypoint:
+    - ''
+  environment:
+    name: dev
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - yum install -y -q tar gzip openssl >/dev/null
+  - curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  - aws eks update-kubeconfig --name mon-cluster --region eu-west-3
+  - helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-dev.yaml --namespace mon-app-dev --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+deploy-staging:
+  stage: deploy-staging
+  image:
+    name: amazon/aws-cli:latest
+    entrypoint:
+    - ''
+  environment:
+    name: staging
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - yum install -y -q tar gzip openssl >/dev/null
+  - curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  - aws eks update-kubeconfig --name mon-cluster --region eu-west-3
+  - helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-staging.yaml --namespace mon-app-staging --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  needs:
+  - deploy-dev
+deploy-production:
+  stage: deploy-production
+  image:
+    name: amazon/aws-cli:latest
+    entrypoint:
+    - ''
+  environment:
+    name: production
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - yum install -y -q tar gzip openssl >/dev/null
+  - curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  - aws eks update-kubeconfig --name mon-cluster --region eu-west-3
+  - helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-production.yaml --namespace mon-app --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - deploy-staging

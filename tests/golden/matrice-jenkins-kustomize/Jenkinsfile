@@ -1,0 +1,58 @@
+// Généré par DevOps Builder — à relire avant usage.
+// Identifiants : créer dans Jenkins des credentials « secret text » nommés comme indiqué.
+pipeline {
+    agent none
+    options { timestamps() }
+    environment {
+        TAG = "${env.GIT_COMMIT?.take(8)}"
+        IMAGE = "registry.example.com/mon-app/mon-app:${env.GIT_COMMIT?.take(8)}"
+        SONAR_TOKEN = credentials('sonar-token')
+        REGISTRY_USER = credentials('registry-user')
+        REGISTRY_PASSWORD = credentials('registry-password')
+        KUBECONFIG_DATA = credentials('kubeconfig-data')
+        SONAR_HOST_URL = 'à-renseigner' // URL du serveur SonarQube
+    }
+    stages {
+        stage('Tests unitaires') {
+            agent { docker { image 'python:3.12-slim'; args '--entrypoint= -u root' } }
+            steps {
+                sh '''
+                pip install -r requirements.txt
+                pytest -q
+                '''
+            }
+        }
+        stage('Qualité SonarQube') {
+            agent { docker { image 'sonarsource/sonar-scanner-cli:latest'; args '--entrypoint= -u root' } }
+            steps {
+                sh '''
+                sonar-scanner -Dsonar.projectKey=mon-app -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN
+                '''
+            }
+        }
+        stage('Build et publication de l’image (BuildKit (docker buildx))') {
+            agent any  // nécessite Docker sur l'agent
+            steps {
+                sh '''
+                echo "$REGISTRY_PASSWORD" | docker login "registry.example.com" -u "$REGISTRY_USER" --password-stdin
+                docker buildx build --tag "$IMAGE" --push .
+                '''
+            }
+        }
+        stage('Déploiement Kustomize') {
+            agent { docker { image 'alpine:3.20'; args '--entrypoint= -u root' } }
+            when { branch 'main' }
+            steps {
+                sh '''
+                apk add --no-cache curl bash openssl
+                curl -fsSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -fsSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x /usr/local/bin/kubectl
+                echo "$KUBECONFIG_DATA" | base64 -d > /tmp/kubeconfig
+                export KUBECONFIG=/tmp/kubeconfig
+                cd deploy/kustomize/overlays/production
+                sed -i "s|newTag: .*|newTag: \\"$TAG\\"|" kustomization.yaml
+                kubectl apply -k .
+                '''
+            }
+        }
+    }
+}

@@ -1,0 +1,145 @@
+# Généré par DevOps Builder — à relire avant usage.
+stages:
+- test
+- build
+- security
+- infra
+- deploy-staging
+- deploy-production
+variables:
+  TAG: $CI_COMMIT_SHORT_SHA
+  IMAGE: $AWS_ACCOUNT_ID.dkr.ecr.eu-west-3.amazonaws.com/commandes:$CI_COMMIT_SHORT_SHA
+  AWS_REGION: eu-west-3
+unit-tests:
+  stage: test
+  image:
+    name: eclipse-temurin:21-jdk
+    entrypoint:
+    - ''
+  script:
+  - ./mvnw -B verify
+build-image:
+  stage: build
+  image:
+    name: docker:27
+    entrypoint:
+    - ''
+  services:
+  - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: /certs
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - apk add --no-cache aws-cli || true
+  - aws ecr get-login-password --region eu-west-3 | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.eu-west-3.amazonaws.com"
+  - docker buildx build --tag "$IMAGE" --push .
+checkov:
+  stage: security
+  image:
+    name: bridgecrew/checkov:latest
+    entrypoint:
+    - ''
+  script:
+  - checkov -d infra/terraform -d deploy --quiet
+  allow_failure: true
+trivy:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint:
+    - ''
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+iac-plan:
+  stage: infra
+  image:
+    name: ghcr.io/opentofu/opentofu:1.10
+    entrypoint:
+    - ''
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - cd infra/terraform
+  - tofu init -input=false
+  - tofu validate
+  - tofu plan -input=false -out=plan.tfplan
+  artifacts:
+    paths:
+    - infra/terraform/plan.tfplan
+    expire_in: 1 week
+iac-apply:
+  stage: infra
+  image:
+    name: ghcr.io/opentofu/opentofu:1.10
+    entrypoint:
+    - ''
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - cd infra/terraform
+  - tofu init -input=false
+  - tofu apply -input=false plan.tfplan
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - iac-plan
+deploy-staging:
+  stage: deploy-staging
+  image:
+    name: amazon/aws-cli:latest
+    entrypoint:
+    - ''
+  environment:
+    name: staging
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - yum install -y -q tar gzip openssl >/dev/null
+  - curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  - aws eks update-kubeconfig --name plateforme-preprod --region eu-west-3
+  - helm upgrade --install commandes charts/commandes -f charts/commandes/values-staging.yaml --namespace commandes-staging --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG"
+    --wait
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+deploy-production:
+  stage: deploy-production
+  image:
+    name: amazon/aws-cli:latest
+    entrypoint:
+    - ''
+  environment:
+    name: production
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - yum install -y -q tar gzip openssl >/dev/null
+  - curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  - aws eks update-kubeconfig --name plateforme-prod --region eu-west-3
+  - helm upgrade --install commandes charts/commandes -f charts/commandes/values-production.yaml --namespace commandes --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - deploy-staging

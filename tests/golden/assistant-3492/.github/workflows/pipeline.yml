@@ -1,0 +1,145 @@
+# Généré par DevOps Builder — à relire avant usage.
+name: Pipeline Mon projet
+'on':
+  push:
+    branches:
+    - main
+  pull_request: {}
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+env:
+  TAG: ${{ github.sha }}
+  IMAGE: $AWS_ACCOUNT_ID.dkr.ecr.eu-west-3.amazonaws.com/mon-app:${{ github.sha }}
+  SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+jobs:
+  unit-tests:
+    name: Tests unitaires
+    runs-on: ubuntu-latest
+    container: python:3.12-slim
+    steps:
+    - uses: actions/checkout@v4
+    - name: Tests unitaires
+      run: |
+        pip install -r requirements.txt
+        pytest -q
+  sonarqube:
+    name: Qualité SonarQube
+    runs-on: ubuntu-latest
+    container: sonarsource/sonar-scanner-cli:latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Qualité SonarQube
+      run: |
+        sonar-scanner -Dsonar.projectKey=mon-app -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN
+  build-image:
+    name: Build et publication de l'image (BuildKit (docker buildx))
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    steps:
+    - uses: actions/checkout@v4
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-region: eu-west-3
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+    - uses: docker/setup-buildx-action@v3
+    - name: Build et publication de l'image (BuildKit (docker buildx))
+      run: |
+        aws ecr get-login-password --region eu-west-3 | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.eu-west-3.amazonaws.com"
+        docker buildx build --tag "$IMAGE" --push .
+  iac-plan:
+    name: Plan OpenTofu
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    - build-image
+    steps:
+    - uses: actions/checkout@v4
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-region: eu-west-3
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+    - &id001
+      uses: opentofu/setup-opentofu@v1
+    - name: Plan OpenTofu
+      run: |
+        cd infra/terraform
+        tofu init -input=false
+        tofu validate
+        tofu plan -input=false -out=plan.tfplan
+    - uses: actions/upload-artifact@v4
+      with:
+        name: iac-plan
+        path: infra/terraform/plan.tfplan
+  iac-apply:
+    name: Application OpenTofu
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    - build-image
+    - iac-plan
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+    - uses: actions/checkout@v4
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-region: eu-west-3
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+    - *id001
+    - uses: actions/download-artifact@v4
+      with:
+        name: iac-plan
+        path: infra/terraform
+    - name: Application OpenTofu
+      run: |
+        cd infra/terraform
+        tofu init -input=false
+        tofu apply -input=false plan.tfplan
+  deploy-staging:
+    name: Déploiement ECS — Préproduction
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    - build-image
+    - iac-plan
+    - iac-apply
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    steps:
+    - uses: actions/checkout@v4
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-region: eu-west-3
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+    - name: Déploiement ECS — Préproduction
+      run: |
+        aws ecs update-service --cluster mon-cluster-ecs --service mon-app-staging --force-new-deployment
+  deploy-production:
+    name: Déploiement ECS — Production
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    - build-image
+    - iac-plan
+    - iac-apply
+    - deploy-staging
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+    - uses: actions/checkout@v4
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-region: eu-west-3
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+    - name: Déploiement ECS — Production
+      run: |
+        aws ecs update-service --cluster mon-cluster-ecs --service mon-app --force-new-deployment

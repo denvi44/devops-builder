@@ -1,0 +1,168 @@
+# Généré par DevOps Builder — à relire avant usage.
+name: Pipeline Mon projet
+'on':
+  push:
+    branches:
+    - main
+  pull_request: {}
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+env:
+  TAG: ${{ github.sha }}
+  IMAGE: europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:${{ github.sha }}
+  SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+  REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+jobs:
+  unit-tests:
+    name: Tests unitaires
+    runs-on: ubuntu-latest
+    container: python:3.12-slim
+    steps:
+    - uses: actions/checkout@v4
+    - name: Tests unitaires
+      run: |
+        pip install -r requirements.txt
+        pytest -q
+  sonarqube:
+    name: Qualité SonarQube
+    runs-on: ubuntu-latest
+    container: sonarsource/sonar-scanner-cli:latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Qualité SonarQube
+      run: |
+        sonar-scanner -Dsonar.projectKey=mon-app -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN
+  build-image:
+    name: Build et publication de l'image (BuildKit (docker buildx))
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    steps:
+    - uses: actions/checkout@v4
+    - uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+    - uses: docker/setup-buildx-action@v3
+    - name: Build et publication de l'image (BuildKit (docker buildx))
+      run: |
+        echo "$REGISTRY_PASSWORD" | docker login "europe-west9-docker.pkg.dev" -u "$REGISTRY_USER" --password-stdin
+        docker buildx build --tag "$IMAGE" --push .
+  iac-plan:
+    name: Plan Terraform
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    - build-image
+    steps:
+    - uses: actions/checkout@v4
+    - uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+    - &id001
+      uses: hashicorp/setup-terraform@v3
+    - name: Plan Terraform
+      run: |
+        cd infra/terraform
+        terraform init -input=false
+        terraform validate
+        terraform plan -input=false -out=plan.tfplan
+    - uses: actions/upload-artifact@v4
+      with:
+        name: iac-plan
+        path: infra/terraform/plan.tfplan
+  iac-apply:
+    name: Application Terraform
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    - build-image
+    - iac-plan
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+    - uses: actions/checkout@v4
+    - uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+    - *id001
+    - uses: actions/download-artifact@v4
+      with:
+        name: iac-plan
+        path: infra/terraform
+    - name: Application Terraform
+      run: |
+        cd infra/terraform
+        terraform init -input=false
+        terraform apply -input=false plan.tfplan
+  deploy-dev:
+    name: Déploiement Cloud Run — Développement
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    - build-image
+    - iac-plan
+    - iac-apply
+    if: github.ref == 'refs/heads/main'
+    environment: dev
+    steps:
+    - uses: actions/checkout@v4
+    - uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+    - name: Déploiement Cloud Run — Développement
+      run: |
+        gcloud run deploy mon-app-dev --image "$IMAGE" --region europe-west9 --project mon-projet
+  deploy-staging:
+    name: Déploiement Cloud Run — Préproduction
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    - build-image
+    - iac-plan
+    - iac-apply
+    - deploy-dev
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    steps:
+    - uses: actions/checkout@v4
+    - uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+    - name: Déploiement Cloud Run — Préproduction
+      run: |
+        gcloud run deploy mon-app-staging --image "$IMAGE" --region europe-west9 --project mon-projet
+  deploy-production:
+    name: Déploiement Cloud Run — Production
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - sonarqube
+    - build-image
+    - iac-plan
+    - iac-apply
+    - deploy-staging
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+    - uses: actions/checkout@v4
+    - uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+    - name: Déploiement Cloud Run — Production
+      run: |
+        gcloud run deploy mon-app --image "$IMAGE" --region europe-west9 --project mon-projet

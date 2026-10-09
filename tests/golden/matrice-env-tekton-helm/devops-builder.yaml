@@ -1,0 +1,52 @@
+format_version: 2
+name: matrice
+description: ''
+target: kubernetes
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: github
+    params: {}
+  build:
+  - uid: brique002
+    tool: tekton
+    params: {}
+  - uid: brique003
+    tool: buildah
+    params: {}
+  test: []
+  security: []
+  artifacts:
+  - uid: brique004
+    tool: harbor
+    params: {}
+  infrastructure:
+  - uid: brique005
+    tool: rke2
+    params: {}
+  deploy:
+  - uid: brique006
+    tool: helm
+    params: {}
+  platform: []
+  observability: []

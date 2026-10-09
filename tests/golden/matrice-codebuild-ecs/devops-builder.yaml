@@ -1,0 +1,55 @@
+format_version: 2
+name: matrice
+description: ''
+target: docker-host
+environments:
+- id: production
+  label: ''
+  kind: production
+  approval: false
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: codecommit
+    params: {}
+  build:
+  - uid: brique002
+    tool: aws-codebuild
+    params: {}
+  - uid: brique003
+    tool: buildkit
+    params: {}
+  test:
+  - uid: brique004
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: brique005
+    tool: grype
+    params: {}
+  - uid: brique006
+    tool: syft
+    params: {}
+  artifacts:
+  - uid: brique007
+    tool: ecr
+    params: {}
+  infrastructure:
+  - uid: brique008
+    tool: aws
+    params: {}
+  deploy:
+  - uid: brique009
+    tool: ecs-fargate
+    params: {}
+  platform: []
+  observability: []

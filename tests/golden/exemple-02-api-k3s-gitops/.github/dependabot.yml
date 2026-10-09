@@ -1,0 +1,13 @@
+# Généré par DevOps Builder — à relire avant usage.
+version: 2
+updates:
+- package-ecosystem: npm
+  directory: /
+  schedule: &id001
+    interval: weekly
+- package-ecosystem: docker
+  directory: /
+  schedule: *id001
+- package-ecosystem: github-actions
+  directory: /
+  schedule: *id001

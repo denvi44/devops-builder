@@ -1,0 +1,125 @@
+# Généré par DevOps Builder — à relire avant usage. Les étapes Docker montent le socket de l'hôte : dépôt de confiance requis.
+steps:
+- name: unit-tests
+  image: python:3.12-slim
+  commands:
+  - export TAG="${CI_COMMIT_SHA:0:8}"
+  - export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$$TAG"
+  - pip install -r requirements.txt
+  - pytest -q
+  environment:
+    SONAR_TOKEN:
+      from_secret: sonar_token
+    REGISTRY_USER:
+      from_secret: registry_user
+    REGISTRY_PASSWORD:
+      from_secret: registry_password
+    SONAR_HOST_URL: à-renseigner
+    GCP_WORKLOAD_IDENTITY_PROVIDER: à-renseigner
+    GCP_SERVICE_ACCOUNT: à-renseigner
+- name: sonarqube
+  image: sonarsource/sonar-scanner-cli:latest
+  commands:
+  - export TAG="${CI_COMMIT_SHA:0:8}"
+  - export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$$TAG"
+  - sonar-scanner -Dsonar.projectKey=mon-app -Dsonar.host.url=$$SONAR_HOST_URL -Dsonar.token=$$SONAR_TOKEN
+  environment:
+    SONAR_TOKEN:
+      from_secret: sonar_token
+    REGISTRY_USER:
+      from_secret: registry_user
+    REGISTRY_PASSWORD:
+      from_secret: registry_password
+    SONAR_HOST_URL: à-renseigner
+    GCP_WORKLOAD_IDENTITY_PROVIDER: à-renseigner
+    GCP_SERVICE_ACCOUNT: à-renseigner
+- name: build-image
+  image: docker:27
+  commands:
+  - export TAG="${CI_COMMIT_SHA:0:8}"
+  - export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$$TAG"
+  - echo "$$GCP_SA_KEY" > /tmp/gcp-key.json
+  - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+  - if command -v gcloud >/dev/null; then gcloud auth activate-service-account --key-file /tmp/gcp-key.json; fi
+  - echo "$$REGISTRY_PASSWORD" | docker login "europe-west9-docker.pkg.dev" -u "$$REGISTRY_USER" --password-stdin
+  - docker buildx build --tag "$$IMAGE" --push .
+  volumes:
+  - /var/run/docker.sock:/var/run/docker.sock
+  environment:
+    SONAR_TOKEN:
+      from_secret: sonar_token
+    REGISTRY_USER:
+      from_secret: registry_user
+    REGISTRY_PASSWORD:
+      from_secret: registry_password
+    SONAR_HOST_URL: à-renseigner
+    GCP_WORKLOAD_IDENTITY_PROVIDER: à-renseigner
+    GCP_SERVICE_ACCOUNT: à-renseigner
+- name: iac-plan
+  image: hashicorp/terraform:1.9
+  commands:
+  - export TAG="${CI_COMMIT_SHA:0:8}"
+  - export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$$TAG"
+  - echo "$$GCP_SA_KEY" > /tmp/gcp-key.json
+  - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+  - if command -v gcloud >/dev/null; then gcloud auth activate-service-account --key-file /tmp/gcp-key.json; fi
+  - cd infra/terraform
+  - terraform init -input=false
+  - terraform validate
+  - terraform plan -input=false -out=plan.tfplan
+  environment:
+    SONAR_TOKEN:
+      from_secret: sonar_token
+    REGISTRY_USER:
+      from_secret: registry_user
+    REGISTRY_PASSWORD:
+      from_secret: registry_password
+    SONAR_HOST_URL: à-renseigner
+    GCP_WORKLOAD_IDENTITY_PROVIDER: à-renseigner
+    GCP_SERVICE_ACCOUNT: à-renseigner
+- name: iac-apply
+  image: hashicorp/terraform:1.9
+  commands:
+  - export TAG="${CI_COMMIT_SHA:0:8}"
+  - export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$$TAG"
+  - echo "$$GCP_SA_KEY" > /tmp/gcp-key.json
+  - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+  - if command -v gcloud >/dev/null; then gcloud auth activate-service-account --key-file /tmp/gcp-key.json; fi
+  - cd infra/terraform
+  - terraform init -input=false
+  - terraform apply -input=false plan.tfplan
+  environment:
+    SONAR_TOKEN:
+      from_secret: sonar_token
+    REGISTRY_USER:
+      from_secret: registry_user
+    REGISTRY_PASSWORD:
+      from_secret: registry_password
+    SONAR_HOST_URL: à-renseigner
+    GCP_WORKLOAD_IDENTITY_PROVIDER: à-renseigner
+    GCP_SERVICE_ACCOUNT: à-renseigner
+  when:
+  - branch: main
+    event: push
+- name: deploy
+  image: google/cloud-sdk:slim
+  commands:
+  - export TAG="${CI_COMMIT_SHA:0:8}"
+  - export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$$TAG"
+  - echo "$$GCP_SA_KEY" > /tmp/gcp-key.json
+  - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+  - if command -v gcloud >/dev/null; then gcloud auth activate-service-account --key-file /tmp/gcp-key.json; fi
+  - gcloud run deploy mon-app --image "$$IMAGE" --region europe-west9 --project mon-projet
+  environment:
+    SONAR_TOKEN:
+      from_secret: sonar_token
+    REGISTRY_USER:
+      from_secret: registry_user
+    REGISTRY_PASSWORD:
+      from_secret: registry_password
+    SONAR_HOST_URL: à-renseigner
+    GCP_WORKLOAD_IDENTITY_PROVIDER: à-renseigner
+    GCP_SERVICE_ACCOUNT: à-renseigner
+  when:
+  - branch: main
+    event: push

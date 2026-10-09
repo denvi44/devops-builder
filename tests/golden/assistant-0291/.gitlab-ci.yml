@@ -1,0 +1,120 @@
+# Généré par DevOps Builder — à relire avant usage.
+stages:
+- test
+- build
+- security
+- publish
+- deploy-dev
+- deploy-staging
+- deploy-production
+variables:
+  TAG: $CI_COMMIT_SHORT_SHA
+  IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+unit-tests:
+  stage: test
+  image:
+    name: python:3.12-slim
+    entrypoint:
+    - ''
+  script:
+  - pip install -r requirements.txt
+  - pytest -q
+sonarqube:
+  stage: test
+  image:
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint:
+    - ''
+  script:
+  - sonar-scanner -Dsonar.projectKey=mon-app -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN
+build-image:
+  stage: build
+  image:
+    name: docker:27
+    entrypoint:
+    - ''
+  services:
+  - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: /certs
+  script:
+  - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  - docker buildx build --tag "$IMAGE" --push .
+gitleaks:
+  stage: security
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint:
+    - ''
+  script:
+  - gitleaks detect --source . --verbose
+trivy:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint:
+    - ''
+  variables:
+    TRIVY_USERNAME: $CI_REGISTRY_USER
+    TRIVY_PASSWORD: $CI_REGISTRY_PASSWORD
+  script:
+  - trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+cosign:
+  stage: publish
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  script:
+  - apk add --no-cache cosign
+  - echo "$CI_REGISTRY_PASSWORD" | cosign login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  - cosign sign --yes "$IMAGE"
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+deploy-dev:
+  stage: deploy-dev
+  image:
+    name: alpine/ansible:latest
+    entrypoint:
+    - ''
+  environment:
+    name: dev
+  script:
+  - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - ansible-galaxy collection install community.docker
+  - ansible-playbook -i ansible/inventories/dev.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-dev"
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+deploy-staging:
+  stage: deploy-staging
+  image:
+    name: alpine/ansible:latest
+    entrypoint:
+    - ''
+  environment:
+    name: staging
+  script:
+  - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - ansible-galaxy collection install community.docker
+  - ansible-playbook -i ansible/inventories/staging.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-staging"
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  needs:
+  - deploy-dev
+deploy-production:
+  stage: deploy-production
+  image:
+    name: alpine/ansible:latest
+    entrypoint:
+    - ''
+  environment:
+    name: production
+  script:
+  - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - ansible-galaxy collection install community.docker
+  - ansible-playbook -i ansible/inventories/production.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app"
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - deploy-staging

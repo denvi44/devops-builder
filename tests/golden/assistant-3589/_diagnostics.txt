@@ -1,0 +1,4 @@
+avertissement R34 Google Cloud : « Identifiant du projet » non renseigné : la valeur d'exemple « mon-projet » sera écrite dans les fichiers.
+avertissement R34 Google Cloud Storage : « Bucket de l'état Terraform » non renseigné : la valeur d'exemple « mon-projet-tfstate » sera écrite dans les fichiers.
+info R24 Terraform est sous licence BSL-1.1.
+info R31 Aucun fichier n'est généré pour Google Cloud Monitoring et Logging dans cette configuration : à configurer à la main (listé dans PIPELINE.md).

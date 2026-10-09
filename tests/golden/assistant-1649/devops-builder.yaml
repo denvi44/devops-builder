@@ -1,0 +1,79 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: docker-host
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: gitlab
+    params: {}
+  build:
+  - uid: brique002
+    tool: gitlab-ci
+    params: {}
+  - uid: brique003
+    tool: buildkit
+    params: {}
+  - uid: brique004
+    tool: renovate
+    params: {}
+  test:
+  - uid: brique005
+    tool: unit-tests
+    params: {}
+  - uid: brique006
+    tool: sonarqube
+    params: {}
+  security:
+  - uid: brique007
+    tool: gitleaks
+    params: {}
+  - uid: brique008
+    tool: trivy
+    params: {}
+  - uid: brique009
+    tool: cosign
+    params: {}
+  artifacts:
+  - uid: brique010
+    tool: acr
+    params: {}
+  infrastructure:
+  - uid: brique011
+    tool: azure
+    params: {}
+  - uid: brique012
+    tool: terraform
+    params: {}
+  - uid: brique013
+    tool: azure-blob
+    params: {}
+  deploy:
+  - uid: brique014
+    tool: azure-container-apps
+    params: {}
+  platform: []
+  observability:
+  - uid: brique015
+    tool: azure-monitor
+    params: {}

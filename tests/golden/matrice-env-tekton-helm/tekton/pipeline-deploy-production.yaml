@@ -1,0 +1,43 @@
+# Généré par DevOps Builder — à relire avant usage. Le clone du dépôt (tâche git-clone du Hub) et les secrets sont à brancher sur l'espace « source ».
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: mon-app-deploy-production
+spec:
+  params:
+  - name: tag
+    type: string
+    description: Tag de l'image (commit)
+  workspaces:
+  - name: source
+  tasks:
+  - name: deploy-production
+    workspaces:
+    - name: source
+      workspace: source
+    taskSpec:
+      workspaces:
+      - name: source
+      steps:
+      - name: deploy-production
+        image: alpine:3.20
+        workingDir: $(workspaces.source.path)
+        env:
+        - name: TAG
+          value: $(params.tag)
+        - name: IMAGE
+          value: registry.example.com/mon-app/mon-app:$(params.tag)
+        script: |
+          #!/bin/sh
+          set -e
+          apk add --no-cache curl bash openssl
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          echo "$KUBECONFIG_DATA_PRODUCTION" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+          helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-production.yaml --namespace mon-app --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait
+      params:
+      - name: tag
+        type: string
+    params:
+    - name: tag
+      value: $(params.tag)

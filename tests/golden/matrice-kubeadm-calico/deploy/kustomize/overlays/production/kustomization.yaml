@@ -1,0 +1,10 @@
+# Généré par DevOps Builder — à relire avant usage.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: mon-app
+resources:
+- ../../base
+images:
+- name: mon-app
+  newName: $CI_REGISTRY_IMAGE
+  newTag: latest

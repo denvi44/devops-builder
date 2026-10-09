@@ -1,0 +1,75 @@
+format_version: 2
+name: Site web sur hôte Docker
+description: Application Python déployée par Ansible sur un hôte Docker, derrière
+  Traefik.
+target: docker-host
+environments:
+- id: production
+  label: ''
+  kind: production
+  approval: false
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: site-web
+  port: 8000
+stages:
+  source:
+  - uid: '34613541'
+    tool: gitlab
+    params: {}
+  build:
+  - uid: e3b95530
+    tool: gitlab-ci
+    params: {}
+  - uid: 11c25faa
+    tool: buildkit
+    params: {}
+  - uid: 88af8d2d
+    tool: renovate
+    params: {}
+  test:
+  - uid: e9f69eb2
+    tool: unit-tests
+    params: {}
+  - uid: e65129c3
+    tool: sonarqube
+    params: {}
+  security:
+  - uid: 100f6f3c
+    tool: gitleaks
+    params: {}
+  - uid: 8424f095
+    tool: trivy
+    params: {}
+  artifacts:
+  - uid: 16986a2a
+    tool: harbor
+    params:
+      url: registry.example.com
+  infrastructure:
+  - uid: d86e4be2
+    tool: ansible
+    params: {}
+  deploy:
+  - uid: f8a94566
+    tool: docker-compose
+    params: {}
+  platform:
+  - uid: 4e97d0ad
+    tool: traefik
+    params: {}
+  observability:
+  - uid: 10c04c8b
+    tool: prometheus
+    params: {}
+  - uid: 55b8aba5
+    tool: grafana
+    params: {}
+  - uid: 8907e3af
+    tool: loki
+    params: {}

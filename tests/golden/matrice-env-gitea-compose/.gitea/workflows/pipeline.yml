@@ -1,0 +1,64 @@
+# Gitea Actions reprend la syntaxe GitHub Actions ; vérifier la disponibilité des actions
+# tierces et l'émission de jetons OIDC sur votre instance (act_runner).
+# Généré par DevOps Builder — à relire avant usage.
+name: Pipeline matrice
+'on':
+  push:
+    branches:
+    - main
+  pull_request: {}
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+env:
+  TAG: ${{ github.sha }}
+  IMAGE: registry.example.com/mon-app/mon-app:${{ github.sha }}
+  REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+  REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+  SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  DEPLOY_HOST_STAGING: ${{ vars.DEPLOY_HOST_STAGING }}
+  DEPLOY_HOST_PRODUCTION: ${{ vars.DEPLOY_HOST_PRODUCTION }}
+jobs:
+  build-image:
+    name: Build et publication de l'image (Buildah)
+    runs-on: ubuntu-latest
+    container: quay.io/buildah/stable:latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build et publication de l'image (Buildah)
+      run: |
+        echo "$REGISTRY_PASSWORD" | buildah login "registry.example.com" -u "$REGISTRY_USER" --password-stdin
+        buildah build --tag "$IMAGE" .
+        buildah push "$IMAGE"
+  deploy-staging:
+    name: Déploiement Docker Compose (SSH) — Préproduction
+    runs-on: ubuntu-latest
+    needs:
+    - build-image
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    steps:
+    - uses: actions/checkout@v4
+    - name: Déploiement Docker Compose (SSH) — Préproduction
+      run: |
+        mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+        ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_STAGING" "mkdir -p /opt/mon-app-staging"
+        scp deploy/docker-compose.yml "$DEPLOY_HOST_STAGING:/opt/mon-app-staging/docker-compose.yml"
+        ssh "$DEPLOY_HOST_STAGING" "cd /opt/mon-app-staging && IMAGE=$IMAGE docker compose -p mon-app-staging pull && IMAGE=$IMAGE docker compose -p mon-app-staging up -d"
+  deploy-production:
+    name: Déploiement Docker Compose (SSH) — Production
+    runs-on: ubuntu-latest
+    needs:
+    - build-image
+    - deploy-staging
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+    - uses: actions/checkout@v4
+    - name: Déploiement Docker Compose (SSH) — Production
+      run: |
+        mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+        ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_PRODUCTION" "mkdir -p /opt/mon-app"
+        scp deploy/docker-compose.yml "$DEPLOY_HOST_PRODUCTION:/opt/mon-app/docker-compose.yml"
+        ssh "$DEPLOY_HOST_PRODUCTION" "cd /opt/mon-app && IMAGE=$IMAGE docker compose -p mon-app pull && IMAGE=$IMAGE docker compose -p mon-app up -d"

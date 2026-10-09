@@ -1,0 +1,80 @@
+# Généré par DevOps Builder — à relire avant usage. Pour Azure, préférer une connexion de service à fédération d'identité (tâche AzureCLI@2).
+trigger:
+- main
+variables:
+  TAG: $(Build.SourceVersion)
+  IMAGE: registry.example.com/mon-app/mon-app:$(Build.SourceVersion)
+stages:
+- stage: test
+  jobs:
+  - job: unit_tests
+    displayName: Tests unitaires
+    pool:
+      vmImage: ubuntu-latest
+    container: python:3.12-slim
+    steps:
+    - script: |
+        pip install -r requirements.txt
+        pytest -q
+      displayName: Tests unitaires
+      env:
+        SONAR_TOKEN: $(SONAR_TOKEN)
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+        SSH_PRIVATE_KEY: $(SSH_PRIVATE_KEY)
+  - job: sonarqube
+    displayName: Qualité SonarQube
+    pool:
+      vmImage: ubuntu-latest
+    container: sonarsource/sonar-scanner-cli:latest
+    steps:
+    - script: |
+        sonar-scanner -Dsonar.projectKey=mon-app -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN
+      displayName: Qualité SonarQube
+      env:
+        SONAR_TOKEN: $(SONAR_TOKEN)
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+        SSH_PRIVATE_KEY: $(SSH_PRIVATE_KEY)
+- stage: build
+  jobs:
+  - job: build_image
+    displayName: Build et publication de l'image (BuildKit (docker buildx))
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: |
+        echo "$REGISTRY_PASSWORD" | docker login "registry.example.com" -u "$REGISTRY_USER" --password-stdin
+        docker buildx build --tag "$IMAGE" --push .
+      displayName: Build et publication de l'image (BuildKit (docker buildx))
+      env:
+        SONAR_TOKEN: $(SONAR_TOKEN)
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+        SSH_PRIVATE_KEY: $(SSH_PRIVATE_KEY)
+- stage: deploy_production
+  displayName: Déploiement — Production
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: deploy_production
+    displayName: Déploiement Docker Compose (SSH)
+    environment: production
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+          - script: |
+              apk add --no-cache openssh-client
+              mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+              ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST" "mkdir -p /opt/mon-app"
+              scp deploy/docker-compose.yml "$DEPLOY_HOST:/opt/mon-app/docker-compose.yml"
+              ssh "$DEPLOY_HOST" "cd /opt/mon-app && IMAGE=$IMAGE docker compose -p mon-app pull && IMAGE=$IMAGE docker compose -p mon-app up -d"
+            displayName: Déploiement Docker Compose (SSH)
+            env:
+              SONAR_TOKEN: $(SONAR_TOKEN)
+              REGISTRY_USER: $(REGISTRY_USER)
+              REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+              SSH_PRIVATE_KEY: $(SSH_PRIVATE_KEY)

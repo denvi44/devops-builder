@@ -1,0 +1,199 @@
+# Généré par DevOps Builder — à relire avant usage. Pour Azure, préférer une connexion de service à fédération d'identité (tâche AzureCLI@2).
+trigger:
+- main
+variables:
+  TAG: $(Build.SourceVersion)
+  IMAGE: registry.example.com/mon-app/mon-app:$(Build.SourceVersion)
+stages:
+- stage: test
+  jobs:
+  - job: unit_tests
+    displayName: Tests unitaires
+    pool:
+      vmImage: ubuntu-latest
+    container: python:3.12-slim
+    steps:
+    - script: |
+        pip install -r requirements.txt
+        pytest -q
+      displayName: Tests unitaires
+      env:
+        SONAR_TOKEN: $(SONAR_TOKEN)
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+        KUBECONFIG_DATA_DEV: $(KUBECONFIG_DATA_DEV)
+        KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
+        KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)
+  - job: sonarqube
+    displayName: Qualité SonarQube
+    pool:
+      vmImage: ubuntu-latest
+    container: sonarsource/sonar-scanner-cli:latest
+    steps:
+    - script: |
+        sonar-scanner -Dsonar.projectKey=mon-app -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN
+      displayName: Qualité SonarQube
+      env:
+        SONAR_TOKEN: $(SONAR_TOKEN)
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+        KUBECONFIG_DATA_DEV: $(KUBECONFIG_DATA_DEV)
+        KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
+        KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)
+- stage: build
+  jobs:
+  - job: build_image
+    displayName: Build et publication de l'image (BuildKit (docker buildx))
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: |
+        echo "$REGISTRY_PASSWORD" | docker login "registry.example.com" -u "$REGISTRY_USER" --password-stdin
+        docker buildx build --tag "$IMAGE" --push .
+      displayName: Build et publication de l'image (BuildKit (docker buildx))
+      env:
+        SONAR_TOKEN: $(SONAR_TOKEN)
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+        KUBECONFIG_DATA_DEV: $(KUBECONFIG_DATA_DEV)
+        KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
+        KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)
+- stage: security
+  jobs:
+  - job: gitleaks
+    displayName: Recherche de secrets
+    pool:
+      vmImage: ubuntu-latest
+    container: zricethezav/gitleaks:latest
+    steps:
+    - script: |
+        gitleaks detect --source . --verbose
+      displayName: Recherche de secrets
+      env:
+        SONAR_TOKEN: $(SONAR_TOKEN)
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+        KUBECONFIG_DATA_DEV: $(KUBECONFIG_DATA_DEV)
+        KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
+        KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)
+  - job: trivy
+    displayName: Scan de vulnérabilités Trivy
+    pool:
+      vmImage: ubuntu-latest
+    container: aquasec/trivy:latest
+    steps:
+    - script: |
+        trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+      displayName: Scan de vulnérabilités Trivy
+      env:
+        SONAR_TOKEN: $(SONAR_TOKEN)
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+        KUBECONFIG_DATA_DEV: $(KUBECONFIG_DATA_DEV)
+        KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
+        KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)
+- stage: publish
+  jobs:
+  - job: cosign
+    displayName: Signature de l'image (Cosign)
+    pool:
+      vmImage: ubuntu-latest
+    container: alpine:3.20
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    steps:
+    - script: |
+        apk add --no-cache cosign
+        echo "$REGISTRY_PASSWORD" | cosign login "registry.example.com" -u "$REGISTRY_USER" --password-stdin
+        cosign sign --yes "$IMAGE"
+      displayName: Signature de l'image (Cosign)
+      env:
+        SONAR_TOKEN: $(SONAR_TOKEN)
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+        KUBECONFIG_DATA_DEV: $(KUBECONFIG_DATA_DEV)
+        KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
+        KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)
+- stage: deploy_dev
+  displayName: Déploiement — Développement
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: deploy_dev
+    displayName: Déploiement Helm — Développement
+    environment: dev
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+          - script: |
+              apk add --no-cache curl bash openssl
+              curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+              echo "$KUBECONFIG_DATA_DEV" | base64 -d > /tmp/kubeconfig
+              export KUBECONFIG=/tmp/kubeconfig
+              helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-dev.yaml --namespace mon-app-dev --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait
+            displayName: Déploiement Helm — Développement
+            env:
+              SONAR_TOKEN: $(SONAR_TOKEN)
+              REGISTRY_USER: $(REGISTRY_USER)
+              REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+              KUBECONFIG_DATA_DEV: $(KUBECONFIG_DATA_DEV)
+              KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
+              KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)
+- stage: deploy_staging
+  displayName: Déploiement — Préproduction
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: deploy_staging
+    displayName: Déploiement Helm — Préproduction
+    environment: staging
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+          - script: |
+              apk add --no-cache curl bash openssl
+              curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+              echo "$KUBECONFIG_DATA_STAGING" | base64 -d > /tmp/kubeconfig
+              export KUBECONFIG=/tmp/kubeconfig
+              helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-staging.yaml --namespace mon-app-staging --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait
+            displayName: Déploiement Helm — Préproduction
+            env:
+              SONAR_TOKEN: $(SONAR_TOKEN)
+              REGISTRY_USER: $(REGISTRY_USER)
+              REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+              KUBECONFIG_DATA_DEV: $(KUBECONFIG_DATA_DEV)
+              KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
+              KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)
+- stage: deploy_production
+  displayName: Déploiement — Production
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: deploy_production
+    displayName: Déploiement Helm — Production
+    environment: production
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+          - script: |
+              apk add --no-cache curl bash openssl
+              curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+              echo "$KUBECONFIG_DATA_PRODUCTION" | base64 -d > /tmp/kubeconfig
+              export KUBECONFIG=/tmp/kubeconfig
+              helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-production.yaml --namespace mon-app --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait
+            displayName: Déploiement Helm — Production
+            env:
+              SONAR_TOKEN: $(SONAR_TOKEN)
+              REGISTRY_USER: $(REGISTRY_USER)
+              REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+              KUBECONFIG_DATA_DEV: $(KUBECONFIG_DATA_DEV)
+              KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
+              KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)

@@ -1,0 +1,98 @@
+format_version: 2
+name: Plateforme AWS EKS
+description: 'Infrastructure OpenTofu sur AWS : un cluster EKS de préproduction et
+  un de production, CI GitLab avec fédération d''identité OIDC et approbation avant
+  la production.'
+target: kubernetes-managed
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides:
+    eks:
+      cluster_name: plateforme-prod
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: java
+  image_name: commandes
+  port: 8080
+stages:
+  source:
+  - uid: 84be4050
+    tool: gitlab
+    params: {}
+  build:
+  - uid: b561f93c
+    tool: gitlab-ci
+    params: {}
+  - uid: 18c9cd51
+    tool: buildkit
+    params: {}
+  test:
+  - uid: 9cc50bd4
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: 338a0d2d
+    tool: checkov
+    params: {}
+  - uid: 23327af7
+    tool: trivy
+    params: {}
+  artifacts:
+  - uid: 43869c23
+    tool: ecr
+    params:
+      repository: commandes
+  infrastructure:
+  - uid: '49902326'
+    tool: aws
+    params:
+      region: eu-west-3
+  - uid: deaf9a3d
+    tool: opentofu
+    params: {}
+  - uid: ac518c2b
+    tool: eks
+    params:
+      cluster_name: plateforme-preprod
+      region: eu-west-3
+      version: '1.33'
+  - uid: ef659c01
+    tool: s3
+    params:
+      bucket: plateforme-prod-tfstate
+  deploy:
+  - uid: 81f88b24
+    tool: helm
+    params: {}
+  platform:
+  - uid: '76388289'
+    tool: aws-secrets-manager
+    params: {}
+  - uid: 7f5ff466
+    tool: external-secrets
+    params: {}
+  - uid: cab6644b
+    tool: cert-manager
+    params: {}
+  - uid: 77b25ab7
+    tool: velero
+    params: {}
+  observability:
+  - uid: 1c44bd4d
+    tool: prometheus
+    params: {}
+  - uid: f5d478e9
+    tool: cloudwatch
+    params: {}

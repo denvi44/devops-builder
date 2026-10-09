@@ -1,0 +1,52 @@
+format_version: 2
+name: matrice
+description: ''
+target: kubernetes-managed
+environments:
+- id: production
+  label: ''
+  kind: production
+  approval: false
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: gitlab
+    params: {}
+  build:
+  - uid: brique002
+    tool: gitlab-ci
+    params: {}
+  - uid: brique003
+    tool: buildkit
+    params: {}
+  test: []
+  security: []
+  artifacts:
+  - uid: brique004
+    tool: scaleway-registry
+    params: {}
+  infrastructure:
+  - uid: brique005
+    tool: scaleway
+    params: {}
+  - uid: brique006
+    tool: kapsule
+    params: {}
+  - uid: brique007
+    tool: opentofu
+    params: {}
+  deploy:
+  - uid: brique008
+    tool: helm
+    params: {}
+  platform: []
+  observability: []

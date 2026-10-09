@@ -1,0 +1,70 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: kubernetes
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: true
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: azure-repos
+    params: {}
+  build:
+  - uid: brique002
+    tool: azure-pipelines
+    params: {}
+  - uid: brique003
+    tool: buildkit
+    params: {}
+  - uid: brique004
+    tool: renovate
+    params: {}
+  test:
+  - uid: brique005
+    tool: unit-tests
+    params: {}
+  - uid: brique006
+    tool: sonarqube
+    params: {}
+  security: []
+  artifacts:
+  - uid: brique007
+    tool: harbor
+    params: {}
+  infrastructure:
+  - uid: brique008
+    tool: k3s
+    params: {}
+  deploy:
+  - uid: brique009
+    tool: helm
+    params: {}
+  - uid: brique010
+    tool: argo-cd
+    params: {}
+  platform:
+  - uid: brique011
+    tool: traefik
+    params: {}
+  - uid: brique012
+    tool: cert-manager
+    params: {}
+  observability: []

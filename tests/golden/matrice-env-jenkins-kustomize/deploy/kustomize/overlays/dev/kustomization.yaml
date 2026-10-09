@@ -1,0 +1,13 @@
+# Généré par DevOps Builder — à relire avant usage.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: mon-app-dev
+resources:
+- ../../base
+images:
+- name: mon-app
+  newName: registry.example.com/mon-app/mon-app
+  newTag: latest
+replicas:
+- name: mon-app
+  count: 1

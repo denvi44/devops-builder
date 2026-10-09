@@ -1,0 +1,73 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: kubernetes-managed
+environments:
+- id: production
+  label: ''
+  kind: production
+  approval: false
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: gitea
+    params: {}
+  build:
+  - uid: brique002
+    tool: gitea-actions
+    params: {}
+  - uid: brique003
+    tool: buildkit
+    params: {}
+  - uid: brique004
+    tool: renovate
+    params: {}
+  test:
+  - uid: brique005
+    tool: unit-tests
+    params: {}
+  - uid: brique006
+    tool: sonarqube
+    params: {}
+  security:
+  - uid: brique007
+    tool: gitleaks
+    params: {}
+  - uid: brique008
+    tool: trivy
+    params: {}
+  - uid: brique009
+    tool: cosign
+    params: {}
+  artifacts:
+  - uid: brique010
+    tool: ovh-registry
+    params: {}
+  infrastructure:
+  - uid: brique011
+    tool: ovhcloud
+    params: {}
+  - uid: brique012
+    tool: ovh-mks
+    params: {}
+  - uid: brique013
+    tool: opentofu
+    params: {}
+  deploy:
+  - uid: brique014
+    tool: helm
+    params: {}
+  platform:
+  - uid: brique015
+    tool: cert-manager
+    params: {}
+  observability: []

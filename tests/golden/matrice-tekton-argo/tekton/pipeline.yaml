@@ -1,0 +1,103 @@
+# Généré par DevOps Builder — à relire avant usage. Le clone du dépôt (tâche git-clone du Hub) et les secrets sont à brancher sur l'espace « source ».
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: mon-app-pipeline
+spec:
+  params:
+  - name: tag
+    type: string
+    description: Tag de l'image (commit)
+  workspaces:
+  - name: source
+  tasks:
+  - name: unit-tests
+    workspaces:
+    - name: source
+      workspace: source
+    taskSpec:
+      workspaces:
+      - name: source
+      steps:
+      - name: unit-tests
+        image: python:3.12-slim
+        workingDir: $(workspaces.source.path)
+        env:
+        - name: TAG
+          value: $(params.tag)
+        - name: IMAGE
+          value: registry.example.com/mon-app/mon-app:$(params.tag)
+        script: |
+          #!/bin/sh
+          set -e
+          pip install -r requirements.txt
+          pytest -q
+      params:
+      - name: tag
+        type: string
+    params:
+    - name: tag
+      value: $(params.tag)
+  - name: build-image
+    workspaces:
+    - name: source
+      workspace: source
+    taskSpec:
+      workspaces:
+      - name: source
+      steps:
+      - name: build-image
+        image: quay.io/buildah/stable:latest
+        workingDir: $(workspaces.source.path)
+        env:
+        - name: TAG
+          value: $(params.tag)
+        - name: IMAGE
+          value: registry.example.com/mon-app/mon-app:$(params.tag)
+        script: |
+          #!/bin/sh
+          set -e
+          echo "$REGISTRY_PASSWORD" | buildah login "registry.example.com" -u "$REGISTRY_USER" --password-stdin
+          buildah build --tag "$IMAGE" .
+          buildah push "$IMAGE"
+      params:
+      - name: tag
+        type: string
+    params:
+    - name: tag
+      value: $(params.tag)
+    runAfter:
+    - unit-tests
+  - name: deploy
+    workspaces:
+    - name: source
+      workspace: source
+    taskSpec:
+      workspaces:
+      - name: source
+      steps:
+      - name: deploy
+        image: alpine:3.20
+        workingDir: $(workspaces.source.path)
+        env:
+        - name: TAG
+          value: $(params.tag)
+        - name: IMAGE
+          value: registry.example.com/mon-app/mon-app:$(params.tag)
+        script: |
+          #!/bin/sh
+          set -e
+          apk add --no-cache git yq
+          git clone "https://oauth2:$GITOPS_TOKEN@$GITOPS_REPO" gitops
+          cd gitops
+          yq -i '.image.tag = strenv(TAG)' charts/mon-app/values.yaml
+          git config user.email "ci@example.com" && git config user.name "CI"
+          git commit -am "deploy: mon-app $TAG" && git push origin HEAD
+      params:
+      - name: tag
+        type: string
+    params:
+    - name: tag
+      value: $(params.tag)
+    runAfter:
+    - build-image

@@ -1,0 +1,4 @@
+# Généré par DevOps Builder — à relire avant usage. Valeurs propres à l'environnement « Production ».
+replicaCount: 2
+image:
+  tag: latest

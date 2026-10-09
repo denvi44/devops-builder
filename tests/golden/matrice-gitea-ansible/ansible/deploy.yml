@@ -1,0 +1,26 @@
+# Généré par DevOps Builder — à relire avant usage.
+- name: Déployer mon-app
+  hosts: app
+  become: true
+  vars:
+    image: registry.example.com/mon-app/mon-app:latest
+    project: mon-app
+    app_dir: /opt/{{ project }}
+  tasks:
+  - name: Créer le répertoire de l'application
+    ansible.builtin.file:
+      path: '{{ app_dir }}'
+      state: directory
+      mode: '0755'
+  - name: Copier le fichier Compose
+    ansible.builtin.copy:
+      src: ../deploy/docker-compose.yml
+      dest: '{{ app_dir }}/docker-compose.yml'
+  - name: Démarrer les services
+    community.docker.docker_compose_v2:
+      project_src: '{{ app_dir }}'
+      project_name: '{{ project }}'
+      pull: always
+      state: present
+    environment:
+      IMAGE: '{{ image }}'

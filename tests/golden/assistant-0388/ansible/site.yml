@@ -1,0 +1,16 @@
+# Généré par DevOps Builder — à relire avant usage.
+- name: Préparer les hôtes Docker
+  hosts: app
+  become: true
+  tasks:
+  - name: Installer Docker
+    ansible.builtin.package:
+      name:
+      - docker.io
+      - docker-compose-v2
+      state: present
+  - name: Activer Docker
+    ansible.builtin.service:
+      name: docker
+      state: started
+      enabled: true
