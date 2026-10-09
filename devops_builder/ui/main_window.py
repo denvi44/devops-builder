@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 
 from PySide6.QtCore import QSettings, Qt, QTimer
@@ -34,7 +35,10 @@ from .palette import PaletteWidget
 from .properties import PropertiesPanel
 from .widgets import STAGE_ICONS, chip, clear_layout, icon
 
-AUTOSAVE = Path.home() / ".devops-builder" / "autosave.devops.yaml"
+
+def autosave_path() -> Path:
+    from .. import userdata
+    return userdata.home() / "autosave.devops.yaml"
 FILE_FILTER = "Projet DevOps Builder (*.devops.yaml *.yaml)"
 
 
@@ -79,6 +83,9 @@ class MainWindow(QMainWindow):
         self._build_actions()
         self._build_toolbar_and_menus()
         self.statusBar().showMessage("Prêt", 3000)
+        if self.catalog.errors:
+            self.statusBar().showMessage(f"{len(self.catalog.errors)} erreur(s) dans le catalogue personnel : "
+                                         "Catalogue › Entretien du catalogue pour le détail.", 15000)
         self.summary = QLabel()
         self.statusBar().addPermanentWidget(self.summary)
         geo = self.settings.value("geometry")
@@ -129,6 +136,8 @@ class MainWindow(QMainWindow):
         self.palette.toolSelected.connect(self._show_catalog_tool)
         self.palette.tree.dragStarted.connect(self.canvas.highlight)
         self.palette.tree.dragFinished.connect(self.canvas.clear_highlight)
+        self.palette.ficheRequested.connect(self.edit_fiche)
+        self.palette.ficheDeleteRequested.connect(self.delete_fiche)
         self.palette_dock = self._dock("Catalogue", self.palette, Qt.DockWidgetArea.LeftDockWidgetArea)
         self.palette_dock.setMinimumWidth(300)
 
@@ -137,6 +146,7 @@ class MainWindow(QMainWindow):
         self.properties.overridesChanged.connect(self.set_overrides)
         self.properties.removeRequested.connect(self.remove_brick)
         self.properties.addRequested.connect(lambda tid: self.add_tool(None, tid, -1))
+        self.properties.ficheRequested.connect(self.edit_fiche)
         self.props_dock = self._dock("Propriétés", self.properties, Qt.DockWidgetArea.RightDockWidgetArea)
         self.props_dock.setMinimumWidth(320)
 
@@ -194,6 +204,10 @@ class MainWindow(QMainWindow):
         self.a_focus_canvas = self._act("Aller au pipeline", lambda: self.canvas.columns["source"].list.setFocus(), "Ctrl+2")
         self.a_focus_diag = self._act("Aller aux diagnostics", lambda: self.diagnostics.tree.setFocus(), "Ctrl+3")
         self.a_restore = self._act("Restaurer la sauvegarde automatique", self.restore_autosave)
+        self.a_maintenance = self._act("Entretien du catalogue…", self.maintain_catalog, None, "mdi6.stethoscope",
+                                       "Archivages, changements de licence, fiches à relire, Landscape à jour")
+        self.a_new_fiche = self._act("Nouvelle fiche personnelle…", self.new_fiche, None, "mdi6.file-plus-outline")
+        self.a_catalog_folder = self._act("Ouvrir le dossier du catalogue personnel", self.open_catalog_folder)
         self.a_about = self._act("À propos", self.about)
         self.a_rules = self._act("Règles de compatibilité", self.show_rules)
         for a in (self.a_search, self.a_focus_canvas, self.a_focus_diag):
@@ -233,6 +247,8 @@ class MainWindow(QMainWindow):
         p.addAction(self.a_settings)
         p.addAction(self.a_generate)
         p.addAction(self.a_validate)
+        c = mb.addMenu("&Catalogue")
+        c.addActions([self.a_maintenance, self.a_new_fiche, self.a_catalog_folder])
         v = mb.addMenu("&Affichage")
         v.addAction(self.a_theme)
         v.addSeparator()
@@ -332,8 +348,8 @@ class MainWindow(QMainWindow):
 
     def _autosave(self) -> None:
         try:
-            AUTOSAVE.parent.mkdir(parents=True, exist_ok=True)
-            AUTOSAVE.write_text(self.project.to_yaml(), encoding="utf-8")
+            autosave_path().parent.mkdir(parents=True, exist_ok=True)
+            autosave_path().write_text(self.project.to_yaml(), encoding="utf-8")
         except OSError:
             pass
 
@@ -448,6 +464,74 @@ class MainWindow(QMainWindow):
             existing = self.project.bricks_for(tool_id)
             self.properties.show_tool(tool, existing[0] if existing else None, self.project)
 
+    # ============================================================ catalogue
+    def reload_catalog(self, catalog: Catalog | None = None) -> None:
+        """Après une fiche créée, corrigée ou supprimée : règles, palette et fiche affichée suivent."""
+        from ..catalog import reload_default_catalog
+        self.catalog = catalog or reload_default_catalog()
+        self.engine = RuleEngine(self.catalog)
+        self.palette.catalog = self.catalog
+        self.properties.catalog = self.catalog
+        self.canvas.set_placement_check(self.catalog.can_place)
+        self.palette.refresh()
+        self.refresh()
+
+    def maintain_catalog(self) -> None:
+        from .maintenance import MaintenanceDialog
+        dlg = MaintenanceDialog(self.catalog, self.project, self)
+        dlg.exec()
+        if dlg.changed:
+            self.reload_catalog(dlg.catalog)
+
+    def new_fiche(self) -> None:
+        from .fiche import FicheDialog
+        dlg = FicheDialog(self.catalog, {"id": "", "name": "", "stage": "build", "license": "unknown",
+                                         "verified": date.today().isoformat()}, parent=self)
+        if dlg.exec() and dlg.saved_id:
+            self.reload_catalog()
+            self._show_catalog_tool(dlg.saved_id)
+
+    def edit_fiche(self, tool_id: str) -> None:
+        from .fiche import open_fiche_dialog
+        tool = self.catalog.get(tool_id)
+        if tool is None:
+            return
+        dlg = open_fiche_dialog(self, self.catalog, tool)
+        if not dlg.exec() or not dlg.saved_id:
+            return
+        new_id, old_ids = dlg.saved_id, {dlg.source_entry, dlg.editing} - {None, dlg.saved_id}
+        self.reload_catalog()
+        if old_ids and any(self.project.bricks_for(o) for o in old_ids):
+            def do(p: Project) -> None:
+                for _, b in p.all_bricks():
+                    if b.tool in old_ids:
+                        b.tool = new_id
+            self.mutate("Briques rattachées à la nouvelle fiche", do)
+        self._show_catalog_tool(new_id)
+        self.statusBar().showMessage(f"Fiche « {new_id} » enregistrée dans le catalogue personnel.", 6000)
+
+    def delete_fiche(self, tool_id: str) -> None:
+        from .. import catalog_edit
+        tool = self.catalog.get(tool_id)
+        if tool is None or tool.origin != "utilisateur":
+            return
+        uses = len(self.project.bricks_for(tool_id))
+        warn = f"\n\nLe projet ouvert l'utilise {uses} fois : ces briques deviendront inconnues." if uses else ""
+        r = QMessageBox.question(self, "Supprimer la fiche",
+                                 f"Supprimer la fiche personnelle « {tool.name} » ?{warn}")
+        if r == QMessageBox.StandardButton.Yes:
+            catalog_edit.delete_fiche(tool_id)
+            self.reload_catalog()
+
+    def open_catalog_folder(self) -> None:
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        from .. import userdata
+        folder = userdata.catalog_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
+
     def _focus_search(self) -> None:
         self.palette_dock.show()
         self.palette.search.setFocus()
@@ -528,11 +612,11 @@ class MainWindow(QMainWindow):
         return self.save()
 
     def restore_autosave(self) -> None:
-        if not AUTOSAVE.exists():
+        if not autosave_path().exists():
             QMessageBox.information(self, "Sauvegarde automatique", "Aucune sauvegarde automatique.")
             return
         if self._confirm_discard():
-            self._load(Project.load(AUTOSAVE), None)
+            self._load(Project.load(autosave_path()), None)
 
     def _generation(self):
         if not self.project.all_bricks():

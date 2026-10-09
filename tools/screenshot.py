@@ -164,6 +164,35 @@ def main() -> int:
         wait(lambda: exp.worker is None)
         exp.grab().save(str(out / f"10-export-git{suffix}.png"))
         exp.close()
+    # 11 et 12 : entretien du catalogue et fiche créée depuis le Landscape (dossier personnel jetable)
+    import os
+
+    from devops_builder import catalog_edit
+    from devops_builder.ui.fiche import open_fiche_dialog
+    from devops_builder.ui.maintenance import MaintenanceDialog
+
+    with tempfile.TemporaryDirectory() as home:
+        os.environ["DEVOPS_BUILDER_HOME"] = home
+        win.reload_catalog()
+        fiche = open_fiche_dialog(win, win.catalog, win.catalog["lsc-keptn"])
+        fiche.show()
+        app.processEvents()
+        fiche.grab().save(str(out / f"12-fiche{suffix}.png"))
+        fiche.save()
+        win.reload_catalog()
+        catalog_edit.write_corrections({"trivy": {"verified": "2025-09-01"}})
+        win.reload_catalog()
+        p = Project.load(DATA_DIR / "examples" / "02-api-k3s-gitops.devops.yaml")
+        p.add("trivy", "security")
+        maint = MaintenanceDialog(win.catalog, p, win)
+        maint.network.setChecked(False)
+        maint.show()
+        maint.start()
+        wait(lambda: maint.worker is None)
+        maint.grab().save(str(out / f"11-entretien{suffix}.png"))
+        maint.close()
+        del os.environ["DEVOPS_BUILDER_HOME"]
+        win.reload_catalog()
     print("captures écrites dans", out)
     return 0
 

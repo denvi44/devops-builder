@@ -199,6 +199,7 @@
   roles: [iac]
   description: Langage IaC natif Azure (compilé en ARM).
   license: MIT
+  repo: https://github.com/Azure/bicep
   hosting: [ci, cli]
   provider: azure
   verified: "2026-10-08"
@@ -240,6 +241,7 @@
   roles: [kubernetes-cluster]
   description: Outil officiel d'installation de cluster Kubernetes.
   license: Apache-2.0
+  repo: https://github.com/kubernetes/kubeadm
   hosting: [vm]
   provides: [kubernetes-cluster]
   requires: [cni]
@@ -422,6 +424,7 @@
   roles: [object-storage]
   description: Stockage objet compatible S3 autohébergé.
   license: AGPL-3.0
+  repo: https://github.com/minio/minio
   hosting: [docker-host, vm, kubernetes]
   provides: [object-storage]
   verified: "2026-10-08"

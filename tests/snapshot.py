@@ -60,7 +60,7 @@ def packaged_catalog():
     """Catalogue livré seul : un catalogue utilisateur ne doit pas changer l'instantané."""
     global _CATALOG
     if _CATALOG is None:
-        _CATALOG = build_catalog(user_dir=None) if "user_dir" in build_catalog.__code__.co_varnames else build_catalog()
+        _CATALOG = build_catalog(user_dir=None)
     return _CATALOG
 
 

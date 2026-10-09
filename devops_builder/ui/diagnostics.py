@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 from ..model import Severity
 from ..rules import Action, Diagnostic
 from . import theme
-from .widgets import SEVERITY_ICONS, clear_layout, icon, muted, section_title
+from .widgets import SEVERITY_ICONS, clear_layout, icon, muted, plain, section_title
 
 
 class DiagnosticsPanel(QWidget):
@@ -108,7 +108,7 @@ class DiagnosticsPanel(QWidget):
     def _action_button(self, a: Action) -> QPushButton:
         names = {"add_brick": "mdi6.plus-circle-outline", "remove_bricks": "mdi6.minus-circle-outline",
                  "replace_brick": "mdi6.swap-horizontal", "set_project": "mdi6.cog-outline"}
-        b = QPushButton(icon(names.get(a.op, "mdi6.wrench"), theme.current().primary), a.label)
+        b = QPushButton(icon(names.get(a.op, "mdi6.wrench"), theme.current().primary), plain(a.label))
         b.setToolTip("Appliquer cette correction (annulable avec Ctrl+Z)")
         b.clicked.connect(lambda: self.actionRequested.emit(a))
         return b

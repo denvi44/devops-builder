@@ -6,6 +6,7 @@
   roles: [unit-tests]
   description: Lance les tests du langage du projet (pytest, npm test, mvn verify, go test, dotnet test).
   license: MIT
+  repo: ""
   hosting: [ci]
   curated: true
   verified: "2026-10-08"
@@ -18,6 +19,7 @@
   description: Qualité de code et analyse statique. PostgreSQL requis en production ; l'édition gratuite n'analyse ni les branches ni les merge requests.
   homepage: https://www.sonarsource.com/products/sonarqube/
   license: LGPL-3.0
+  repo: https://github.com/SonarSource/sonarqube
   hosting: [docker-host, vm, kubernetes]
   verified: "2026-10-08"
 
@@ -38,6 +40,7 @@
   roles: [sast]
   description: Analyse statique de sécurité par motifs.
   license: LGPL-2.1
+  repo: https://github.com/semgrep/semgrep
   hosting: [ci, cli]
   verified: "2026-10-08"
 
@@ -79,6 +82,7 @@
   roles: [vuln-scan]
   description: Scan de vulnérabilités d'images et de systèmes de fichiers.
   license: Apache-2.0
+  repo: https://github.com/anchore/grype
   hosting: [ci, cli]
   provides: [vuln-scan]
   verified: "2026-10-08"
@@ -110,6 +114,7 @@
   roles: [secret-scan]
   description: Détection de secrets dans le dépôt Git.
   license: MIT
+  repo: https://github.com/gitleaks/gitleaks
   hosting: [ci, cli]
   verified: "2026-10-08"
 
@@ -120,6 +125,7 @@
   roles: [sbom]
   description: Génère un SBOM (SPDX, CycloneDX) d'une image.
   license: Apache-2.0
+  repo: https://github.com/anchore/syft
   hosting: [ci, cli]
   verified: "2026-10-08"
 

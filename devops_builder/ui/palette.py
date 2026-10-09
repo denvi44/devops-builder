@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QMimeData, Qt, Signal
+from PySide6.QtCore import QMimeData, QPoint, Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMenu,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -55,6 +56,8 @@ class _Tree(QTreeWidget):
 class PaletteWidget(QWidget):
     toolActivated = Signal(str)   # double-clic / Entrée : ajouter à l'étape par défaut
     toolSelected = Signal(str)    # sélection : afficher la fiche
+    ficheRequested = Signal(str)  # créer une fiche (entrée du Landscape) ou modifier une fiche personnelle
+    ficheDeleteRequested = Signal(str)
 
     def __init__(self, catalog: Catalog, parent: QWidget | None = None):
         super().__init__(parent)
@@ -100,7 +103,10 @@ class PaletteWidget(QWidget):
         self.tree.setIndentation(14)
         self.tree.setUniformRowHeights(True)
         self.tree.setAccessibleName("Catalogue d'outils")
-        self.tree.setAccessibleDescription("Entrée ou double-clic ajoute l'outil à son étape ; glisser vers une colonne.")
+        self.tree.setAccessibleDescription("Entrée ou double-clic ajoute l'outil à son étape ; glisser vers une colonne ; "
+                                           "menu contextuel pour créer ou modifier une fiche.")
+        self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tree.customContextMenuRequested.connect(self._context_menu)
         lay.addWidget(self.tree, 1)
 
         self.count = QLabel()
@@ -161,7 +167,8 @@ class PaletteWidget(QWidget):
                 g.setExpanded(bool(self.search.text()) or self.stage.currentData() == sid or len(tools) < 60)
         self.tree.setUpdatesEnabled(True)
         curated = sum(1 for t in tools if t.curated)
-        self.count.setText(f"{len(tools)} outils · {curated} fiches vérifiées")
+        mine = sum(1 for t in tools if t.origin == "utilisateur")
+        self.count.setText(f"{len(tools)} outils · {curated} fiches vérifiées" + (f" dont {mine} personnelle(s)" if mine else ""))
 
     @staticmethod
     def _label(t: Tool) -> str:
@@ -170,6 +177,10 @@ class PaletteWidget(QWidget):
             badge = "  ◆"
         if t.lifecycle != "active":
             badge += "  ⚠"
+        if t.origin == "utilisateur":
+            badge += "  ✎"
+        elif t.corrections:
+            badge += "  ✱"
         return t.name + badge
 
     @staticmethod
@@ -186,11 +197,35 @@ class PaletteWidget(QWidget):
             meta.append("Kubernetes obligatoire")
         meta.append("Étapes : " + ", ".join(STAGE_LABELS[s] for s in t.allowed_stages))
         if not t.curated:
-            meta.append("Fiche non vérifiée")
+            meta.append("Fiche non vérifiée — clic droit pour créer une fiche")
+        if t.origin == "utilisateur":
+            meta.append("Fiche personnelle")
+        if t.corrections:
+            meta.append("Corrigée localement : " + ", ".join(t.corrections))
         lines.append(" · ".join(meta))
         if t.lifecycle_note:
             lines.append(f"⚠ {t.lifecycle_note}")
         return "<br>".join(lines)
+
+    def _context_menu(self, pos: QPoint) -> None:
+        item = self.tree.itemAt(pos)
+        tid = item.data(0, Qt.ItemDataRole.UserRole) if item else None
+        tool = self.catalog.get(tid) if tid else None
+        if tool is None:
+            return
+        menu = self.context_menu(tool)
+        if not menu.isEmpty():
+            menu.exec(self.tree.viewport().mapToGlobal(pos))
+
+    def context_menu(self, tool: Tool) -> QMenu:
+        menu = QMenu(self)
+        if not tool.curated:
+            menu.addAction(icon("mdi6.file-plus-outline"), "Créer une fiche à partir de cette entrée…",
+                           lambda: self.ficheRequested.emit(tool.id))
+        elif tool.origin == "utilisateur":
+            menu.addAction(icon("mdi6.pencil-outline"), "Modifier la fiche…", lambda: self.ficheRequested.emit(tool.id))
+            menu.addAction(icon("mdi6.delete-outline"), "Supprimer la fiche", lambda: self.ficheDeleteRequested.emit(tool.id))
+        return menu
 
     def _activated(self, item: QTreeWidgetItem) -> None:
         tid = item.data(0, Qt.ItemDataRole.UserRole)

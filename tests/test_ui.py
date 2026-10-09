@@ -427,3 +427,119 @@ def test_dialogue_kind_avec_outils_factices(win, tmp_path, monkeypatch):
     assert dlg.exit_code == 0, dlg.log.toPlainText()
     assert "dry-run serveur" in dlg.log.toPlainText() and "Test réussi." in dlg.log.toPlainText()
     dlg.close()
+
+
+# ------------------------------------------------------------------ lot 4
+@pytest.fixture
+def home4(win, tmp_path, monkeypatch):
+    monkeypatch.setenv("DEVOPS_BUILDER_HOME", str(tmp_path / "home"))
+    win.reload_catalog()
+    yield tmp_path / "home"
+    monkeypatch.undo()
+    win.reload_catalog()
+
+
+def _fake_exec(self):
+    self.save()
+    return self.result()
+
+
+def test_creer_une_fiche_depuis_une_entree_du_landscape(win, home4, monkeypatch):
+    from devops_builder.ui.fiche import FicheDialog
+    from devops_builder.ui.palette import PaletteWidget  # noqa: F401
+    p = Project(name="t", target="kubernetes")
+    p.add("lsc-keptn", "build")
+    win._load(p, None)
+    menu = win.palette.context_menu(win.catalog["lsc-keptn"])
+    assert [a.text() for a in menu.actions()] == ["Créer une fiche à partir de cette entrée…"]
+    monkeypatch.setattr(FicheDialog, "exec", _fake_exec)
+    win.edit_fiche("lsc-keptn")
+    assert win.catalog["keptn"].origin == "utilisateur"
+    assert win.project.tool_ids() == {"keptn"}               # brique rattachée à la nouvelle fiche
+    win.undo_stack.undo()
+    assert win.project.tool_ids() == {"lsc-keptn"} and win.catalog.get("lsc-keptn").id == "keptn"
+    menu = win.palette.context_menu(win.catalog["keptn"])
+    assert [a.text() for a in menu.actions()] == ["Modifier la fiche…", "Supprimer la fiche"]
+    assert win.palette.context_menu(win.catalog["trivy"]).isEmpty()
+
+
+def test_formulaire_de_fiche_refuse_une_saisie_invalide(win, home4):
+    from devops_builder.ui.fiche import FicheDialog
+    dlg = FicheDialog(win.catalog, {"id": "trivy", "name": "Doublon", "stage": "security"}, parent=win)
+    assert not dlg.save_btn.isEnabled() and "déjà pris" in dlg.problems.text()
+    dlg.f_id.setText("mon-scanner")
+    assert dlg.save_btn.isEnabled() and "Licence inconnue" in dlg.problems.text()
+    dlg.f_extra["test"].setChecked(True)
+    dlg.f_replacements.setText("inexistant")
+    assert not dlg.save_btn.isEnabled()
+    dlg.f_replacements.setText("trivy")
+    dlg.save()
+    assert dlg.saved_id == "mon-scanner"
+    win.reload_catalog()
+    assert win.catalog["mon-scanner"].extra_stages == ["test"]
+    dlg.close()
+
+
+def test_supprimer_une_fiche_personnelle(win, home4, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from devops_builder import catalog_edit
+    catalog_edit.save_fiche({"id": "jetable", "name": "Jetable", "stage": "build"}, win.catalog)
+    win.reload_catalog()
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
+    win.delete_fiche("jetable")
+    assert "jetable" not in win.catalog.tools
+
+
+def test_dialogue_d_entretien(win, home4):
+    from PySide6.QtCore import Qt
+
+    from devops_builder import catalog_edit
+    from devops_builder.ui.maintenance import MaintenanceDialog
+    catalog_edit.write_corrections({"helm": {"replacements": ["disparu"]}, "trivy": {"verified": "2024-01-01"}})
+    win.reload_catalog()
+    p = Project(name="t")
+    p.add("trivy", "security")
+    dlg = MaintenanceDialog(win.catalog, p, win)
+    assert "2 corrigée(s)" in dlg.info.text()
+    dlg.network.setChecked(False)
+    dlg.start()
+    _wait(lambda: dlg.worker is None)
+    groups = {dlg.tree.topLevelItem(i).text(0).split(" (")[0]: dlg.tree.topLevelItem(i)
+              for i in range(dlg.tree.topLevelItemCount())}
+    assert set(groups) >= {"À corriger", "Info"}
+    stale = next(groups["Info"].child(i) for i in range(groups["Info"].childCount())
+                 if groups["Info"].child(i).text(0) == "Trivy")
+    assert stale.checkState(0) == Qt.CheckState.Unchecked and stale.text(2) == "1"   # utilisé par le projet
+    dlg.tree.setCurrentItem(stale)
+    assert dlg.undo_btn.isEnabled() and "Corrigée localement" in dlg.detail.toPlainText()
+    stale.setCheckState(0, Qt.CheckState.Checked)
+    dlg.apply()
+    assert dlg.changed and dlg.catalog["trivy"].verified == __import__("datetime").date.today().isoformat()
+    dlg.close()
+
+
+def test_rafraichir_le_landscape_depuis_le_dialogue(win, home4, tmp_path):
+    from test_lot4 import _landscape_yaml
+
+    from devops_builder import landscape
+    from devops_builder.ui.maintenance import MaintenanceDialog
+    src = tmp_path / "landscape.yml"
+    src.write_text(_landscape_yaml(extra="Tout Nouveau"), encoding="utf-8")
+    dlg = MaintenanceDialog(win.catalog, None, win)
+    dlg.refresh_landscape(str(src))
+    _wait(lambda: dlg.worker is None)
+    assert "Landscape rafraîchi" in dlg.summary.text() and "lsc-tout-nouveau" in dlg.catalog
+    assert dlg.reset_btn.isEnabled() and "rafraîchi le" in dlg.info.text()
+    dlg.reset_landscape()
+    assert landscape.current_index_path() == landscape.PACKAGED_INDEX
+    dlg.close()
+
+
+def test_esperluette_affichee_dans_les_boutons(win):
+    """« Tests & qualité » : le « & » ne doit pas devenir un raccourci clavier (texte « Tests _qualité »)."""
+    from PySide6.QtWidgets import QPushButton
+    win._load(Project(name="t"), None)
+    win._show_catalog_tool("unit-tests")
+    texts = [b.text() for b in win.properties.findChildren(QPushButton)]
+    assert "Ajouter à l'étape Tests && qualité" in texts

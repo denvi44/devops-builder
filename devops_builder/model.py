@@ -118,6 +118,8 @@ class Tool(BaseModel):
     description: str = ""
     homepage: str | None = None
     license: str = "Apache-2.0"
+    # Dépôt source, s'il n'est pas déjà connu par le Landscape ; "" = brique générique sans dépôt
+    repo: str | None = None
     # Où l'outil peut tourner : kubernetes, docker-host, vm, saas, ci, cli
     hosting: list[str] = Field(default_factory=lambda: ["docker-host", "vm", "kubernetes"])
     provides: list[str] = Field(default_factory=list)
@@ -147,6 +149,8 @@ class Tool(BaseModel):
     landscape: LandscapeRef | None = None
     curated: bool = True
     verified: str | None = None  # date de vérification de la fiche
+    origin: Literal["livrée", "utilisateur"] = "livrée"  # fiche de l'application ou du catalogue personnel
+    corrections: dict[str, Any] = Field(default_factory=dict)  # valeurs d'origine remplacées par une correction
     params: dict[str, Any] = Field(default_factory=dict)  # paramètres par défaut
     param_schema: dict[str, ParamSpec] = Field(default_factory=dict)
     # Étapes où l'outil peut aussi être posé, en plus de `stage` (étape principale).
@@ -164,6 +168,13 @@ class Tool(BaseModel):
     @property
     def is_oss(self) -> bool:
         return self.license in OSS_LICENSES
+
+    @property
+    def repo_url(self) -> str | None:
+        """Dépôt à surveiller : celui de la fiche, sinon celui du Landscape."""
+        if self.repo is not None:
+            return self.repo or None
+        return self.landscape.repo_url if self.landscape else None
 
     @property
     def kubernetes_only(self) -> bool:

@@ -6,6 +6,9 @@
     python -m devops_builder validate projet.devops.yaml [--offline]
     python -m devops_builder test-kind projet.devops.yaml [--env dev] [--app-dir ../code] [--keep]
     python -m devops_builder export-git projet.devops.yaml --repo ../depot [--branch …] [--no-push]
+    python -m devops_builder catalog-check [--offline] [--apply] [--report rapport.md]
+    python -m devops_builder catalog-import "Nom dans le Landscape" [--id …] [--stage …]
+    python -m devops_builder landscape-refresh [--source landscape.yml] [--reset]
 """
 
 from __future__ import annotations
@@ -104,11 +107,28 @@ def main(argv: list[str] | None = None) -> int:
     e.add_argument("--no-push", action="store_true", help="Committer sans pousser")
     e.add_argument("--no-request", action="store_true", help="Ne pas créer de demande de fusion")
     e.add_argument("--overwrite", action="store_true", help="Remplacer aussi les fichiers retouchés à la main")
+    cc = sub.add_parser("catalog-check", help="Entretien du catalogue : archivage, licences, fiches à relire")
+    cc.add_argument("--offline", action="store_true", help="Ne pas interroger GitHub ni GitLab")
+    cc.add_argument("--refresh", action="store_true", help="Ignorer le cache des dépôts (24 h)")
+    cc.add_argument("--apply", action="store_true",
+                    help="Appliquer les corrections proposées (archivage, licence, adresse du dépôt)")
+    cc.add_argument("--report", help="Écrire le rapport Markdown dans ce fichier")
+    ci = sub.add_parser("catalog-import", help="Créer une fiche personnelle à partir d'une entrée du Landscape")
+    ci.add_argument("name", help="Nom de l'entrée dans le Landscape")
+    ci.add_argument("--id", help="Identifiant de la fiche (défaut : déduit du nom)")
+    ci.add_argument("--stage", help="Étape principale (défaut : déduite de la sous-catégorie)")
+    ci.add_argument("--license", help="Licence SPDX (défaut : lue sur le dépôt)")
+    ci.add_argument("--offline", action="store_true", help="Ne pas lire la licence sur le dépôt")
+    lr = sub.add_parser("landscape-refresh", help="Télécharger le Landscape à jour et reconstruire l'index")
+    lr.add_argument("--source", help="Fichier ou URL de landscape.yml (défaut : dépôt cncf/landscape)")
+    lr.add_argument("--reset", action="store_true", help="Revenir à l'index livré avec l'application")
     args = parser.parse_args(argv)
 
     if args.cmd is None:
         from .ui.app import run
         return run()
+    if args.cmd in ("catalog-check", "catalog-import", "landscape-refresh"):
+        return _catalog_command(args)
 
     catalog = default_catalog()
     project = Project.load(args.project)
@@ -177,6 +197,84 @@ def main(argv: list[str] | None = None) -> int:
         _skipped_hint(changes)
         return 0
     return 0
+
+
+def _catalog_command(args) -> int:
+    from . import catalog_edit, health, landscape, userdata
+    from .catalog import reload_default_catalog
+
+    if args.cmd == "landscape-refresh":
+        if args.reset:
+            print("Index livré rétabli." if landscape.reset() else "Aucun index personnel : l'index livré est déjà utilisé.")
+            return 0
+        try:
+            diff, path = landscape.refresh(args.source)
+        except Exception as exc:  # réseau, fichier, format
+            print(f"Rafraîchissement impossible : {exc}")
+            return 1
+        print(f"Index écrit dans {path} : {diff.summary()}.")
+        catalog = reload_default_catalog()
+        touched = [t for t in catalog.curated() if t.landscape_name in diff.newly_archived or t.name in diff.newly_archived]
+        for t in touched:
+            print(f"  ! {t.name} : nouvellement archivé dans le Landscape — lancer catalog-check")
+        return 0
+
+    catalog = reload_default_catalog()
+    if args.cmd == "catalog-import":
+        entries = landscape.load_index(catalog.index_path)
+        entry = next((e for e in entries if e["name"].lower() == args.name.lower()), None)
+        if entry is None:
+            import difflib
+            close = difflib.get_close_matches(args.name, [e["name"] for e in entries], n=5, cutoff=0.5)
+            print(f"« {args.name} » est absent de l'index du Landscape."
+                  + (f" Noms proches : {', '.join(close)}." if close else ""))
+            return 1
+        known = next((t for t in catalog.curated() if (t.landscape_name or t.name).lower() == entry["name"].lower()), None)
+        if known:
+            print(f"« {entry['name']} » a déjà une fiche : {known.id} ({known.origin}).")
+            return 1
+        data = catalog_edit.draft_from_landscape(entry, catalog)
+        if args.id:
+            data["id"] = args.id
+        if args.stage:
+            data["stage"] = args.stage
+        if args.license:
+            data["license"] = args.license
+        elif not args.offline:
+            data["license"] = catalog_edit.license_from_repo(data.get("repo")) or "unknown"
+        try:
+            path = catalog_edit.save_fiche(data, catalog)
+        except ValueError as exc:
+            print(f"Fiche refusée : {exc}")
+            return 1
+        print(f"Fiche « {data['id']} » écrite dans {path} (étape {data['stage']}, licence {data['license']}).")
+        print("À relire : rôles, capacités fournies et requises, cibles d'hébergement.")
+        return 0
+
+    marks = {health.TO_FIX: "✗", health.WATCH: "!", health.INFO: "·"}
+
+    def progress(done: int, total: int) -> None:
+        if total:
+            print(f"\r  dépôts : {done}/{total}", end="", flush=True)
+    report = health.check_catalog(catalog, network=not args.offline, refresh=args.refresh,
+                                  progress=None if args.offline else progress)
+    if not args.offline:
+        print()
+    print(f"Catalogue : {len(catalog.curated())} fiches ({len(catalog.user_tools())} personnelles), "
+          f"dossier personnel {userdata.catalog_dir()}")
+    for f in report.findings:
+        fix = f"  → {f.fix_label}" if f.fix else ""
+        print(f"{marks[f.level]} [{f.level}] {f.tool_name} : {f.message}{fix}")
+    print(report.summary() + ".")
+    if args.report:
+        Path(args.report).write_text(report.markdown(), encoding="utf-8")
+        print(f"Rapport écrit dans {args.report}")
+    if args.apply:
+        fixes = [(f.tool_id, f.fix) for f in report.findings if f.fix and f.kind != "stale"]
+        changed = catalog_edit.apply_fixes(fixes, catalog)
+        print(f"{len(changed)} correction(s) appliquée(s)" + (f" : {', '.join(changed)}" if changed else "") + ".")
+        return 0
+    return 1 if report.by_level(health.TO_FIX) else 0
 
 
 if __name__ == "__main__":

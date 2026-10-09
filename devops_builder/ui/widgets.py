@@ -53,6 +53,11 @@ def clear_layout(layout: QLayout) -> None:
             clear_layout(item.layout())
 
 
+def plain(text: str) -> str:
+    """Texte de bouton ou de case : « & » y désigne un raccourci clavier, on l'affiche tel quel."""
+    return text.replace("&", "&&")
+
+
 def section_title(text: str) -> QLabel:
     lbl = QLabel(text)
     lbl.setObjectName("sectionTitle")

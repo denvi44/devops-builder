@@ -34,6 +34,7 @@
   description: Forge Git légère autohébergée ; Gitea Actions reprend la syntaxe GitHub Actions.
   homepage: https://about.gitea.com
   license: MIT
+  repo: https://github.com/go-gitea/gitea
   hosting: [docker-host, vm, kubernetes]
   provides: [git-server]
   forge: gitea
@@ -119,6 +120,7 @@
   roles: [ci]
   description: CI intégrée à Gitea, syntaxe proche de GitHub Actions.
   license: MIT
+  repo: https://github.com/go-gitea/gitea
   hosting: [ci]
   forges: [gitea]
   requires: [git-server]
@@ -213,6 +215,7 @@
   roles: [image-build]
   description: Moteur de build d'images de Docker, utilisé par docker buildx.
   license: Apache-2.0
+  repo: https://github.com/moby/buildkit
   hosting: [ci, cli]
   provides: [oci-image]
   verified: "2026-10-08"
@@ -223,6 +226,7 @@
   roles: [image-build]
   description: Build d'images OCI sans démon, rootless.
   license: Apache-2.0
+  repo: https://github.com/containers/buildah
   hosting: [ci, cli]
   provides: [oci-image]
   verified: "2026-10-08"
@@ -270,6 +274,7 @@
   roles: [dependency-update]
   description: Ouvre automatiquement des merge requests de mise à jour des dépendances.
   license: AGPL-3.0
+  repo: https://github.com/renovatebot/renovate
   hosting: [ci, saas]
   forges: [github, gitlab, gitea, bitbucket, azure-devops]
   requires: [git-server]

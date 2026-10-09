@@ -61,6 +61,7 @@
   roles: [packaging]
   description: Personnalisation de manifestes Kubernetes sans template, intégrée à kubectl.
   license: Apache-2.0
+  repo: https://github.com/kubernetes-sigs/kustomize
   hosting: [kubernetes]
   alternatives_outside_k8s: [docker-compose]
   verified: "2026-10-08"
@@ -180,6 +181,7 @@
   roles: [ingress]
   description: Contrôleur Ingress communautaire basé sur NGINX.
   license: Apache-2.0
+  repo: https://github.com/kubernetes/ingress-nginx
   hosting: [kubernetes]
   lifecycle: maintenance-ended
   lifecycle_note: Maintenance arrêtée en mars 2026, plus de correctifs de sécurité.
@@ -257,6 +259,7 @@
   roles: [secrets]
   description: Fork open source de Vault (Linux Foundation).
   license: MPL-2.0
+  repo: https://github.com/openbao/openbao
   hosting: [docker-host, vm, kubernetes]
   provides: [secret-store]
   verified: "2026-10-08"

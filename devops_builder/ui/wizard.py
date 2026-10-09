@@ -32,13 +32,13 @@ from ..starter import (
     clouds_for,
     validate,
 )
-from .widgets import muted
+from .widgets import muted, plain
 
 
 def _radios(options: dict[str, str], layout: QVBoxLayout, default: str) -> QButtonGroup:
     group = QButtonGroup(layout.parentWidget())
     for i, (key, label) in enumerate(options.items()):
-        rb = QRadioButton(label)
+        rb = QRadioButton(plain(label))
         rb.setProperty("key", key)
         rb.setChecked(key == default)
         group.addButton(rb, i)

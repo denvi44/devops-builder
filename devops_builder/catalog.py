@@ -1,4 +1,10 @@
-"""Chargement du catalogue : fiches curées + index brut du CNCF Landscape."""
+"""Chargement du catalogue : fiches livrées, catalogue personnel, index du CNCF Landscape.
+
+Ordre de fusion : fiches livrées, puis fiches personnelles (dossier utilisateur), puis
+corrections des fiches livrées (corrections.yaml), puis entrées du Landscape sans fiche.
+Une fiche personnelle ou une correction invalide est écartée et signalée dans
+`catalog.errors`, sans empêcher l'application de démarrer.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +19,9 @@ import yaml
 from .model import STAGE_IDS, LandscapeRef, Tool
 
 DATA_DIR = Path(__file__).parent / "data"
+ID_PATTERN = re.compile(r"^[a-z][a-z0-9-]{1,40}$")
+# Champs qu'une correction peut changer sur une fiche livrée
+CORRECTABLE = ("lifecycle", "lifecycle_note", "license", "repo", "replacements", "verified", "homepage", "description")
 
 # Correspondance sous-catégorie Landscape → étape du pipeline, pour les
 # entrées non curées (affichées « non vérifiées » dans la palette).
@@ -57,16 +66,33 @@ SUBCATEGORY_EXTRA_STAGES = {
 @dataclass
 class Catalog:
     tools: dict[str, Tool] = field(default_factory=dict)
+    # entrée du Landscape (lsc-…) devenue une fiche : l'ancien identifiant mène à la fiche
+    aliases: dict[str, str] = field(default_factory=dict)
+    errors: list[str] = field(default_factory=list)
+    user_dir: Path | None = None
+    index_path: Path | None = None
 
     # ----------------------------------------------------------------- access
+    def resolve(self, tool_id: str) -> str:
+        return self.aliases.get(tool_id, tool_id)
+
     def get(self, tool_id: str) -> Tool | None:
-        return self.tools.get(tool_id)
+        return self.tools.get(self.aliases.get(tool_id, tool_id))
 
     def __getitem__(self, tool_id: str) -> Tool:
-        return self.tools[tool_id]
+        return self.tools[self.aliases.get(tool_id, tool_id)]
 
     def __contains__(self, tool_id: str) -> bool:
-        return tool_id in self.tools
+        return self.aliases.get(tool_id, tool_id) in self.tools
+
+    def user_tools(self) -> list[Tool]:
+        return [t for t in self.tools.values() if t.origin == "utilisateur"]
+
+    def landscape_entry_for(self, tool: Tool) -> dict | None:
+        """Entrée brute du Landscape d'une fiche (ou d'une entrée non vérifiée)."""
+        from .landscape import load_index
+        key = (tool.landscape_name or tool.name).lower()
+        return next((e for e in load_index(self.index_path) if e["name"].lower() == key), None)
 
     def curated(self) -> list[Tool]:
         return [t for t in self.tools.values() if t.curated]
@@ -165,11 +191,104 @@ def _attach_param_schemas(catalog: Catalog, path: Path) -> None:
 
 @lru_cache(maxsize=1)
 def default_catalog() -> Catalog:
-    return build_catalog(DATA_DIR)
+    """Catalogue de l'application : fiches livrées + catalogue personnel + index courant."""
+    from . import userdata
+    from .landscape import current_index_path
+    return build_catalog(DATA_DIR, user_dir=userdata.catalog_dir(), index_path=current_index_path())
 
 
-def build_catalog(data_dir: Path = DATA_DIR) -> Catalog:
-    catalog = Catalog()
+def reload_default_catalog() -> Catalog:
+    default_catalog.cache_clear()
+    return default_catalog()
+
+
+def check_fiche(tool: Tool, existing: dict[str, Tool] | None = None) -> list[str]:
+    """Contrôles d'une fiche au-delà du schéma : identifiant, étapes, doublon."""
+    problems = []
+    if not ID_PATTERN.match(tool.id) or tool.id.startswith("lsc-"):
+        problems.append(f"identifiant « {tool.id} » invalide (minuscules, chiffres, tirets ; pas de préfixe lsc-)")
+    for s in (tool.stage, *tool.extra_stages):
+        if s not in STAGE_IDS:
+            problems.append(f"étape inconnue « {s} »")
+    if existing is not None and tool.id in existing:
+        problems.append(f"l'identifiant « {tool.id} » est déjà pris par « {existing[tool.id].name} »")
+    return problems
+
+
+def load_user_fiches(directory: Path, existing: dict[str, Tool]) -> tuple[list[Tool], list[str]]:
+    tools: list[Tool] = []
+    errors: list[str] = []
+    if not directory.is_dir():
+        return tools, errors
+    taken = dict(existing)
+    for path in sorted(directory.glob("*.yaml")):
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8")) or []
+        except yaml.YAMLError as exc:
+            errors.append(f"{path.name} : YAML illisible ({exc})")
+            continue
+        for entry in data if isinstance(data, list) else [data]:
+            if not isinstance(entry, dict):
+                errors.append(f"{path.name} : une fiche doit être un dictionnaire YAML")
+                continue
+            entry = {k: v for k, v in entry.items() if k not in ("origin", "corrections", "curated", "landscape")}
+            try:
+                tool = Tool.model_validate(entry)
+            except Exception as exc:
+                errors.append(f"{path.name} : fiche {entry.get('id', '?')} invalide — {_short(exc)}")
+                continue
+            problems = check_fiche(tool, taken)
+            if problems:
+                errors.append(f"{path.name} : " + " ; ".join(problems))
+                continue
+            tool.origin = "utilisateur"
+            taken[tool.id] = tool
+            tools.append(tool)
+    return tools, errors
+
+
+def _short(exc: Exception) -> str:
+    text = str(exc).splitlines()
+    return " ".join(line.strip() for line in text[:4])
+
+
+def apply_corrections(catalog: Catalog, path: Path) -> None:
+    if not path.exists():
+        return
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        catalog.errors.append(f"{path.name} : YAML illisible ({exc})")
+        return
+    if not isinstance(data, dict):
+        catalog.errors.append(f"{path.name} : un dictionnaire identifiant → champs est attendu")
+        return
+    for tool_id, patch in data.items():
+        tool = catalog.tools.get(tool_id)
+        if tool is None:
+            catalog.errors.append(f"{path.name} : la fiche « {tool_id} » n'existe pas (ou plus)")
+            continue
+        if not isinstance(patch, dict):
+            catalog.errors.append(f"{path.name} : {tool_id} — champs attendus sous forme de dictionnaire")
+            continue
+        unknown = sorted(set(patch) - set(CORRECTABLE))
+        if unknown:
+            catalog.errors.append(f"{path.name} : {tool_id} — champ(s) non corrigeable(s) : {', '.join(unknown)}")
+            continue
+        current = tool.model_dump()
+        try:
+            fixed = Tool.model_validate({**current, **patch})
+        except Exception as exc:
+            catalog.errors.append(f"{path.name} : {tool_id} — correction invalide : {_short(exc)}")
+            continue
+        fixed.corrections = {k: current.get(k) for k in patch if current.get(k) != patch[k]}
+        fixed.param_schema = tool.param_schema
+        catalog.tools[tool_id] = fixed
+
+
+def build_catalog(data_dir: Path = DATA_DIR, user_dir: Path | None = None,
+                  index_path: Path | None = None) -> Catalog:
+    catalog = Catalog(user_dir=user_dir, index_path=index_path or data_dir / "landscape_index.json")
     for tool in load_tool_files(data_dir / "catalog"):
         if tool.id in catalog.tools:
             raise ValueError(f"Identifiant de fiche en double : {tool.id}")
@@ -180,7 +299,13 @@ def build_catalog(data_dir: Path = DATA_DIR) -> Catalog:
 
     _attach_param_schemas(catalog, data_dir / "params.yaml")
 
-    index = load_landscape_index(data_dir / "landscape_index.json")
+    if user_dir is not None:
+        user_tools, errors = load_user_fiches(user_dir / "fiches", catalog.tools)
+        catalog.errors.extend(errors)
+        for tool in user_tools:
+            catalog.tools[tool.id] = tool
+
+    index = load_landscape_index(catalog.index_path)
     by_name = {e["name"].lower(): e for e in index}
     linked: set[str] = set()
     for tool in catalog.tools.values():
@@ -194,6 +319,12 @@ def build_catalog(data_dir: Path = DATA_DIR) -> Catalog:
                 maturity=entry.get("maturity"),
                 repo_url=entry.get("repo_url"),
             )
+            slug = _slug(entry["name"])
+            if slug != tool.id:
+                catalog.aliases[slug] = tool.id
+
+    if user_dir is not None:
+        apply_corrections(catalog, user_dir / "corrections.yaml")
 
     # Entrées du Landscape sans fiche : consultables, mais non vérifiées.
     for entry in index:

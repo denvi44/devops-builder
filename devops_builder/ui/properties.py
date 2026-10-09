@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 from ..catalog import Catalog
 from ..model import STAGE_LABELS, BrickInstance, Project, Tool
 from . import theme
-from .widgets import FlowRow, chip, icon, muted, section_title
+from .widgets import FlowRow, chip, icon, muted, plain, section_title
 
 HOSTING = {"kubernetes": "Kubernetes", "docker-host": "Hôte Docker", "vm": "VM", "saas": "SaaS",
            "ci": "Job CI", "cli": "CLI"}
@@ -36,6 +36,7 @@ class PropertiesPanel(QScrollArea):
     overridesChanged = Signal(str, str, dict)  # env_id, tool_id, params
     removeRequested = Signal(str)
     addRequested = Signal(str)          # tool_id (fiche affichée depuis la palette)
+    ficheRequested = Signal(str)        # créer une fiche depuis le Landscape ou modifier une fiche personnelle
 
     def __init__(self, catalog: Catalog, parent: QWidget | None = None):
         super().__init__(parent)
@@ -91,6 +92,11 @@ class PropertiesPanel(QScrollArea):
             chips.append(chip(LIFECYCLE[tool.lifecycle]))
         if not tool.curated:
             chips.append(chip("Fiche non vérifiée"))
+        if tool.origin == "utilisateur":
+            chips.append(chip("Fiche personnelle", tooltip="Catalogue personnel"))
+        if tool.corrections:
+            chips.append(chip("Corrigée", tooltip="Valeurs d'origine : " + ", ".join(
+                f"{k} = {v}" for k, v in tool.corrections.items())))
         if tool.dev_only:
             chips.append(chip("Développement uniquement"))
         lay.addWidget(FlowRow(chips, per_row=3))
@@ -137,8 +143,8 @@ class PropertiesPanel(QScrollArea):
         links = []
         if tool.homepage:
             links.append(f'<a href="{tool.homepage}">Site</a>')
-        if tool.landscape and tool.landscape.repo_url:
-            links.append(f'<a href="{tool.landscape.repo_url}">Dépôt</a>')
+        if tool.repo_url:
+            links.append(f'<a href="{tool.repo_url}">Dépôt</a>')
         if links:
             ll = QLabel(" · ".join(links))
             ll.setOpenExternalLinks(True)
@@ -147,9 +153,15 @@ class PropertiesPanel(QScrollArea):
             lay.addWidget(muted(f"Fiche vérifiée le {tool.verified}"))
 
         if brick is None:
-            add = QPushButton(icon("mdi6.plus", pal.primary), f"Ajouter à l'étape {STAGE_LABELS[tool.stage]}")
+            add = QPushButton(icon("mdi6.plus", pal.primary), plain(f"Ajouter à l'étape {STAGE_LABELS[tool.stage]}"))
             add.clicked.connect(lambda: self.addRequested.emit(tool.id))
             lay.addWidget(add)
+        if not tool.curated or tool.origin == "utilisateur":
+            label = "Créer une fiche vérifiée…" if not tool.curated else "Modifier la fiche…"
+            edit = QPushButton(icon("mdi6.file-edit-outline", pal.text), label)
+            edit.setToolTip("Fiche du catalogue personnel : contrôlée par les règles comme une fiche livrée")
+            edit.clicked.connect(lambda: self.ficheRequested.emit(tool.id))
+            lay.addWidget(edit)
         lay.addStretch(1)
         self.setWidget(w)
 
@@ -221,7 +233,7 @@ class PropertiesPanel(QScrollArea):
             if sugg:
                 lay.addWidget(section_title("Souvent associé"))
                 for t in sugg:
-                    b = QPushButton(icon("mdi6.plus", pal.primary), t.name)
+                    b = QPushButton(icon("mdi6.plus", pal.primary), plain(t.name))
                     b.setToolTip(f"Ajouter {t.name} à l'étape {STAGE_LABELS[t.stage]}")
                     b.setAccessibleName(f"Ajouter {t.name}")
                     b.clicked.connect(lambda checked=False, tid=t.id: self.addRequested.emit(tid))

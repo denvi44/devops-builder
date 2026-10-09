@@ -19,6 +19,9 @@ Application de bureau Python, en Material Design, pour composer un pipeline DevO
 - **Test dans kind** : `scripts/test-kind.sh` déploie le chart Helm ou l'overlay Kustomize d'un environnement dans un cluster kind jetable, puis le supprime. Avec le dossier du code, l'image est construite et chargée, et l'application doit répondre en HTTP sans redémarrer. Sans le code, les manifestes sont soumis à l'API en dry-run serveur. Le test se lance depuis **Valider** (journal en direct) ou en ligne de commande.
 - **Écriture prudente** : un manifeste `.devops-builder/manifest.json` garde l'empreinte de chaque fichier écrit. À l'export suivant, les différences sont affichées fichier par fichier. Un fichier retouché à la main, ou présent sans venir de DevOps Builder, n'est remplacé que si on le coche.
 - **Export Git** : les fichiers sont committés sur une nouvelle branche, poussés, puis la demande de fusion est ouverte. GitLab la crée à la réception (options de push), GitHub via `gh` s'il est connecté. Pour Gitea, Bitbucket et Azure DevOps, ou à défaut, un lien de création pré-rempli est proposé. La copie de travail revient sur la branche de départ, et l'export est refusé si elle a des modifications non commitées.
+- **Entretien du catalogue** (menu Catalogue) : chaque fiche est comparée au Landscape et, en ligne, à son dépôt GitHub ou GitLab.com. Le contrôle signale les dépôts archivés, les licences changées (une licence devenue non libre est « à corriger »), les dépôts renommés ou introuvables, l'absence d'activité depuis 18 mois, les fiches vérifiées il y a plus de 6 mois, les références vers des fiches inexistantes et les capacités que personne ne fournit. Les corrections proposées s'appliquent en un clic et restent réversibles ; les réponses des forges sont gardées 24 h, et un jeton GitHub (`GITHUB_TOKEN` ou `gh auth login`) lève la limite de 60 requêtes par heure.
+- **Catalogue personnel** : une entrée du Landscape sans fiche devient une fiche vérifiée (clic droit dans la palette, ou bouton dans Propriétés). Le formulaire est pré-rempli, la licence peut être lue sur le dépôt, et la fiche passe les mêmes contrôles que les fiches livrées. Les briques déjà posées avec l'entrée brute suivent la nouvelle fiche. Les fiches personnelles (`fiches/*.yaml`) et les corrections des fiches livrées (`corrections.yaml`) vivent dans `~/.devops-builder/catalog/` ; `DEVOPS_BUILDER_HOME` désigne un autre dossier, par exemple un dépôt Git partagé par l'équipe. Les fichiers de l'application ne sont jamais modifiés.
+- **Landscape à jour** : le bouton « Rafraîchir le Landscape » télécharge le `landscape.yml` du CNCF, reconstruit l'index dans le dossier personnel et liste les ajouts, retraits et projets nouvellement archivés ; « Index livré » revient à celui de la version.
 - **Variables CI** : `scripts/ci-variables.sh` déclare les variables « à déclarer » de `PIPELINE.md` avec l'outil de la forge : `glab` pour GitLab (masquage quand le format le permet), `gh` pour GitHub (secrets et variables), l'API Gitea, `az` pour Azure Pipelines. Les valeurs viennent de l'environnement, d'un fichier (`NOM_FILE`) ou d'une saisie masquée ; elles ne sont jamais écrites dans le dépôt. `--dry-run` montre ce qui serait déclaré.
 
 ![Diagnostics et corrections](docs/captures/02-diagnostics.png)
@@ -36,6 +39,10 @@ Application de bureau Python, en Material Design, pour composer un pipeline DevO
 ![Différences avant écriture](docs/captures/09-differences.png)
 
 ![Export Git](docs/captures/10-export-git.png)
+
+![Entretien du catalogue](docs/captures/11-entretien.png)
+
+![Fiche créée depuis le Landscape](docs/captures/12-fiche.png)
 
 ## Installation
 
@@ -77,6 +84,9 @@ devops-builder generate projet.devops.yaml -o sortie/   # --dry-run, --overwrite
 devops-builder validate projet.devops.yaml              # --offline, -v ; code retour 1 si un contrôle échoue
 devops-builder test-kind projet.devops.yaml --env dev --app-dir ../code
 devops-builder export-git projet.devops.yaml --repo ../depot   # --branch, --no-push, --no-request
+devops-builder catalog-check                            # --offline, --refresh, --apply, --report rapport.md
+devops-builder catalog-import "Keptn"                   # --id, --stage, --license, --offline
+devops-builder landscape-refresh                        # --source landscape.yml, --reset
 ```
 
 `generate` n'écrase plus les fichiers retouchés à la main : il les liste, et `--overwrite` les remplace.
@@ -113,6 +123,10 @@ devops_builder/
   validate.py       contrôles locaux des fichiers générés
   sync.py           différences et écriture prudente (manifeste d'empreintes)
   gitexport.py      branche, commit, push, demande de fusion
+  health.py         entretien du catalogue (Landscape, GitHub, GitLab.com)
+  catalog_edit.py   fiches personnelles et corrections
+  landscape.py      index du Landscape : construction, rafraîchissement, écarts
+  userdata.py       dossier personnel (DEVOPS_BUILDER_HOME)
   suggest.py        briques souvent associées
   data/catalog/     fiches YAML (une par outil)
   data/params.yaml  schémas des paramètres de briques
@@ -122,12 +136,15 @@ devops_builder/
 tools/
   build_landscape_index.py   rafraîchit l'index depuis landscape.yml
   screenshot.py              captures hors écran de l'interface
-tests/              règles, générateurs, interface (hors écran)
+tests/              règles, générateurs, interface (hors écran), non-régression
+  golden/           sorties figées de 124 projets (exemples, matrice, échantillon de l'assistant)
+  data/legacy/      projets enregistrés par les versions 0.1 et 0.3
+tools/compare_captures.py  écart visuel entre deux séries de captures
 ```
 
 ### Ajouter un outil
 
-Ajouter une entrée dans un fichier de `data/catalog/` : étape principale (`stage`) et, s'il le faut, étapes secondaires (`extra_stages`), rôles, cibles (`hosting`), capacités fournies et requises, forge, fournisseur, cycle de vie, date de vérification. Le schéma est validé au chargement.
+Pour un usage personnel ou d'équipe, passer par le catalogue personnel (palette › clic droit › Créer une fiche, ou `devops-builder catalog-import`). Pour l'ajouter à l'application, ajouter une entrée dans un fichier de `data/catalog/` : étape principale (`stage`) et, s'il le faut, étapes secondaires (`extra_stages`), rôles, cibles (`hosting`), capacités fournies et requises, forge, fournisseur, cycle de vie, date de vérification. Le schéma est validé au chargement.
 
 Si l'outil a des réglages, décrire ses paramètres dans `data/params.yaml` : libellé, type, valeur par défaut (`{app}` = nom de l'image du projet), valeur d'exemple, liste de choix ou de suggestions, motif et explication du format. Le formulaire et les règles R32 à R34 s'en déduisent. Une valeur par défaut qui ne respecte pas son propre motif est refusée au chargement.
 
@@ -139,12 +156,14 @@ Créer `data/rules/R39_....yaml` avec un `type` existant (`exclusive_role`, `con
 
 ### Rafraîchir le Landscape
 
+Depuis l'application ou avec `devops-builder landscape-refresh`, pour son propre index. Pour l'index livré avec l'application :
+
 ```bash
 curl -LO https://raw.githubusercontent.com/cncf/landscape/master/landscape.yml
 python tools/build_landscape_index.py landscape.yml
 ```
 
-Le script signale les entrées ajoutées, retirées et nouvellement archivées, pour savoir quelles fiches revoir.
+Les deux signalent les entrées ajoutées, retirées et nouvellement archivées, pour savoir quelles fiches revoir.
 
 ## Tests
 
@@ -153,7 +172,18 @@ pip install -e ".[dev]"
 QT_QPA_PLATFORM=offscreen pytest
 ```
 
-243 tests : un par règle, l'application de chaque correction proposée, une matrice de combinaisons CI × déploiement × cloud × environnements validées contre les schémas, avec contrôle qu'aucune brique n'y reste sans fichier, les 4 590 combinaisons de l'assistant (aucune ne doit produire d'erreur bloquante), la validation, l'écriture prudente, l'export Git vers des dépôts locaux (dont les options de push GitLab), les scripts kind et variables CI contre des outils factices et une fausse API Gitea, et l'interface pilotée hors écran : glisser-déposer, formulaire de paramètres, surcharges, éditeur d'environnements, assistant, dialogues de validation, de différences et d'export. Toute exception levée dans un slot Qt fait échouer le test en cours.
+401 tests : un par règle, l'application de chaque correction proposée, une matrice de combinaisons CI × déploiement × cloud × environnements validées contre les schémas, avec contrôle qu'aucune brique n'y reste sans fichier, les 4 590 combinaisons de l'assistant (aucune ne doit produire d'erreur bloquante), la validation, l'écriture prudente, l'export Git vers des dépôts locaux (dont les options de push GitLab), les scripts kind et variables CI contre des outils factices et une fausse API Gitea, l'entretien du catalogue contre une fausse API GitHub et GitLab, le catalogue personnel et le rafraîchissement du Landscape, et l'interface pilotée hors écran : glisser-déposer, formulaire de paramètres, surcharges, éditeur d'environnements, assistant, dialogues de validation, de différences, d'export, d'entretien et de fiche. Toute exception levée dans un slot Qt fait échouer le test en cours. Les tests utilisent un dossier personnel jetable : un catalogue personnel présent sur le poste ne les influence pas.
+
+### Non-régression
+
+`tests/test_regression.py` compare tout ce que génèrent 124 projets (fichiers et diagnostics) à l'instantané de `tests/golden/`, et recharge les projets enregistrés par les versions précédentes. Après un changement voulu :
+
+```bash
+UPDATE_GOLDEN=1 pytest tests/test_regression.py
+git diff tests/golden          # chaque ligne changée doit s'expliquer
+```
+
+Pour l'interface, `tools/screenshot.py` refait les captures et `tools/compare_captures.py docs/captures nouvelles/` mesure l'écart avec celles de la version précédente.
 
 ## Limites connues
 
@@ -166,5 +196,6 @@ QT_QPA_PLATFORM=offscreen pytest
 - Le contrôle Helm demande `helm` sur le poste, et le test kind demande Docker, kind et kubectl. Le script kind a été vérifié en dry-run contre un vrai serveur d'API Kubernetes, et son déploiement complet seulement avec des outils factices.
 - `scripts/ci-variables.sh` ne couvre pas Jenkins, Woodpecker, Tekton, CodeBuild ni Cloud Build : leurs secrets restent à déclarer à la main (liste dans `PIPELINE.md`).
 - Export Git : la pull request GitHub demande `gh auth login` ; sans cela, et pour Gitea, Bitbucket et Azure DevOps, il faut cliquer le lien de création proposé.
-- Une brique issue du Landscape sans fiche n'est contrôlée par aucune règle et ne produit aucun fichier.
+- Une brique issue du Landscape sans fiche n'est contrôlée par aucune règle et ne produit aucun fichier : en faire une fiche personnelle. Une fiche personnelle est contrôlée par les règles, mais aucun générateur ne la connaît : elle apparaît dans « À configurer à la main ».
+- L'entretien n'interroge que GitHub et GitLab.com ; un dépôt hébergé ailleurs (Gitea, Codeberg, GitLab autohébergé) n'est suivi que par le Landscape et la date de vérification.
 - L'authentification cloud par OIDC n'est générée que pour GitLab CI et GitHub Actions. Gitea Actions reprend les actions GitHub, mais l'émission du jeton dépend de l'instance. Jenkins, Woodpecker, Tekton, Azure Pipelines et Cloud Build reposent sur des secrets ou sur l'identité du service.
