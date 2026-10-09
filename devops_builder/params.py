@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from .model import BrickInstance, ParamSpec, Project, Tool
+from .model import BrickInstance, Environment, ParamSpec, Project, Tool
 
 
 @dataclass
@@ -25,8 +25,13 @@ def resolve_default(spec: ParamSpec, project: Project | None) -> Any:
     return value
 
 
-def effective_params(tool: Tool, brick: BrickInstance | None, project: Project | None) -> dict[str, Any]:
-    """Valeurs utilisées à la génération : saisie > défaut > valeur d'exemple."""
+def effective_params(tool: Tool, brick: BrickInstance | None, project: Project | None,
+                     env: Environment | None = None) -> dict[str, Any]:
+    """Valeurs utilisées à la génération.
+
+    Ordre : surcharge de l'environnement > saisie de la brique > défaut > valeur d'exemple.
+    Un paramètre « par environnement » sans surcharge reçoit le suffixe de l'environnement.
+    """
     out: dict[str, Any] = dict(tool.params)
     for key, spec in tool.param_schema.items():
         default = resolve_default(spec, project)
@@ -36,6 +41,14 @@ def effective_params(tool: Tool, brick: BrickInstance | None, project: Project |
             out[key] = spec.example
     if brick is not None:
         for key, value in brick.params.items():
+            if value not in (None, ""):
+                out[key] = value
+    if env is not None and project is not None:
+        overrides = env.overrides.get(tool.id, {})
+        for key, spec in tool.param_schema.items():
+            if spec.per_env and key not in overrides and isinstance(out.get(key), str):
+                out[key] = out[key] + project.env_suffix(env)
+        for key, value in overrides.items():
             if value not in (None, ""):
                 out[key] = value
     return out
@@ -97,4 +110,25 @@ def check_brick(tool: Tool, brick: BrickInstance, project: Project | None) -> li
                                      "sera écrite dans les fichiers"))
         elif spec.required:
             issues.append(ParamIssue(key, "missing", f"« {spec.label} » est obligatoire"))
+    return issues
+
+
+def check_overrides(tool: Tool, env: Environment) -> list[ParamIssue]:
+    """Contrôle les surcharges d'un environnement pour une brique."""
+    overrides = env.overrides.get(tool.id, {})
+    issues: list[ParamIssue] = []
+    known = list(tool.param_schema)
+    where = f"environnement « {env.display} »"
+    for key, value in overrides.items():
+        spec = tool.param_schema.get(key)
+        if spec is None:
+            close = difflib.get_close_matches(key, known, n=1, cutoff=0.6)
+            issues.append(ParamIssue(key, "unknown", f"paramètre inconnu « {key} » ({where}), ignoré à la génération",
+                                     close[0] if close else None))
+            continue
+        if value in (None, ""):
+            continue
+        err = check_value(spec, value)
+        if err:
+            issues.append(ParamIssue(key, "invalid", f"« {spec.label} » vaut « {value} » ({where}) ; {err}"))
     return issues

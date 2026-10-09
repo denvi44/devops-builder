@@ -34,8 +34,12 @@ SCHEMAS = {
 }
 
 
-def project(target: str, *tools: str, environment: str = "production", **settings) -> Project:
+def project(target: str, *tools: str, environment: str = "production", envs: str | None = None,
+            **settings) -> Project:
+    from devops_builder.model import env_preset
     p = Project(name="matrice", target=target, environment=environment)
+    if envs:
+        p.environments = env_preset(envs)
     for k, v in settings.items():
         setattr(p, k, v)
     for t in tools:
@@ -74,6 +78,27 @@ MATRIX = {
                                  "opentofu", "s3", "helm", "dependabot", "cloudwatch"),
     "aks-monitor": project("kubernetes-managed", "azure-repos", "azure-pipelines", "buildkit", "azure", "acr",
                            "aks", "opentofu", "azure-blob", "helm", "azure-monitor"),
+    # ------------------------------------------------ plusieurs environnements
+    "env-gitlab-eks": project("kubernetes-managed", "gitlab", "gitlab-ci", "buildkit", "aws", "ecr", "eks",
+                              "opentofu", "s3", "helm", "cloudwatch", envs="dev-staging-prod"),
+    "env-github-argo": project("kubernetes", "github", "github-actions", "buildkit", "ghcr", "k3s", "helm",
+                               "argo-cd", "cosign", envs="dev-staging-prod"),
+    "env-gitea-compose": project("docker-host", "gitea", "gitea-actions", "buildah", "zot", "docker-compose",
+                                 "traefik", envs="staging-prod"),
+    "env-jenkins-kustomize": project("kubernetes", "gitlab", "jenkins", "buildkit", "harbor", "k3s", "kustomize",
+                                     envs="dev-staging-prod"),
+    "env-woodpecker-flux": project("kubernetes", "gitea", "woodpecker", "buildah", "zot", "rke2", "flux",
+                                   "kustomize", envs="dev-staging-prod"),
+    "env-tekton-helm": project("kubernetes", "github", "tekton", "buildah", "harbor", "rke2", "helm",
+                               envs="staging-prod"),
+    "env-azure-aks": project("kubernetes-managed", "azure-repos", "azure-pipelines", "buildkit", "azure", "acr",
+                             "aks", "opentofu", "azure-blob", "helm", envs="dev-staging-prod"),
+    "env-codebuild-ecs": project("docker-host", "codecommit", "aws-codebuild", "buildkit", "aws", "ecr",
+                                 "ecs-fargate", envs="dev-staging-prod"),
+    "env-cloudbuild-run": project("docker-host", "github", "google-cloud-build", "buildpacks", "gcp",
+                                  "artifact-registry", "cloud-run", envs="staging-prod"),
+    "env-gitlab-ansible": project("vm", "gitlab", "gitlab-ci", "buildkit", "ansible", "docker-compose",
+                                  envs="dev-staging-prod"),
 }
 
 
@@ -204,3 +229,109 @@ def test_parametres_renseignes_ecrits_dans_la_ci(tmp_path):
     ci = yaml.safe_load(generate(g, CATALOG).files[".gitlab-ci.yml"])
     assert ci["variables"]["AWS_ROLE_ARN"] == "arn:aws:iam::210987654321:role/ci"
     assert ci["variables"]["AWS_ACCOUNT_ID"] == "210987654321"
+
+
+# ------------------------------------------------------------- environnements
+def _gen(name: str):
+    return generate(MATRIX[name], CATALOG)
+
+
+def test_gitlab_promotion_et_porte_d_approbation():
+    ci = yaml.safe_load(_gen("env-gitlab-eks").files[".gitlab-ci.yml"])
+    stages = ci["stages"]
+    assert stages.index("deploy-dev") < stages.index("deploy-staging") < stages.index("deploy-production")
+    prod = ci["deploy-production"]
+    assert prod["environment"] == {"name": "production"}
+    assert prod["rules"][0]["when"] == "manual"
+    assert "when" not in ci["deploy-dev"]["rules"][0]
+    assert "--namespace mon-app-dev" in "\n".join(ci["deploy-dev"]["script"])
+    assert "--namespace mon-app " in "\n".join(prod["script"])
+
+
+def test_github_chaine_de_promotion():
+    wf = yaml.safe_load(_gen("env-github-argo").files[".github/workflows/pipeline.yml"])
+    jobs = wf["jobs"]
+    assert "deploy-dev" in jobs["deploy-staging"]["needs"]
+    assert "deploy-staging" in jobs["deploy-production"]["needs"]
+    assert jobs["deploy-production"]["environment"] == "production"
+    assert "values-production.yaml" in jobs["deploy-production"]["steps"][-1]["run"]
+
+
+def test_argo_cd_une_application_par_environnement():
+    docs = list(yaml.safe_load_all(_gen("env-github-argo").files["deploy/argocd/application.yaml"]))
+    assert [d["spec"]["destination"]["namespace"] for d in docs] == ["mon-app-dev", "mon-app-staging", "mon-app"]
+    assert docs[0]["spec"]["source"]["helm"]["valueFiles"] == ["values.yaml", "values-dev.yaml"]
+
+
+def test_kustomize_un_overlay_par_environnement():
+    files = _gen("env-jenkins-kustomize").files
+    for env, ns in [("dev", "mon-app-dev"), ("staging", "mon-app-staging"), ("production", "mon-app")]:
+        overlay = yaml.safe_load(files[f"deploy/kustomize/overlays/{env}/kustomization.yaml"])
+        assert overlay["namespace"] == ns
+    assert "input { message 'Déployer en Production ?' }" in files["Jenkinsfile"]
+
+
+def test_compose_un_hote_par_environnement():
+    result = _gen("env-gitea-compose")
+    names = {v.name for v in result.ir.variables}
+    assert {"DEPLOY_HOST_STAGING", "DEPLOY_HOST_PRODUCTION"} <= names and "DEPLOY_HOST" not in names
+    wf = yaml.safe_load(result.files[".gitea/workflows/pipeline.yml"])
+    assert "-p mon-app-staging" in wf["jobs"]["deploy-staging"]["steps"][-1]["run"]
+
+
+def test_ansible_un_inventaire_par_environnement():
+    files = _gen("env-gitlab-ansible").files
+    assert {"ansible/inventories/dev.ini", "ansible/inventories/staging.ini", "ansible/inventories/production.ini"} <= set(files)
+    assert "ansible/inventory.ini" not in files
+
+
+def test_ci_sans_porte_native_fichier_separe():
+    files = _gen("env-codebuild-ecs").files
+    assert "buildspec-deploy-production.yml" in files
+    assert "mon-app-dev" in files["buildspec.yml"] and "--service mon-app --" not in files["buildspec.yml"]
+    assert "--service mon-app --force-new-deployment" in files["buildspec-deploy-production.yml"]
+    assert "cloudbuild-deploy-production.yaml" in _gen("env-cloudbuild-run").files
+    assert "tekton/pipeline-deploy-production.yaml" in _gen("env-tekton-helm").files
+
+
+def test_azure_jobs_de_deploiement():
+    doc = yaml.safe_load(_gen("env-azure-aks").files["azure-pipelines.yml"])
+    deploy = [st for st in doc["stages"] if st["stage"].startswith("deploy_")]
+    assert [st["stage"] for st in deploy] == ["deploy_dev", "deploy_staging", "deploy_production"]
+    assert deploy[-1]["jobs"][0]["environment"] == "production"
+
+
+def test_woodpecker_production_sur_declenchement_manuel():
+    doc = yaml.safe_load(_gen("env-woodpecker-flux").files[".woodpecker.yml"])
+    prod = next(st for st in doc["steps"] if st["name"] == "deploy-production")
+    assert prod["when"][0]["event"] == "manual"
+
+
+def test_un_cluster_terraform_par_nom_d_environnement():
+    p = MATRIX["env-gitlab-eks"].clone()
+    p.bricks_for("eks")[0].params = {"cluster_name": "hors-prod"}
+    p.env("production").overrides = {"eks": {"cluster_name": "prod"}}
+    result = generate(p, CATALOG)
+    tf = result.files["infra/terraform/main.tf"]
+    assert 'module "eks_dev"' in tf and 'module "eks_production"' in tf and 'module "eks" ' not in tf
+    assert tf.count('resource "aws_eks_addon"') == 2
+    ci = yaml.safe_load(result.files[".gitlab-ci.yml"])
+    assert "--name prod " in "\n".join(ci["deploy-production"]["script"])
+    assert "--name hors-prod " in "\n".join(ci["deploy-staging"]["script"])
+
+
+def test_cluster_kind_pour_dev_et_eks_pour_production():
+    p = project("kubernetes-managed", "gitlab", "gitlab-ci", "buildkit", "aws", "ecr", "eks", "kind",
+                "opentofu", "s3", "helm", envs="dev-staging-prod")
+    for e in p.environments:
+        e.cluster = "kind" if e.kind == "dev" else "eks"
+    result = generate(p, CATALOG)
+    ci = yaml.safe_load(result.files[".gitlab-ci.yml"])
+    assert "KUBECONFIG_DATA_DEV" in "\n".join(ci["deploy-dev"]["script"])
+    assert "aws eks update-kubeconfig" in "\n".join(ci["deploy-production"]["script"])
+    assert "infra/cluster/kind.yaml" in result.files
+
+
+def test_rapport_liste_les_environnements():
+    report = _gen("env-gitlab-eks").files["PIPELINE.md"]
+    assert "## Environnements" in report and "| Production (`production`) | Production | oui |" in report

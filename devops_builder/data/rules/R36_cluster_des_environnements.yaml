@@ -1,0 +1,6 @@
+id: R36
+title: Cluster des environnements
+family: environnements
+severity: bloquant
+type: env_cluster
+message: "Rattachement des clusters aux environnements"

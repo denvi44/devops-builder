@@ -6,6 +6,8 @@ from ..ir import IR
 from .common import HEADER, dump_yaml, dump_yaml_docs
 from .platform import compose_platform_services
 
+REPLICAS = {"dev": 1, "staging": 1, "production": 2}
+
 
 def compose(ir: IR) -> dict[str, str]:
     app = ir.app
@@ -90,7 +92,14 @@ spec:
       targetPort: {{{{ .Values.service.targetPort }}}}
 """
     ir.cover("helm")
+    env_files = {}
+    if ir.multi_env:
+        for env in ir.envs:
+            env_files[ir.helm_values(env)] = dump_yaml(
+                {"replicaCount": REPLICAS[env.kind], "image": {"tag": "latest"}},
+                f"{HEADER} Valeurs propres à l'environnement « {env.display} ».")
     return {
+        **env_files,
         f"{base}/Chart.yaml": dump_yaml(chart),
         f"{base}/values.yaml": dump_yaml(values),
         f"{base}/templates/deployment.yaml": deployment,
@@ -113,81 +122,110 @@ def kustomize(ir: IR) -> dict[str, str]:
     base_k = {"apiVersion": "kustomize.config.k8s.io/v1beta1", "kind": "Kustomization",
               "resources": ["deployment.yaml", "service.yaml"]}
     image_name = ir.image_ref  # référence sans tag ; le tag est posé par la CI
-    overlay = {"apiVersion": "kustomize.config.k8s.io/v1beta1", "kind": "Kustomization",
-               "namespace": app, "resources": ["../../base"],
-               "images": [{"name": app, "newName": image_name, "newTag": "latest"}]}
     root = "deploy/kustomize"
     ir.cover("kustomize")
-    return {
+    files = {
         f"{root}/base/deployment.yaml": dump_yaml(deployment),
         f"{root}/base/service.yaml": dump_yaml(service),
         f"{root}/base/kustomization.yaml": dump_yaml(base_k),
-        f"{root}/overlays/production/kustomization.yaml": dump_yaml(overlay),
     }
+    for env in ir.envs:
+        overlay: dict = {"apiVersion": "kustomize.config.k8s.io/v1beta1", "kind": "Kustomization",
+                         "namespace": ir.namespace(env), "resources": ["../../base"],
+                         "images": [{"name": app, "newName": image_name, "newTag": "latest"}]}
+        if ir.multi_env:
+            overlay["replicas"] = [{"name": app, "count": REPLICAS[env.kind]}]
+        files[f"{ir.overlay(env)}/kustomization.yaml"] = dump_yaml(overlay)
+    return files
 
 
-def _source_path(ir: IR) -> str:
-    return f"charts/{ir.app}" if ir.has("helm") else "deploy/kustomize/overlays/production"
+def _source(ir: IR, env) -> dict:
+    """Source Git d'un environnement : chart Helm + fichier de valeurs, ou overlay Kustomize."""
+    repo = "https://git.example.com/groupe/gitops.git"
+    if ir.has("helm"):
+        src: dict = {"repoURL": repo, "targetRevision": "main", "path": f"charts/{ir.app}"}
+        if ir.multi_env:
+            src["helm"] = {"valueFiles": ["values.yaml", f"values-{env.id}.yaml"]}
+        return src
+    return {"repoURL": repo, "targetRevision": "main", "path": ir.overlay(env)}
+
+
+def _clusters_note(ir: IR, tool: str) -> None:
+    clusters = {c.id for e in ir.envs if (c := ir.cluster_for(e))}
+    if len(clusters) > 1:
+        ir.notes.append(f"{tool} : les environnements utilisent plusieurs clusters ; enregistrer les clusters distants "
+                        "auprès du contrôleur et adapter la destination de chaque environnement.")
 
 
 def argo_cd(ir: IR) -> dict[str, str]:
-    app = {
-        "apiVersion": "argoproj.io/v1alpha1", "kind": "Application",
-        "metadata": {"name": ir.app, "namespace": "argocd"},
-        "spec": {
-            "project": "default",
-            "source": {"repoURL": "https://git.example.com/groupe/gitops.git", "targetRevision": "main",
-                       "path": _source_path(ir)},
-            "destination": {"server": "https://kubernetes.default.svc", "namespace": ir.app},
-            "syncPolicy": {"automated": {"prune": True, "selfHeal": True},
-                           "syncOptions": ["CreateNamespace=true"]},
-        },
-    }
+    docs = []
+    for env in ir.envs:
+        docs.append({
+            "apiVersion": "argoproj.io/v1alpha1", "kind": "Application",
+            "metadata": {"name": ir.namespace(env), "namespace": "argocd",
+                         "labels": {"app.kubernetes.io/part-of": ir.app, "environment": env.id}},
+            "spec": {
+                "project": "default",
+                "source": _source(ir, env),
+                "destination": {"server": "https://kubernetes.default.svc", "namespace": ir.namespace(env)},
+                "syncPolicy": {"automated": {"prune": True, "selfHeal": True},
+                               "syncOptions": ["CreateNamespace=true"]},
+            },
+        })
+    _clusters_note(ir, "Argo CD")
     ir.cover("argo-cd")
-    return {"deploy/argocd/application.yaml": dump_yaml(app)}
+    return {"deploy/argocd/application.yaml": dump_yaml_docs(docs)}
 
 
 def flux(ir: IR) -> dict[str, str]:
     repo = {"apiVersion": "source.toolkit.fluxcd.io/v1", "kind": "GitRepository",
             "metadata": {"name": "gitops", "namespace": "flux-system"},
             "spec": {"interval": "1m", "url": "https://git.example.com/groupe/gitops.git", "ref": {"branch": "main"}}}
-    if ir.has("helm"):
-        release = {"apiVersion": "helm.toolkit.fluxcd.io/v2", "kind": "HelmRelease",
-                   "metadata": {"name": ir.app, "namespace": ir.app},
-                   "spec": {"interval": "5m",
-                            "chart": {"spec": {"chart": f"./charts/{ir.app}",
-                                               "sourceRef": {"kind": "GitRepository", "name": "gitops",
-                                                             "namespace": "flux-system"}}}}}
-        docs = [repo, release]
-    else:
-        ks = {"apiVersion": "kustomize.toolkit.fluxcd.io/v1", "kind": "Kustomization",
-              "metadata": {"name": ir.app, "namespace": "flux-system"},
-              "spec": {"interval": "5m", "path": f"./{_source_path(ir)}", "prune": True,
-                       "sourceRef": {"kind": "GitRepository", "name": "gitops"},
-                       "targetNamespace": ir.app}}
-        docs = [repo, ks]
+    docs: list[dict] = [repo]
+    for env in ir.envs:
+        ns = ir.namespace(env)
+        if ir.has("helm"):
+            chart: dict = {"chart": f"./charts/{ir.app}",
+                           "sourceRef": {"kind": "GitRepository", "name": "gitops", "namespace": "flux-system"}}
+            if ir.multi_env:
+                chart["valuesFiles"] = [f"./charts/{ir.app}/values.yaml", f"./{ir.helm_values(env)}"]
+            docs.append({"apiVersion": "helm.toolkit.fluxcd.io/v2", "kind": "HelmRelease",
+                         "metadata": {"name": ns, "namespace": "flux-system"},
+                         "spec": {"interval": "5m", "releaseName": ns, "targetNamespace": ns,
+                                  "install": {"createNamespace": True}, "chart": {"spec": chart}}})
+        else:
+            docs.append({"apiVersion": "kustomize.toolkit.fluxcd.io/v1", "kind": "Kustomization",
+                         "metadata": {"name": ns, "namespace": "flux-system"},
+                         "spec": {"interval": "5m", "path": f"./{ir.overlay(env)}", "prune": True,
+                                  "sourceRef": {"kind": "GitRepository", "name": "gitops"},
+                                  "targetNamespace": ns}})
+    _clusters_note(ir, "Flux")
     ir.cover("flux")
     return {"deploy/flux/gitops.yaml": dump_yaml_docs(docs)}
 
 
 def ansible(ir: IR) -> dict[str, str]:
     files: dict[str, str] = {}
-    files["ansible/inventory.ini"] = (
-        f"# {HEADER}\n[app]\napp1.example.com ansible_user=deploy\n\n"
-        + ("[k3s]\nk3s1.example.com ansible_user=deploy\n" if ir.has("k3s") else "")
-    )
+    for env in ir.envs:
+        host = f"app1.{env.id}.example.com" if ir.multi_env else "app1.example.com"
+        files[ir.inventory(env)] = (
+            f"# {HEADER}\n" + (f"# Environnement : {env.display}\n" if ir.multi_env else "")
+            + f"[app]\n{host} ansible_user=deploy\n\n"
+            + (f"[k3s]\nk3s1{('.' + env.id) if ir.multi_env else ''}.example.com ansible_user=deploy\n" if ir.has("k3s") else "")
+        )
     deploy_play = [{
         "name": f"Déployer {ir.app}",
         "hosts": "app",
         "become": True,
-        "vars": {"image": f"{ir.image_ref}:latest", "app_dir": "/opt/app"},
+        "vars": {"image": f"{ir.image_ref}:latest", "project": ir.app, "app_dir": "/opt/{{ project }}"},
         "tasks": [
             {"name": "Créer le répertoire de l'application",
              "ansible.builtin.file": {"path": "{{ app_dir }}", "state": "directory", "mode": "0755"}},
             {"name": "Copier le fichier Compose",
              "ansible.builtin.copy": {"src": "../deploy/docker-compose.yml", "dest": "{{ app_dir }}/docker-compose.yml"}},
             {"name": "Démarrer les services",
-             "community.docker.docker_compose_v2": {"project_src": "{{ app_dir }}", "pull": "always",
+             "community.docker.docker_compose_v2": {"project_src": "{{ app_dir }}", "project_name": "{{ project }}",
+                                                    "pull": "always",
                                                     "state": "present"},
              "environment": {"IMAGE": "{{ image }}"}},
         ],

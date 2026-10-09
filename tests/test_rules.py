@@ -68,7 +68,28 @@ CASES = [
     ("R32", lambda: _with_params("eks", region="Paris"), Severity.BLOCKING),
     ("R33", lambda: _with_params("eks", clustr_name="prod"), Severity.WARNING),
     ("R34", lambda: _with_params("eks"), Severity.WARNING),
+    ("R35", lambda: _envs("staging-prod", approval=False), Severity.WARNING),
+    ("R36", lambda: put(_envs("dev-staging-prod"), "aws", "eks", "kind"), Severity.BLOCKING),
+    ("R37", lambda: _envs(None), Severity.BLOCKING),
+    ("R38", lambda: _ecs_collision(), Severity.BLOCKING),
 ]
+
+
+def _envs(preset: str | None, approval: bool = True, target: str = "kubernetes-managed") -> Project:
+    from devops_builder.model import env_preset
+    p = make(target)
+    p.environments = env_preset(preset) if preset else []
+    for e in p.environments:
+        if e.kind == "production":
+            e.approval = approval
+    return p
+
+
+def _ecs_collision() -> Project:
+    p = put(_envs("staging-prod", target="docker-host"), "aws", "ecs-fargate")
+    p.environments[0].overrides = {"ecs-fargate": {"service": "commandes"}}
+    p.environments[1].overrides = {"ecs-fargate": {"service": "commandes"}}
+    return p
 
 
 def _with_params(tool_id: str, **params) -> Project:
@@ -247,3 +268,63 @@ def test_r32_url_avec_schema_refusee():
 def test_r34_disparait_quand_renseigne():
     p = _with_params("eks", cluster_name="prod")
     assert "R34" not in ids(p) and "R32" not in ids(p)
+
+
+# ------------------------------------------------------------- environnements
+def test_cluster_de_dev_et_cluster_de_prod_rattaches():
+    p = put(_envs("dev-staging-prod"), "aws", "eks", "kind")
+    for e in p.environments:
+        e.cluster = "kind" if e.kind == "dev" else "eks"
+    found = ids(p)
+    assert not {"R05", "R18", "R30", "R36"} & set(found), found
+
+
+def test_r18_kind_servant_la_production():
+    p = put(_envs("dev-staging-prod", target="kubernetes"), "kind")
+    assert ids(p).get("R18") is Severity.WARNING
+
+
+def test_r05_propose_de_creer_des_environnements():
+    p = put(make("kubernetes-managed"), "aws", "eks", "kind")
+    d = next(d for d in ENGINE.evaluate(p) if d.rule_id == "R05")
+    preset = next(a for a in d.actions if a.op == "set_project")
+    apply_action(p, preset, CATALOG)
+    assert [e.id for e in p.environments] == ["dev", "staging", "production"]
+    found = ids(p)
+    assert "R05" not in found and "R36" in found  # reste à rattacher chaque environnement
+
+
+def test_r36_correction_rattache_le_cluster():
+    p = put(_envs("staging-prod"), "aws", "eks", "kind")
+    for d in [d for d in ENGINE.evaluate(p) if d.rule_id == "R36"]:
+        apply_action(p, d.actions[0], CATALOG)
+    assert all(e.cluster for e in p.environments)
+
+
+def test_r35_correction_active_l_approbation():
+    p = _envs("staging-prod", approval=False)
+    d = next(d for d in ENGINE.evaluate(p) if d.rule_id == "R35")
+    apply_action(p, d.actions[0], CATALOG)
+    assert p.env("production").approval is True
+
+
+def test_surcharge_inconnue_par_environnement():
+    p = put(_envs("staging-prod"), "aws", "eks")
+    p.env("staging").overrides = {"eks": {"clustr_name": "preprod"}}
+    d = next(d for d in ENGINE.evaluate(p) if d.rule_id == "R33")
+    assert "Préproduction" in d.message
+    apply_action(p, d.actions[0], CATALOG)
+    assert p.env("staging").overrides == {"eks": {"cluster_name": "preprod"}}
+
+
+def test_suffixe_automatique_evite_les_collisions():
+    p = put(_envs("dev-staging-prod", target="docker-host"), "aws", "ecs-fargate")
+    assert "R38" not in ids(p)
+
+
+def test_identifiants_d_environnement():
+    from devops_builder.model import Environment
+    p = make()
+    p.environments = [Environment(id="Prod", kind="production"), Environment(id="Prod", kind="production")]
+    msgs = [d.message for d in ENGINE.evaluate(p) if d.rule_id == "R37"]
+    assert any("invalide" in m for m in msgs) and any("deux fois" in m for m in msgs)

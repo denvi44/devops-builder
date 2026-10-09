@@ -54,15 +54,13 @@
 
 - id: azure-repos
   name: Azure Repos
-  kind: service
   stage: source
   roles: [scm]
-  description: Dépôts Git d'Azure DevOps.
+  description: Dépôts Git d'Azure DevOps (service SaaS, indépendant d'un abonnement Azure).
   license: proprietary
   hosting: [saas]
   provides: [git-server]
   forge: azure-devops
-  provider: azure
   verified: "2026-10-08"
 
 - id: codecommit
@@ -162,14 +160,12 @@
 
 - id: azure-pipelines
   name: Azure Pipelines
-  kind: service
   stage: build
   roles: [ci]
-  description: CI/CD d'Azure DevOps.
+  description: CI/CD d'Azure DevOps (service SaaS, indépendant d'un abonnement Azure).
   license: proprietary
   hosting: [saas]
   forges: [azure-devops, github, bitbucket]
-  provider: azure
   requires: [git-server]
   verified: "2026-10-08"
 

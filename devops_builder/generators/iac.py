@@ -56,8 +56,29 @@ def _backend(ir: IR) -> str:
     return "  # Backend local : ajouter un stockage objet (S3, GCS, Blob) pour partager l'état."
 
 
-def _resource(ir: IR, tool_id: str) -> str | None:
-    p = ir.params(tool_id)
+CLUSTER_TOOLS = ("eks", "gke", "aks", "ovh-mks", "kapsule")
+
+
+def cluster_instances(ir: IR, tool_id: str) -> list[tuple[str, dict]]:
+    """(suffixe d'étiquette, paramètres) par nom de cluster distinct entre environnements.
+
+    Un seul nom → un seul cluster partagé (étiquettes inchangées). Plusieurs noms (surcharge
+    « Nom du cluster » par environnement) → un bloc par cluster, suffixé par l'environnement.
+    """
+    envs = [e for e in ir.envs if (c := ir.cluster_for(e)) is not None and c.id == tool_id]
+    if not envs:
+        return [("", ir.params(tool_id))]
+    by_name: dict[str, tuple[str, dict]] = {}
+    for env in envs:
+        params = ir.params(tool_id, env)
+        by_name.setdefault(str(params.get("cluster_name")), ("_" + env.id.replace("-", "_"), params))
+    if len(by_name) == 1:
+        return [("", next(iter(by_name.values()))[1])]
+    return list(by_name.values())
+
+
+def _resource(ir: IR, tool_id: str, p: dict | None = None, sfx: str = "", first: bool = True) -> str | None:
+    p = ir.params(tool_id) if p is None else p
     app = ir.app
     if tool_id == "eks":
         cw_policy = cw_addon = ""
@@ -66,11 +87,11 @@ def _resource(ir: IR, tool_id: str) -> str | None:
                          '        CloudWatchAgentServerPolicy = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"\n'
                          '      }')
             cw_addon = ('\n\n# --- Amazon CloudWatch (Container Insights)\n'
-                        'resource "aws_eks_addon" "cloudwatch" {\n'
-                        '  cluster_name = module.eks.cluster_name\n'
+                        f'resource "aws_eks_addon" "cloudwatch{sfx}" {{\n'
+                        f'  cluster_name = module.eks{sfx}.cluster_name\n'
                         '  addon_name   = "amazon-cloudwatch-observability"\n}')
             ir.cover("cloudwatch")
-        return f'''module "eks" {{
+        return f'''module "eks{sfx}" {{
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.0"
 
@@ -96,10 +117,10 @@ def _resource(ir: IR, tool_id: str) -> str | None:
         return (f"# Le bucket {p.get('bucket')} porte l'état de cette pile : il est créé à part (amorçage),\n"
                 "# pas par la pile qui l'utilise.")
     if tool_id == "gke":
-        if ir.has("cloud-monitoring"):
+        if ir.has("cloud-monitoring") and first:
             ir.notes.append("Cloud Monitoring et Cloud Logging sont actifs par défaut sur GKE Autopilot : rien à installer.")
             ir.cover("cloud-monitoring")
-        return f'''resource "google_container_cluster" "main" {{
+        return f'''resource "google_container_cluster" "main{sfx}" {{
   name     = "{p.get("cluster_name")}"
   location = "{p.get("region", "europe-west9")}"
 
@@ -113,20 +134,20 @@ def _resource(ir: IR, tool_id: str) -> str | None:
     if tool_id == "gcp-secret-manager":
         return f'resource "google_secret_manager_secret" "app" {{\n  secret_id = "{app}"\n\n  replication {{\n    auto {{}}\n  }}\n}}'
     if tool_id in ("aks", "acr", "azure-key-vault", "azure-blob", "azure-container-apps"):
-        return _azure(ir, tool_id, p)
+        return _azure(ir, tool_id, p, sfx, first)
     if tool_id == "ovh-mks":
-        return (f'resource "ovh_cloud_project_kube" "main" {{\n  service_name = var.ovh_service_name\n'
+        return (f'resource "ovh_cloud_project_kube" "main{sfx}" {{\n  service_name = var.ovh_service_name\n'
                 f'  name         = "{p.get("cluster_name")}"\n  region       = "{p.get("region", "GRA11")}"\n}}')
     if tool_id == "kapsule":
-        return f'''resource "scaleway_k8s_cluster" "main" {{
+        return f'''resource "scaleway_k8s_cluster" "main{sfx}" {{
   name                        = "{p.get("cluster_name")}"
   version                     = "1.32"
   cni                         = "cilium"
   delete_additional_resources = false
 }}
 
-resource "scaleway_k8s_pool" "default" {{
-  cluster_id = scaleway_k8s_cluster.main.id
+resource "scaleway_k8s_pool" "default{sfx}" {{
+  cluster_id = scaleway_k8s_cluster.main{sfx}.id
   name       = "default"
   node_type  = "DEV1-M"
   size       = 2
@@ -139,11 +160,12 @@ resource "scaleway_k8s_pool" "default" {{
     return None
 
 
-def _azure(ir: IR, tool_id: str, p: dict) -> str:
+def _azure(ir: IR, tool_id: str, p: dict, sfx: str = "", first: bool = True) -> str:
     app = ir.app
     loc = ir.params("azure").get("location", "francecentral")
     if tool_id == "aks":
         oms = workspace = ""
+        dns = app + sfx.replace("_", "-")
         if ir.has("azure-monitor"):
             oms = ("\n\n  oms_agent {\n    log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id\n  }")
             workspace = ('\n\n# --- Azure Monitor (Container Insights)\n'
@@ -154,11 +176,13 @@ def _azure(ir: IR, tool_id: str, p: dict) -> str:
                          '  sku                 = "PerGB2018"\n'
                          '  retention_in_days   = 30\n}')
             ir.cover("azure-monitor")
-        return f'''resource "azurerm_kubernetes_cluster" "main" {{
+            if not first:
+                workspace = ""  # un espace Log Analytics partagé par les clusters
+        return f'''resource "azurerm_kubernetes_cluster" "main{sfx}" {{
   name                = "{p.get("cluster_name")}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
-  dns_prefix          = "{app}"
+  dns_prefix          = "{dns}"
 
   default_node_pool {{
     name       = "default"
@@ -211,12 +235,25 @@ def terraform(ir: IR) -> dict[str, str]:
         loc = ir.params("azure").get("location", "francecentral")
         main_parts.append(f'resource "azurerm_resource_group" "main" {{\n  name     = "{rg}"\n  location = "{loc}"\n}}')
     for _, b in ir.project.all_bricks():
-        if b.tool in IAC_RESOURCES:
-            res = _resource(ir, b.tool)
-            if res:
-                main_parts.append(f"# --- {ir.catalog[b.tool].name}\n{res}")
-                if b.tool not in COMMENT_ONLY:
-                    ir.cover(b.tool)
+        if b.tool not in IAC_RESOURCES:
+            continue
+        name = ir.catalog[b.tool].name
+        if b.tool in CLUSTER_TOOLS:
+            instances = cluster_instances(ir, b.tool)
+            if len(instances) > 1:
+                ir.notes.append(f"{name} : {len(instances)} clusters distincts (un par nom d'environnement), "
+                                "décrits dans la même pile.")
+            for i, (sfx, params) in enumerate(instances):
+                res = _resource(ir, b.tool, params, sfx, first=(i == 0))
+                label = f"{name} ({sfx[1:]})" if sfx else name
+                main_parts.append(f"# --- {label}\n{res}")
+            ir.cover(b.tool)
+            continue
+        res = _resource(ir, b.tool)
+        if res:
+            main_parts.append(f"# --- {name}\n{res}")
+            if b.tool not in COMMENT_ONLY:
+                ir.cover(b.tool)
     ir.cover(*(p.id for p in ir.providers))
     if ir.iac and ir.iac.id in ("terraform", "opentofu"):
         ir.cover(ir.iac.id)

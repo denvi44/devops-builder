@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .catalog import Catalog
-from .model import Project, Tool
+from .model import Environment, Project, Tool
 from .params import effective_params
 
 CI_STAGES = ["build", "test", "security", "publish", "deploy", "infra"]
@@ -33,6 +33,7 @@ class Step:
     artifacts: list[str] = field(default_factory=list)
     env: dict[str, str] = field(default_factory=dict)
     needs: list[str] = field(default_factory=list)  # dépendances dans la même étape
+    environment: str | None = None  # identifiant de l'environnement déployé
 
 
 @dataclass
@@ -67,13 +68,46 @@ class IR:
     def has(self, tool_id: str) -> bool:
         return tool_id in self.project.tool_ids()
 
-    def params(self, tool_id: str) -> dict[str, Any]:
-        """Paramètres effectifs : saisie de la brique > défaut > valeur d'exemple."""
+    def params(self, tool_id: str, env: Environment | None = None) -> dict[str, Any]:
+        """Paramètres effectifs : surcharge d'environnement > saisie > défaut > valeur d'exemple."""
         tool = self.catalog.get(tool_id)
         if tool is None:
             return {}
         bricks = self.project.bricks_for(tool_id)
-        return effective_params(tool, bricks[0] if bricks else None, self.project)
+        return effective_params(tool, bricks[0] if bricks else None, self.project, env)
+
+    # ------------------------------------------------------------ environnements
+    @property
+    def envs(self) -> list[Environment]:
+        return self.project.environments
+
+    @property
+    def multi_env(self) -> bool:
+        return self.project.multi_env
+
+    def cluster_for(self, env: Environment) -> Tool | None:
+        """Cluster d'un environnement : le sien, ou l'unique cluster du pipeline."""
+        ids = [b.tool for _, b in self.project.all_bricks()
+               if (t := self.catalog.get(b.tool)) and "kubernetes-cluster" in t.roles]
+        if env.cluster in ids:
+            return self.catalog[env.cluster]
+        return self.catalog[ids[0]] if len(set(ids)) == 1 else None
+
+    def namespace(self, env: Environment) -> str:
+        return self.app + self.project.env_suffix(env)
+
+    def env_var(self, base: str, env: Environment) -> str:
+        """Nom de variable propre à l'environnement (inchangé avec un seul environnement)."""
+        return base if not self.multi_env else f"{base}_{env.id.upper().replace('-', '_')}"
+
+    def helm_values(self, env: Environment) -> str:
+        return f"charts/{self.app}/values-{env.id}.yaml" if self.multi_env else f"charts/{self.app}/values.yaml"
+
+    def overlay(self, env: Environment) -> str:
+        return f"deploy/kustomize/overlays/{env.id}"
+
+    def inventory(self, env: Environment) -> str:
+        return f"ansible/inventories/{env.id}.ini" if self.multi_env else "ansible/inventory.ini"
 
     def add_var(self, name: str, description: str, secret: bool = True, value: str | None = None) -> None:
         for v in self.variables:
@@ -231,10 +265,10 @@ class KubeAccess:
     cloud: list[str]
 
 
-def _kube_access(ir: IR, need_helm: bool) -> KubeAccess:
-    """Image, commandes pour obtenir un kubeconfig, et fournisseurs à authentifier."""
-    c = ir.cluster
-    p = ir.params(c.id) if c else {}
+def _kube_access(ir: IR, need_helm: bool, env: Environment) -> KubeAccess:
+    """Image, commandes pour obtenir le kubeconfig de l'environnement, fournisseurs à authentifier."""
+    c = ir.cluster_for(env)
+    p = ir.params(c.id, env) if c else {}
     name = p.get("cluster_name", "mon-cluster")
     if c and c.id == "eks":
         script = ["yum install -y -q tar gzip openssl >/dev/null"]
@@ -252,11 +286,100 @@ def _kube_access(ir: IR, need_helm: bool) -> KubeAccess:
         script.append(f"az aks get-credentials --name {name} --resource-group {rg}")
         return KubeAccess("mcr.microsoft.com/azure-cli:latest", script, ["azure"])
     label = f"de {c.name}" if c else "du cluster cible"
-    ir.add_var("KUBECONFIG_DATA", f"Contenu du kubeconfig {label} (base64)")
+    var = ir.env_var("KUBECONFIG_DATA", env)
+    where = f" ({env.display})" if ir.multi_env else ""
+    ir.add_var(var, f"Contenu du kubeconfig {label}{where} (base64)")
     script = ["apk add --no-cache curl bash openssl"]
     script += [GET_HELM] if need_helm else [GET_KUBECTL]
-    script += ['echo "$KUBECONFIG_DATA" | base64 -d > /tmp/kubeconfig', "export KUBECONFIG=/tmp/kubeconfig"]
+    script += [f'echo "${var}" | base64 -d > /tmp/kubeconfig', "export KUBECONFIG=/tmp/kubeconfig"]
     return KubeAccess(ALPINE, script, [])
+
+
+SSH_SETUP = 'mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519'
+
+
+def _deploy_step(ir: IR, env: Environment) -> Step | None:
+    """Étape de déploiement d'un environnement, selon les briques présentes."""
+    target = ir.project.target
+    app = ir.app
+    ns = ir.namespace(env)
+    if ir.has("docker-compose") and target in ("docker-host", "vm"):
+        if ir.has("ansible"):
+            ir.add_var("SSH_PRIVATE_KEY", "Clé SSH de déploiement vers les hôtes")
+            return Step("deploy", "Déploiement Ansible + Compose", "deploy", "alpine/ansible:latest", [
+                SSH_SETUP,
+                "ansible-galaxy collection install community.docker",
+                f'ansible-playbook -i {ir.inventory(env)} ansible/deploy.yml -e "image=$IMAGE" -e "project={ns}"'],
+                tool="ansible")
+        host = ir.env_var("DEPLOY_HOST", env)
+        ir.add_var("SSH_PRIVATE_KEY", "Clé SSH de déploiement vers l'hôte Docker")
+        where = f" ({env.display})" if ir.multi_env else ""
+        ir.add_var(host, f"Hôte Docker cible{where} (utilisateur@hôte)", secret=False)
+        return Step("deploy", "Déploiement Docker Compose (SSH)", "deploy", ALPINE, [
+            "apk add --no-cache openssh-client",
+            SSH_SETUP,
+            f'ssh -o StrictHostKeyChecking=accept-new "${host}" "mkdir -p /opt/{ns}"',
+            f'scp deploy/docker-compose.yml "${host}:/opt/{ns}/docker-compose.yml"',
+            f'ssh "${host}" "cd /opt/{ns} && IMAGE=$IMAGE docker compose -p {ns} pull && IMAGE=$IMAGE docker compose -p {ns} up -d"'],
+            tool="docker-compose")
+    if ir.has("argo-cd") or ir.has("flux"):
+        gitops = "Argo CD" if ir.has("argo-cd") else "Flux"
+        if ir.has("helm"):
+            bump = f"yq -i '.image.tag = strenv(TAG)' {ir.helm_values(env)}"
+        else:
+            bump = (f"yq -i '(.images[] | select(.name == \"{app}\")).newTag = strenv(TAG)' "
+                    f"{ir.overlay(env)}/kustomization.yaml")
+        ir.add_var("GITOPS_TOKEN", "Jeton autorisé à pousser sur le dépôt GitOps")
+        ir.add_var("GITOPS_REPO", "Dépôt GitOps surveillé, sans schéma (hôte/groupe/depot.git)", secret=False)
+        msg = f"deploy({env.id}): {app} $TAG" if ir.multi_env else f"deploy: {app} $TAG"
+        return Step("deploy", f"Mise à jour GitOps ({gitops})", "deploy", ALPINE, [
+            "apk add --no-cache git yq",
+            'git clone "https://oauth2:$GITOPS_TOKEN@$GITOPS_REPO" gitops',
+            "cd gitops",
+            bump,
+            'git config user.email "ci@example.com" && git config user.name "CI"',
+            f'git commit -am "{msg}" && git push origin HEAD'],
+            tool="argo-cd" if ir.has("argo-cd") else "flux")
+    if ir.has("helm"):
+        ka = _kube_access(ir, True, env)
+        extra = f" -f {ir.helm_values(env)}" if ir.multi_env else ""
+        return Step("deploy", "Déploiement Helm", "deploy", ka.image, [
+            *ka.script,
+            f'helm upgrade --install {app} charts/{app}{extra} --namespace {ns} --create-namespace '
+            f'--set image.repository="${{IMAGE%:*}}" --set image.tag="$TAG" --wait'],
+            tool="helm", cloud=ka.cloud)
+    if ir.has("kustomize"):
+        ka = _kube_access(ir, False, env)
+        return Step("deploy", "Déploiement Kustomize", "deploy", ka.image, [
+            *ka.script,
+            f"cd {ir.overlay(env)}",
+            'sed -i "s|newTag: .*|newTag: \\"$TAG\\"|" kustomization.yaml',
+            "kubectl apply -k ."],
+            tool="kustomize", cloud=ka.cloud)
+    if ir.has("ecs-fargate"):
+        p = ir.params("ecs-fargate", env)
+        return Step("deploy", "Déploiement ECS", "deploy", "amazon/aws-cli:latest", [
+            f"aws ecs update-service --cluster {p.get('cluster')} --service {p.get('service')} --force-new-deployment"],
+            tool="ecs-fargate", cloud=["aws"])
+    if ir.has("cloud-run"):
+        g = ir.params("gcp", env)
+        return Step("deploy", "Déploiement Cloud Run", "deploy", "google/cloud-sdk:slim", [
+            f'gcloud run deploy {ir.params("cloud-run", env).get("service", app)} --image "$IMAGE" '
+            f'--region {g.get("region", "europe-west9")} --project {g.get("project_id", "mon-projet")}'],
+            tool="cloud-run", cloud=["gcp"])
+    if ir.has("azure-container-apps"):
+        a = ir.params("azure", env)
+        return Step("deploy", "Déploiement Azure Container Apps", "deploy", "mcr.microsoft.com/azure-cli:latest", [
+            f'az containerapp update --name {ir.params("azure-container-apps", env).get("app", app)} '
+            f'--resource-group {a.get("resource_group", "rg-mon-projet")} --image "$IMAGE"'],
+            tool="azure-container-apps", cloud=["azure"])
+    if ir.has("ansible") and target in ("vm", "docker-host"):
+        ir.add_var("SSH_PRIVATE_KEY", "Clé SSH de déploiement vers les hôtes")
+        return Step("deploy", "Déploiement Ansible", "deploy", "alpine/ansible:latest", [
+            SSH_SETUP,
+            f'ansible-playbook -i {ir.inventory(env)} ansible/deploy.yml -e "image=$IMAGE" -e "project={ns}"'],
+            tool="ansible")
+    return None
 
 
 def _add_steps(ir: IR) -> None:
@@ -371,79 +494,22 @@ def _add_steps(ir: IR) -> None:
                       ["pulumi preview --stack prod"], tool="pulumi"))
 
     # ------------------------------------------------------------- déploiement
-    target = project.target
-    if ir.has("docker-compose") and target in ("docker-host", "vm"):
-        if ir.has("ansible"):
-            ir.add_var("SSH_PRIVATE_KEY", "Clé SSH de déploiement vers les hôtes")
-            s.append(Step("deploy", "Déploiement Ansible + Compose", "deploy", "alpine/ansible:latest", [
-                "mkdir -p ~/.ssh && echo \"$SSH_PRIVATE_KEY\" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519",
-                "ansible-galaxy collection install community.docker",
-                'ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e "image=$IMAGE"'],
-                tool="ansible", main_only=True))
-        else:
-            ir.add_var("SSH_PRIVATE_KEY", "Clé SSH de déploiement vers l'hôte Docker")
-            ir.add_var("DEPLOY_HOST", "Hôte Docker cible (utilisateur@hôte)", secret=False)
-            s.append(Step("deploy", "Déploiement Docker Compose (SSH)", "deploy", ALPINE, [
-                "apk add --no-cache openssh-client",
-                "mkdir -p ~/.ssh && echo \"$SSH_PRIVATE_KEY\" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519",
-                'scp -o StrictHostKeyChecking=accept-new deploy/docker-compose.yml "$DEPLOY_HOST:/opt/app/docker-compose.yml"',
-                'ssh "$DEPLOY_HOST" "cd /opt/app && IMAGE=$IMAGE docker compose pull && IMAGE=$IMAGE docker compose up -d"'],
-                tool="docker-compose", main_only=True))
-    elif ir.has("argo-cd") or ir.has("flux"):
-        gitops = "Argo CD" if ir.has("argo-cd") else "Flux"
-        values = f"charts/{ir.app}/values.yaml" if ir.has("helm") else "deploy/kustomize/overlays/production/kustomization.yaml"
-        if ir.has("helm"):
-            bump = f"yq -i '.image.tag = strenv(TAG)' {values}"
-        else:
-            bump = f"yq -i '(.images[] | select(.name == \"{ir.app}\")).newTag = strenv(TAG)' {values}"
-        ir.add_var("GITOPS_TOKEN", "Jeton autorisé à pousser sur le dépôt GitOps")
-        ir.add_var("GITOPS_REPO", "Dépôt GitOps surveillé, sans schéma (hôte/groupe/depot.git)", secret=False)
-        s.append(Step("deploy", f"Mise à jour GitOps ({gitops})", "deploy", ALPINE, [
-            "apk add --no-cache git yq",
-            'git clone "https://oauth2:$GITOPS_TOKEN@$GITOPS_REPO" gitops',
-            "cd gitops",
-            bump,
-            'git config user.email "ci@example.com" && git config user.name "CI"',
-            f'git commit -am "deploy: {ir.app} $TAG" && git push origin HEAD'],
-            tool="argo-cd" if ir.has("argo-cd") else "flux", main_only=True))
-    elif ir.has("helm"):
-        ka = _kube_access(ir, need_helm=True)
-        s.append(Step("deploy", "Déploiement Helm", "deploy", ka.image, [
-            *ka.script,
-            f'helm upgrade --install {ir.app} charts/{ir.app} --namespace {ir.app} --create-namespace '
-            f'--set image.repository="${{IMAGE%:*}}" --set image.tag="$TAG" --wait'],
-            tool="helm", cloud=ka.cloud, main_only=True))
-    elif ir.has("kustomize"):
-        ka = _kube_access(ir, need_helm=False)
-        s.append(Step("deploy", "Déploiement Kustomize", "deploy", ka.image, [
-            *ka.script,
-            "cd deploy/kustomize/overlays/production",
-            'sed -i "s|newTag: .*|newTag: \\"$TAG\\"|" kustomization.yaml',
-            "kubectl apply -k ."],
-            tool="kustomize", cloud=ka.cloud, main_only=True))
-    elif ir.has("ecs-fargate"):
-        p = ir.params("ecs-fargate")
-        s.append(Step("deploy", "Déploiement ECS", "deploy", "amazon/aws-cli:latest", [
-            f"aws ecs update-service --cluster {p.get('cluster')} --service {p.get('service')} --force-new-deployment"],
-            tool="ecs-fargate", cloud=["aws"], main_only=True))
-    elif ir.has("cloud-run"):
-        g = ir.params("gcp")
-        s.append(Step("deploy", "Déploiement Cloud Run", "deploy", "google/cloud-sdk:slim", [
-            f'gcloud run deploy {ir.params("cloud-run").get("service", ir.app)} --image "$IMAGE" '
-            f'--region {g.get("region", "europe-west9")} --project {g.get("project_id", "mon-projet")}'],
-            tool="cloud-run", cloud=["gcp"], main_only=True))
-    elif ir.has("azure-container-apps"):
-        a = ir.params("azure")
-        s.append(Step("deploy", "Déploiement Azure Container Apps", "deploy", "mcr.microsoft.com/azure-cli:latest", [
-            f'az containerapp update --name {ir.params("azure-container-apps").get("app", ir.app)} '
-            f'--resource-group {a.get("resource_group", "rg-mon-projet")} --image "$IMAGE"'],
-            tool="azure-container-apps", cloud=["azure"], main_only=True))
-    elif ir.has("ansible") and target in ("vm", "docker-host"):
-        ir.add_var("SSH_PRIVATE_KEY", "Clé SSH de déploiement vers les hôtes")
-        s.append(Step("deploy", "Déploiement Ansible", "deploy", "alpine/ansible:latest", [
-            "mkdir -p ~/.ssh && echo \"$SSH_PRIVATE_KEY\" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519",
-            'ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e "image=$IMAGE"'],
-            tool="ansible", main_only=True))
+    # Une étape par environnement, dans l'ordre de promotion : la même image est promue.
+    previous: str | None = None
+    for env in project.environments:
+        step = _deploy_step(ir, env)
+        if step is None:
+            continue
+        step.environment = env.id
+        step.manual = env.approval
+        step.main_only = True
+        if ir.multi_env:
+            step.id = f"deploy-{env.id}"
+            step.name = f"{step.name} — {env.display}"
+            if previous:
+                step.needs = [previous]
+        previous = step.id
+        s.append(step)
 
     # Authentification cloud : variables attendues
     clouds = sorted({c for st in s for c in st.cloud})

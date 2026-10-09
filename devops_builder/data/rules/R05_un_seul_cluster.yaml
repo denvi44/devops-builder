@@ -1,8 +1,6 @@
 id: R05
-title: Plusieurs clusters pour le même déploiement
+title: Plusieurs clusters sans environnements
 family: exclusivite
 severity: bloquant
-type: exclusive_role
-params:
-  role: kubernetes-cluster
-message: "Le pipeline décrit plusieurs clusters ({tools}) : Kubernetes managé et distribution autogérée s'excluent pour un même cluster."
+type: single_cluster
+message: "Le pipeline décrit plusieurs clusters ({tools}) pour un seul environnement : n'en garder qu'un, ou créer des environnements et rattacher chacun à son cluster."

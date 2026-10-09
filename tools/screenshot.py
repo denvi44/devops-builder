@@ -50,6 +50,8 @@ def main() -> int:
     win.grab().save(str(out / f"03-glisser{suffix}.png"))
     win.canvas.clear_highlight()
 
+    win.statusBar().clearMessage()
+
     # 4. Paramètres typés : une région invalide et une clé mal orthographiée
     p = Project.load(DATA_DIR / "examples" / "03-iac-aws-eks.devops.yaml")
     eks = p.bricks_for("eks")[0]
@@ -60,6 +62,44 @@ def main() -> int:
     win._focus_brick(eks.uid)
     app.processEvents()
     win.grab().save(str(out / f"04-parametres{suffix}.png"))
+
+    # 5. Assistant de démarrage : récapitulatif
+    from devops_builder.ui.dialogs import ProjectSettingsDialog
+    from devops_builder.ui.wizard import StarterWizard
+
+    wiz = StarterWizard(win.catalog, win.engine, win)
+    wiz.w_name.setText("Boutique")
+    for b in wiz.g_hosting.buttons():
+        b.setChecked(b.property("key") == "kubernetes-managed")
+    wiz.w_cloud.setCurrentIndex(max(0, wiz.w_cloud.findData("aws")))
+    for b in wiz.g_envs.buttons():
+        b.setChecked(b.property("key") == "dev-staging-prod")
+    wiz.show()
+    for _ in range(4):
+        wiz.next()
+    app.processEvents()
+    wiz.grab().save(str(out / f"05-assistant{suffix}.png"))
+    wiz.close()
+
+    # 6. Environnements et promotion
+    win._load(Project.load(DATA_DIR / "examples" / "03-iac-aws-eks.devops.yaml"), None)
+    dlg = ProjectSettingsDialog(win.project, win, win.catalog)
+    dlg.tabs.setCurrentWidget(dlg.envs_editor)
+    dlg.envs_editor.list.setCurrentRow(len(win.project.environments) - 1)
+    dlg.resize(720, 520)
+    dlg.show()
+    app.processEvents()
+    dlg.grab().save(str(out / f"06-environnements{suffix}.png"))
+    dlg.close()
+
+    # 7. Paramètres surchargés pour la production
+    eks = win.project.bricks_for("eks")[0]
+    win._focus_brick(eks.uid)
+    combo = win.properties.env_combo
+    combo.setCurrentIndex(combo.count() - 1)
+    for _ in range(3):
+        app.processEvents()
+    win.grab().save(str(out / f"07-surcharges{suffix}.png"))
     print("captures écrites dans", out)
     return 0
 

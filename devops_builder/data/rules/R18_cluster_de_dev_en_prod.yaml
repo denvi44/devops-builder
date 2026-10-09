@@ -6,4 +6,4 @@ type: environment
 params:
   environments: [production]
   suggest: [k3s, rke2]
-message: "{tool} est réservé au développement ; l'environnement est « {env} »."
+message: "{tool} est réservé au développement, or il sert l'environnement « {env} »."

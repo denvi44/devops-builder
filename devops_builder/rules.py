@@ -8,6 +8,7 @@ existant convient.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -16,7 +17,8 @@ from typing import Any
 import yaml
 
 from .catalog import DATA_DIR, Catalog
-from .model import ENVIRONMENTS, STAGE_LABELS, TARGETS, BrickInstance, Project, Severity, Tool
+from .model import ENV_ID_PATTERN, STAGE_LABELS, TARGETS, BrickInstance, Project, Severity, Tool, env_preset
+from .params import check_overrides
 
 RULES_DIR = DATA_DIR / "rules"
 
@@ -33,6 +35,7 @@ FAMILIES = {
     "placement": "Placement dans le pipeline",
     "completude": "Complétude du pipeline",
     "parametres": "Paramètres des briques",
+    "environnements": "Environnements",
 }
 
 
@@ -317,18 +320,28 @@ def h_target_mismatch(rule: Rule, ctx: Context) -> list[Diagnostic]:
     return out
 
 
+def env_cluster(ctx: Context, env) -> Placed | None:
+    """Brique cluster utilisée par un environnement : la sienne, ou l'unique cluster du pipeline."""
+    clusters = ctx.with_role("kubernetes-cluster")
+    if env.cluster:
+        return next((c for c in clusters if c.tool.id == env.cluster), None)
+    return clusters[0] if len({c.tool.id for c in clusters}) == 1 else None
+
+
 @handler("environment")
 def h_environment(rule: Rule, ctx: Context) -> list[Diagnostic]:
-    if ctx.project.environment not in rule.params.get("environments", ["production"]):
-        return []
+    kinds = rule.params.get("environments", ["production"])
     out = []
-    for p in ctx.placed:
-        if not p.tool.dev_only:
+    seen: set[str] = set()
+    for env in ctx.project.environments:
+        if env.kind not in kinds:
             continue
+        p = env_cluster(ctx, env)
+        if p is None or not p.tool.dev_only or p.brick.uid in seen:
+            continue
+        seen.add(p.brick.uid)
         actions = _replace_actions(ctx, p, rule.params.get("suggest", ["k3s", "rke2"]))
-        out.append(_diag(rule, _fmt(rule.message, tool=p.tool.name,
-                                    env=ENVIRONMENTS.get(ctx.project.environment)),
-                         [p.brick.uid], actions))
+        out.append(_diag(rule, _fmt(rule.message, tool=p.tool.name, env=env.display), [p.brick.uid], actions))
     return out
 
 
@@ -504,6 +517,11 @@ def h_requires_generic(rule: Rule, ctx: Context) -> list[Diagnostic]:
 def h_target_cluster(rule: Rule, ctx: Context) -> list[Diagnostic]:
     target = ctx.project.target
     clusters = ctx.with_role("kubernetes-cluster")
+    # La cible décrit l'hébergement de la production : un cluster kind de développement
+    # à côté d'un EKS de production n'est pas une incohérence.
+    prod = [c for e in ctx.project.environments if e.kind == "production" if (c := env_cluster(ctx, e))]
+    if prod:
+        clusters = list({c.brick.uid: c for c in prod}.values())
     managed = [p for p in clusters if "kubernetes-managed" in p.tool.provides]
     self_managed = [p for p in clusters if p not in managed]
     tname = TARGETS.get(target, target)
@@ -572,6 +590,109 @@ def h_params(rule: Rule, ctx: Context) -> list[Diagnostic]:
                     actions.append(Action("remove_param", "Revenir à la valeur par défaut",
                                           {"uid": p.brick.uid, "key": issue.key}))
             out.append(_diag(rule, f"{p.tool.name} : {issue.message}.", [p.brick.uid], actions))
+        for env in ctx.project.environments:
+            for issue in check_overrides(p.tool, env):
+                if issue.kind not in kinds:
+                    continue
+                args = {"env": env.id, "tool": p.tool.id, "key": issue.key}
+                actions = []
+                if issue.kind == "unknown" and issue.suggestion:
+                    actions.append(Action("rename_override", f"Renommer en « {issue.suggestion} »",
+                                          {**args, "new": issue.suggestion}))
+                actions.append(Action("remove_override", f"Supprimer la surcharge « {issue.key} »", args))
+                out.append(_diag(rule, f"{p.tool.name} : {issue.message}.", [p.brick.uid], actions))
+    return out
+
+
+# --------------------------------------------------------------------------
+# Environnements
+# --------------------------------------------------------------------------
+@handler("single_cluster")
+def h_single_cluster(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    group = ctx.with_role("kubernetes-cluster")
+    if len({p.tool.id for p in group}) < 2 or ctx.project.multi_env:
+        return []  # avec plusieurs environnements, chacun désigne son cluster (R36)
+    actions = _keep_only_actions(group)
+    actions.append(Action("set_project", "Créer des environnements (dev → préprod → production)",
+                          {"field": "environments", "value": "preset:dev-staging-prod"}))
+    return [_diag(rule, _fmt(rule.message, tools=_names(group)), [p.brick.uid for p in group], actions)]
+
+
+@handler("env_definition")
+def h_env_definition(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    envs = ctx.project.environments
+    if not envs:
+        return [_diag(rule, "Le projet n'a aucun environnement de déploiement.", [],
+                      [Action("set_project", "Ajouter un environnement de production",
+                              {"field": "environments", "value": "preset:prod"})])]
+    out = []
+    seen: set[str] = set()
+    for env in envs:
+        if not re.fullmatch(ENV_ID_PATTERN, env.id):
+            out.append(_diag(rule, f"L'identifiant d'environnement « {env.id} » est invalide : minuscules, chiffres "
+                                   "et tirets, 20 caractères au plus, commence par une lettre.", [], []))
+        if env.id in seen:
+            out.append(_diag(rule, f"L'identifiant d'environnement « {env.id} » est utilisé deux fois.", [], []))
+        seen.add(env.id)
+    return out
+
+
+@handler("env_cluster")
+def h_env_cluster(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    clusters = ctx.with_role("kubernetes-cluster")
+    ids = [c.tool.id for c in clusters]
+    out = []
+    for env in ctx.project.environments:
+        if env.cluster and env.cluster not in ids:
+            out.append(_diag(rule, f"L'environnement « {env.display} » désigne le cluster « {ctx.name(env.cluster)} », "
+                                   "absent du pipeline.", [],
+                             [Action("set_env", "Retirer ce rattachement", {"env": env.id, "field": "cluster", "value": None})]))
+        elif not env.cluster and len(set(ids)) > 1:
+            out.append(_diag(rule, f"Plusieurs clusters sont décrits : préciser celui de l'environnement « {env.display} ».",
+                             [c.brick.uid for c in clusters],
+                             [Action("set_env", f"Utiliser {c.tool.name} pour « {env.display} »",
+                                     {"env": env.id, "field": "cluster", "value": c.tool.id}) for c in clusters]))
+    if len(set(ids)) > 1 and ctx.project.multi_env:
+        used = {e.cluster for e in ctx.project.environments}
+        for c in clusters:
+            if c.tool.id not in used and all(e.cluster for e in ctx.project.environments):
+                out.append(_diag(rule, f"{c.tool.name} n'est rattaché à aucun environnement.", [c.brick.uid],
+                                 [Action("remove_bricks", f"Retirer {c.tool.name}", {"uids": [c.brick.uid]})],
+                                 Severity.WARNING))
+    return out
+
+
+@handler("prod_approval")
+def h_prod_approval(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    if not ctx.project.multi_env:
+        return []
+    return [_diag(rule, _fmt(rule.message, env=e.display), [],
+                  [Action("set_env", f"Exiger une approbation pour « {e.display} »",
+                          {"env": e.id, "field": "approval", "value": True})])
+            for e in ctx.project.environments if e.kind == "production" and not e.approval]
+
+
+@handler("env_collision")
+def h_env_collision(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    from .params import effective_params
+
+    if not ctx.project.multi_env:
+        return []
+    out = []
+    for p in ctx.placed:
+        for key, spec in p.tool.param_schema.items():
+            if not spec.per_env:
+                continue
+            seen: dict[str, str] = {}
+            for env in ctx.project.environments:
+                value = str(effective_params(p.tool, p.brick, ctx.project, env).get(key))
+                if value in seen:
+                    out.append(_diag(rule, _fmt(rule.message, tool=p.tool.name, label=spec.label, value=value,
+                                                a=seen[value], b=env.display), [p.brick.uid],
+                                     [Action("remove_override", f"Supprimer la surcharge de « {env.display} »",
+                                             {"env": env.id, "tool": p.tool.id, "key": key})]
+                                     if key in env.overrides.get(p.tool.id, {}) else []))
+                seen[value] = env.display
     return out
 
 
@@ -655,9 +776,27 @@ def apply_action(project: Project, action: Action, catalog: Catalog) -> None:
             if action.op == "rename_param" and value is not None:
                 params[args["new"]] = value
             found[2].params = params
+    elif action.op in ("rename_override", "remove_override"):
+        env = project.env(args["env"])
+        if env is not None:
+            values = dict(env.overrides.get(args["tool"], {}))
+            value = values.pop(args["key"], None)
+            if action.op == "rename_override" and value is not None:
+                values[args["new"]] = value
+            if values:
+                env.overrides[args["tool"]] = values
+            else:
+                env.overrides.pop(args["tool"], None)
+    elif action.op == "set_env":
+        env = project.env(args["env"])
+        if env is not None:
+            setattr(env, args["field"], args["value"])
     elif action.op == "move_brick":
         project.move(args["uid"], args["stage"])
     elif action.op == "set_project":
-        setattr(project, args["field"], args["value"])
+        value = args["value"]
+        if args["field"] == "environments" and isinstance(value, str) and value.startswith("preset:"):
+            value = env_preset(value.split(":", 1)[1])
+        setattr(project, args["field"], value)
     else:
         raise ValueError(f"Action inconnue : {action.op}")

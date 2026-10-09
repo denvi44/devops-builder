@@ -262,18 +262,21 @@ ecs-fargate:
     pattern: '[a-zA-Z0-9_-]{1,255}'
     pattern_hint: "lettres, chiffres, - et _"
   service:
+    per_env: true
     label: Service ECS
     default: "{app}"
     pattern: '[a-zA-Z0-9_-]{1,255}'
     pattern_hint: "lettres, chiffres, - et _"
 cloud-run:
   service:
+    per_env: true
     label: Service Cloud Run
     default: "{app}"
     pattern: '[a-z]([-a-z0-9]{0,47}[a-z0-9])?'
     pattern_hint: "49 caractères au plus, minuscules, chiffres et tirets, commence par une lettre"
 azure-container-apps:
   app:
+    per_env: true
     label: Application
     default: "{app}"
     pattern: '[a-z][a-z0-9-]{0,30}[a-z0-9]'

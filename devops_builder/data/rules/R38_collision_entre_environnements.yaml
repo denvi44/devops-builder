@@ -1,0 +1,6 @@
+id: R38
+title: Même cible de déploiement pour deux environnements
+family: environnements
+severity: bloquant
+type: env_collision
+message: "{tool} : « {label} » vaut « {value} » pour « {a} » et « {b} » ; deux environnements déploieraient au même endroit."

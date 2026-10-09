@@ -1,8 +1,24 @@
-format_version: 1
+format_version: 2
 name: Plateforme AWS EKS
-description: Infrastructure OpenTofu sur AWS (EKS, ECR, S3), CI GitLab avec fédération d'identité OIDC.
+description: 'Infrastructure OpenTofu sur AWS : un cluster EKS de préproduction et
+  un de production, CI GitLab avec fédération d''identité OIDC et approbation avant
+  la production.'
 target: kubernetes-managed
-environment: production
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides:
+    eks:
+      cluster_name: plateforme-prod
 secnumcloud: false
 cloud_auth: oidc
 license_policy: any
@@ -12,33 +28,71 @@ app:
   port: 8080
 stages:
   source:
-  - tool: gitlab
+  - uid: 84be4050
+    tool: gitlab
+    params: {}
   build:
-  - tool: gitlab-ci
-  - tool: buildkit
+  - uid: b561f93c
+    tool: gitlab-ci
+    params: {}
+  - uid: 18c9cd51
+    tool: buildkit
+    params: {}
   test:
-  - tool: unit-tests
+  - uid: 9cc50bd4
+    tool: unit-tests
+    params: {}
   security:
-  - tool: checkov
-  - tool: trivy
+  - uid: 338a0d2d
+    tool: checkov
+    params: {}
+  - uid: 23327af7
+    tool: trivy
+    params: {}
   artifacts:
-  - tool: ecr
-    params: {repository: commandes}
+  - uid: 43869c23
+    tool: ecr
+    params:
+      repository: commandes
   infrastructure:
-  - tool: aws
-    params: {region: eu-west-3}
-  - tool: opentofu
-  - tool: eks
-    params: {cluster_name: plateforme-prod, region: eu-west-3, version: "1.33"}
-  - tool: s3
-    params: {bucket: plateforme-prod-tfstate}
+  - uid: '49902326'
+    tool: aws
+    params:
+      region: eu-west-3
+  - uid: deaf9a3d
+    tool: opentofu
+    params: {}
+  - uid: ac518c2b
+    tool: eks
+    params:
+      cluster_name: plateforme-preprod
+      region: eu-west-3
+      version: '1.33'
+  - uid: ef659c01
+    tool: s3
+    params:
+      bucket: plateforme-prod-tfstate
   deploy:
-  - tool: helm
+  - uid: 81f88b24
+    tool: helm
+    params: {}
   platform:
-  - tool: aws-secrets-manager
-  - tool: external-secrets
-  - tool: cert-manager
-  - tool: velero
+  - uid: '76388289'
+    tool: aws-secrets-manager
+    params: {}
+  - uid: 7f5ff466
+    tool: external-secrets
+    params: {}
+  - uid: cab6644b
+    tool: cert-manager
+    params: {}
+  - uid: 77b25ab7
+    tool: velero
+    params: {}
   observability:
-  - tool: prometheus
-  - tool: cloudwatch
+  - uid: 1c44bd4d
+    tool: prometheus
+    params: {}
+  - uid: f5d478e9
+    tool: cloudwatch
+    params: {}

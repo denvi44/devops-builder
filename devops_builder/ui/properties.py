@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 import yaml
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QComboBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -32,6 +33,7 @@ LIFECYCLE = {"active": "Actif", "maintenance-ended": "Maintenance arrêtée", "a
 
 class PropertiesPanel(QScrollArea):
     paramsChanged = Signal(str, dict)   # uid, params
+    overridesChanged = Signal(str, str, dict)  # env_id, tool_id, params
     removeRequested = Signal(str)
     addRequested = Signal(str)          # tool_id (fiche affichée depuis la palette)
 
@@ -43,6 +45,7 @@ class PropertiesPanel(QScrollArea):
         self._uid: str | None = None
         self._tool_id: str | None = None
         self._loading = False
+        self._env_id: str | None = None  # environnement choisi pour éditer les surcharges
         self.show_empty()
 
     def _container(self) -> tuple[QWidget, QVBoxLayout]:
@@ -61,6 +64,8 @@ class PropertiesPanel(QScrollArea):
         self.setWidget(w)
 
     def show_tool(self, tool: Tool, brick: BrickInstance | None = None, project: Project | None = None) -> None:
+        if brick is None or brick.uid != self._uid:
+            self._env_id = None if (project is None or not self._env_id or not project.env(self._env_id)) else self._env_id
         self._uid = brick.uid if brick else None
         self._tool_id = tool.id
         pal = theme.current()
@@ -95,6 +100,9 @@ class PropertiesPanel(QScrollArea):
             note.setWordWrap(True)
             note.setStyleSheet(f"color: {pal.warning};")
             lay.addWidget(note)
+
+        if brick is not None:
+            self._brick_section(lay, tool, brick, project)
 
         if tool.roles:
             lay.addWidget(section_title("Rôles"))
@@ -138,17 +146,44 @@ class PropertiesPanel(QScrollArea):
         if tool.verified:
             lay.addWidget(muted(f"Fiche vérifiée le {tool.verified}"))
 
-        if brick is not None and tool.param_schema:
+        if brick is None:
+            add = QPushButton(icon("mdi6.plus", pal.primary), f"Ajouter à l'étape {STAGE_LABELS[tool.stage]}")
+            add.clicked.connect(lambda: self.addRequested.emit(tool.id))
+            lay.addWidget(add)
+        lay.addStretch(1)
+        self.setWidget(w)
+
+    # ------------------------------------------------------------- brique posée
+    def _brick_section(self, lay: QVBoxLayout, tool: Tool, brick: BrickInstance, project: Project | None) -> None:
+        pal = theme.current()
+        if tool.param_schema:
             from .param_form import ParamForm
             lay.addWidget(section_title("Paramètres de la brique"))
-            self.form = ParamForm(tool, brick, project)
-            self.form.changed.connect(lambda params, uid=brick.uid: self.paramsChanged.emit(uid, params))
+            env = None
+            if project is not None and project.multi_env:
+                self.env_combo = QComboBox()
+                self.env_combo.setAccessibleName("Environnement des paramètres")
+                self.env_combo.addItem("Tous les environnements", "")
+                for e in project.environments:
+                    count = len(e.overrides.get(tool.id, {}))
+                    self.env_combo.addItem(e.display + (f" ({count} surcharge{'s' if count > 1 else ''})" if count else ""), e.id)
+                if self._env_id and project.env(self._env_id):
+                    self.env_combo.setCurrentIndex(self.env_combo.findData(self._env_id))
+                    env = project.env(self._env_id)
+                self.env_combo.currentIndexChanged.connect(
+                    lambda _i: self._switch_env(tool, brick, project, self.env_combo.currentData()))
+                lay.addWidget(self.env_combo)
+                lay.addWidget(muted("Choisir un environnement pour y surcharger une valeur ; vide = valeur commune."
+                                    if env is None else
+                                    f"Surcharges de « {env.display} » ; laisser vide pour hériter de la valeur commune."))
+            self.form = ParamForm(tool, brick, project, env)
+            if env is None:
+                self.form.changed.connect(lambda params, uid=brick.uid: self.paramsChanged.emit(uid, params))
+            else:
+                self.form.changed.connect(
+                    lambda params, eid=env.id, tid=tool.id: self.overridesChanged.emit(eid, tid, params))
             lay.addWidget(self.form)
-            delete = QPushButton(icon("mdi6.delete", pal.blocking), "Retirer la brique du pipeline")
-            delete.setProperty("class", "danger")
-            delete.clicked.connect(lambda: self.removeRequested.emit(brick.uid))
-            lay.addWidget(delete)
-        elif brick is not None:
+        else:
             lay.addWidget(section_title("Paramètres de la brique"))
             lay.addWidget(muted("Valeurs YAML ; elles remplacent les valeurs par défaut de la fiche."))
             self.table = QTableWidget(0, 2)
@@ -176,16 +211,26 @@ class PropertiesPanel(QScrollArea):
             row.addWidget(rm)
             row.addStretch(1)
             lay.addLayout(row)
-            delete = QPushButton(icon("mdi6.delete", pal.blocking), "Retirer la brique du pipeline")
-            delete.setProperty("class", "danger")
-            delete.clicked.connect(lambda: self.removeRequested.emit(brick.uid))
-            lay.addWidget(delete)
-        else:
-            add = QPushButton(icon("mdi6.plus", pal.primary), f"Ajouter à l'étape {STAGE_LABELS[tool.stage]}")
-            add.clicked.connect(lambda: self.addRequested.emit(tool.id))
-            lay.addWidget(add)
-        lay.addStretch(1)
-        self.setWidget(w)
+        delete = QPushButton(icon("mdi6.delete", pal.blocking), "Retirer la brique du pipeline")
+        delete.setProperty("class", "danger")
+        delete.clicked.connect(lambda: self.removeRequested.emit(brick.uid))
+        lay.addWidget(delete)
+        if project is not None:
+            from ..suggest import suggestions
+            sugg = suggestions(project, self.catalog, tool.id)
+            if sugg:
+                lay.addWidget(section_title("Souvent associé"))
+                for t in sugg:
+                    b = QPushButton(icon("mdi6.plus", pal.primary), t.name)
+                    b.setToolTip(f"Ajouter {t.name} à l'étape {STAGE_LABELS[t.stage]}")
+                    b.setAccessibleName(f"Ajouter {t.name}")
+                    b.clicked.connect(lambda checked=False, tid=t.id: self.addRequested.emit(tid))
+                    lay.addWidget(b)
+
+    def _switch_env(self, tool: Tool, brick: BrickInstance, project: Project, env_id: str) -> None:
+        self._env_id = env_id or None
+        # Reconstruit le panneau après le signal : la liste qui l'émet appartient au panneau remplacé.
+        QTimer.singleShot(0, lambda: self.show_tool(tool, brick, project))
 
     # ------------------------------------------------------------- paramètres
     def _append_row(self, key: str, value: Any, overridden: bool, edit: bool = False) -> None:

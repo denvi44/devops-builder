@@ -19,10 +19,40 @@ def _image_value(ir: IR, tag_expr: str) -> str:
     return f"{ir.image_ref}:{tag_expr}"
 
 
+def _env_label(ir: IR, st: Step) -> str:
+    env = ir.project.env(st.environment) if st.environment else None
+    return env.display if env else (st.environment or "")
+
+
+def _gated(ir: IR) -> list[Step]:
+    """Déploiements soumis à approbation."""
+    return [st for st in ir.steps if st.environment and st.manual]
+
+
+def _note_gates(ir: IR, how: str) -> None:
+    gated = _gated(ir)
+    if gated:
+        names = ", ".join(f"« {_env_label(ir, st)} »" for st in gated)
+        ir.notes.append(f"Approbation ({names}) : {how}")
+
+
+def _split_gated(ir: IR) -> tuple[list[Step], list[Step]]:
+    """CI sans porte d'approbation native : les déploiements approuvés vont dans un fichier à part."""
+    gated = _gated(ir)
+    return [st for st in _ordered(ir) if st not in gated], gated
+
+
 # ------------------------------------------------------------------ GitLab CI
 def gitlab_ci(ir: IR) -> dict[str, str]:
     steps = _ordered(ir)
-    used = [s for s in STAGE_ORDER if any(st.stage == s for st in steps)]
+
+    def stage_of(st: Step) -> str:
+        return f"deploy-{st.environment}" if st.environment and ir.multi_env else st.stage
+
+    used: list[str] = []
+    for st in steps:
+        if stage_of(st) not in used:
+            used.append(stage_of(st))
     doc: dict = {
         "stages": used,
         "variables": {"TAG": "$CI_COMMIT_SHORT_SHA", "IMAGE": _image_value(ir, "$CI_COMMIT_SHORT_SHA"),
@@ -30,7 +60,9 @@ def gitlab_ci(ir: IR) -> dict[str, str]:
     }
     oidc = ir.project.cloud_auth == "oidc"
     for st in steps:
-        job: dict = {"stage": st.stage, "image": {"name": st.image, "entrypoint": [""]}}
+        job: dict = {"stage": stage_of(st), "image": {"name": st.image, "entrypoint": [""]}}
+        if st.environment:
+            job["environment"] = {"name": st.environment}
         if st.docker:
             job["services"] = ["docker:27-dind"]
             job["variables"] = {"DOCKER_TLS_CERTDIR": "/certs"}
@@ -54,6 +86,8 @@ def gitlab_ci(ir: IR) -> dict[str, str]:
         if st.artifacts:
             job["artifacts"] = {"paths": st.artifacts, "expire_in": "1 week"}
         doc[st.id] = job
+    _note_gates(ir, "le job attend un déclenchement manuel dans GitLab ; protéger l'environnement "
+                    "(Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.")
     return {".gitlab-ci.yml": dump_yaml(doc)}
 
 
@@ -130,12 +164,15 @@ def github_actions(ir: IR, path: str = ".github/workflows/pipeline.yml") -> dict
         host = bool(st.cloud or st.docker or st.stage in ("infra", "deploy") or st.tool in HOST_SETUP)
         job: dict = {"name": st.name, "runs-on": "ubuntu-latest"}
         needs = [j for stage in STAGE_ORDER[: STAGE_ORDER.index(st.stage)] for j in previous.get(stage, [])]
+        needs += [n for n in st.needs if n not in needs]
         if needs:
             job["needs"] = needs
         if st.main_only:
             job["if"] = "github.ref == 'refs/heads/main'"
-        if st.manual:
-            job["environment"] = "production"  # approbation via les règles de l'environnement
+        if st.environment:
+            job["environment"] = st.environment  # approbation : règles de protection de l'environnement
+        elif st.manual:
+            job["environment"] = "production"
         if not host:
             job["container"] = st.image
         if st.allow_failure:
@@ -164,6 +201,8 @@ def github_actions(ir: IR, path: str = ".github/workflows/pipeline.yml") -> dict
         job["steps"] = gsteps
         doc["jobs"][st.id] = job
         previous.setdefault(st.stage, []).append(st.id)
+    _note_gates(ir, "déclarer des relecteurs obligatoires sur l'environnement du dépôt "
+                    "(Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.")
     return {path: dump_yaml(doc)}
 
 
@@ -193,7 +232,13 @@ def jenkinsfile(ir: IR) -> dict[str, str]:
         else:
             agent = f"agent {{ docker {{ image '{st.image}'; args '--entrypoint= -u root' }} }}"
         when = "\n            when { branch 'main' }" if st.main_only else ""
-        manual = "\n            input { message 'Appliquer ?' }" if st.manual else ""
+        if st.manual and st.environment:
+            label = _env_label(ir, st).replace("'", "’")
+            manual = f"\n            input {{ message 'Déployer en {label} ?' }}"
+        elif st.manual:
+            manual = "\n            input { message 'Appliquer ?' }"
+        else:
+            manual = ""
         script = full_script(ir, st, None)
         body = _groovy_block(script)
         if st.allow_failure:
@@ -237,19 +282,32 @@ def woodpecker(ir: IR) -> dict[str, str]:
         if env:
             w["environment"] = env
         if st.main_only:
-            w["when"] = [{"branch": "main", "event": "push"}]
+            # Approbation : l'étape ne part que sur un pipeline lancé à la main.
+            w["when"] = [{"branch": "main", "event": "manual" if st.manual and st.environment else "push"}]
         if st.allow_failure:
             w["failure"] = "ignore"
         steps.append(w)
     note = HEADER + " Les étapes Docker montent le socket de l'hôte : dépôt de confiance requis."
+    _note_gates(ir, "Woodpecker n'a pas de porte d'approbation : l'étape ne s'exécute que sur un pipeline "
+                    "lancé manuellement depuis l'interface (événement « manual »).")
     return {".woodpecker.yml": dump_yaml({"steps": steps}, note)}
 
 
 # ---------------------------------------------------------------------- Tekton
 def tekton(ir: IR) -> dict[str, str]:
+    main, gated = _split_gated(ir)
+    files = {"tekton/pipeline.yaml": _tekton_pipeline(ir, main, f"{ir.app}-pipeline")}
+    for st in gated:
+        files[f"tekton/pipeline-{st.id}.yaml"] = _tekton_pipeline(ir, [st], f"{ir.app}-{st.id}")
+    _note_gates(ir, "Tekton n'a pas de porte d'approbation native : ces déploiements sont des pipelines séparés "
+                    "(tekton/pipeline-deploy-*.yaml), à lancer après validation (tkn pipeline start).")
+    return files
+
+
+def _tekton_pipeline(ir: IR, steps: list[Step], name: str) -> str:
     tasks = []
     prev: str | None = None
-    for st in _ordered(ir):
+    for st in steps:
         script = "#!/bin/sh\nset -e\n" + "\n".join(full_script(ir, st, None)) + "\n"
         if st.docker:
             script = "#!/bin/sh\n# Étape Docker : sur Tekton, préférer Buildah (sans démon).\n" + script.split("\n", 1)[1]
@@ -277,7 +335,7 @@ def tekton(ir: IR) -> dict[str, str]:
     doc = {
         "apiVersion": "tekton.dev/v1",
         "kind": "Pipeline",
-        "metadata": {"name": f"{ir.app}-pipeline"},
+        "metadata": {"name": name},
         "spec": {
             "params": [{"name": "tag", "type": "string", "description": "Tag de l'image (commit)"}],
             "workspaces": [{"name": "source"}],
@@ -285,21 +343,41 @@ def tekton(ir: IR) -> dict[str, str]:
         },
     }
     note = HEADER + " Le clone du dépôt (tâche git-clone du Hub) et les secrets sont à brancher sur l'espace « source »."
-    return {"tekton/pipeline.yaml": dump_yaml(doc, note)}
+    return dump_yaml(doc, note)
 
 
 # ------------------------------------------------------------- Azure Pipelines
 def azure_pipelines(ir: IR) -> dict[str, str]:
     stages_out = []
+    main_cond = "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))"
     for stage in STAGE_ORDER:
         jobs = []
         for st in [s for s in _ordered(ir) if s.stage == stage]:
+            if st.environment:
+                # Job de déploiement : historique et approbations portés par l'environnement Azure DevOps.
+                sid = st.environment.replace("-", "_")
+                stages_out.append({
+                    "stage": f"deploy_{sid}",
+                    "displayName": f"Déploiement — {_env_label(ir, st)}",
+                    "condition": main_cond,
+                    "jobs": [{
+                        "deployment": f"deploy_{sid}",
+                        "displayName": st.name,
+                        "environment": st.environment,
+                        "pool": {"vmImage": "ubuntu-latest"},
+                        "strategy": {"runOnce": {"deploy": {"steps": [
+                            {"checkout": "self"},
+                            {"script": "\n".join(full_script(ir, st, None)) + "\n", "displayName": st.name},
+                        ]}}},
+                    }],
+                })
+                continue
             job: dict = {"job": st.id.replace("-", "_"), "displayName": st.name,
                          "pool": {"vmImage": "ubuntu-latest"}}
             if not (st.docker or st.cloud):
                 job["container"] = st.image
             if st.main_only:
-                job["condition"] = "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))"
+                job["condition"] = main_cond
             job["steps"] = [{"script": "\n".join(full_script(ir, st, None)) + "\n", "displayName": st.name}]
             if st.allow_failure:
                 job["continueOnError"] = True
@@ -312,6 +390,8 @@ def azure_pipelines(ir: IR) -> dict[str, str]:
         "stages": stages_out,
     }
     note = HEADER + " Pour Azure, préférer une connexion de service à fédération d'identité (tâche AzureCLI@2)."
+    _note_gates(ir, "ajouter une vérification « Approvals » sur l'environnement Azure DevOps correspondant "
+                    "(Pipelines › Environments › Approvals and checks).")
     return {"azure-pipelines.yml": dump_yaml(doc, note)}
 
 
@@ -323,9 +403,19 @@ def _docker_run(st: Step, lines: list[str]) -> str:
 
 
 def aws_codebuild(ir: IR) -> dict[str, str]:
+    main, gated = _split_gated(ir)
+    files = {"buildspec.yml": _buildspec(ir, main)}
+    for st in gated:
+        files[f"buildspec-{st.id}.yml"] = _buildspec(ir, [st])
+    _note_gates(ir, "placer une action d'approbation manuelle CodePipeline avant le projet CodeBuild "
+                    "qui exécute buildspec-deploy-*.yml.")
+    return files
+
+
+def _buildspec(ir: IR, steps: list[Step]) -> str:
     commands: list[str] = ['export TAG="${CODEBUILD_RESOLVED_SOURCE_VERSION:0:8}"',
                            f'export IMAGE="{ir.image_ref}:$TAG"']
-    for st in _ordered(ir):
+    for st in steps:
         commands.append(f'echo "--- {st.name}"')
         script = full_script(ir, st, None)
         if st.docker or "aws" in st.cloud:
@@ -335,13 +425,23 @@ def aws_codebuild(ir: IR) -> dict[str, str]:
     doc = {"version": 0.2, "phases": {"build": {"commands": commands}},
            "artifacts": {"files": ["**/*"], "discard-paths": "no"}}
     note = HEADER + " Activer le mode privilégié du projet CodeBuild (Docker)."
-    return {"buildspec.yml": dump_yaml(doc, note)}
+    return dump_yaml(doc, note)
 
 
 # ------------------------------------------------------------ Google Cloud Build
 def google_cloud_build(ir: IR) -> dict[str, str]:
+    main, gated = _split_gated(ir)
+    files = {"cloudbuild.yaml": _cloudbuild(ir, main)}
+    for st in gated:
+        files[f"cloudbuild-{st.id}.yaml"] = _cloudbuild(ir, [st])
+    _note_gates(ir, "créer pour cloudbuild-deploy-*.yaml un déclencheur Cloud Build avec l'option "
+                    "« Approbation requise ».")
+    return files
+
+
+def _cloudbuild(ir: IR, steps_in: list[Step]) -> str:
     steps = []
-    for st in _ordered(ir):
+    for st in steps_in:
         script = ['export TAG="$SHORT_SHA"', f'export IMAGE="{ir.image_ref}:$SHORT_SHA"']
         script += full_script(ir, st, None)
         image = "gcr.io/cloud-builders/docker" if st.docker else st.image
@@ -349,7 +449,7 @@ def google_cloud_build(ir: IR) -> dict[str, str]:
                       "args": ["-c", "\n".join(script).replace("$", "$$").replace("$$SHORT_SHA", "$SHORT_SHA")]})
     doc = {"steps": steps, "options": {"logging": "CLOUD_LOGGING_ONLY"}}
     note = HEADER + " Les secrets se déclarent via availableSecrets (Secret Manager)."
-    return {"cloudbuild.yaml": dump_yaml(doc, note)}
+    return dump_yaml(doc, note)
 
 
 RENDERERS = {

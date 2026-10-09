@@ -1,8 +1,27 @@
-format_version: 1
+format_version: 2
 name: API sur k3s en GitOps
-description: API Node.js construite sur GitHub, signée, déployée par Argo CD sur un cluster k3s.
+description: API Node.js construite sur GitHub, signée, promue dev → préprod → production
+  par Argo CD sur k3s.
 target: kubernetes
-environment: production
+environments:
+- id: dev
+  label: ''
+  kind: dev
+  approval: false
+  cluster: null
+  overrides: {}
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
 secnumcloud: false
 cloud_auth: oidc
 license_policy: any
@@ -12,34 +31,80 @@ app:
   port: 3000
 stages:
   source:
-  - tool: github
+  - uid: 4d4b310f
+    tool: github
+    params: {}
   build:
-  - tool: github-actions
-  - tool: buildkit
-  - tool: dependabot
+  - uid: 800ac8d9
+    tool: github-actions
+    params: {}
+  - uid: a08c13f0
+    tool: buildkit
+    params: {}
+  - uid: c850f7fe
+    tool: dependabot
+    params: {}
   test:
-  - tool: unit-tests
-  - tool: semgrep
+  - uid: be937af6
+    tool: unit-tests
+    params: {}
+  - uid: 9f87eb97
+    tool: semgrep
+    params: {}
   security:
-  - tool: trivy
-  - tool: syft
-  - tool: cosign
+  - uid: 789eec79
+    tool: trivy
+    params: {}
+  - uid: 791bd6fa
+    tool: syft
+    params: {}
+  - uid: 88907f00
+    tool: cosign
+    params: {}
   artifacts:
-  - tool: ghcr
+  - uid: b839d941
+    tool: ghcr
+    params: {}
   infrastructure:
-  - tool: k3s
+  - uid: a52e2a60
+    tool: k3s
+    params: {}
   deploy:
-  - tool: helm
-  - tool: argo-cd
+  - uid: 99308e34
+    tool: helm
+    params: {}
+  - uid: aed117ec
+    tool: argo-cd
+    params: {}
   platform:
-  - tool: cilium
-  - tool: envoy-gateway
-  - tool: cert-manager
-  - tool: kyverno
-  - tool: external-secrets
-  - tool: openbao
+  - uid: 8530c485
+    tool: cilium
+    params: {}
+  - uid: 32ce4255
+    tool: envoy-gateway
+    params: {}
+  - uid: 3d8299fa
+    tool: cert-manager
+    params: {}
+  - uid: 955d079d
+    tool: kyverno
+    params: {}
+  - uid: b7a3e455
+    tool: external-secrets
+    params: {}
+  - uid: be026c58
+    tool: openbao
+    params: {}
   observability:
-  - tool: prometheus
-  - tool: grafana
-  - tool: otel-collector
-  - tool: tempo
+  - uid: bf9bc3ac
+    tool: prometheus
+    params: {}
+  - uid: d4c804cd
+    tool: grafana
+    params: {}
+  - uid: 13d410b7
+    tool: otel-collector
+    params: {}
+  - uid: 270d5a94
+    tool: tempo
+    params: {}

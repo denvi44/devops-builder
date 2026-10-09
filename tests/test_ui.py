@@ -230,3 +230,93 @@ def test_formulaire_avec_valeurs_existantes_invalides(win):
     form = win.properties.form
     assert form.editors["region"].currentText() == "Paris"
     assert form.errors["region"].isVisibleTo(form)
+
+
+# ------------------------------------------------------------------ lot 2
+def test_assistant_cree_un_projet(win):
+    from devops_builder.ui.wizard import StarterWizard
+    wiz = StarterWizard(win.catalog, win.engine, win)
+    next(b for b in wiz.g_hosting.buttons() if b.property("key") == "kubernetes-managed").setChecked(True)
+    wiz.w_cloud.setCurrentIndex(wiz.w_cloud.findData("gcp"))
+    next(b for b in wiz.g_envs.buttons() if b.property("key") == "dev-staging-prod").setChecked(True)
+    wiz.w_gitops.setChecked(True)
+    project = wiz.project()
+    assert {"gcp", "gke", "artifact-registry", "argo-cd", "helm"} <= project.tool_ids()
+    assert [e.id for e in project.environments] == ["dev", "staging", "production"]
+    wiz._init_summary()
+    assert "Aucun blocage" in wiz.summary.text() or "aucun blocage" in wiz.summary.text()
+    wiz.close()
+
+
+def test_assistant_refuse_serverless_secnumcloud(win):
+    from devops_builder.ui.wizard import StarterWizard
+    wiz = StarterWizard(win.catalog, win.engine, win)
+    next(b for b in wiz.g_hosting.buttons() if b.property("key") == "serverless").setChecked(True)
+    wiz.w_secnum.setChecked(True)
+    assert not wiz._validate_hosting()
+    assert "SecNumCloud" in wiz.hosting_error.text()
+    wiz.close()
+
+
+def test_editeur_d_environnements(win):
+    from devops_builder.ui.dialogs import ProjectSettingsDialog
+    win._load(Project(name="t"), None)
+    dlg = ProjectSettingsDialog(win.project, win, win.catalog)
+    ed = dlg.envs_editor
+    ed._apply_preset(ed.preset.findData("staging-prod"))
+    assert [e.id for e in ed.envs] == ["staging", "production"]
+    ed.list.setCurrentRow(0)
+    ed.f_id.setText("Preprod")
+    ed.f_id.textEdited.emit("Preprod")
+    assert not ed._check() and "invalide" in ed.f_error.text()
+    ed.f_id.setText("preprod")
+    ed.f_id.textEdited.emit("preprod")
+    assert ed._check()
+    p = win.project.clone()
+    dlg.apply_to(p)
+    assert [e.id for e in p.environments] == ["preprod", "production"]
+    assert p.env("production").approval is True
+    dlg.close()
+
+
+def test_surcharge_par_environnement_dans_le_formulaire(win):
+    from PySide6.QtWidgets import QApplication
+
+    from devops_builder.model import env_preset
+    p = Project(name="t", target="kubernetes-managed", environments=env_preset("staging-prod"))
+    p.add("aws", "infrastructure")
+    b = p.add("eks", "infrastructure", cluster_name="hors-prod")
+    win._load(p, None)
+    win._focus_brick(b.uid)
+    panel = win.properties
+    panel.env_combo.setCurrentIndex(panel.env_combo.findData("production"))
+    QApplication.processEvents()  # le panneau est reconstruit après le signal
+    form = panel.form
+    assert form.env is not None and form.env.id == "production"
+    assert "hors-prod (hérité)" in form.editors["cluster_name"].placeholderText()
+    form.editors["cluster_name"].setText("prod")
+    form._commit()
+    assert win.project.env("production").overrides == {"eks": {"cluster_name": "prod"}}
+    assert win.project.bricks_for("eks")[0].params == {"cluster_name": "hors-prod"}
+    win.undo_stack.undo()
+    assert win.project.env("production").overrides == {}
+
+
+def test_suggestions_dans_les_proprietes(win):
+    from PySide6.QtWidgets import QPushButton
+    win._load(Project(name="t", target="kubernetes"), None)
+    win.add_tool(None, "k3s", -1)
+    win.add_tool(None, "argo-cd", -1)
+    win._focus_brick(win.project.bricks_for("argo-cd")[0].uid)
+    button = next(b for b in win.properties.findChildren(QPushButton) if b.text() == "Helm")
+    button.click()
+    assert "helm" in win.project.tool_ids()
+
+
+def test_chaine_de_promotion_dans_la_barre(win):
+    from PySide6.QtWidgets import QLabel
+
+    from devops_builder.model import env_preset
+    win._load(Project(name="t", environments=env_preset("dev-staging-prod")), None)
+    texts = [w.text() for w in win.project_bar.findChildren(QLabel)]
+    assert "Production · approbation" in texts and texts.count("→") == 2

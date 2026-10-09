@@ -18,8 +18,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..model import BrickInstance, ParamSpec, Project, Tool
-from ..params import check_value, resolve_default
+from ..model import BrickInstance, Environment, ParamSpec, Project, Tool
+from ..params import check_value, effective_params, resolve_default
 from . import theme
 from .widgets import icon, muted, section_title
 
@@ -29,12 +29,19 @@ class ParamForm(QWidget):
 
     changed = Signal(dict)
 
-    def __init__(self, tool: Tool, brick: BrickInstance, project: Project | None, parent: QWidget | None = None):
+    def __init__(self, tool: Tool, brick: BrickInstance, project: Project | None, env: Environment | None = None,
+                 parent: QWidget | None = None):
         super().__init__(parent)
-        self.tool, self.brick, self.project = tool, brick, project
+        self.tool, self.brick, self.project, self.env = tool, brick, project, env
+        # Mode brique : valeurs communes ; mode environnement : surcharges de cet environnement.
+        self.source: dict[str, Any] = dict(env.overrides.get(tool.id, {}) if env else brick.params)
         self.editors: dict[str, QWidget] = {}
         self.errors: dict[str, QLabel] = {}
-        self.unknown: dict[str, Any] = {k: v for k, v in brick.params.items() if k not in tool.param_schema}
+        self.unknown: dict[str, Any] = {k: v for k, v in self.source.items() if k not in tool.param_schema}
+        self.inherited: dict[str, Any] = {}
+        if env is not None:
+            bare = env.model_copy(update={"overrides": {k: v for k, v in env.overrides.items() if k != tool.id}})
+            self.inherited = effective_params(tool, brick, project, bare)
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -44,7 +51,7 @@ class ParamForm(QWidget):
         form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
         form.setVerticalSpacing(4)
         for key, spec in tool.param_schema.items():
-            editor = self._editor(key, spec, brick.params.get(key))
+            editor = self._editor(key, spec, self.source.get(key))
             label = QLabel(spec.label + (" *" if spec.required else ""))
             label.setBuddy(editor)
             if spec.description:
@@ -71,7 +78,7 @@ class ParamForm(QWidget):
             self.errors[key] = err
             self._validate(key)
         lay.addLayout(form)
-        if any(s.required for s in tool.param_schema.values()):
+        if any(s.required for s in tool.param_schema.values()) and env is None:
             lay.addWidget(muted("* à renseigner ; sinon la valeur d'exemple est écrite et signalée."))
         if self.unknown:
             lay.addWidget(section_title("Paramètres inconnus"))
@@ -91,7 +98,10 @@ class ParamForm(QWidget):
                 self.unknown_rows[key] = row_w
 
     # ---------------------------------------------------------------- éditeurs
-    def _hint(self, spec: ParamSpec) -> str:
+    def _hint(self, key: str, spec: ParamSpec) -> str:
+        if self.env is not None:
+            value = self.inherited.get(key)
+            return f"{value} (hérité)" if value not in (None, "") else ""
         default = resolve_default(spec, self.project)
         if default is not None:
             return f"{default} (défaut)"
@@ -113,9 +123,9 @@ class ParamForm(QWidget):
             combo.addItems(spec.choices or spec.suggestions)
             # Valeur initiale d'abord, signaux ensuite : l'éditeur n'est pas encore enregistré.
             if combo.isEditable():
-                combo.lineEdit().setPlaceholderText(self._hint(spec))
+                combo.lineEdit().setPlaceholderText(self._hint(key, spec))
             else:
-                combo.setItemText(0, self._hint(spec) or "(par défaut)")
+                combo.setItemText(0, self._hint(key, spec) or "(par défaut)")
             combo.setCurrentText("" if value is None else str(value))
             if not combo.isEditable() and value is None:
                 combo.setCurrentIndex(0)
@@ -125,7 +135,7 @@ class ParamForm(QWidget):
             combo.activated.connect(lambda _i, k=key: (self._validate(k), self._commit()))
             return combo
         line = QLineEdit("" if value is None else str(value))
-        line.setPlaceholderText(self._hint(spec))
+        line.setPlaceholderText(self._hint(key, spec))
         line.setClearButtonEnabled(True)
         line.textChanged.connect(lambda _t, k=key: self._validate(k))
         line.editingFinished.connect(self._commit)
@@ -165,16 +175,17 @@ class ParamForm(QWidget):
             value = self._raw(key)
             if value is None:
                 continue
-            if spec.type == "bool" and value == bool(resolve_default(spec, self.project)):
-                continue  # identique au défaut : inutile de le stocker
+            reference = self.inherited.get(key) if self.env is not None else resolve_default(spec, self.project)
+            if spec.type == "bool" and value == bool(reference):
+                continue  # identique à la valeur de référence : inutile de le stocker
             out[key] = value
         out.update(self.unknown)
         return out
 
     def _commit(self) -> None:
         params = self.values()
-        if params != self.brick.params:
-            self.brick = self.brick.model_copy(update={"params": params})
+        if params != self.source:
+            self.source = dict(params)
             self.changed.emit(params)
 
     def _drop_unknown(self, key: str) -> None:

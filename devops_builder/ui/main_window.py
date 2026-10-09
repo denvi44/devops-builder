@@ -134,6 +134,7 @@ class MainWindow(QMainWindow):
 
         self.properties = PropertiesPanel(self.catalog)
         self.properties.paramsChanged.connect(self.set_params)
+        self.properties.overridesChanged.connect(self.set_overrides)
         self.properties.removeRequested.connect(self.remove_brick)
         self.properties.addRequested.connect(lambda tid: self.add_tool(None, tid, -1))
         self.props_dock = self._dock("Propriétés", self.properties, Qt.DockWidgetArea.RightDockWidgetArea)
@@ -167,7 +168,9 @@ class MainWindow(QMainWindow):
 
     def _build_actions(self) -> None:
         K = QKeySequence.StandardKey
-        self.a_new = self._act("Nouveau", self.new_project, K.New, "mdi6.file-plus-outline")
+        self.a_new = self._act("Nouveau…", self.new_project, K.New, "mdi6.file-plus-outline",
+                               "Nouveau projet avec l'assistant (Ctrl+N)")
+        self.a_new_empty = self._act("Nouveau projet vide", self.new_empty_project, "Ctrl+Shift+N")
         self.a_open = self._act("Ouvrir…", self.open_project, K.Open, "mdi6.folder-open-outline")
         self.a_save = self._act("Enregistrer", self.save, K.Save, "mdi6.content-save-outline")
         self.a_save_as = self._act("Enregistrer sous…", self.save_as, K.SaveAs)
@@ -210,7 +213,7 @@ class MainWindow(QMainWindow):
 
         mb = self.menuBar()
         m = mb.addMenu("&Fichier")
-        m.addActions([self.a_new, self.a_open])
+        m.addActions([self.a_new, self.a_new_empty, self.a_open])
         ex = m.addMenu("Ouvrir un exemple")
         for p in sorted((DATA_DIR / "examples").glob("*.yaml")):
             proj = Project.load(p)
@@ -277,7 +280,15 @@ class MainWindow(QMainWindow):
         self.title.setText(p.name)
         clear_layout(self.chips_box)
         self.chips_box.addWidget(chip(TARGETS[p.target], primary=True, tooltip="Cible d'hébergement"))
-        self.chips_box.addWidget(chip(ENVIRONMENTS[p.environment], tooltip="Environnement"))
+        for i, env in enumerate(p.environments):
+            if i:
+                arrow = QLabel("→")
+                arrow.setObjectName("muted")
+                arrow.setAccessibleName("puis")
+                self.chips_box.addWidget(arrow)
+            text = env.display + (" · approbation" if env.approval else "")
+            self.chips_box.addWidget(chip(text, primary=env.kind == "production",
+                                          tooltip=f"Environnement {env.id} ({ENVIRONMENTS[env.kind]})"))
         self.chips_box.addWidget(chip("OIDC" if p.cloud_auth == "oidc" else "Clés statiques",
                                       tooltip="Authentification cloud en CI"))
         if p.secnumcloud:
@@ -397,6 +408,17 @@ class MainWindow(QMainWindow):
         self.mutate(f"Retirer {tool.name if tool else found[2].tool}", lambda p: p.remove(uid))
         self.statusBar().showMessage("Brique retirée — Ctrl+Z pour annuler.", 4000)
 
+    def set_overrides(self, env_id: str, tool_id: str, params: dict) -> None:
+        def do(p: Project) -> None:
+            env = p.env(env_id)
+            if env is None:
+                return
+            if params:
+                env.overrides[tool_id] = params
+            else:
+                env.overrides.pop(tool_id, None)
+        self.mutate("Modifier une surcharge d'environnement", do, properties=False)
+
     def set_params(self, uid: str, params: dict) -> None:
         def do(p: Project) -> None:
             f = p.find(uid)
@@ -430,7 +452,7 @@ class MainWindow(QMainWindow):
 
     # ============================================================ projet / fichiers
     def edit_settings(self) -> None:
-        dlg = ProjectSettingsDialog(self.project, self)
+        dlg = ProjectSettingsDialog(self.project, self, self.catalog)
         if dlg.exec():
             self.mutate("Paramètres du projet", dlg.apply_to)
 
@@ -446,6 +468,16 @@ class MainWindow(QMainWindow):
         return r == QMessageBox.StandardButton.Discard
 
     def new_project(self) -> None:
+        """Nouveau projet guidé par l'assistant."""
+        if not self._confirm_discard():
+            return
+        from .wizard import StarterWizard
+        wizard = StarterWizard(self.catalog, self.engine, self)
+        if wizard.exec():
+            self._load(wizard.project(), None)
+            self.statusBar().showMessage("Projet créé par l'assistant : tout reste modifiable.", 5000)
+
+    def new_empty_project(self) -> None:
         if self._confirm_discard():
             self._load(Project(), None)
 

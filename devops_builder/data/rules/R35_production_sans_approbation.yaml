@@ -1,0 +1,6 @@
+id: R35
+title: Production sans approbation
+family: environnements
+severity: avertissement
+type: prod_approval
+message: "« {env} » sera déployé automatiquement à la suite des autres environnements, sans approbation manuelle."

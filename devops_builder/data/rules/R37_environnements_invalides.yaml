@@ -1,0 +1,6 @@
+id: R37
+title: Environnements invalides
+family: environnements
+severity: bloquant
+type: env_definition
+message: "Environnements invalides"

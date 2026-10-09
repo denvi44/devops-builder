@@ -1,0 +1,62 @@
+# Briques souvent associées : proposées dans le panneau Propriétés.
+# Une suggestion n'apparaît que si la brique est absente et posable sur la cible du projet.
+# Les besoins stricts (forge, CNI, coffre…) relèvent des règles, pas d'ici.
+
+# CI : contrôles de base
+gitlab-ci: [unit-tests, gitleaks, trivy]
+github-actions: [unit-tests, gitleaks, trivy]
+gitea-actions: [unit-tests, gitleaks, trivy]
+jenkins: [unit-tests, gitleaks, trivy]
+woodpecker: [unit-tests, gitleaks, trivy]
+tekton: [unit-tests, trivy]
+azure-pipelines: [unit-tests, gitleaks, trivy]
+aws-codebuild: [unit-tests, trivy]
+google-cloud-build: [unit-tests, trivy]
+
+# Build d'image : scan, SBOM et signature
+buildkit: [trivy, syft, cosign]
+buildah: [trivy, syft, cosign]
+buildpacks: [trivy, syft, cosign]
+
+# Registres : signature
+harbor: [cosign]
+zot: [cosign]
+ghcr: [cosign]
+ecr: [cosign]
+artifact-registry: [cosign]
+acr: [cosign]
+
+# IaC : analyse de configuration
+opentofu: [checkov]
+terraform: [checkov]
+pulumi: [checkov]
+
+# Déploiement
+docker-compose: [traefik]
+helm: [cert-manager, prometheus]
+kustomize: [kyverno]
+argo-cd: [helm, kustomize, argo-rollouts]
+flux: [kustomize, helm]
+
+# Clusters
+k3s: [cert-manager, cilium]
+rke2: [cert-manager]
+kubeadm: [cert-manager]
+eks: [external-secrets, aws-secrets-manager, velero]
+gke: [external-secrets, gcp-secret-manager]
+aks: [external-secrets, azure-key-vault]
+
+# Secrets
+vault: [external-secrets]
+openbao: [external-secrets]
+aws-secrets-manager: [external-secrets]
+gcp-secret-manager: [external-secrets]
+azure-key-vault: [external-secrets]
+
+# Observabilité
+prometheus: [grafana, loki]
+grafana: [prometheus]
+loki: [fluent-bit]
+otel-collector: [tempo]
+jaeger: [otel-collector]
+velero: [minio]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -13,12 +14,15 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
+    QListWidget,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QSpinBox,
     QSplitter,
+    QTabWidget,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -26,15 +30,164 @@ from PySide6.QtWidgets import (
 )
 
 from ..generators import GenerationResult
-from ..model import ENVIRONMENTS, LANGUAGES, TARGETS, Project
+from ..model import ENV_ID_PATTERN, ENV_PRESETS, ENVIRONMENTS, LANGUAGES, TARGETS, Environment, Project, env_preset
 from .widgets import icon, muted
 
 
+class EnvironmentsEditor(QWidget):
+    """Liste ordonnée des environnements (ordre de promotion) et réglages de chacun."""
+
+    def __init__(self, project: Project, cluster_tools: list[tuple[str, str]], parent: QWidget | None = None):
+        super().__init__(parent)
+        self.envs: list[Environment] = [e.model_copy(deep=True) for e in project.environments]
+        self.cluster_tools = cluster_tools
+        self._loading = False
+        lay = QVBoxLayout(self)
+        lay.addWidget(muted("L'ordre de la liste est l'ordre de promotion : la même image est déployée "
+                            "d'un environnement au suivant."))
+        row = QHBoxLayout()
+        self.list = QListWidget()
+        self.list.setAccessibleName("Environnements, dans l'ordre de promotion")
+        row.addWidget(self.list, 1)
+        side = QVBoxLayout()
+        self.b_add = QPushButton(icon("mdi6.plus"), "Ajouter")
+        self.b_del = QPushButton(icon("mdi6.minus"), "Retirer")
+        self.b_up = QPushButton(icon("mdi6.arrow-up"), "Monter")
+        self.b_down = QPushButton(icon("mdi6.arrow-down"), "Descendre")
+        self.preset = QComboBox()
+        self.preset.setAccessibleName("Appliquer un modèle d'environnements")
+        self.preset.addItem("Modèle…", "")
+        for k, v in ENV_PRESETS.items():
+            self.preset.addItem(v, k)
+        for b in (self.b_add, self.b_del, self.b_up, self.b_down):
+            side.addWidget(b)
+        side.addWidget(self.preset)
+        side.addStretch(1)
+        row.addLayout(side)
+        lay.addLayout(row)
+
+        form = QFormLayout()
+        self.f_id = QLineEdit()
+        self.f_label = QLineEdit()
+        self.f_label.setPlaceholderText("libellé affiché (facultatif)")
+        self.f_kind = QComboBox()
+        for k, v in ENVIRONMENTS.items():
+            self.f_kind.addItem(v, k)
+        self.f_approval = QCheckBox("Exiger une approbation avant de déployer")
+        self.f_cluster = QComboBox()
+        self.f_cluster.addItem("(automatique)", None)
+        for tid, name in cluster_tools:
+            self.f_cluster.addItem(name, tid)
+        self.f_cluster.setEnabled(len(cluster_tools) > 1)
+        self.f_error = QLabel()
+        self.f_error.setStyleSheet("color: #d32f2f;")
+        form.addRow("Identifiant", self.f_id)
+        form.addRow("Libellé", self.f_label)
+        form.addRow("Type", self.f_kind)
+        form.addRow("Cluster", self.f_cluster)
+        form.addRow("", self.f_approval)
+        form.addRow("", self.f_error)
+        lay.addLayout(form)
+
+        self.list.currentRowChanged.connect(self._show)
+        for w in (self.f_id, self.f_label):
+            w.textEdited.connect(self._store)
+        for w in (self.f_kind, self.f_cluster):
+            w.currentIndexChanged.connect(self._store)
+        self.f_approval.toggled.connect(self._store)
+        self.b_add.clicked.connect(self._add)
+        self.b_del.clicked.connect(self._remove)
+        self.b_up.clicked.connect(lambda: self._move(-1))
+        self.b_down.clicked.connect(lambda: self._move(1))
+        self.preset.activated.connect(self._apply_preset)
+        self._refresh(0)
+
+    def _refresh(self, row: int) -> None:
+        self._loading = True
+        self.list.clear()
+        for e in self.envs:
+            self.list.addItem(f"{e.display}  ({e.id})" + ("  · approbation" if e.approval else ""))
+        self._loading = False
+        if self.envs:
+            self.list.setCurrentRow(max(0, min(row, len(self.envs) - 1)))
+        self.b_del.setEnabled(len(self.envs) > 1)
+
+    def _show(self, row: int) -> None:
+        if self._loading or not (0 <= row < len(self.envs)):
+            return
+        e = self.envs[row]
+        self._loading = True
+        self.f_id.setText(e.id)
+        self.f_label.setText(e.label)
+        self.f_kind.setCurrentIndex(list(ENVIRONMENTS).index(e.kind))
+        self.f_cluster.setCurrentIndex(max(0, self.f_cluster.findData(e.cluster)))
+        self.f_approval.setChecked(e.approval)
+        self._loading = False
+        self._check()
+
+    def _store(self, *_: object) -> None:
+        row = self.list.currentRow()
+        if self._loading or not (0 <= row < len(self.envs)):
+            return
+        e = self.envs[row]
+        e.id = self.f_id.text().strip()
+        e.label = self.f_label.text().strip()
+        e.kind = self.f_kind.currentData()
+        e.cluster = self.f_cluster.currentData()
+        e.approval = self.f_approval.isChecked()
+        item = self.list.item(row)
+        item.setText(f"{e.display}  ({e.id})" + ("  · approbation" if e.approval else ""))
+        self._check()
+
+    def _check(self) -> bool:
+        ids = [e.id for e in self.envs]
+        bad = [i for i in ids if not re.fullmatch(ENV_ID_PATTERN, i)]
+        msg = ""
+        if bad:
+            msg = f"Identifiant invalide : {bad[0] or '(vide)'} (minuscules, chiffres et tirets, commence par une lettre)."
+        elif len(set(ids)) != len(ids):
+            msg = "Deux environnements ont le même identifiant."
+        self.f_error.setText(msg)
+        return not msg
+
+    def _add(self) -> None:
+        n = 1
+        while f"env{n}" in {e.id for e in self.envs}:
+            n += 1
+        self.envs.append(Environment(id=f"env{n}", kind="staging"))
+        self._refresh(len(self.envs) - 1)
+
+    def _remove(self) -> None:
+        row = self.list.currentRow()
+        if len(self.envs) > 1 and 0 <= row < len(self.envs):
+            del self.envs[row]
+            self._refresh(row)
+
+    def _move(self, delta: int) -> None:
+        row = self.list.currentRow()
+        dest = row + delta
+        if 0 <= row < len(self.envs) and 0 <= dest < len(self.envs):
+            self.envs[row], self.envs[dest] = self.envs[dest], self.envs[row]
+            self._refresh(dest)
+
+    def _apply_preset(self, index: int) -> None:
+        key = self.preset.itemData(index)
+        if key:
+            old = {e.id: e for e in self.envs}
+            self.envs = []
+            for e in env_preset(key):  # conserve surcharges et cluster des environnements déjà présents
+                if e.id in old:
+                    e.overrides, e.cluster = old[e.id].overrides, old[e.id].cluster
+                self.envs.append(e)
+            self._refresh(0)
+        self.preset.setCurrentIndex(0)
+
+
 class ProjectSettingsDialog(QDialog):
-    def __init__(self, project: Project, parent: QWidget | None = None):
+    def __init__(self, project: Project, parent: QWidget | None = None, catalog=None):
         super().__init__(parent)
         self.setWindowTitle("Paramètres du projet")
-        self.setMinimumWidth(520)
+        self.setMinimumWidth(600)
         form = QFormLayout()
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
@@ -44,10 +197,6 @@ class ProjectSettingsDialog(QDialog):
         for k, v in TARGETS.items():
             self.target.addItem(v, k)
         self.target.setCurrentIndex(list(TARGETS).index(project.target))
-        self.environment = QComboBox()
-        for k, v in ENVIRONMENTS.items():
-            self.environment.addItem(v, k)
-        self.environment.setCurrentIndex(list(ENVIRONMENTS).index(project.environment))
         self.language = QComboBox()
         for k, v in LANGUAGES.items():
             self.language.addItem(v, k)
@@ -69,29 +218,46 @@ class ProjectSettingsDialog(QDialog):
 
         form.addRow("Nom", self.name)
         form.addRow("Description", self.description)
-        form.addRow("Cible d'hébergement", self.target)
-        form.addRow("Environnement", self.environment)
+        form.addRow("Cible d'hébergement (production)", self.target)
         form.addRow("Langage de l'application", self.language)
         form.addRow("Nom de l'image", self.image)
         form.addRow("Port de l'application", self.port)
         form.addRow("Authentification cloud en CI", self.auth)
         form.addRow("Politique de licence", self.license)
         form.addRow("", self.secnum)
+        general = QWidget()
+        general.setLayout(form)
+
+        clusters = []
+        for _, b in project.all_bricks():
+            t = catalog.get(b.tool) if catalog else None
+            if t and "kubernetes-cluster" in t.roles and (b.tool, t.name) not in clusters:
+                clusters.append((b.tool, t.name))
+        self.envs_editor = EnvironmentsEditor(project, clusters)
+        self.tabs = QTabWidget()
+        self.tabs.addTab(general, "Général")
+        self.tabs.addTab(self.envs_editor, "Environnements")
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Appliquer")
         buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Annuler")
-        buttons.accepted.connect(self.accept)
+        buttons.accepted.connect(self._accept)
         buttons.rejected.connect(self.reject)
         lay = QVBoxLayout(self)
-        lay.addLayout(form)
+        lay.addWidget(self.tabs)
         lay.addWidget(buttons)
+
+    def _accept(self) -> None:
+        if not self.envs_editor._check():
+            self.tabs.setCurrentWidget(self.envs_editor)
+            return
+        self.accept()
 
     def apply_to(self, project: Project) -> None:
         project.name = self.name.text().strip() or "Projet"
         project.description = self.description.text().strip()
         project.target = self.target.currentData()
-        project.environment = self.environment.currentData()
+        project.environments = [e.model_copy(deep=True) for e in self.envs_editor.envs]
         project.app.language = self.language.currentData()
         project.app.image_name = self.image.text().strip() or "mon-app"
         project.app.port = self.port.value()

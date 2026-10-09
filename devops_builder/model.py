@@ -12,9 +12,9 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 
 # --------------------------------------------------------------------------
 # Étapes du pipeline (colonnes de l'interface), dans l'ordre d'exécution.
@@ -39,11 +39,12 @@ TARGETS: dict[str, str] = {
     "kubernetes": "Kubernetes autogéré",
     "kubernetes-managed": "Kubernetes managé (cloud)",
 }
-ENVIRONMENTS: dict[str, str] = {
+ENVIRONMENTS: dict[str, str] = {  # types d'environnement
     "dev": "Développement",
     "staging": "Préproduction",
     "production": "Production",
 }
+ENV_ID_PATTERN = r"[a-z][a-z0-9-]{0,19}"
 LANGUAGES: dict[str, str] = {
     "python": "Python",
     "node": "Node.js",
@@ -92,6 +93,9 @@ class ParamSpec(BaseModel):
     pattern: str | None = None
     pattern_hint: str = ""
     max_length: int | None = None
+    # Cible de déploiement propre à chaque environnement : sans surcharge, la valeur
+    # reçoit le suffixe « -<environnement> » (sauf pour l'environnement de production).
+    per_env: bool = False
 
 
 class LandscapeRef(BaseModel):
@@ -180,12 +184,49 @@ class AppSettings(BaseModel):
     port: int = 8000
 
 
+class Environment(BaseModel):
+    """Environnement de déploiement ; l'ordre de la liste est l'ordre de promotion."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    label: str = ""
+    kind: Literal["dev", "staging", "production"] = "production"
+    approval: bool = False          # déploiement soumis à une approbation manuelle
+    cluster: str | None = None      # brique cluster utilisée (obligatoire s'il y en a plusieurs)
+    overrides: dict[str, dict[str, Any]] = Field(default_factory=dict)  # outil -> paramètres
+
+    @property
+    def display(self) -> str:
+        return self.label or ENVIRONMENTS[self.kind]
+
+
+def env_preset(name: str) -> list[Environment]:
+    """Jeux d'environnements proposés par l'assistant et l'éditeur."""
+    if name == "prod":
+        return [Environment(id="production", kind="production")]
+    if name == "staging-prod":
+        return [Environment(id="staging", kind="staging"),
+                Environment(id="production", kind="production", approval=True)]
+    if name == "dev-staging-prod":
+        return [Environment(id="dev", kind="dev"), Environment(id="staging", kind="staging"),
+                Environment(id="production", kind="production", approval=True)]
+    raise ValueError(name)
+
+
+ENV_PRESETS = {
+    "prod": "Production seule",
+    "staging-prod": "Préproduction → production",
+    "dev-staging-prod": "Développement → préproduction → production",
+}
+
+
 class Project(BaseModel):
     format_version: int = FORMAT_VERSION
     name: str = "Nouveau projet"
     description: str = ""
     target: str = "docker-host"
-    environment: str = "production"
+    environments: list[Environment] = Field(default_factory=lambda: env_preset("prod"))
     secnumcloud: bool = False
     cloud_auth: Literal["oidc", "static"] = "oidc"
     license_policy: Literal["any", "oss-only"] = "any"
@@ -193,6 +234,43 @@ class Project(BaseModel):
     stages: dict[str, list[BrickInstance]] = Field(
         default_factory=lambda: {s: [] for s in STAGE_IDS}
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate(cls, data: Any) -> Any:
+        """Format 1 : un seul champ « environment » → liste d'environnements."""
+        if isinstance(data, dict) and "environment" in data:
+            data = dict(data)
+            kind = data.pop("environment") or "production"
+            data.setdefault("environments", [{"id": kind, "kind": kind}])
+            data["format_version"] = FORMAT_VERSION
+        return data
+
+    # ----------------------------------------------------------- environnements
+    @property
+    def environment(self) -> str:
+        """Type d'environnement le plus exposé (compatibilité : règles « en production »)."""
+        kinds = {e.kind for e in self.environments}
+        for k in ("production", "staging", "dev"):
+            if k in kinds:
+                return k
+        return "production"
+
+    def env(self, env_id: str) -> Environment | None:
+        return next((e for e in self.environments if e.id == env_id), None)
+
+    @property
+    def multi_env(self) -> bool:
+        return len(self.environments) > 1
+
+    def env_suffix(self, env: Environment) -> str:
+        """Suffixe des cibles de déploiement : aucun pour l'unique environnement de production."""
+        if not self.multi_env:
+            return ""
+        prods = [e for e in self.environments if e.kind == "production"]
+        if env.kind == "production" and len(prods) == 1:
+            return ""
+        return f"-{env.id}"
 
     # ------------------------------------------------------------------ helpers
     def ensure_stages(self) -> None:
