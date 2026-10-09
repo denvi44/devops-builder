@@ -177,6 +177,8 @@ class MainWindow(QMainWindow):
         self.a_generate = self._act("Générer les fichiers…", self.generate, "Ctrl+G", "mdi6.rocket-launch-outline",
                                     "Générer les fichiers du pipeline (Ctrl+G)")
         self.a_settings = self._act("Paramètres du projet…", self.edit_settings, "F2", "mdi6.cog-outline")
+        self.a_validate = self._act("Valider…", self.validate, "Ctrl+Shift+V", "mdi6.check-decagram-outline",
+                                    "Contrôler les fichiers générés avec les outils installés, puis tester dans kind (Ctrl+Maj+V)")
         self.a_undo = self.undo_stack.createUndoAction(self, "Annuler")
         self.a_undo.setShortcut(K.Undo)
         self.a_undo.setData("mdi6.undo")
@@ -203,7 +205,7 @@ class MainWindow(QMainWindow):
         tb.setMovable(False)
         tb.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         for a in (self.a_new, self.a_open, self.a_save, None, self.a_undo, self.a_redo, None,
-                  self.a_settings, self.a_generate, None, self.a_theme):
+                  self.a_settings, self.a_generate, self.a_validate, None, self.a_theme):
             if a is None:
                 tb.addSeparator()
             else:
@@ -230,6 +232,7 @@ class MainWindow(QMainWindow):
         p = mb.addMenu("&Projet")
         p.addAction(self.a_settings)
         p.addAction(self.a_generate)
+        p.addAction(self.a_validate)
         v = mb.addMenu("&Affichage")
         v.addAction(self.a_theme)
         v.addSeparator()
@@ -531,19 +534,29 @@ class MainWindow(QMainWindow):
         if self._confirm_discard():
             self._load(Project.load(AUTOSAVE), None)
 
-    def generate(self) -> None:
+    def _generation(self):
         if not self.project.all_bricks():
-            return
+            return None
         try:
-            result = generate(self.project, self.catalog, self.engine)
+            return generate(self.project, self.catalog, self.engine)
         except BlockingDiagnostics as exc:
             lines = "\n".join(f"• {d.rule_id} — {d.message}" for d in exc.diagnostics[:8])
             QMessageBox.warning(self, "Génération bloquée",
                                 f"Corrigez d'abord ces erreurs bloquantes (panneau Diagnostics) :\n\n{lines}")
             self.diag_dock.show()
             self.diagnostics.tree.setFocus()
-            return
-        GenerateDialog(result, self).exec()
+            return None
+
+    def generate(self) -> None:
+        result = self._generation()
+        if result is not None:
+            GenerateDialog(result, self).exec()
+
+    def validate(self) -> None:
+        result = self._generation()
+        if result is not None:
+            from .validation import ValidationDialog
+            ValidationDialog(result, self).exec()
 
     def toggle_theme(self) -> None:
         self.dark = not self.dark

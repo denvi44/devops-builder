@@ -51,7 +51,7 @@ def render(project: Project, catalog: Catalog) -> tuple[dict[str, str], IR]:
     Utilisé par generate() et par la règle R31 : le rapport et le diagnostic
     disent donc exactement la même chose.
     """
-    from . import ci, deploy, extras, iac, platform
+    from . import ci, civars, deploy, extras, iac, localtest, platform
 
     ir = build_ir(project, catalog)
     files: dict[str, str] = {}
@@ -80,6 +80,8 @@ def render(project: Project, catalog: Catalog) -> tuple[dict[str, str], IR]:
     files.update(extras.renovate(ir))
     files.update(extras.dependabot(ir))
     files.update(extras.clusters(ir))
+    files.update(localtest.kind_test(ir, files))
+    files.update(civars.ci_variables(ir))
     if ir.registry and files:
         ir.cover(ir.registry.id)  # sa référence d'image est écrite dans la CI ou le déploiement
     seen: set[str] = set()

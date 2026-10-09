@@ -106,6 +106,10 @@ QToolBar QToolButton {{ text-transform: none; }}
 QTabBar::tab {{ text-transform: none; }}
 QDockWidget {{ text-transform: none; }}
 QHeaderView::section {{ text-transform: none; }}
+QTreeView::indicator {{ width: 22px; height: 22px; }}
+QTreeView::indicator:checked {{ image: url(icon:/primary/checkbox_checked.svg); }}
+QTreeView::indicator:unchecked {{ image: url(icon:/primary/checkbox_unchecked.svg); }}
+QTreeView::indicator:disabled {{ image: url(icon:/disabled/checkbox_unchecked.svg); }}
 """
 
 

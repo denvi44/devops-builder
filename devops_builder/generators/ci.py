@@ -121,7 +121,11 @@ def _gha_cloud_steps(ir: IR, clouds: list[str]) -> list[dict]:
             w = {"client-id": _gha_ref(ir, "AZURE_CLIENT_ID"), "tenant-id": _gha_ref(ir, "AZURE_TENANT_ID"),
                  "subscription-id": _gha_ref(ir, "AZURE_SUBSCRIPTION_ID")}
             if static:
-                w = {"creds": "${{ secrets.AZURE_CREDENTIALS }}"}
+                # azure/login : identifiants assemblés à partir des variables déclarées
+                secret = "${{ secrets.AZURE_CLIENT_SECRET }}"
+                creds = (f'{{"clientId":"{w["client-id"]}","clientSecret":"{secret}",'
+                         f'"subscriptionId":"{w["subscription-id"]}","tenantId":"{w["tenant-id"]}"}}')
+                w = {"creds": creds}
             out.append({"uses": "azure/login@v2", "with": w})
     return out
 
@@ -347,6 +351,15 @@ def _tekton_pipeline(ir: IR, steps: list[Step], name: str) -> str:
 
 
 # ------------------------------------------------------------- Azure Pipelines
+def _az_script(ir: IR, st: Step) -> dict:
+    """Étape script ; les variables secrètes ne sont visibles des scripts que si elles sont mappées."""
+    step: dict = {"script": "\n".join(full_script(ir, st, None)) + "\n", "displayName": st.name}
+    secrets = {v.name: f"$({v.name})" for v in ir.variables if v.secret}
+    if secrets:
+        step["env"] = secrets
+    return step
+
+
 def azure_pipelines(ir: IR) -> dict[str, str]:
     stages_out = []
     main_cond = "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))"
@@ -367,7 +380,7 @@ def azure_pipelines(ir: IR) -> dict[str, str]:
                         "pool": {"vmImage": "ubuntu-latest"},
                         "strategy": {"runOnce": {"deploy": {"steps": [
                             {"checkout": "self"},
-                            {"script": "\n".join(full_script(ir, st, None)) + "\n", "displayName": st.name},
+                            _az_script(ir, st),
                         ]}}},
                     }],
                 })
@@ -378,7 +391,7 @@ def azure_pipelines(ir: IR) -> dict[str, str]:
                 job["container"] = st.image
             if st.main_only:
                 job["condition"] = main_cond
-            job["steps"] = [{"script": "\n".join(full_script(ir, st, None)) + "\n", "displayName": st.name}]
+            job["steps"] = [_az_script(ir, st)]
             if st.allow_failure:
                 job["continueOnError"] = True
             jobs.append(job)

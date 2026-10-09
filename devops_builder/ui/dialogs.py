@@ -298,15 +298,21 @@ class GenerateDialog(QDialog):
         lay.addWidget(split, 1)
 
         row = QHBoxLayout()
-        to_dir = QPushButton(icon("mdi6.folder-download"), "Exporter vers un dossier…")
-        to_dir.setProperty("class", "success")
-        to_zip = QPushButton(icon("mdi6.folder-zip"), "Exporter en archive .zip…")
+        check = QPushButton(icon("mdi6.check-decagram-outline"), "Valider…")
+        check.setToolTip("Contrôler les fichiers avec les linters installés, puis tester dans kind")
+        to_git = QPushButton(icon("mdi6.source-branch-plus"), "Exporter vers Git…")
+        to_git.setProperty("class", "success")
+        to_git.setToolTip("Nouvelle branche, commit, push et demande de fusion")
+        to_dir = QPushButton(icon("mdi6.folder-download"), "Écrire dans un dossier…")
+        to_zip = QPushButton(icon("mdi6.folder-zip"), "Archive .zip…")
         close = QPushButton("Fermer")
+        check.clicked.connect(self._validate)
+        to_git.clicked.connect(self._export_git)
         to_dir.clicked.connect(self._export_dir)
         to_zip.clicked.connect(self._export_zip)
         close.clicked.connect(self.accept)
-        row.addWidget(to_dir)
-        row.addWidget(to_zip)
+        for b in (check, to_git, to_dir, to_zip):
+            row.addWidget(b)
         row.addStretch(1)
         row.addWidget(close)
         lay.addLayout(row)
@@ -351,19 +357,32 @@ class GenerateDialog(QDialog):
         if rel:
             self.preview.setPlainText(self.result.files[rel])
 
+    def _validate(self) -> None:
+        from .validation import ValidationDialog
+        ValidationDialog(self.result, self).exec()
+
+    def _export_git(self) -> None:
+        from .export import GitExportDialog
+        GitExportDialog(self.result, self).exec()
+
     def _export_dir(self) -> None:
         d = QFileDialog.getExistingDirectory(self, "Dossier de destination")
-        if not d:
+        if d:
+            self.export_to(Path(d))
+
+    def export_to(self, target: Path) -> None:
+        """Écrit directement dans un dossier vide ; sinon montre d'abord les différences."""
+        from .. import sync
+        from .export import SyncDialog
+        changes = sync.plan(self.result.files, target)
+        if all(c.status == sync.NEW for c in changes):
+            written = sync.apply(changes, target)
+            QMessageBox.information(self, "Export terminé", f"{len(written) - 1} fichiers écrits dans {target}.")
             return
-        target = Path(d)
-        clashes = [r for r in self.result.files if (target / r).exists()]
-        if clashes:
-            ok = QMessageBox.question(self, "Écraser ?",
-                                      f"{len(clashes)} fichier(s) existent déjà dans ce dossier. Les remplacer ?")
-            if ok != QMessageBox.StandardButton.Yes:
-                return
-        written = self.result.write(target)
-        QMessageBox.information(self, "Export terminé", f"{len(written)} fichiers écrits dans {target}.")
+        dlg = SyncDialog(self.result, target, self)
+        if dlg.exec() and dlg.written:
+            n = len([w for w in dlg.written if w != sync.MANIFEST])
+            QMessageBox.information(self, "Export terminé", f"{n} fichier(s) écrit(s) ou supprimé(s) dans {target}.")
 
     def _export_zip(self) -> None:
         name = self.result.ir.project.app.image_name or "pipeline"

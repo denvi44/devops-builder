@@ -100,6 +100,70 @@ def main() -> int:
     for _ in range(3):
         app.processEvents()
     win.grab().save(str(out / f"07-surcharges{suffix}.png"))
+
+    # 8 à 10 : validation, différences avant écrasement, export Git
+    import subprocess
+    import tempfile
+    import time
+
+    from devops_builder import sync
+    from devops_builder.generators import generate
+    from devops_builder.ui.export import GitExportDialog, SyncDialog
+    from devops_builder.ui.validation import ValidationDialog
+
+    def wait(cond):
+        end = time.monotonic() + 120
+        while not cond() and time.monotonic() < end:
+            app.processEvents()
+            time.sleep(0.02)
+        app.processEvents()
+
+    result = generate(Project.load(DATA_DIR / "examples" / "03-iac-aws-eks.devops.yaml"), win.catalog)
+    val = ValidationDialog(result, win)
+    val.network.setChecked(False)
+    val.show()
+    val.start()
+    wait(lambda: val.worker is None)
+    val.grab().save(str(out / f"08-validation{suffix}.png"))
+    val.close()
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        sync.apply(sync.plan(result.files, root / "sortie"), root / "sortie")
+        (root / "sortie" / "PIPELINE.md").write_text("# Notes de l'équipe\n")
+        newer = generate(Project.load(DATA_DIR / "examples" / "03-iac-aws-eks.devops.yaml"), win.catalog)
+        newer.files[".gitlab-ci.yml"] = newer.files[".gitlab-ci.yml"].replace("stages:", "# revu\nstages:", 1)
+        diff = SyncDialog(newer, root / "sortie", win)
+        diff.view.tree.setCurrentItem(diff.view.tree.topLevelItem(0))
+        diff.show()
+        app.processEvents()
+        diff.grab().save(str(out / f"09-differences{suffix}.png"))
+        diff.close()
+
+        bare, work = root / "distant.git", root / "commandes"
+        git = ["git", "-c", "commit.gpgsign=false", "-c", "push.negotiate=false"]
+        subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(bare)], check=True)
+        subprocess.run(["git", "-C", str(bare), "config", "receive.advertisePushOptions", "true"], check=True)
+        hook = bare / "hooks" / "post-receive"
+        hook.write_text("#!/bin/sh\necho 'View merge request:'\n"
+                        "echo '  https://gitlab.exemple.fr/equipe/commandes/-/merge_requests/42'\n")
+        hook.chmod(0o755)
+        subprocess.run(["git", "clone", "-q", str(bare), str(work)], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(work), "remote", "set-url", "--push", "origin", str(bare)], check=True)
+        subprocess.run(["git", "-C", str(work), "config", "user.name", "Vincent"], check=True)
+        subprocess.run(["git", "-C", str(work), "config", "user.email", "vincent@exemple.fr"], check=True)
+        (work / "app.py").write_text("print('ok')\n")
+        subprocess.run([*git, "-C", str(work), "add", "."], check=True)
+        subprocess.run([*git, "-C", str(work), "commit", "-q", "-m", "init"], check=True)
+        subprocess.run([*git, "-C", str(work), "push", "-q", "origin", "main"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(work), "config", "commit.gpgsign", "false"], check=True)
+        subprocess.run(["git", "-C", str(work), "config", "push.negotiate", "false"], check=True)
+        exp = GitExportDialog(result, win, repo=str(work))
+        exp.show()
+        exp.start()
+        wait(lambda: exp.worker is None)
+        exp.grab().save(str(out / f"10-export-git{suffix}.png"))
+        exp.close()
     print("captures écrites dans", out)
     return 0
 

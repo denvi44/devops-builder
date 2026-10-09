@@ -320,3 +320,110 @@ def test_chaine_de_promotion_dans_la_barre(win):
     win._load(Project(name="t", environments=env_preset("dev-staging-prod")), None)
     texts = [w.text() for w in win.project_bar.findChildren(QLabel)]
     assert "Production · approbation" in texts and texts.count("→") == 2
+
+
+# ------------------------------------------------------------------ lot 3
+def _wait(cond, timeout: float = 60.0) -> None:
+    import time
+
+    from PySide6.QtWidgets import QApplication
+    end = time.monotonic() + timeout
+    while not cond():
+        QApplication.processEvents()
+        time.sleep(0.02)
+        assert time.monotonic() < end, "délai dépassé"
+    QApplication.processEvents()
+
+
+def _result(name: str):
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent))
+    from test_generators import CATALOG, MATRIX
+
+    from devops_builder.generators import generate
+    return generate(MATRIX[name], CATALOG)
+
+
+def test_dialogue_de_validation(win):
+    from devops_builder.ui.validation import ValidationDialog
+    dlg = ValidationDialog(_result("env-gitlab-eks"), win)
+    assert "syntax" in dlg.items and dlg.kind_btn.isEnabled()
+    dlg.network.setChecked(False)
+    dlg.start()
+    _wait(lambda: dlg.worker is None)
+    assert dlg.items["syntax"].text(1) == "ok"
+    assert all(item.text(1) != "en cours" for item in dlg.items.values())
+    assert "réussi" in dlg.summary.text()
+    dlg.close()
+
+
+def test_validation_sans_kubernetes_pas_de_kind(win):
+    from devops_builder.ui.validation import ValidationDialog
+    dlg = ValidationDialog(_result("gitlab-compose"), win)
+    assert not dlg.kind_btn.isEnabled()
+    dlg.close()
+
+
+def test_differences_avant_ecrasement(win, tmp_path):
+    from devops_builder import sync
+    from devops_builder.ui.dialogs import GenerateDialog
+    from devops_builder.ui.export import SyncDialog
+    result = _result("gitlab-compose")
+    gen = GenerateDialog(result, win)
+    from unittest import mock
+    with mock.patch("devops_builder.ui.dialogs.QMessageBox.information"):
+        gen.export_to(tmp_path)                       # dossier vide : écriture directe
+    assert (tmp_path / ".gitlab-ci.yml").exists()
+    (tmp_path / "PIPELINE.md").write_text("à moi\n")
+    result.files[".gitlab-ci.yml"] += "# nouveau\n"
+    dlg = SyncDialog(result, tmp_path, win)
+    rows = {dlg.view.tree.topLevelItem(i).text(0): dlg.view.tree.topLevelItem(i)
+            for i in range(dlg.view.tree.topLevelItemCount())}
+    assert set(rows) == {".gitlab-ci.yml", "PIPELINE.md"}      # fichiers identiques masqués
+    from PySide6.QtCore import Qt
+    assert rows["PIPELINE.md"].checkState(0) == Qt.CheckState.Unchecked
+    dlg.view.tree.setCurrentItem(rows[".gitlab-ci.yml"])
+    assert "+# nouveau" in dlg.view.diff.toPlainText()
+    dlg._write()
+    assert (tmp_path / "PIPELINE.md").read_text() == "à moi\n"
+    assert (tmp_path / ".gitlab-ci.yml").read_text().endswith("# nouveau\n")
+    assert sync.plan(result.files, tmp_path)[0].status in (sync.SAME, sync.EDITED)
+    gen.close()
+
+
+def test_dialogue_d_export_git(win, tmp_path):
+    import shutil
+    if shutil.which("git") is None:
+        pytest.skip("git absent")
+    from test_lot3 import _repo
+
+    from devops_builder.ui.export import GitExportDialog
+    bare, work = _repo(tmp_path, push_options=True)
+    dlg = GitExportDialog(_result("gitlab-compose"), win, repo=str(work))
+    assert "gitlab" in dlg.repo_state.text().lower() or "distant" in dlg.repo_state.text()
+    assert dlg.go.isEnabled()
+    dlg.start()
+    _wait(lambda: dlg.worker is None)
+    assert dlg.outcome is not None and dlg.outcome.pushed
+    assert "merge_requests/12" in dlg.link.text()
+    (work / "app.py").write_text("modifié\n")
+    dlg.load_repo()
+    assert not dlg.go.isEnabled() and "non commité" in dlg.repo_state.text()
+    dlg.close()
+
+
+def test_dialogue_kind_avec_outils_factices(win, tmp_path, monkeypatch):
+    from test_lot3 import _kind_stubs
+
+    from devops_builder.ui.validation import KindTestDialog
+    bin_dir, log = _kind_stubs(tmp_path)
+    monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
+    monkeypatch.setenv("STUB_LOG", str(log))
+    dlg = KindTestDialog(_result("env-jenkins-kustomize"), win)
+    assert dlg.missing == [] and dlg.env.currentData() == "dev"
+    dlg.start()
+    _wait(lambda: dlg.exit_code is not None)
+    assert dlg.exit_code == 0, dlg.log.toPlainText()
+    assert "dry-run serveur" in dlg.log.toPlainText() and "Test réussi." in dlg.log.toPlainText()
+    dlg.close()
