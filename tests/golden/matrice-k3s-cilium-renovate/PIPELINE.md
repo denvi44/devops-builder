@@ -10,6 +10,15 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | --- | --- | --- | --- | --- |
 | Production (`production`) | Production | non | k3s | `mon-app` |
 
+## Ports
+
+| Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- |
+| mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app, exposé par Traefik |
+| Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
+| Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
+| Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

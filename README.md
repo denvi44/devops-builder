@@ -9,9 +9,10 @@ Application de bureau Python, en Material Design, pour composer un pipeline DevO
 - **Catalogue** : 132 fiches vérifiées (outils, services managés, fournisseurs cloud) et l'ensemble du Landscape consultable, soit 1 192 entrées. Les entrées sans fiche sont marquées « non vérifiées ».
 - **Canevas** : neuf étapes en colonnes (source → observabilité). On y glisse des briques depuis la palette, ou on les ajoute par double-clic. Chaque outil n'accepte que ses étapes : pendant un glisser, les colonnes compatibles sont mises en évidence, les autres grisées, et un dépôt hors étape est refusé avec un message.
 - **Assistant de démarrage** : **Nouveau** pose cinq pages de questions (langage, forge, hébergement, cloud, environnements, sécurité, qualité, dépendances, observabilité, IaC) et construit un pipeline complet sans erreur bloquante. Les clouds proposés suivent l'hébergement choisi et l'exigence SecNumCloud. Ctrl+Maj+N ouvre un projet vide.
-- **Environnements et promotion** : une chaîne ordonnée, par exemple développement → préproduction → production. La même image est promue d'un environnement au suivant, avec approbation avant la production. Chaque environnement peut viser son propre cluster et surcharger les paramètres d'une brique (nom du cluster, service Cloud Run…). Les variables CI, les namespaces, les values Helm et les overlays Kustomize sont déclinés par environnement.
+- **Environnements et promotion** : une chaîne ordonnée de bac à sable, développement, recette, préproduction et production, par exemple développement → recette → production. La même image est promue d'un environnement au suivant, avec approbation avant la production. Chaque environnement peut viser son propre cluster et surcharger les paramètres d'une brique (nom du cluster, service Cloud Run…). Les variables CI, les namespaces, les values Helm et les overlays Kustomize sont déclinés par environnement.
+- **Ports** : la vue « Ports » (Ctrl+Maj+P) liste, pour chaque environnement, le port de l'application et ceux des briques (Grafana, Prometheus, Traefik, MinIO…), avec leur usage et leur exposition ; le rapport `PIPELINE.md` reprend le tableau et la fiche d'une brique ses ports. La règle R39 bloque deux services publiés sur le même port d'un hôte Docker et propose la correction. Des environnements qui partagent un hôte Docker (champ « Hôte Docker partagé ») voient leurs ports décalés de 10 000, production d'abord : les ports deviennent des variables du fichier Compose, et `deploy/env/<environnement>.env` est copié en `.env` lors du déploiement (SSH ou Ansible).
 - **Suggestions** : la fiche d'une brique propose les briques souvent associées (Trivy, Syft et Cosign après un build d'image, External Secrets avec un cluster managé…). Seules celles qui sont absentes et posables sur la cible apparaissent.
-- **Contrôle continu** : 39 règles (R00 à R38) couvrant le placement dans les étapes, la complétude du pipeline, la cible d'hébergement, l'exclusivité de rôle, les dépendances, les contrats entre étapes, la forge, le cycle de vie, les paramètres, la licence, la conformité (SecNumCloud, clés statiques) et les environnements (approbation de la production, cluster de chaque environnement, identifiants, collisions de namespaces). Chaque diagnostic propose des corrections en un clic, annulables.
+- **Contrôle continu** : 40 règles (R00 à R39) couvrant le placement dans les étapes, la complétude du pipeline, la cible d'hébergement, l'exclusivité de rôle, les dépendances, les contrats entre étapes, la forge, le cycle de vie, les paramètres, la licence, la conformité (SecNumCloud, clés statiques) et les environnements (approbation de la production, cluster de chaque environnement, identifiants, collisions de namespaces, conflits de ports). Chaque diagnostic propose des corrections en un clic, annulables.
 - **Complétude** : un pipeline incomplet n'est plus déclaré prêt. C'est le cas d'une image construite sans registre, d'étapes sans orchestrateur CI, d'un outil privé d'une capacité requise (forge, CNI, coffre de secrets…) ou d'une cible Kubernetes sans cluster. Une brique pour laquelle aucun fichier n'est produit est signalée (R31), selon la même logique que le rapport.
 - **Paramètres typés** : les briques qui ont des réglages (clusters, registres, buckets, fournisseurs) affichent un formulaire avec listes de régions et contrôle des formats de nommage de chaque cloud. Une clé mal orthographiée est détectée avec la correction proposée, et une valeur d'exemple restée en place est signalée. Les valeurs saisies, comme le rôle IAM ou le projet GCP, sont écrites dans la CI au lieu d'être laissées à déclarer.
 - **Génération** : définitions CI, déploiement, IaC et plateforme, avec un rapport `PIPELINE.md` qui liste les briques, les licences, les variables CI à déclarer et les avertissements restants.
@@ -44,6 +45,8 @@ Application de bureau Python, en Material Design, pour composer un pipeline DevO
 
 ![Fiche créée depuis le Landscape](docs/captures/12-fiche.png)
 
+![Ports par environnement](docs/captures/13-ports.png)
+
 ## Installation
 
 Il faut Python 3.11 ou plus récent.
@@ -66,7 +69,8 @@ Sous Linux, Qt a besoin des bibliothèques système habituelles (`libxkbcommon`,
 | Retirer une brique | Suppr, ou bouton dans Propriétés |
 | Corriger un diagnostic | Sélectionner le diagnostic puis cliquer une correction (Entrée applique la première) |
 | Nouveau projet | Ctrl+N : assistant ; Ctrl+Maj+N : projet vide |
-| Paramètres du projet | F2 : cible, langage, SecNumCloud, OIDC, politique de licence ; onglet Environnements |
+| Paramètres du projet | F2 : cible, langage, SecNumCloud, OIDC, politique de licence ; onglet Environnements (type, cluster, hôte Docker partagé, décalage des ports) |
+| Ports | Ctrl+Maj+P, ou le bouton « Ports » de la barre du projet |
 | Surcharger un paramètre | Sélectionner la brique, choisir l'environnement au-dessus du formulaire ; un champ vide hérite de la valeur commune |
 | Générer | Ctrl+G : aperçu des fichiers, puis export vers Git, dans un dossier (avec différences) ou en .zip |
 | Valider | Ctrl+Maj+V : contrôles locaux, puis test dans kind |
@@ -127,6 +131,8 @@ devops_builder/
   catalog_edit.py   fiches personnelles et corrections
   landscape.py      index du Landscape : construction, rafraîchissement, écarts
   userdata.py       dossier personnel (DEVOPS_BUILDER_HOME)
+  ports.py          ports par environnement, hôtes partagés, conflits
+  data/ports.yaml   ports par défaut des briques et leur usage
   suggest.py        briques souvent associées
   data/catalog/     fiches YAML (une par outil)
   data/params.yaml  schémas des paramètres de briques
@@ -137,7 +143,7 @@ tools/
   build_landscape_index.py   rafraîchit l'index depuis landscape.yml
   screenshot.py              captures hors écran de l'interface
 tests/              règles, générateurs, interface (hors écran), non-régression
-  golden/           sorties figées de 124 projets (exemples, matrice, échantillon de l'assistant)
+  golden/           sorties figées de 131 projets (exemples, matrice, échantillon de l'assistant, environnements et ports)
   data/legacy/      projets enregistrés par les versions 0.1 et 0.3
 tools/compare_captures.py  écart visuel entre deux séries de captures
 ```
@@ -152,7 +158,7 @@ Un outil ne peut être posé que dans `stage` ou `extra_stages`. Par exemple, An
 
 ### Ajouter une règle
 
-Créer `data/rules/R39_....yaml` avec un `type` existant (`exclusive_role`, `conflict_pair`, `requires`, `requires_generic`, `lifecycle`, `target_mismatch`, `params`…), puis ajouter son cas dans `tests/test_rules.py`. Un nouveau type de règle s'écrit comme un handler dans `rules.py`.
+Créer `data/rules/R40_....yaml` avec un `type` existant (`exclusive_role`, `conflict_pair`, `requires`, `requires_generic`, `lifecycle`, `target_mismatch`, `params`…), puis ajouter son cas dans `tests/test_rules.py`. Un nouveau type de règle s'écrit comme un handler dans `rules.py`.
 
 ### Rafraîchir le Landscape
 
@@ -172,11 +178,11 @@ pip install -e ".[dev]"
 QT_QPA_PLATFORM=offscreen pytest
 ```
 
-401 tests : un par règle, l'application de chaque correction proposée, une matrice de combinaisons CI × déploiement × cloud × environnements validées contre les schémas, avec contrôle qu'aucune brique n'y reste sans fichier, les 4 590 combinaisons de l'assistant (aucune ne doit produire d'erreur bloquante), la validation, l'écriture prudente, l'export Git vers des dépôts locaux (dont les options de push GitLab), les scripts kind et variables CI contre des outils factices et une fausse API Gitea, l'entretien du catalogue contre une fausse API GitHub et GitLab, le catalogue personnel et le rafraîchissement du Landscape, et l'interface pilotée hors écran : glisser-déposer, formulaire de paramètres, surcharges, éditeur d'environnements, assistant, dialogues de validation, de différences, d'export, d'entretien et de fiche. Toute exception levée dans un slot Qt fait échouer le test en cours. Les tests utilisent un dossier personnel jetable : un catalogue personnel présent sur le poste ne les influence pas.
+430 tests : un par règle, l'application de chaque correction proposée, une matrice de combinaisons CI × déploiement × cloud × environnements validées contre les schémas, avec contrôle qu'aucune brique n'y reste sans fichier, les 15 300 combinaisons de l'assistant (aucune ne doit produire d'erreur bloquante), la validation, l'écriture prudente, l'export Git vers des dépôts locaux (dont les options de push GitLab), les scripts kind et variables CI contre des outils factices et une fausse API Gitea, l'entretien du catalogue contre une fausse API GitHub et GitLab, le catalogue personnel et le rafraîchissement du Landscape, et l'interface pilotée hors écran : glisser-déposer, formulaire de paramètres, surcharges, éditeur d'environnements, assistant, dialogues de validation, de différences, d'export, d'entretien, de fiche et de ports. Toute exception levée dans un slot Qt fait échouer le test en cours. Les tests utilisent un dossier personnel jetable : un catalogue personnel présent sur le poste ne les influence pas.
 
 ### Non-régression
 
-`tests/test_regression.py` compare tout ce que génèrent 124 projets (fichiers et diagnostics) à l'instantané de `tests/golden/`, et recharge les projets enregistrés par les versions précédentes. Après un changement voulu :
+`tests/test_regression.py` compare tout ce que génèrent 131 projets (fichiers et diagnostics) à l'instantané de `tests/golden/`, et recharge les projets enregistrés par les versions précédentes. Après un changement voulu :
 
 ```bash
 UPDATE_GOLDEN=1 pytest tests/test_regression.py

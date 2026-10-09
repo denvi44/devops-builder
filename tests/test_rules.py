@@ -72,7 +72,14 @@ CASES = [
     ("R36", lambda: put(_envs("dev-staging-prod"), "aws", "eks", "kind"), Severity.BLOCKING),
     ("R37", lambda: _envs(None), Severity.BLOCKING),
     ("R38", lambda: _ecs_collision(), Severity.BLOCKING),
+    ("R39", lambda: _port_clash(), Severity.BLOCKING),
 ]
+
+
+def _port_clash() -> Project:
+    p = put(make("docker-host"), "gitlab", "gitlab-ci", "buildkit", "harbor", "docker-compose", "grafana")
+    p.app.port = 3000
+    return p
 
 
 def _envs(preset: str | None, approval: bool = True, target: str = "kubernetes-managed") -> Project:

@@ -10,6 +10,17 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | --- | --- | --- | --- | --- |
 | Production (`production`) | Production | non | k3s | `mon-app` |
 
+## Ports
+
+| Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- |
+| mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app |
+| Jenkins | — | 8080 | interface web | Service Kubernetes, espace de noms jenkins |
+| Jenkins | — | 50000 | agents | Service Kubernetes, espace de noms jenkins |
+| SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube |
+| Harbor | — | 80 | HTTP | Service Kubernetes, espace de noms harbor |
+| Harbor | — | 443 | HTTPS (portail et registre) | Service Kubernetes, espace de noms harbor |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

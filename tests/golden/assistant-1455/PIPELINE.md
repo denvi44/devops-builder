@@ -12,6 +12,17 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction (`staging`) | Préproduction | non | Outscale Kubernetes as a Service (OKS) `mon-cluster` | `mon-app-staging` |
 | Production (`production`) | Production | oui | Outscale Kubernetes as a Service (OKS) `mon-cluster` | `mon-app` |
 
+## Ports
+
+| Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- | --- |
+| Développement | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-dev |
+| Développement | SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube |
+| Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging |
+| Préproduction | SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube |
+| Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app |
+| Production | SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

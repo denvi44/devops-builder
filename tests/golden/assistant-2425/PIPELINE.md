@@ -11,6 +11,19 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction (`staging`) | Préproduction | non | k3s | `mon-app-staging` |
 | Production (`production`) | Production | oui | k3s | `mon-app` |
 
+## Ports
+
+| Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- | --- |
+| Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging, exposé par Traefik |
+| Préproduction | SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube |
+| Préproduction | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
+| Préproduction | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
+| Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app, exposé par Traefik |
+| Production | SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube |
+| Production | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
+| Production | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

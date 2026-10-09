@@ -1,0 +1,28 @@
+# Ports d'écoute par défaut des briques (ports du conteneur), avec leur usage.
+# Sert à la vue « Ports », au rapport PIPELINE.md et à la détection des conflits.
+# Les ports publiés sur un hôte Docker viennent des services Compose (generators/platform.py).
+traefik:        {80: "HTTP", 443: "HTTPS"}
+ingress-nginx:  {80: "HTTP", 443: "HTTPS"}
+envoy-gateway:  {80: "HTTP", 443: "HTTPS"}
+prometheus:     {9090: "interface et API"}
+grafana:        {3000: "interface web"}
+loki:           {3100: "API HTTP (ingestion et requêtes)"}
+tempo:          {3200: "API HTTP"}
+jaeger:         {16686: "interface web", 4317: "OTLP gRPC", 4318: "OTLP HTTP"}
+otel-collector: {4317: "OTLP gRPC", 4318: "OTLP HTTP"}
+opensearch:     {9200: "API REST"}
+fluent-bit:     {24224: "entrée forward"}
+fluentd:        {24224: "entrée forward"}
+minio:          {9000: "API S3", 9001: "console web"}
+zot:            {5000: "registre OCI"}
+distribution:   {5000: "registre OCI"}
+harbor:         {80: "HTTP", 443: "HTTPS (portail et registre)"}
+gitea:          {3000: "interface web", 22: "SSH Git"}
+jenkins:        {8080: "interface web", 50000: "agents"}
+sonarqube:      {9000: "interface web"}
+vault:          {8200: "API et interface"}
+openbao:        {8200: "API et interface"}
+argo-cd:        {8080: "API et interface (service 80/443)"}
+argo-workflows: {2746: "serveur et interface"}
+chaos-mesh:     {2333: "tableau de bord"}
+nexus:          {8081: "interface et dépôts"}

@@ -10,6 +10,13 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | --- | --- | --- | --- | --- |
 | Production (`production`) | Production | non | Azure Kubernetes Service `mon-cluster` | `mon-app` |
 
+## Ports
+
+| Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- |
+| mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app |
+| SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

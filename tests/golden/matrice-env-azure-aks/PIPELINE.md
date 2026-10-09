@@ -12,6 +12,14 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction (`staging`) | Préproduction | non | Azure Kubernetes Service `mon-cluster` | `mon-app-staging` |
 | Production (`production`) | Production | oui | Azure Kubernetes Service `mon-cluster` | `mon-app` |
 
+## Ports
+
+| Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- | --- |
+| Développement | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-dev |
+| Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging |
+| Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

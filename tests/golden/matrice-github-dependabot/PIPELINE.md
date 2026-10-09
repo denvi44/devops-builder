@@ -10,6 +10,12 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | --- | --- | --- | --- | --- |
 | Production (`production`) | Production | non | Amazon EKS `mon-cluster` | `mon-app` |
 
+## Ports
+
+| Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- |
+| mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

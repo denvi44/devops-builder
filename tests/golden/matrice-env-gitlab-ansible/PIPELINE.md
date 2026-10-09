@@ -12,6 +12,14 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction (`staging`) | Préproduction | non | — | `mon-app-staging` |
 | Production (`production`) | Production | oui | — | `mon-app` |
 
+## Ports
+
+| Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- | --- |
+| Développement | mon-app | 8000 | 8000 | application | publié sur l'hôte Docker |
+| Préproduction | mon-app | 8000 | 8000 | application | publié sur l'hôte Docker |
+| Production | mon-app | 8000 | 8000 | application | publié sur l'hôte Docker |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

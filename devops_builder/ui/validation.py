@@ -220,7 +220,7 @@ class KindTestDialog(QDialog):
         project = result.ir.project
         for e in project.environments:
             self.env.addItem(e.display, e.id)
-        dev = next((i for i, e in enumerate(project.environments) if e.kind == "dev"), 0)
+        dev = next((i for k in ("dev", "sandbox") for i, e in enumerate(project.environments) if e.kind == k), 0)
         self.env.setCurrentIndex(dev)
         form.addRow("Environnement", self.env)
         app_row = QHBoxLayout()

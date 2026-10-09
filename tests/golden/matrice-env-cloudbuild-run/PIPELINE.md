@@ -11,6 +11,13 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction (`staging`) | Préproduction | non | — | `mon-app-staging` |
 | Production (`production`) | Production | oui | — | `mon-app` |
 
+## Ports
+
+| Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- | --- |
+| Préproduction | mon-app | — | 8000 | application | Cloud Run : URL HTTPS gérée par le service |
+| Production | mon-app | — | 8000 | application | Cloud Run : URL HTTPS gérée par le service |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

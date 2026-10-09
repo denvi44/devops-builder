@@ -12,6 +12,26 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction (`staging`) | Préproduction | non | k3s | `mon-app-staging` |
 | Production (`production`) | Production | oui | k3s | `mon-app` |
 
+## Ports
+
+| Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- | --- |
+| Développement | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-dev |
+| Développement | Jenkins | — | 8080 | interface web | Service Kubernetes, espace de noms jenkins |
+| Développement | Jenkins | — | 50000 | agents | Service Kubernetes, espace de noms jenkins |
+| Développement | Harbor | — | 80 | HTTP | Service Kubernetes, espace de noms harbor |
+| Développement | Harbor | — | 443 | HTTPS (portail et registre) | Service Kubernetes, espace de noms harbor |
+| Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging |
+| Préproduction | Jenkins | — | 8080 | interface web | Service Kubernetes, espace de noms jenkins |
+| Préproduction | Jenkins | — | 50000 | agents | Service Kubernetes, espace de noms jenkins |
+| Préproduction | Harbor | — | 80 | HTTP | Service Kubernetes, espace de noms harbor |
+| Préproduction | Harbor | — | 443 | HTTPS (portail et registre) | Service Kubernetes, espace de noms harbor |
+| Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app |
+| Production | Jenkins | — | 8080 | interface web | Service Kubernetes, espace de noms jenkins |
+| Production | Jenkins | — | 50000 | agents | Service Kubernetes, espace de noms jenkins |
+| Production | Harbor | — | 80 | HTTP | Service Kubernetes, espace de noms harbor |
+| Production | Harbor | — | 443 | HTTPS (portail et registre) | Service Kubernetes, espace de noms harbor |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

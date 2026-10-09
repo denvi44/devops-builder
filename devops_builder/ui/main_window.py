@@ -18,6 +18,8 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QToolBar,
     QVBoxLayout,
     QWidget,
@@ -105,13 +107,33 @@ class MainWindow(QMainWindow):
         bar.setContentsMargins(16, 10, 16, 10)
         self.title = QLabel()
         self.title.setObjectName("heroTitle")
+        self.title.setMinimumWidth(120)
+        self.title.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
         bar.addWidget(self.title)
-        self.chips_box = QHBoxLayout()
+        # Les puces prennent la place qui reste : sur un petit écran elles sont rognées au lieu
+        # d'imposer à la fenêtre une largeur minimale plus grande que l'écran.
+        self.chips_area = QScrollArea()
+        self.chips_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.chips_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.chips_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.chips_area.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.chips_area.setFixedHeight(30)
+        self.chips_area.setStyleSheet("QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; }")
+        chips = QWidget()
+        self.chips_box = QHBoxLayout(chips)
+        self.chips_box.setContentsMargins(0, 0, 0, 0)
         self.chips_box.setSpacing(6)
-        bar.addLayout(self.chips_box)
-        bar.addStretch(1)
-        self.settings_btn = QPushButton("Paramètres du projet")
-        self.settings_btn.clicked.connect(self.edit_settings)
+        self.chips_area.setWidgetResizable(True)  # le contenu garde sa largeur ; l'excédent est rogné
+        self.chips_area.setWidget(chips)
+        bar.addWidget(self.chips_area, 1)
+        self.ports_btn = QPushButton("Ports")
+        self.ports_btn.setToolTip("Ports de l'application et des briques, par environnement (Ctrl+Maj+P)")
+        self.ports_btn.clicked.connect(self.show_ports)
+        bar.addWidget(self.ports_btn)
+        self.settings_btn = QPushButton()
+        self.settings_btn.setToolTip("Paramètres du projet (F2)")
+        self.settings_btn.setAccessibleName("Paramètres du projet")
+        self.settings_btn.clicked.connect(lambda: self.edit_settings())
         bar.addWidget(self.settings_btn)
         self.generate_btn = QPushButton("Générer")
         self.generate_btn.setProperty("class", "success")
@@ -187,6 +209,8 @@ class MainWindow(QMainWindow):
         self.a_generate = self._act("Générer les fichiers…", self.generate, "Ctrl+G", "mdi6.rocket-launch-outline",
                                     "Générer les fichiers du pipeline (Ctrl+G)")
         self.a_settings = self._act("Paramètres du projet…", self.edit_settings, "F2", "mdi6.cog-outline")
+        self.a_ports = self._act("Ports et exposition…", self.show_ports, "Ctrl+Shift+P", "mdi6.lan",
+                                 "Ports de l'application et des briques, par environnement (Ctrl+Maj+P)")
         self.a_validate = self._act("Valider…", self.validate, "Ctrl+Shift+V", "mdi6.check-decagram-outline",
                                     "Contrôler les fichiers générés avec les outils installés, puis tester dans kind (Ctrl+Maj+V)")
         self.a_undo = self.undo_stack.createUndoAction(self, "Annuler")
@@ -247,6 +271,7 @@ class MainWindow(QMainWindow):
         p.addAction(self.a_settings)
         p.addAction(self.a_generate)
         p.addAction(self.a_validate)
+        p.addAction(self.a_ports)
         c = mb.addMenu("&Catalogue")
         c.addActions([self.a_maintenance, self.a_new_fiche, self.a_catalog_folder])
         v = mb.addMenu("&Affichage")
@@ -268,6 +293,7 @@ class MainWindow(QMainWindow):
         pal = theme.current()
         self.generate_btn.setIcon(icon("mdi6.rocket-launch-outline", pal.primary))
         self.settings_btn.setIcon(icon("mdi6.cog-outline", pal.text))
+        self.ports_btn.setIcon(icon("mdi6.lan", pal.text))
         for sid, col in self.canvas.columns.items():
             col.findChild(QLabel).setPixmap(icon(STAGE_ICONS[sid], pal.primary).pixmap(20, 20))
 
@@ -306,14 +332,22 @@ class MainWindow(QMainWindow):
                 arrow.setAccessibleName("puis")
                 self.chips_box.addWidget(arrow)
             text = env.display + (" · approbation" if env.approval else "")
-            self.chips_box.addWidget(chip(text, primary=env.kind == "production",
-                                          tooltip=f"Environnement {env.id} ({ENVIRONMENTS[env.kind]})"))
+            tip = f"Environnement {env.id} ({ENVIRONMENTS[env.kind]})"
+            if env.host:
+                tip += f" · hôte partagé « {env.host} »"
+            self.chips_box.addWidget(chip(text, primary=env.kind == "production", tooltip=tip))
         self.chips_box.addWidget(chip("OIDC" if p.cloud_auth == "oidc" else "Clés statiques",
                                       tooltip="Authentification cloud en CI"))
         if p.secnumcloud:
             self.chips_box.addWidget(chip("SecNumCloud", primary=True))
         if p.license_policy == "oss-only":
             self.chips_box.addWidget(chip("Open source uniquement"))
+        self.chips_box.addStretch(1)
+        width = sum(self.chips_box.itemAt(i).widget().sizeHint().width() + self.chips_box.spacing()
+                    for i in range(self.chips_box.count()) if self.chips_box.itemAt(i).widget())
+        self.chips_area.widget().setMinimumWidth(width)
+        envs = " → ".join(e.display for e in p.environments)
+        self.project_bar.setToolTip(f"{TARGETS[p.target]} · {envs}")
 
     def _update_title(self) -> None:
         name = self.path.name if self.path else "sans titre"
@@ -538,10 +572,20 @@ class MainWindow(QMainWindow):
         self.palette.search.selectAll()
 
     # ============================================================ projet / fichiers
-    def edit_settings(self) -> None:
+    def edit_settings(self, tab: str = "") -> None:
         dlg = ProjectSettingsDialog(self.project, self, self.catalog)
+        if tab == "environnements":
+            dlg.tabs.setCurrentWidget(dlg.envs_editor)
         if dlg.exec():
             self.mutate("Paramètres du projet", dlg.apply_to)
+
+    def show_ports(self) -> None:
+        from .ports import PortsDialog
+
+        def edit() -> Project:
+            self.edit_settings("environnements")
+            return self.project
+        PortsDialog(self.project, self.catalog, self, edit_environments=edit).exec()
 
     def _confirm_discard(self) -> bool:
         if self.undo_stack.isClean():

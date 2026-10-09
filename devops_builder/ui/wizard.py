@@ -151,6 +151,10 @@ class StarterWizard(QWizard):
         page, lay = self._page("Environnements et options", "Promotion entre environnements et contrôles à inclure.")
         lay.addWidget(muted("Environnements"))
         self.g_envs = _radios(ENV_PRESETS, lay, "staging-prod")
+        self.w_shared = QCheckBox("Environnements hors production sur un même hôte Docker (ports décalés)")
+        self.w_shared.setToolTip("Les ports publiés de chaque environnement hors production sont décalés de 10 000 "
+                                 "pour qu'ils cohabitent sur la même machine.")
+        lay.addWidget(self.w_shared)
         self.w_gitops = QCheckBox("Déploiement GitOps avec Argo CD (Kubernetes)")
         self.w_security = QCheckBox("Sécurité : secrets (Gitleaks), vulnérabilités (Trivy), signature (Cosign)")
         self.w_security.setChecked(True)
@@ -180,6 +184,10 @@ class StarterWizard(QWizard):
         if not k8s:
             self.w_gitops.setChecked(False)
         self.w_iac.setEnabled(a.cloud is not None)
+        docker = a.hosting in ("docker-host", "vm")
+        self.w_shared.setEnabled(docker)
+        if not docker:
+            self.w_shared.setChecked(False)
 
     def _page_summary(self) -> QWizardPage:
         page, lay = self._page("Récapitulatif", "Le pipeline qui sera créé ; tout reste modifiable ensuite.")
@@ -198,6 +206,9 @@ class StarterWizard(QWizard):
             if names:
                 rows.append(f"<tr><td><b>{label}</b>&nbsp;&nbsp;</td><td>{', '.join(names)}</td></tr>")
         envs = " → ".join(e.display + (" (approbation)" if e.approval else "") for e in project.environments)
+        hosts = {e.host for e in project.environments if e.host}
+        if hosts:
+            envs += " ; hors production sur un même hôte, ports décalés"
         diags = self.engine.evaluate(project)
         warn = sum(1 for d in diags if d.severity.value == "avertissement")
         tail = f"<p>{warn} avertissement(s) à examiner, aucun blocage.</p>" if warn else "<p>Aucun blocage.</p>"
@@ -217,6 +228,7 @@ class StarterWizard(QWizard):
             dependencies=self.w_deps.isChecked() if hasattr(self, "w_deps") else True,
             observability=self.w_obs.currentData() if hasattr(self, "w_obs") else "prometheus",
             iac=self.w_iac.currentData() if hasattr(self, "w_iac") else "opentofu",
+            shared_host=self.w_shared.isChecked() if hasattr(self, "w_shared") else False,
         )
 
     def project(self) -> Project:

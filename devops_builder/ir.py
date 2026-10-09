@@ -295,6 +295,11 @@ def _kube_access(ir: IR, need_helm: bool, env: Environment) -> KubeAccess:
     return KubeAccess(ALPINE, script, [])
 
 
+def _ports_shifted(ir: IR) -> bool:
+    from .ports import parametrized
+    return parametrized(ir.project)
+
+
 SSH_SETUP = 'mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519'
 
 
@@ -309,7 +314,8 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
             return Step("deploy", "Déploiement Ansible + Compose", "deploy", "alpine/ansible:latest", [
                 SSH_SETUP,
                 "ansible-galaxy collection install community.docker",
-                f'ansible-playbook -i {ir.inventory(env)} ansible/deploy.yml -e "image=$IMAGE" -e "project={ns}"'],
+                f'ansible-playbook -i {ir.inventory(env)} ansible/deploy.yml -e "image=$IMAGE" -e "project={ns}"'
+                + (f' -e "deploy_env={env.id}"' if _ports_shifted(ir) else "")],
                 tool="ansible")
         host = ir.env_var("DEPLOY_HOST", env)
         ir.add_var("SSH_PRIVATE_KEY", "Clé SSH de déploiement vers l'hôte Docker")
@@ -320,6 +326,7 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
             SSH_SETUP,
             f'ssh -o StrictHostKeyChecking=accept-new "${host}" "mkdir -p /opt/{ns}"',
             f'scp deploy/docker-compose.yml "${host}:/opt/{ns}/docker-compose.yml"',
+            *([f'scp deploy/env/{env.id}.env "${host}:/opt/{ns}/.env"'] if _ports_shifted(ir) else []),
             f'ssh "${host}" "cd /opt/{ns} && IMAGE=$IMAGE docker compose -p {ns} pull && IMAGE=$IMAGE docker compose -p {ns} up -d"'],
             tool="docker-compose")
     if ir.has("argo-cd") or ir.has("flux"):

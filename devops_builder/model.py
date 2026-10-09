@@ -39,11 +39,15 @@ TARGETS: dict[str, str] = {
     "kubernetes": "Kubernetes autogéré",
     "kubernetes-managed": "Kubernetes managé (cloud)",
 }
-ENVIRONMENTS: dict[str, str] = {  # types d'environnement
+ENVIRONMENTS: dict[str, str] = {  # types d'environnement, du moins au plus exposé
+    "sandbox": "Bac à sable",
     "dev": "Développement",
+    "recette": "Recette",
     "staging": "Préproduction",
     "production": "Production",
 }
+EnvKind = Literal["sandbox", "dev", "recette", "staging", "production"]
+PORT_OFFSET_STEP = 10000  # décalage des ports entre environnements d'un même hôte
 ENV_ID_PATTERN = r"[a-z][a-z0-9-]{0,19}"
 LANGUAGES: dict[str, str] = {
     "python": "Python",
@@ -202,9 +206,12 @@ class Environment(BaseModel):
 
     id: str
     label: str = ""
-    kind: Literal["dev", "staging", "production"] = "production"
+    kind: EnvKind = "production"
     approval: bool = False          # déploiement soumis à une approbation manuelle
     cluster: str | None = None      # brique cluster utilisée (obligatoire s'il y en a plusieurs)
+    # Hôte Docker partagé : les environnements qui indiquent le même nom se partagent ses ports
+    host: str = ""
+    port_offset: int | None = None  # décalage des ports publiés ; None = automatique
     overrides: dict[str, dict[str, Any]] = Field(default_factory=dict)  # outil -> paramètres
 
     @property
@@ -222,6 +229,13 @@ def env_preset(name: str) -> list[Environment]:
     if name == "dev-staging-prod":
         return [Environment(id="dev", kind="dev"), Environment(id="staging", kind="staging"),
                 Environment(id="production", kind="production", approval=True)]
+    if name == "dev-recette-prod":
+        return [Environment(id="dev", kind="dev"), Environment(id="recette", kind="recette"),
+                Environment(id="production", kind="production", approval=True)]
+    if name == "complet":
+        return [Environment(id="sandbox", kind="sandbox"), Environment(id="dev", kind="dev"),
+                Environment(id="recette", kind="recette"), Environment(id="staging", kind="staging"),
+                Environment(id="production", kind="production", approval=True)]
     raise ValueError(name)
 
 
@@ -229,6 +243,8 @@ ENV_PRESETS = {
     "prod": "Production seule",
     "staging-prod": "Préproduction → production",
     "dev-staging-prod": "Développement → préproduction → production",
+    "dev-recette-prod": "Développement → recette → production",
+    "complet": "Bac à sable → développement → recette → préproduction → production",
 }
 
 
@@ -262,7 +278,7 @@ class Project(BaseModel):
     def environment(self) -> str:
         """Type d'environnement le plus exposé (compatibilité : règles « en production »)."""
         kinds = {e.kind for e in self.environments}
-        for k in ("production", "staging", "dev"):
+        for k in reversed(ENVIRONMENTS):
             if k in kinds:
                 return k
         return "production"
@@ -330,6 +346,11 @@ class Project(BaseModel):
     # -------------------------------------------------------------- persistence
     def to_yaml(self) -> str:
         data = self.model_dump(mode="json")
+        for env in data.get("environments", []):
+            # champs ajoutés en 0.6 : omis quand ils ne servent pas, le fichier reste lisible par la 0.5
+            for key, default in (("host", ""), ("port_offset", None)):
+                if env.get(key) == default:
+                    env.pop(key, None)
         return yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
 
     @classmethod

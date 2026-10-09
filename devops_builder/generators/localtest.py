@@ -161,7 +161,7 @@ def kind_test(ir: IR, files: dict[str, str]) -> dict[str, str]:
     if not (helm or kustomize):
         return {}
     envs = [e.id for e in ir.envs]
-    default = next((e.id for e in ir.envs if e.kind == "dev"), envs[0])
+    default = next((e.id for k in ("dev", "sandbox") for e in ir.envs if e.kind == k), envs[0])
     cases = "\n".join(f"  {e.id}) NAMESPACE={shlex.quote(ir.namespace(e))} ;;" for e in ir.envs)
     deploy = _HELM if helm else _KUSTOMIZE.replace("@OVERLAYS@", "deploy/kustomize/overlays")
     text = (_TEMPLATE

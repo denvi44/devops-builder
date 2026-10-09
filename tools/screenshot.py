@@ -193,6 +193,19 @@ def main() -> int:
         maint.close()
         del os.environ["DEVOPS_BUILDER_HOME"]
         win.reload_catalog()
+    # 13 : ports par environnement, recette et développement sur un même hôte Docker
+    from devops_builder.model import env_preset
+    from devops_builder.ui.ports import PortsDialog
+    p = Project(name="Portail", target="docker-host", environments=env_preset("dev-recette-prod"))
+    for t in ("gitlab", "gitlab-ci", "buildkit", "harbor", "docker-compose", "traefik", "prometheus", "grafana"):
+        p.add(t, win.catalog[t].stage)
+    p.environments[0].host = p.environments[1].host = "vm-hors-prod"
+    win._load(p, None)
+    ports = PortsDialog(win.project, win.catalog, win, edit_environments=lambda: win.project)
+    ports.show()
+    app.processEvents()
+    ports.grab().save(str(out / f"13-ports{suffix}.png"))
+    ports.close()
     print("captures écrites dans", out)
     return 0
 

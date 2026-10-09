@@ -10,6 +10,15 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | --- | --- | --- | --- | --- |
 | Production (`production`) | Production | non | OVHcloud Managed Kubernetes `mon-cluster` | `mon-app` |
 
+## Ports
+
+| Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- |
+| mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app |
+| Gitea | — | 3000 | interface web | Service Kubernetes, espace de noms gitea |
+| Gitea | — | 22 | SSH Git | Service Kubernetes, espace de noms gitea |
+| SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

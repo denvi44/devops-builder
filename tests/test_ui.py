@@ -543,3 +543,47 @@ def test_esperluette_affichee_dans_les_boutons(win):
     win._show_catalog_tool("unit-tests")
     texts = [b.text() for b in win.properties.findChildren(QPushButton)]
     assert "Ajouter à l'étape Tests && qualité" in texts
+
+
+# ------------------------------------------------------------------ environnements et ports
+def test_editeur_d_environnements_hote_et_ports(win):
+    from devops_builder.model import env_preset
+    from devops_builder.ui.dialogs import ProjectSettingsDialog
+    p = Project(name="t", target="docker-host", environments=env_preset("dev-recette-prod"))
+    for t in ("gitlab", "gitlab-ci", "buildkit", "harbor", "docker-compose", "grafana"):
+        p.add(t, win.catalog[t].stage)
+    win._load(p, None)
+    dlg = ProjectSettingsDialog(win.project, win, win.catalog)
+    ed = dlg.envs_editor
+    kinds = [ed.f_kind.itemText(i) for i in range(ed.f_kind.count())]
+    assert kinds == ["Bac à sable", "Développement", "Recette", "Préproduction", "Production"]
+    for row in (0, 1):
+        ed.list.setCurrentRow(row)
+        ed.f_host.setCurrentText("vm-hors-prod")
+    assert "13000" in ed.f_ports.text() and "décalage 10000" in ed.f_ports.text()
+    ed.f_offset.setValue(0)                                   # même décalage que dev : conflit visible
+    assert "⚠" in ed.f_ports.text()
+    ed.f_offset.setValue(-1)
+    assert ed.f_offset.text() == "automatique" and ed.envs[1].port_offset is None
+    dlg.apply_to(win.project)
+    assert [e.host for e in win.project.environments] == ["vm-hors-prod", "vm-hors-prod", ""]
+    dlg.close()
+
+
+def test_vue_des_ports(win):
+    from devops_builder.ui.ports import PortsDialog
+    p = Project(name="t", target="docker-host")
+    for t in ("gitlab", "gitlab-ci", "buildkit", "harbor", "docker-compose", "grafana"):
+        p.add(t, win.catalog[t].stage)
+    p.app.port = 3000
+    win._load(p, None)
+    dlg = PortsDialog(win.project, win.catalog, win)
+    rows = [dlg.tree.topLevelItem(i) for i in range(dlg.tree.topLevelItemCount())]
+    assert {r.text(1) for r in rows} == {"mon-app", "Grafana"}
+    assert "en conflit" in dlg.summary.text() and "port 3000" in rows[0].toolTip(0)
+    dlg.close()
+    win._focus_brick(win.project.bricks_for("grafana")[0].uid)
+    from PySide6.QtWidgets import QLabel
+    texts = [w.text() for w in win.properties.findChildren(QLabel)]
+    assert "Ports" in texts and any(t.startswith("3000 → 3000 (interface web)") for t in texts)
+    assert any(d.rule_id == "R39" for d in win.engine.evaluate(win.project))

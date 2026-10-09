@@ -12,6 +12,17 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction (`staging`) | Préproduction | non | k3s | `mon-app-staging` |
 | Production (`production`) | Production | oui | k3s | `mon-app` |
 
+## Ports
+
+| Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- | --- |
+| Développement | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-dev |
+| Développement | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging |
+| Préproduction | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app |
+| Production | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

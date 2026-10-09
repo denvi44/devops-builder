@@ -1,0 +1,6 @@
+id: R39
+title: Conflit de ports sur un hôte Docker
+family: environnements
+severity: bloquant
+type: port_conflict
+message: "Port {port} publié plusieurs fois sur {host} : {owners}."

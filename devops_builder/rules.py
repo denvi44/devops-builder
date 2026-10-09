@@ -742,6 +742,38 @@ class RuleEngine:
         return [d for d in diagnostics if d.severity is Severity.BLOCKING]
 
 
+@handler("port_conflict")
+def h_port_conflict(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    from .ports import MAX_PORT, conflicts, free_port, port_plan
+    plan = port_plan(ctx.project, ctx.catalog)
+    out = []
+    groups: dict[tuple[str, int], list] = {}
+    for e in conflicts(plan):
+        groups.setdefault((e.host_group, e.host_port or 0), []).append(e)
+    for (group, port), same in groups.items():
+        host = "l'" + group[1:-1] if group.startswith("(") else f"l'hôte « {group} »"
+        if port > MAX_PORT:
+            message = f"{same[0].component} ({same[0].env}) : port {port} au-delà de {MAX_PORT} après décalage."
+        else:
+            owners = ", ".join(dict.fromkeys(f"{x.component} ({x.env})" for x in same))
+            message = _fmt(rule.message, port=port, host=host, owners=owners)
+        actions: list[Action] = []
+        if any(x.component_id == "app" for x in same):
+            new = free_port(plan, ctx.project.app.port + 1)
+            actions.append(Action("set_app_port", f"Publier l'application sur le port {new}", {"port": new}))
+        for env in ctx.project.environments:
+            if env.port_offset is not None and any(x.env_id == env.id for x in same):
+                actions.append(Action("set_env", f"Décalage automatique des ports pour « {env.display} »",
+                                      {"env": env.id, "field": "port_offset", "value": None}))
+        tools = list(dict.fromkeys(x.component_id for x in same if x.component_id != "app"))
+        for tid in tools[1:]:
+            actions.append(Action("remove_bricks", f"Retirer {ctx.name(tid)}",
+                                  {"uids": [b.uid for b in ctx.project.bricks_for(tid)]}))
+        bricks = [b.uid for tid in tools for b in ctx.project.bricks_for(tid)]
+        out.append(_diag(rule, message, bricks, actions))
+    return out
+
+
 def apply_action(project: Project, action: Action, catalog: Catalog) -> None:
     """Applique une correction proposée au projet (en place)."""
     args = action.args
@@ -791,6 +823,8 @@ def apply_action(project: Project, action: Action, catalog: Catalog) -> None:
         env = project.env(args["env"])
         if env is not None:
             setattr(env, args["field"], args["value"])
+    elif action.op == "set_app_port":
+        project.app.port = int(args["port"])
     elif action.op == "move_brick":
         project.move(args["uid"], args["stage"])
     elif action.op == "set_project":

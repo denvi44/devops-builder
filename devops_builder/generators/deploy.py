@@ -6,10 +6,25 @@ from ..ir import IR
 from .common import HEADER, dump_yaml, dump_yaml_docs
 from .platform import compose_platform_services
 
-REPLICAS = {"dev": 1, "staging": 1, "production": 2}
+REPLICAS = {"sandbox": 1, "dev": 1, "recette": 1, "staging": 1, "production": 2}
+
+
+def _published(ir: IR, component: str, host: int, container: int) -> str:
+    """« hôte:conteneur », ou variable du fichier deploy/env/<env>.env quand les ports sont décalés."""
+    from ..ports import parametrized, port_variable
+    if parametrized(ir.project):
+        return "${" + port_variable(component, container) + f":-{host}" + "}" + f":{container}"
+    return f"{host}:{container}"
+
+
+def _app_host(ir: IR) -> str:
+    from ..ports import parametrized
+    host = f"{ir.app}.example.com"
+    return "${APP_HOST:-" + host + "}" if parametrized(ir.project) else host
 
 
 def compose(ir: IR) -> dict[str, str]:
+    from ..ports import env_file, parametrized, port_plan
     app = ir.app
     port = ir.project.app.port
     service: dict = {
@@ -20,21 +35,34 @@ def compose(ir: IR) -> dict[str, str]:
     if ir.has("traefik"):
         service["labels"] = [
             "traefik.enable=true",
-            f"traefik.http.routers.{app}.rule=Host(`{app}.example.com`)",
+            f"traefik.http.routers.{app}.rule=Host(`{_app_host(ir)}`)",
             f"traefik.http.routers.{app}.entrypoints=websecure",
             f"traefik.http.services.{app}.loadbalancer.server.port={port}",
         ]
     else:
-        service["ports"] = [f"{port}:{port}"]
+        service["ports"] = [_published(ir, "app", port, port)]
     services = {app: service}
     services.update(compose_platform_services(ir))
+    files: dict[str, str] = {}
+    if parametrized(ir.project):
+        for tid, svc in services.items():
+            if tid != app and svc.get("ports"):
+                svc = dict(svc)
+                svc["ports"] = [_published(ir, tid, int(p.split(":")[0]), int(p.split(":")[1])) for p in svc["ports"]]
+                services[tid] = svc
+        plan = port_plan(ir.project, ir.catalog)
+        for env in ir.envs:
+            files[f"deploy/env/{env.id}.env"] = env_file(ir.project, env, plan)
+        ir.notes.append("Plusieurs environnements partagent un hôte Docker : leurs ports publiés sont décalés "
+                        "(deploy/env/<environnement>.env, copié en .env à côté du fichier Compose).")
     volumes = sorted({v.split(":")[0] for s in services.values() for v in s.get("volumes", [])
                       if not v.startswith("/")})
     doc: dict = {"name": app, "services": services}
     if volumes:
         doc["volumes"] = {v: {} for v in volumes}
     ir.cover("docker-compose")
-    return {"deploy/docker-compose.yml": dump_yaml(doc)}
+    files["deploy/docker-compose.yml"] = dump_yaml(doc)
+    return files
 
 
 def helm_chart(ir: IR) -> dict[str, str]:
@@ -204,6 +232,11 @@ def flux(ir: IR) -> dict[str, str]:
     return {"deploy/flux/gitops.yaml": dump_yaml_docs(docs)}
 
 
+def _ports_shifted(ir: IR) -> bool:
+    from ..ports import parametrized
+    return parametrized(ir.project)
+
+
 def ansible(ir: IR) -> dict[str, str]:
     files: dict[str, str] = {}
     for env in ir.envs:
@@ -223,6 +256,9 @@ def ansible(ir: IR) -> dict[str, str]:
              "ansible.builtin.file": {"path": "{{ app_dir }}", "state": "directory", "mode": "0755"}},
             {"name": "Copier le fichier Compose",
              "ansible.builtin.copy": {"src": "../deploy/docker-compose.yml", "dest": "{{ app_dir }}/docker-compose.yml"}},
+            *([{"name": "Copier les ports de l'environnement",
+                "ansible.builtin.copy": {"src": "../deploy/env/{{ deploy_env }}.env", "dest": "{{ app_dir }}/.env"}}]
+              if _ports_shifted(ir) else []),
             {"name": "Démarrer les services",
              "community.docker.docker_compose_v2": {"project_src": "{{ app_dir }}", "project_name": "{{ project }}",
                                                     "pull": "always",

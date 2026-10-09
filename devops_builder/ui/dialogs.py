@@ -34,11 +34,17 @@ from ..model import ENV_ID_PATTERN, ENV_PRESETS, ENVIRONMENTS, LANGUAGES, TARGET
 from .widgets import icon, muted
 
 
+def msg_blocking(text: str) -> bool:
+    return bool(text)
+
+
 class EnvironmentsEditor(QWidget):
     """Liste ordonnée des environnements (ordre de promotion) et réglages de chacun."""
 
-    def __init__(self, project: Project, cluster_tools: list[tuple[str, str]], parent: QWidget | None = None):
+    def __init__(self, project: Project, cluster_tools: list[tuple[str, str]], parent: QWidget | None = None,
+                 catalog=None):
         super().__init__(parent)
+        self.project, self.catalog = project, catalog
         self.envs: list[Environment] = [e.model_copy(deep=True) for e in project.environments]
         self.cluster_tools = cluster_tools
         self._loading = False
@@ -79,12 +85,27 @@ class EnvironmentsEditor(QWidget):
         for tid, name in cluster_tools:
             self.f_cluster.addItem(name, tid)
         self.f_cluster.setEnabled(len(cluster_tools) > 1)
+        self.f_host = QComboBox()
+        self.f_host.setEditable(True)
+        self.f_host.lineEdit().setPlaceholderText("hôte dédié (aucun partage)")
+        self.f_host.setToolTip("Nom de l'hôte Docker. Les environnements qui indiquent le même nom se partagent "
+                               "ses ports : DevOps Builder décale ceux des environnements hors production.")
+        self.f_offset = QSpinBox()
+        self.f_offset.setRange(-1, 50000)
+        self.f_offset.setSingleStep(1000)
+        self.f_offset.setSpecialValueText("automatique")
+        self.f_offset.setToolTip("Ajouté à chaque port publié de cet environnement (hôte Docker).")
+        self.f_ports = muted("")
+        self.f_ports.setTextFormat(Qt.TextFormat.RichText)
         self.f_error = QLabel()
         self.f_error.setStyleSheet("color: #d32f2f;")
         form.addRow("Identifiant", self.f_id)
         form.addRow("Libellé", self.f_label)
         form.addRow("Type", self.f_kind)
         form.addRow("Cluster", self.f_cluster)
+        form.addRow("Hôte Docker partagé", self.f_host)
+        form.addRow("Décalage des ports", self.f_offset)
+        form.addRow("Ports publiés", self.f_ports)
         form.addRow("", self.f_approval)
         form.addRow("", self.f_error)
         lay.addLayout(form)
@@ -95,6 +116,8 @@ class EnvironmentsEditor(QWidget):
         for w in (self.f_kind, self.f_cluster):
             w.currentIndexChanged.connect(self._store)
         self.f_approval.toggled.connect(self._store)
+        self.f_host.currentTextChanged.connect(self._store)
+        self.f_offset.valueChanged.connect(self._store)
         self.b_add.clicked.connect(self._add)
         self.b_del.clicked.connect(self._remove)
         self.b_up.clicked.connect(lambda: self._move(-1))
@@ -122,6 +145,11 @@ class EnvironmentsEditor(QWidget):
         self.f_kind.setCurrentIndex(list(ENVIRONMENTS).index(e.kind))
         self.f_cluster.setCurrentIndex(max(0, self.f_cluster.findData(e.cluster)))
         self.f_approval.setChecked(e.approval)
+        hosts = sorted({x.host for x in self.envs if x.host})
+        self.f_host.clear()
+        self.f_host.addItems(hosts)
+        self.f_host.setCurrentText(e.host)
+        self.f_offset.setValue(-1 if e.port_offset is None else e.port_offset)
         self._loading = False
         self._check()
 
@@ -135,6 +163,8 @@ class EnvironmentsEditor(QWidget):
         e.kind = self.f_kind.currentData()
         e.cluster = self.f_cluster.currentData()
         e.approval = self.f_approval.isChecked()
+        e.host = self.f_host.currentText().strip()
+        e.port_offset = None if self.f_offset.value() < 0 else self.f_offset.value()
         item = self.list.item(row)
         item.setText(f"{e.display}  ({e.id})" + ("  · approbation" if e.approval else ""))
         self._check()
@@ -148,7 +178,33 @@ class EnvironmentsEditor(QWidget):
         elif len(set(ids)) != len(ids):
             msg = "Deux environnements ont le même identifiant."
         self.f_error.setText(msg)
+        self._show_ports()
         return not msg
+
+    def _show_ports(self) -> None:
+        """Aperçu des ports publiés de l'environnement sélectionné, avec les réglages en cours."""
+        row = self.list.currentRow()
+        if self.catalog is None or not (0 <= row < len(self.envs)) or msg_blocking(self.f_error.text()):
+            self.f_ports.setText("")
+            return
+        from ..ports import env_offset, port_plan
+        draft = self.project.model_copy(deep=True)
+        draft.environments = [e.model_copy(deep=True) for e in self.envs]
+        env = draft.environments[row]
+        mine = [x for x in port_plan(draft, self.catalog) if x.env_id == env.id]
+        published = [x for x in mine if x.host_port is not None]
+        if not mine:
+            self.f_ports.setText("")
+            return
+        if not published:
+            self.f_ports.setText("aucun port publié sur un hôte (" + mine[0].exposure + ")")
+            return
+        parts = []
+        for x in published[:8]:
+            text = f"{x.component} {x.host_port}"
+            parts.append(f"<span style='color:#d32f2f'>{text} ⚠</span>" if x.conflict else text)
+        more = f" … (+{len(published) - 8})" if len(published) > 8 else ""
+        self.f_ports.setText(f"décalage {env_offset(draft, env)} · " + ", ".join(parts) + more)
 
     def _add(self) -> None:
         n = 1
@@ -233,7 +289,7 @@ class ProjectSettingsDialog(QDialog):
             t = catalog.get(b.tool) if catalog else None
             if t and "kubernetes-cluster" in t.roles and (b.tool, t.name) not in clusters:
                 clusters.append((b.tool, t.name))
-        self.envs_editor = EnvironmentsEditor(project, clusters)
+        self.envs_editor = EnvironmentsEditor(project, clusters, catalog=catalog)
         self.tabs = QTabWidget()
         self.tabs.addTab(general, "Général")
         self.tabs.addTab(self.envs_editor, "Environnements")

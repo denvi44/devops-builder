@@ -11,6 +11,15 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction (`staging`) | Préproduction | non | Amazon EKS `plateforme-preprod` | `commandes-staging` |
 | Production (`production`) | Production | oui | Amazon EKS `plateforme-prod` | `commandes` |
 
+## Ports
+
+| Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- | --- |
+| Préproduction | commandes | — | 8080 | application | Service commandes port 80, espace de noms commandes-staging |
+| Préproduction | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
+| Production | commandes | — | 8080 | application | Service commandes port 80, espace de noms commandes |
+| Production | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

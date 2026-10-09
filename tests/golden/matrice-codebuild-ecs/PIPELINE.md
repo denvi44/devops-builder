@@ -10,6 +10,12 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | --- | --- | --- | --- | --- |
 | Production (`production`) | Production | non | — | `mon-app` |
 
+## Ports
+
+| Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- |
+| mon-app | — | 8000 | application | ECS Fargate : URL HTTPS gérée par le service |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

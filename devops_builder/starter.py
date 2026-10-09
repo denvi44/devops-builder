@@ -60,6 +60,7 @@ class StarterAnswers:
     observability: str = "prometheus"
     dependencies: bool = True         # Renovate ou Dependabot
     iac: str = "opentofu"             # pour un cloud
+    shared_host: bool = False         # hôte Docker : environnements hors production sur une même machine
 
 
 def clouds_for(hosting: str, secnumcloud: bool) -> list[str]:
@@ -95,6 +96,10 @@ def build_starter(a: StarterAnswers, catalog: Catalog) -> Project:
     if problems:
         raise ValueError(" ".join(problems))
     p = Project(name=a.name.strip() or "Mon projet", environments=env_preset(a.envs), secnumcloud=a.secnumcloud)
+    if a.shared_host and a.hosting in ("docker-host", "vm"):
+        for env in p.environments:
+            if env.kind != "production":
+                env.host = "hors-production"  # une machine pour tous les environnements hors production
     p.app.language = a.language
     p.app.image_name = a.image_name.strip() or "mon-app"
     p.app.port = a.port

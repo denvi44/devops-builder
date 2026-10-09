@@ -10,6 +10,15 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | --- | --- | --- | --- | --- |
 | Production (`production`) | Production | non | — | `mon-app` |
 
+## Ports
+
+| Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- |
+| mon-app | 8000 | 8000 | application | publié sur l'hôte Docker |
+| zot | 5000 | 5000 | registre OCI | publié sur l'hôte Docker |
+| Gitea | 3001 | 3000 | interface web | publié sur l'hôte Docker |
+| Gitea | 2222 | 22 | SSH Git | publié sur l'hôte Docker |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

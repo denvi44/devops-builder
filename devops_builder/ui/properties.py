@@ -165,6 +165,21 @@ class PropertiesPanel(QScrollArea):
         lay.addStretch(1)
         self.setWidget(w)
 
+    def _ports_section(self, lay: QVBoxLayout, tool: Tool, project: Project) -> None:
+        from ..ports import port_plan
+        mine = [e for e in port_plan(project, self.catalog) if e.component_id == tool.id]
+        if not mine:
+            return
+        lay.addWidget(section_title("Ports"))
+        for e in mine:
+            where = f"{e.env} : " if project.multi_env else ""
+            port = f"{e.host_port} → {e.container_port}" if e.host_port is not None else f"{e.container_port}"
+            label = muted(f"{where}{port}" + (f" ({e.usage})" if e.usage else "") + (f" ⚠ {e.conflict}" if e.conflict else ""))
+            if e.conflict:
+                label.setStyleSheet(f"color: {theme.current().blocking};")
+            label.setToolTip(e.exposure)
+            lay.addWidget(label)
+
     # ------------------------------------------------------------- brique posée
     def _brick_section(self, lay: QVBoxLayout, tool: Tool, brick: BrickInstance, project: Project | None) -> None:
         pal = theme.current()
@@ -223,6 +238,8 @@ class PropertiesPanel(QScrollArea):
             row.addWidget(rm)
             row.addStretch(1)
             lay.addLayout(row)
+        if project is not None:
+            self._ports_section(lay, tool, project)
         delete = QPushButton(icon("mdi6.delete", pal.blocking), "Retirer la brique du pipeline")
         delete.setProperty("class", "danger")
         delete.clicked.connect(lambda: self.removeRequested.emit(brick.uid))

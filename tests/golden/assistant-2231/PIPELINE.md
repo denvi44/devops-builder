@@ -11,6 +11,19 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction (`staging`) | Préproduction | non | — | `mon-app-staging` |
 | Production (`production`) | Production | oui | — | `mon-app` |
 
+## Ports
+
+| Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- | --- |
+| Préproduction | mon-app | — | 8000 | application | via Traefik, hôte mon-app.example.com |
+| Préproduction | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
+| Préproduction | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
+| Préproduction | SonarQube | 9002 | 9000 | interface web | publié sur l'hôte Docker |
+| Production | mon-app | — | 8000 | application | via Traefik, hôte mon-app.example.com |
+| Production | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
+| Production | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
+| Production | SonarQube | 9002 | 9000 | interface web | publié sur l'hôte Docker |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

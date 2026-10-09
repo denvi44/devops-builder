@@ -26,6 +26,7 @@ from devops_builder.rules import RuleEngine  # noqa: E402
 EXAMPLES = HERE.parent / "devops_builder" / "data" / "examples"
 GOLDEN = HERE / "golden"
 WIZARD_STEP = 97  # une combinaison de l'assistant sur 97 (≈ 50 projets)
+LEGACY_ENV_PRESETS = ("prod", "staging-prod", "dev-staging-prod")
 DATE = re.compile(r"le \d{4}-\d{2}-\d{2}\.")
 UID = re.compile(r"\buid: '?[0-9a-f]{8}'?")
 
@@ -47,10 +48,38 @@ def corpus() -> dict[str, Project]:
         cases[f"exemple-{path.name.split('.')[0]}"] = Project.load(path)
     for name, p in MATRIX.items():
         cases[f"matrice-{name}"] = p
-    for i, answers in enumerate(all_answers()):
+    # Échantillon historique : seulement les modèles d'environnements de la 0.4, pour que
+    # l'ajout d'un modèle ne décale pas la numérotation des cas déjà figés.
+    legacy = [a for a in all_answers() if a.envs in LEGACY_ENV_PRESETS]
+    for i, answers in enumerate(legacy):
         if i % WIZARD_STEP == 0:
             cases[f"assistant-{i:04d}"] = build_starter(answers, catalog)
+    for name, project in extra_cases(catalog).items():
+        cases[name] = project
     return cases
+
+
+def extra_cases(catalog) -> dict[str, Project]:
+    """Cas ajoutés après la 0.4 : un par fonctionnalité qui change les fichiers générés."""
+    from devops_builder.starter import StarterAnswers, build_starter
+    out: dict[str, Project] = {}
+    try:
+        from devops_builder.model import ENV_PRESETS
+    except ImportError:  # pragma: no cover
+        return out
+    for preset in ENV_PRESETS:
+        if preset in LEGACY_ENV_PRESETS:
+            continue
+        for hosting, cloud in (("docker-host", None), ("kubernetes", None), ("kubernetes-managed", "aws")):
+            a = StarterAnswers(forge="gitlab", hosting=hosting, cloud=cloud, envs=preset, gitops=False)
+            out[f"envs-{preset}-{hosting}"] = build_starter(a, catalog)
+    # hôte Docker partagé par les environnements hors production : ports décalés
+    shared = build_starter(StarterAnswers(forge="gitlab", hosting="docker-host", envs="dev-staging-prod"), catalog)
+    for env in shared.environments:
+        if env.kind != "production" and hasattr(env, "host"):
+            env.host = "vm-hors-prod"
+    out["ports-hote-partage"] = shared
+    return out
 
 
 _CATALOG = None

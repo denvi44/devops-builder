@@ -9,6 +9,30 @@ from ..model import ENVIRONMENTS, STAGE_LABELS, TARGETS
 from ..rules import Diagnostic
 
 
+def _ports_section(ir: IR) -> list[str]:
+    from ..ports import env_offset, port_plan, shared_hosts
+    plan = port_plan(ir.project, ir.catalog)
+    if not plan:
+        return []
+    out = ["## Ports", ""]
+    shared = shared_hosts(ir.project)
+    if shared:
+        for host, envs in shared.items():
+            parts = ", ".join(f"{e.display} (+{env_offset(ir.project, e)})" for e in envs)
+            out.append(f"Hôte partagé `{host}` : {parts}. Les ports publiés de chaque environnement sont dans "
+                       "`deploy/env/<environnement>.env`.")
+        out.append("")
+    multi = ir.multi_env
+    head = ("| Environnement " if multi else "") + "| Composant | Port publié | Port du conteneur | Usage | Exposition |"
+    out += [head, "|" + " --- |" * (6 if multi else 5)]
+    for e in plan:
+        published = str(e.host_port) if e.host_port is not None else "—"
+        row = (f"| {e.env} " if multi else "") + f"| {e.component} | {published} | {e.container_port} | {e.usage} | {e.exposure} |"
+        out.append(row + (f" ⚠ {e.conflict}" if e.conflict else ""))
+    out.append("")
+    return out
+
+
 def report(ir: IR, diagnostics: list[Diagnostic], files: list[str]) -> dict[str, str]:
     p = ir.project
     out = [f"# {p.name} — pipeline généré", "",
@@ -27,6 +51,7 @@ def report(ir: IR, diagnostics: list[Diagnostic], files: list[str]) -> dict[str,
         out.append(f"| {env.display} (`{env.id}`) | {ENVIRONMENTS[env.kind]} | {'oui' if env.approval else 'non'} "
                    f"| {cname or '—'} | `{ir.namespace(env)}` |")
     out.append("")
+    out += _ports_section(ir)
     out += ["## Briques", "", "| Étape | Brique | Licence | Fiche |", "| --- | --- | --- | --- |"]
     for stage, b in p.all_bricks():
         t = ir.catalog.get(b.tool)

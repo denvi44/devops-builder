@@ -11,6 +11,23 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction (`staging`) | Préproduction | non | OVHcloud Managed Kubernetes `mon-cluster` | `mon-app-staging` |
 | Production (`production`) | Production | oui | OVHcloud Managed Kubernetes `mon-cluster` | `mon-app` |
 
+## Ports
+
+| Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- | --- |
+| Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging |
+| Préproduction | Gitea | — | 3000 | interface web | Service Kubernetes, espace de noms gitea |
+| Préproduction | Gitea | — | 22 | SSH Git | Service Kubernetes, espace de noms gitea |
+| Préproduction | SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube |
+| Préproduction | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
+| Préproduction | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring |
+| Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app |
+| Production | Gitea | — | 3000 | interface web | Service Kubernetes, espace de noms gitea |
+| Production | Gitea | — | 22 | SSH Git | Service Kubernetes, espace de noms gitea |
+| Production | SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube |
+| Production | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
+| Production | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

@@ -11,6 +11,17 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction (`staging`) | Préproduction | non | RKE2 | `mon-app-staging` |
 | Production (`production`) | Production | oui | RKE2 | `mon-app` |
 
+## Ports
+
+| Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- | --- |
+| Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging |
+| Préproduction | Harbor | — | 80 | HTTP | Service Kubernetes, espace de noms harbor |
+| Préproduction | Harbor | — | 443 | HTTPS (portail et registre) | Service Kubernetes, espace de noms harbor |
+| Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app |
+| Production | Harbor | — | 80 | HTTP | Service Kubernetes, espace de noms harbor |
+| Production | Harbor | — | 443 | HTTPS (portail et registre) | Service Kubernetes, espace de noms harbor |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

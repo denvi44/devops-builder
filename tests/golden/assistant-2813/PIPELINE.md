@@ -11,6 +11,21 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction (`staging`) | Préproduction | non | Outscale Kubernetes as a Service (OKS) `mon-cluster` | `mon-app-staging` |
 | Production (`production`) | Production | oui | Outscale Kubernetes as a Service (OKS) `mon-cluster` | `mon-app` |
 
+## Ports
+
+| Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- | --- |
+| Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging |
+| Préproduction | SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube |
+| Préproduction | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Préproduction | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
+| Préproduction | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring |
+| Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app |
+| Production | SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube |
+| Production | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Production | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
+| Production | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

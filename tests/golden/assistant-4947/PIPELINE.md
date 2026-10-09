@@ -12,6 +12,26 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction (`staging`) | Préproduction | non | OVHcloud Managed Kubernetes `mon-cluster` | `mon-app-staging` |
 | Production (`production`) | Production | oui | OVHcloud Managed Kubernetes `mon-cluster` | `mon-app` |
 
+## Ports
+
+| Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
+| --- | --- | --- | --- | --- | --- |
+| Développement | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-dev |
+| Développement | Gitea | — | 3000 | interface web | Service Kubernetes, espace de noms gitea |
+| Développement | Gitea | — | 22 | SSH Git | Service Kubernetes, espace de noms gitea |
+| Développement | SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube |
+| Développement | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging |
+| Préproduction | Gitea | — | 3000 | interface web | Service Kubernetes, espace de noms gitea |
+| Préproduction | Gitea | — | 22 | SSH Git | Service Kubernetes, espace de noms gitea |
+| Préproduction | SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube |
+| Préproduction | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app |
+| Production | Gitea | — | 3000 | interface web | Service Kubernetes, espace de noms gitea |
+| Production | Gitea | — | 22 | SSH Git | Service Kubernetes, espace de noms gitea |
+| Production | SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube |
+| Production | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |
