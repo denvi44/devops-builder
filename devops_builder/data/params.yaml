@@ -311,6 +311,36 @@ azure-container-apps:
     default: "{app}"
     pattern: '[a-z][a-z0-9-]{0,30}[a-z0-9]'
     pattern_hint: "2 à 32 caractères, minuscules, chiffres et tirets, commence par une lettre"
+_vault: &vault
+  address:
+    label: Adresse du coffre
+    description: >-
+      URL lue par la CI (VAULT_ADDR) et par External Secrets, ex. https://vault.example.com.
+      Vide : variable CI VAULT_ADDR à renseigner, et pour External Secrets le service du cluster.
+    pattern: 'https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?/?'
+    pattern_hint: "http(s)://hôte[:port], sans chemin"
+  jwt_role:
+    label: Rôle JWT de la CI
+    description: Rôle de la méthode auth/jwt échangeant le jeton OIDC de la CI (GitLab, GitHub) contre un jeton du coffre.
+    default: "{app}-ci"
+    pattern: '[A-Za-z0-9_.-]{1,128}'
+    pattern_hint: "lettres, chiffres, . _ et -"
+  kv_mount:
+    label: Moteur KV v2
+    description: Chemin du moteur de secrets KV version 2 qui porte les secrets de l'application.
+    default: secret
+    pattern: '[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*'
+    pattern_hint: "segments de lettres, chiffres, _ et -, séparés par /"
+vault: *vault
+openbao: *vault
+sops:
+  age_recipients:
+    label: Destinataires age
+    description: Clés publiques age (age1…) autorisées à déchiffrer, séparées par des virgules ; age-keygen les affiche.
+    example: age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
+    required: true
+    pattern: 'age1[02-9ac-hj-np-z]{58}(\s*,\s*age1[02-9ac-hj-np-z]{58})*'
+    pattern_hint: "une ou plusieurs clés age1…, séparées par des virgules"
 azure-key-vault:
   vault_name:
     label: Nom du coffre

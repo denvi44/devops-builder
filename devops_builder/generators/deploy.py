@@ -62,6 +62,10 @@ def compose(ir: IR) -> dict[str, str]:
     doc: dict = {"name": app, "services": services}
     if volumes:
         doc["volumes"] = {v: {} for v in volumes}
+    from .platform import compose_configs
+    configs = compose_configs(ir)
+    if configs:
+        doc["configs"] = configs
     files.update(data.secrets_script(ir))
     files.update(data.backup_script(ir))
     ir.cover("docker-compose")
@@ -194,6 +198,10 @@ def kustomize(ir: IR) -> dict[str, str]:
         patches = data.kustomize_patches(ir, env)
         if patches:
             overlay["patches"] = patches
+        external = data.kustomize_external_secrets(ir, env)
+        if external:
+            overlay["resources"].append("externalsecrets.yaml")
+            files[f"{ir.overlay(env)}/externalsecrets.yaml"] = external
         files[f"{ir.overlay(env)}/kustomization.yaml"] = dump_yaml(overlay)
     return files
 

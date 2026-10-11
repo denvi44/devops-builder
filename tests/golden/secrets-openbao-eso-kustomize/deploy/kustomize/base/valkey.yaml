@@ -1,0 +1,74 @@
+# Généré par DevOps Builder — à relire avant usage.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mon-app-valkey
+  labels:
+    app: mon-app-valkey
+spec:
+  selector:
+    app: mon-app-valkey
+  ports:
+  - port: 6379
+    targetPort: 6379
+    name: valkey
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mon-app-valkey
+  labels:
+    app: mon-app-valkey
+spec:
+  serviceName: mon-app-valkey
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mon-app-valkey
+  template:
+    metadata:
+      labels:
+        app: mon-app-valkey
+    spec:
+      containers:
+      - name: valkey
+        image: valkey/valkey:8
+        ports:
+        - containerPort: 6379
+          name: valkey
+        env:
+        - name: VALKEY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mon-app-valkey
+              key: password
+        command:
+        - sh
+        - -c
+        - exec valkey-server --requirepass "$VALKEY_PASSWORD" --appendonly yes
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - valkey-cli -a "${VALKEY_PASSWORD}" --no-auth-warning ping | grep -q PONG
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 1Gi
+        volumeMounts:
+        - name: data
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi

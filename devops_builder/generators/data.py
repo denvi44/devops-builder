@@ -65,7 +65,14 @@ def needs_secrets(ir: IR) -> bool:
 
 # ----------------------------------------------------------------- variables CI
 def secret_bindings(ir: IR, env, dbs: list[Database]) -> list[tuple[str, str]]:
-    """(variable lue par les scripts, variable CI) pour un environnement ; déclare les variables CI."""
+    """(variable lue par les scripts, variable CI) pour un environnement ; déclare les variables CI.
+
+    Quand les valeurs viennent de SOPS ou de Vault / OpenBao, scripts/secrets-fetch.sh les exporte
+    sous leur propre nom : aucune variable CI par valeur.
+    """
+    from . import secrets
+    if secrets.source(ir) != "ci":
+        return [(local, local) for local, _, _ in secrets.values(ir, dbs)]
     out = []
     where = f" ({env.display})" if ir.multi_env else ""
     for db in dbs:
@@ -285,7 +292,8 @@ def helm_parts(ir: IR) -> tuple[dict, dict[str, str], list[dict], list[dict]]:
     values: dict = {}
     templates: dict[str, str] = {}
     base = "{{ .Release.Name }}"
-    create = not gitops(ir)
+    from . import secrets
+    create = not gitops(ir) and not secrets.eso(ir)
     multi = ir.multi_env
     for db in dbs:
         k = _key(db)
@@ -321,6 +329,9 @@ def helm_parts(ir: IR) -> tuple[dict, dict[str, str], list[dict], list[dict]]:
                 f'  url: {{{{ required "{ref[1:]}.url : URL de connexion à {db.tool.name}" {ref}.url | quote }}}}\n'
                 "{{- end }}\n")
         ir.cover(db.id)
+    eso_template = secrets.eso_helm_template(ir, dbs)
+    if eso_template:
+        templates["templates/externalsecrets.yaml"] = eso_template
     env = app_env(dbs, base)
     init = _init_containers(ir, env, "{{ .Values.image.repository }}:{{ .Values.image.tag }}")
     return {"database": values}, templates, env, init
@@ -351,6 +362,9 @@ def helm_env_values(ir: IR, env) -> dict:
 
 def helm_set_flags(ir: IR, env) -> str:
     """Options --set-string du déploiement Helm par la CI (mots de passe, URL des bases managées)."""
+    from . import secrets
+    if secrets.eso(ir):
+        return ""  # External Secrets écrit les Secrets du chart
     flags = []
     for local, ci in secret_bindings(ir, env, [d for d in kube_dbs(ir) if d.mode != "operator"]):
         db = next(d for d in kube_dbs(ir) if local in (d.password_var, d.url_ci_var))
@@ -386,6 +400,15 @@ def kustomize_parts(ir: IR) -> tuple[dict[str, str], list[str], list[dict], list
     return files, resources, env, init
 
 
+def kustomize_external_secrets(ir: IR, env) -> str | None:
+    """ExternalSecret de l'overlay d'un environnement (clé du coffre : espace de noms/brique)."""
+    from . import secrets
+    if not secrets.eso(ir):
+        return None
+    docs = secrets.external_secrets(ir, kube_dbs(ir), lambda d: f"{ir.app}-{d.id}", ir.namespace(env), False)
+    return dump_yaml_docs(docs) if docs else None
+
+
 def kustomize_patches(ir: IR, env) -> list[dict]:
     out = []
     for db in kube_dbs(ir):
@@ -397,11 +420,14 @@ def kustomize_patches(ir: IR, env) -> list[dict]:
 
 def kubectl_secret_lines(ir: IR, env, ns: str) -> list[str]:
     """Commandes de la CI qui créent les Secrets de connexion avant kubectl apply -k."""
+    from . import secrets
     dbs = [d for d in kube_dbs(ir) if d.mode != "operator"]
     if not dbs:
         return []
-    bindings = dict(secret_bindings(ir, env, dbs))
     lines = [f"kubectl create namespace {ns} --dry-run=client -o yaml | kubectl apply -f -"]
+    if secrets.eso(ir):
+        return lines  # les ExternalSecret de l'overlay font le reste
+    bindings = dict(secret_bindings(ir, env, dbs))
     for db in dbs:
         name = f"{ir.app}-{db.id}"
         if db.mode == "self-hosted":
@@ -420,8 +446,9 @@ def secret_name(ir: IR, db: Database) -> str:
 
 
 def gitops_note(ir: IR) -> None:
+    from . import secrets
     dbs = [d for d in kube_dbs(ir) if d.mode != "operator"]
-    if not dbs or not gitops(ir):
+    if not dbs or not gitops(ir) or secrets.eso(ir):
         return
     names = ", ".join(f"« {secret_name(ir, d)} » (clés {'password et url' if d.mode == 'self-hosted' else 'url'})"
                       for d in dbs)
@@ -479,6 +506,17 @@ def terraform_blocks(ir: IR) -> tuple[list[str], list[str], list[str]]:
             outputs += outs
         ir.cover(db.id)
     return blocks, variables, outputs
+
+
+def _azure_db_body(engine: str, server: str, label: str, dbname: str, charset: str, collation: str) -> str:
+    if engine == "postgres":
+        rows = [("name", f'"{dbname}"'), ("server_id", f"{server}.{label}.id")]
+    else:
+        rows = [("name", f'"{dbname}"'), ("resource_group_name", "azurerm_resource_group.main.name"),
+                ("server_name", f"{server}.{label}.name")]
+    rows += [("charset", f'"{charset}"'), ("collation", f'"{collation}"')]
+    width = max(len(k) for k, _ in rows)
+    return "\n".join(f"  {k.ljust(width)} = {v}" for k, v in rows)
 
 
 def _managed(ir: IR, db: Database, label: str, p: dict, prod: bool) -> tuple[str, list[str]]:
@@ -574,10 +612,7 @@ resource "{server}" "{label}" {{
 }}
 
 resource "{database}" "{label}" {{
-  name                = "{dbname}"
-{"  server_id           = " + server + "." + label + ".id" if engine == "postgres" else "  resource_group_name = azurerm_resource_group.main.name" + chr(10) + "  server_name         = " + server + "." + label + ".name"}
-  charset             = "{charset}"
-  collation           = "{collation}"
+{_azure_db_body(engine, server, label, dbname, charset, collation)}
 }}'''
         outs = [f'output "{label}_host" {{\n  value = {server}.{label}.fqdn\n}}',
                 f'output "{label}_password" {{\n  value     = random_password.{label}.result\n  sensitive = true\n}}']
@@ -646,12 +681,15 @@ def notes(ir: IR) -> None:
     dbs = all_dbs(ir)
     if not dbs:
         return
+    from . import secrets
     self_hosted = [d for d in dbs if d.mode == "self-hosted"]
+    origin = {"ci": "des variables CI", "sops": "des fichiers SOPS déchiffrés par la CI",
+              "vault": "du coffre, lu par la CI"}[secrets.source(ir)]
     if self_hosted and ir.has("docker-compose"):
         names = ", ".join(d.tool.name for d in self_hosted)
         ir.notes.append(f"{names} : service Compose non publié sur l'hôte (réseau interne), données dans un volume "
                         f"nommé ; `{SECRETS_SCRIPT}` écrit les mots de passe et l'URL de connexion lus par les "
-                        "conteneurs (env_file), à partir des variables CI.")
+                        f"conteneurs (env_file), à partir {origin}.")
         if any(d.id in DUMPS for d in self_hosted):
             ir.notes.append(f"Sauvegardes : planifier `{BACKUP_SCRIPT}` sur chaque hôte (cron quotidien) et copier "
                             "les fichiers hors de la machine.")
@@ -659,7 +697,8 @@ def notes(ir: IR) -> None:
         ir.notes.append("CloudNativePG : l'opérateur est installé par platform/install.sh ; le Cluster crée le Secret "
                         "« <cluster>-app » (clé uri) lu par l'application. Sauvegardes : configurer le plugin "
                         "Barman Cloud vers un stockage objet, ou des instantanés de volumes.")
-    if any(d.mode == "managed" for d in dbs):
+    written = {d.id for d in secrets.tf_dbs(ir, compose_dbs(ir))}
+    if any(d.mode == "managed" and d.id not in written for d in dbs):
         ir.notes.append("Bases managées : une instance par environnement ; après `apply`, composer l'URL de connexion "
                         "à partir des sorties Terraform (outputs.tf) et la déclarer en variable CI.")
     serverless = {"cloud-run": "Cloud Run : `gcloud run deploy --set-secrets DATABASE_URL=<secret>:latest` et, pour "

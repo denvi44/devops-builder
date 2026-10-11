@@ -95,7 +95,9 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
     from .generators.platform import COMPOSE_SERVICES, PLATFORM_CHARTS
 
     ports = known_ports()
-    present = [b.tool for _, b in project.all_bricks()]
+    # Vault / OpenBao avec une adresse : coffre existant, pas déployé avec l'application
+    present = [b.tool for _, b in project.all_bricks()
+               if not (b.tool in ("vault", "openbao") and (b.params or {}).get("address"))]
     app_port = project.app.port
     name = project.app.image_name
     entries: list[PortEntry] = []

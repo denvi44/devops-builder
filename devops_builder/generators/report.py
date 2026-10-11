@@ -39,6 +39,7 @@ MODES = {"self-hosted": "autogérée", "operator": "opérateur Kubernetes", "man
 def _data_section(ir: IR) -> list[str]:
     from ..databases import databases, migration_command
     from .data import BACKUP_SCRIPT, DUMPS, gitops, secret_name
+    from .secrets import origin
     dbs = databases(ir.project, ir.catalog)
     if not dbs:
         return []
@@ -67,6 +68,8 @@ def _data_section(ir: IR) -> list[str]:
             secret = f"variable CI `{db.password_var}" + ("_<ENV>`" if ir.multi_env else "`")
             if kube and gitops(ir):
                 secret = f"Secret `{secret_name(ir, db)}` (GitOps : External Secrets ou SOPS)"
+        if db.mode != "operator":
+            secret = origin(ir, db, kube) or secret
         out.append(f"| {db.tool.name} {db.version if db.mode == 'self-hosted' else ''}".rstrip()
                    + f" | {MODES[db.mode]} | {where} | `{db.url_var}` | {secret} | {backup} |")
     command = migration_command(ir.project, ir.catalog)

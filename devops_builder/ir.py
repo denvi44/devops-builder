@@ -46,6 +46,7 @@ class Step:
     environment: str | None = None  # identifiant de l'environnement déployé
     services: list[Service] = field(default_factory=list)  # conteneurs annexes (Floci…)
     lock: str = ""  # groupe d'exclusion : deux jobs du même groupe ne tournent jamais ensemble
+    id_tokens: dict[str, dict] = field(default_factory=dict)  # jetons OIDC GitLab propres au job (coffre)
 
 
 @dataclass
@@ -424,11 +425,13 @@ def _ansible_step(ir: IR, env: Environment, ns: str, secrets: list[str], name: s
     _registry_note(ir)
     login = ([f'export DEPLOY_REGISTRY="{reg[0]}" DEPLOY_REGISTRY_USER="{reg[1]}" DEPLOY_REGISTRY_PASSWORD="{reg[2]}"']
              if reg else [])
+    from .generators import secrets as sec
     return Step("deploy", name, "deploy", ANSIBLE_IMAGE, [
         *ANSIBLE_INSTALL, *hosts, SSH_SETUP, KNOWN_HOSTS, *secrets, *login,
         f'ansible-playbook -i {ir.inventory(env)} ansible/deploy.yml -e "image=$IMAGE" -e "project={ns}" '
         f'-e "deploy_env={env.id}"'],
-        tool="ansible", env={"ANSIBLE_CONFIG": "ansible/ansible.cfg"}, cloud=clouds)
+        tool="ansible", env={"ANSIBLE_CONFIG": "ansible/ansible.cfg"}, cloud=clouds,
+        id_tokens=sec.gitlab_id_tokens(ir) if secrets else {})
 
 
 def _deploy_step(ir: IR, env: Environment) -> Step | None:
@@ -437,11 +440,14 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
     app = ir.app
     ns = ir.namespace(env)
     from .generators import data as dbgen
+    from .generators import secrets as sec
     if ir.has("docker-compose") and target in ("docker-host", "vm"):
         secrets: list[str] = []
         if dbgen.needs_secrets(ir):
             prefix = dbgen.env_prefix(dbgen.secret_bindings(ir, env, dbgen.compose_dbs(ir)))
-            secrets = [f"{prefix}sh {dbgen.SECRETS_SCRIPT} .secrets"]
+            image = ANSIBLE_IMAGE if ir.has("ansible") else ALPINE
+            secrets = [*sec.ci_lines(ir, env, dbgen.compose_dbs(ir), image),
+                       f"{prefix}sh {dbgen.SECRETS_SCRIPT} .secrets"]
         if ir.has("ansible"):
             return _ansible_step(ir, env, ns, secrets, "Déploiement Ansible + Compose")
         host = ir.env_var("DEPLOY_HOST", env)
@@ -469,7 +475,7 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
             *([f'scp {dbgen.BACKUP_SCRIPT} "${host}:/opt/{ns}/db-backup.sh"'] if dbgen.backup_script(ir) else []),
             *login,
             f'ssh "${host}" "cd /opt/{ns} && IMAGE=$IMAGE docker compose -p {ns} pull && IMAGE=$IMAGE docker compose -p {ns} up -d"'],
-            tool="docker-compose", cloud=tf_clouds)
+            tool="docker-compose", cloud=tf_clouds, id_tokens=sec.gitlab_id_tokens(ir) if secrets else {})
     if ir.has("argo-cd") or ir.has("flux"):
         gitops = "Argo CD" if ir.has("argo-cd") else "Flux"
         if ir.has("helm"):
@@ -488,23 +494,28 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
             'git config user.email "ci@example.com" && git config user.name "CI"',
             f'git commit -am "{msg}" && git push origin HEAD'],
             tool="argo-cd" if ir.has("argo-cd") else "flux")
+    kube_secrets = [] if sec.eso(ir) else [d for d in dbgen.kube_dbs(ir) if d.mode != "operator"]
     if ir.has("helm"):
         ka = _kube_access(ir, True, env)
         extra = f" -f {ir.helm_values(env)}" if ir.multi_env else ""
+        fetch = sec.ci_lines(ir, env, kube_secrets, ka.image)
         return Step("deploy", "Déploiement Helm", "deploy", ka.image, [
             *ka.script,
+            *fetch,
             f'helm upgrade --install {app} charts/{app}{extra} --namespace {ns} --create-namespace '
             f'--set image.repository="${{IMAGE%:*}}" --set image.tag="$TAG"{dbgen.helm_set_flags(ir, env)} --wait'],
-            tool="helm", cloud=ka.cloud)
+            tool="helm", cloud=ka.cloud, id_tokens=sec.gitlab_id_tokens(ir) if fetch else {})
     if ir.has("kustomize"):
         ka = _kube_access(ir, False, env)
+        fetch = sec.ci_lines(ir, env, kube_secrets, ka.image)
         return Step("deploy", "Déploiement Kustomize", "deploy", ka.image, [
             *ka.script,
+            *fetch,
             *dbgen.kubectl_secret_lines(ir, env, ns),
             f"cd {ir.overlay(env)}",
             'sed -i "s|newTag: .*|newTag: \\"$TAG\\"|" kustomization.yaml',
             "kubectl apply -k ."],
-            tool="kustomize", cloud=ka.cloud)
+            tool="kustomize", cloud=ka.cloud, id_tokens=sec.gitlab_id_tokens(ir) if fetch else {})
     if ir.has("ecs-fargate"):
         p = ir.params("ecs-fargate", env)
         return Step("deploy", "Déploiement ECS", "deploy", "amazon/aws-cli:latest", [

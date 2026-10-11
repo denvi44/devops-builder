@@ -1,0 +1,86 @@
+# Généré par DevOps Builder — à relire avant usage.
+name: mon-app
+services:
+  mon-app:
+    image: ${IMAGE:-ghcr.io/OWNER/mon-app:latest}
+    restart: unless-stopped
+    environment:
+      PORT: '8000'
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.mon-app.rule=Host(`mon-app.example.com`)
+    - traefik.http.routers.mon-app.entrypoints=websecure
+    - traefik.http.services.mon-app.loadbalancer.server.port=8000
+    env_file:
+    - secrets/app.env
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+  postgresql:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_DB: app
+    env_file:
+    - secrets/postgresql.env
+    volumes:
+    - postgresql-data:/var/lib/postgresql
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+  valkey:
+    image: valkey/valkey:8
+    restart: unless-stopped
+    env_file:
+    - secrets/valkey.env
+    command:
+    - sh
+    - -c
+    - exec valkey-server --requirepass "$${VALKEY_PASSWORD}" --appendonly yes
+    volumes:
+    - valkey-data:/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - valkey-cli -a "$${VALKEY_PASSWORD}" --no-auth-warning ping | grep -q PONG
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+  traefik:
+    image: traefik:v3.1
+    command:
+    - --providers.docker=true
+    - --providers.docker.exposedbydefault=false
+    - --entrypoints.web.address=:80
+    - --entrypoints.websecure.address=:443
+    ports:
+    - 80:80
+    - 443:443
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+    - 9090:9090
+    volumes:
+    - prometheus-data:/prometheus
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+    - 3000:3000
+    volumes:
+    - grafana-data:/var/lib/grafana
+volumes:
+  grafana-data: {}
+  postgresql-data: {}
+  prometheus-data: {}
+  valkey-data: {}

@@ -1,0 +1,31 @@
+# Généré par DevOps Builder — à relire avant usage.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mon-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mon-app
+  template:
+    metadata:
+      labels:
+        app: mon-app
+    spec:
+      containers:
+      - name: mon-app
+        image: mon-app:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: mon-app-pg-app
+              key: uri
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: mon-app-valkey
+              key: url

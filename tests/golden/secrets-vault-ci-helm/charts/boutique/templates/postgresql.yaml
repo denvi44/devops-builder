@@ -1,0 +1,89 @@
+{{- if .Values.database.postgresql.createSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-postgresql
+type: Opaque
+stringData:
+  password: {{ required "Values.database.postgresql.password : mot de passe de PostgreSQL" .Values.database.postgresql.password | quote }}
+  url: {{ printf "postgresql://app:%s@%s-postgresql:5432/app" .Values.database.postgresql.password .Release.Name | quote }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: '{{ .Release.Name }}-postgresql'
+  labels:
+    app.kubernetes.io/name: boutique-postgresql
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+spec:
+  selector:
+    app.kubernetes.io/name: boutique-postgresql
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+  ports:
+  - port: 5432
+    targetPort: 5432
+    name: postgresql
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: '{{ .Release.Name }}-postgresql'
+  labels:
+    app.kubernetes.io/name: boutique-postgresql
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+spec:
+  serviceName: '{{ .Release.Name }}-postgresql'
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: boutique-postgresql
+      app.kubernetes.io/instance: '{{ .Release.Name }}'
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: boutique-postgresql
+        app.kubernetes.io/instance: '{{ .Release.Name }}'
+    spec:
+      containers:
+      - name: postgresql
+        image: '{{ .Values.database.postgresql.image }}'
+        ports:
+        - containerPort: 5432
+          name: postgresql
+        env:
+        - name: POSTGRES_USER
+          value: app
+        - name: POSTGRES_DB
+          value: app
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: '{{ .Release.Name }}-postgresql'
+              key: password
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_DB}"
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 1Gi
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: '{{ .Values.database.postgresql.storage }}'

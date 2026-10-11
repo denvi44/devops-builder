@@ -27,7 +27,8 @@ helm upgrade --install argo-cd argo/argo-cd --namespace argocd --create-namespac
 helm upgrade --install envoy-gateway oci://docker.io/envoyproxy/gateway-helm --namespace envoy-gateway-system --create-namespace
 
 # External Secrets Operator
-helm upgrade --install external-secrets external-secrets/external-secrets --namespace external-secrets --create-namespace
+helm upgrade --install external-secrets external-secrets/external-secrets --namespace external-secrets --create-namespace --wait
+kubectl apply -f "$(dirname "$0")/external-secrets/cluster-secret-store.yaml"
 
 # Grafana — Déjà inclus si kube-prometheus-stack est installé.
 helm upgrade --install grafana grafana/grafana --namespace monitoring --create-namespace

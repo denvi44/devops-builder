@@ -1,0 +1,14 @@
+# Généré par DevOps Builder — à relire avant usage.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: mon-app-pg
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:17
+  storage:
+    size: 10Gi
+  bootstrap:
+    initdb:
+      database: app
+      owner: app

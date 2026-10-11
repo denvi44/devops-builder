@@ -1,0 +1,8 @@
+# Généré par DevOps Builder — à relire avant usage.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- deployment.yaml
+- service.yaml
+- cloudnative-pg.yaml
+- valkey.yaml

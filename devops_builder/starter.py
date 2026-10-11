@@ -43,6 +43,9 @@ OBSERVABILITY = {"prometheus": "Prometheus et Grafana", "cloud": "Service du clo
 IAC = {"opentofu": "OpenTofu", "terraform": "Terraform", "none": "Aucune"}
 DATABASES = {"none": "Aucune", "postgresql": "PostgreSQL", "mysql": "MySQL", "mariadb": "MariaDB",
              "mongodb": "MongoDB"}
+SECRETS = {"ci": "Variables de la CI", "sops": "Chiffrés dans le dépôt (SOPS + age)",
+           "openbao": "Coffre OpenBao", "cloud": "Coffre du cloud"}
+SECRET_CLOUDS = ("aws", "gcp", "azure")  # fournisseurs dont la fiche porte un coffre de secrets
 # Valeur du paramètre « engine » d'une base managée, selon le moteur demandé
 MANAGED_ENGINE_PARAM = {
     "aws-rds": {"postgresql": "postgres", "mysql": "mysql", "mariadb": "mariadb"},
@@ -80,6 +83,7 @@ class StarterAnswers:
     database: str = "none"            # moteur de la base principale (DATABASES)
     cache: bool = False               # stockage clé-valeur Valkey (cache, sessions)
     migrations: str = ""              # commande de migration de schéma, détectée dans l'application
+    secrets: str = "ci"               # source des secrets de l'application (SECRETS)
 
 
 def clouds_for(hosting: str, secnumcloud: bool) -> list[str]:
@@ -116,6 +120,12 @@ def validate(a: StarterAnswers) -> list[str]:
             problems.append("Choisir un cloud compatible avec cet hébergement.")
     elif a.hosting in ("docker-host", "vm") and a.cloud is not None and a.cloud not in host_clouds(a.hosting, a.secnumcloud):
         problems.append("Ce cloud ne convient pas (SecNumCloud) : choisir Outscale, OVHcloud ou des serveurs existants.")
+    if a.hosting == "serverless" and a.secrets in ("sops", "openbao"):
+        problems.append("Serverless : le service lit ses secrets dans le coffre du cloud ; choisir ce coffre ou "
+                        "les variables de la CI.")
+    if a.secrets == "cloud" and (a.hosting not in ("kubernetes-managed", "serverless") or a.cloud not in SECRET_CLOUDS):
+        problems.append("Coffre du cloud : avec Kubernetes managé ou serverless chez AWS, Google Cloud ou Azure ; "
+                        "sinon choisir OpenBao ou SOPS.")
     return problems
 
 
@@ -236,6 +246,17 @@ def build_starter(a: StarterAnswers, catalog: Catalog) -> Project:
         add("valkey")
     if a.migrations and (a.database != "none" or a.cache):
         add("db-migrations", command=a.migrations)
+
+    # Secrets de l'application
+    k8s = a.hosting in ("kubernetes", "kubernetes-managed")
+    if a.secrets == "sops":
+        add("sops")
+    elif a.secrets == "openbao":
+        add("openbao")
+    elif a.secrets == "cloud" and provider and provider.services.get("secrets"):
+        add(provider.services["secrets"])
+    if a.secrets in ("openbao", "cloud") and k8s:
+        add("external-secrets")  # écrit les Secrets Kubernetes à partir du coffre
 
     # Observabilité
     if (a.observability == "prometheus" and a.hosting != "serverless") or (a.observability == "cloud" and vm_cloud):

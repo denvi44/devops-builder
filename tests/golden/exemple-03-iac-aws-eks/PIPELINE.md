@@ -76,6 +76,7 @@ Aucun.
 
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
 - Amazon EKS : 2 clusters distincts (un par nom d'environnement), décrits dans la même pile.
+- External Secrets : le ClusterSecretStore « commandes » (platform/external-secrets/cluster-secret-store.yaml, appliqué par platform/install.sh) lit AWS Secrets Manager et les ExternalSecret de l'application s'y réfèrent ; donner au compte de service external-secrets/external-secrets la lecture du coffre (IRSA, Workload Identity, identité managée).
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
 - `scripts/ci-variables.sh` déclare les 4 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 
@@ -96,6 +97,7 @@ Aucun.
 - `infra/terraform/terraform.tfvars.example`
 - `infra/terraform/variables.tf`
 - `infra/terraform/versions.tf`
+- `platform/external-secrets/cluster-secret-store.yaml`
 - `platform/install.sh`
 - `scripts/ci-variables.sh`
 - `scripts/test-kind.sh`

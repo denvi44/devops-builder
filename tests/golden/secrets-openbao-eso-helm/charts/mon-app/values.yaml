@@ -1,0 +1,22 @@
+# Généré par DevOps Builder — à relire avant usage.
+replicaCount: 2
+image:
+  repository: $CI_REGISTRY_IMAGE
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+database:
+  mysql:
+    image: mysql:8.4
+    storage: 10Gi
+    createSecret: false
+    password: ''

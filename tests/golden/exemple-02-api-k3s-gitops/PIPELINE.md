@@ -105,6 +105,7 @@ Aucun.
 ## Notes
 
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
+- External Secrets : le ClusterSecretStore « api » (platform/external-secrets/cluster-secret-store.yaml, appliqué par platform/install.sh) lit OpenBao et les ExternalSecret de l'application s'y réfèrent ; dans le coffre : `auth enable kubernetes` et un rôle « external-secrets » lié au compte de service external-secrets/external-secrets.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
 - `scripts/ci-variables.sh` déclare les 2 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
 
@@ -123,6 +124,7 @@ Aucun.
 - `deploy/argocd/application.yaml`
 - `devops-builder.yaml`
 - `infra/cluster/install-k3s.sh`
+- `platform/external-secrets/cluster-secret-store.yaml`
 - `platform/install.sh`
 - `scripts/ci-variables.sh`
 - `scripts/test-kind.sh`

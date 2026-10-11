@@ -30,6 +30,8 @@ from ..starter import (
     IAC,
     NATIVE_CI,
     OBSERVABILITY,
+    SECRET_CLOUDS,
+    SECRETS,
     StarterAnswers,
     build_starter,
     clouds_for,
@@ -225,6 +227,12 @@ class StarterWizard(QWizard):
             self.w_db.addItem(v, k)
         self.w_db.setToolTip("Service managé du cloud, opérateur CloudNativePG sur Kubernetes, "
                              "ou conteneur à côté de l'application, selon l'hébergement.")
+        self.w_secrets = QComboBox()
+        for k, v in SECRETS.items():
+            self.w_secrets.addItem(v, k)
+        self.w_secrets.setToolTip("D'où la CI et le cluster tirent les mots de passe : variables de la CI, fichiers "
+                                  "chiffrés par SOPS, OpenBao (External Secrets sur Kubernetes) ou le coffre du "
+                                  "cloud (écrit par Terraform, lu par External Secrets).")
         self.w_cache = QCheckBox("Cache et sessions (Valkey)")
         db_row = QWidget()
         db_lay = QHBoxLayout(db_row)
@@ -232,9 +240,11 @@ class StarterWizard(QWizard):
         db_lay.addWidget(self.w_db, 1)
         db_lay.addWidget(self.w_cache)
         for label, w in (("Base de données", self.w_db), ("Cache Valkey", self.w_cache),
+                         ("Secrets", self.w_secrets),
                          ("Observabilité", self.w_obs), ("Infrastructure as code", self.w_iac)):
             w.setAccessibleName(label)
         form.addRow("Base de données", db_row)
+        form.addRow("Secrets", self.w_secrets)
         form.addRow("Observabilité", self.w_obs)
         form.addRow("Infrastructure as code (cloud)", self.w_iac)
         lay.addLayout(form)
@@ -251,6 +261,15 @@ class StarterWizard(QWizard):
         self.w_iac.setEnabled(a.cloud is not None)
         if a.cloud is not None and a.hosting in ("docker-host", "vm") and self.w_iac.currentData() == "none":
             self.w_iac.setCurrentIndex(max(0, self.w_iac.findData("opentofu")))  # les machines viennent de la pile
+        cloud_vault = a.hosting in ("kubernetes-managed", "serverless") and a.cloud in SECRET_CLOUDS
+        allowed = {"ci": True, "sops": a.hosting != "serverless", "openbao": a.hosting != "serverless",
+                   "cloud": cloud_vault}
+        for key, ok in allowed.items():
+            item = self.w_secrets.model().item(self.w_secrets.findData(key))
+            if item is not None:
+                item.setEnabled(ok)
+        if not allowed.get(self.w_secrets.currentData(), True):
+            self.w_secrets.setCurrentIndex(0)
         docker = a.hosting in ("docker-host", "vm")
         self.w_shared.setEnabled(docker)
         if not docker:
@@ -308,6 +327,7 @@ class StarterWizard(QWizard):
             shared_host=self.w_shared.isChecked() if hasattr(self, "w_shared") else False,
             database=self.w_db.currentData() if hasattr(self, "w_db") else "none",
             cache=self.w_cache.isChecked() if hasattr(self, "w_cache") else False,
+            secrets=self.w_secrets.currentData() if hasattr(self, "w_secrets") else "ci",
         )
 
     def project(self) -> Project:

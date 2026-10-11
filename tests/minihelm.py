@@ -2,7 +2,7 @@
 
 Le binaire helm n'est pas toujours installé (ni téléchargeable) sur le poste de test ; ce rendu
 couvre les expressions des gabarits générés — .Release.Name, .Values.*, if/end, required,
-printf, quote, toYaml, nindent — et lève une erreur sur toute autre construction, pour qu'un
+printf, quote, not, toYaml, nindent, chaînes littérales — et lève une erreur sur toute autre construction, pour qu'un
 gabarit nouveau ne passe pas inaperçu.
 """
 
@@ -14,7 +14,7 @@ from typing import Any
 
 import yaml
 
-TAG = re.compile(r"(\s*)\{\{(-?)\s*(.*?)\s*(-?)\}\}", re.S)
+TAG = re.compile(r'(\s*)\{\{(-?)\s*((?:"[^"]*"|.)*?)\s*(-?)\}\}', re.S)
 
 
 class RenderError(Exception):
@@ -53,6 +53,8 @@ def _call(words: list[str], ctx: dict, piped: Any = None, has_pipe: bool = False
         return vals[1]
     if fn == "printf":
         return vals[0] % tuple(vals[1:])
+    if fn == "not":
+        return not vals[0]
     if fn == "quote":
         return '"' + str(vals[0]).replace('"', '\\"') + '"'
     if fn == "toYaml":
@@ -126,10 +128,11 @@ def set_path(values: dict, path: str, value: Any) -> dict:
     return out
 
 
-def render_chart(files: dict[str, str], chart: str, values: dict, release: str = "rel") -> list[dict]:
+def render_chart(files: dict[str, str], chart: str, values: dict, release: str = "rel",
+                 namespace: str | None = None) -> list[dict]:
     docs: list[dict] = []
     for rel, text in sorted(files.items()):
         if rel.startswith(f"{chart}/templates/"):
-            rendered = render(text, values, release)
+            rendered = render(text, values, release, namespace or "ns")
             docs += [d for d in yaml.safe_load_all(rendered) if d]
     return docs

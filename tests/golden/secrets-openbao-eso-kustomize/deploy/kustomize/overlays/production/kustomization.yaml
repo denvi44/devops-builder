@@ -1,0 +1,22 @@
+# Généré par DevOps Builder — à relire avant usage.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: mon-app
+resources:
+- ../../base
+- externalsecrets.yaml
+images:
+- name: mon-app
+  newName: $CI_REGISTRY_IMAGE
+  newTag: latest
+replicas:
+- name: mon-app
+  count: 2
+patches:
+- target:
+    kind: Cluster
+    name: mon-app-pg
+  patch: |
+    - op: replace
+      path: /spec/instances
+      value: 3

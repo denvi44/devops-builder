@@ -13,7 +13,8 @@ helm repo update
 helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set crds.enabled=true
 
 # External Secrets Operator
-helm upgrade --install external-secrets external-secrets/external-secrets --namespace external-secrets --create-namespace
+helm upgrade --install external-secrets external-secrets/external-secrets --namespace external-secrets --create-namespace --wait
+kubectl apply -f "$(dirname "$0")/external-secrets/cluster-secret-store.yaml"
 
 # Prometheus
 helm upgrade --install prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace

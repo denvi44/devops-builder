@@ -134,6 +134,34 @@ def extra_cases(catalog) -> dict[str, Project]:
             out[f"iac-etat-{cloud}"] = build_starter(StarterAnswers(
                 forge="gitlab", hosting="kubernetes-managed", cloud=cloud, envs="staging-prod",
                 secnumcloud=cloud == "outscale"), catalog)
+    # 0.12 : secrets — SOPS, Vault / OpenBao lus par la CI, External Secrets, coffres des clouds
+    if "secrets" in getattr(StarterAnswers, "__dataclass_fields__", {}):
+        sec_cases = {
+            "secrets-sops-ansible-github": dict(forge="github", hosting="vm", envs="staging-prod",
+                                                database="postgresql", cache=True, secrets="sops"),
+            "secrets-openbao-eso-helm": dict(hosting="kubernetes", envs="dev-staging-prod", database="mysql",
+                                             secrets="openbao"),
+            "secrets-openbao-eso-kustomize": dict(hosting="kubernetes", envs="staging-prod", k8s_deploy="kustomize",
+                                                  database="postgresql", cache=True, secrets="openbao"),
+            "secrets-serverless-gcp": dict(hosting="serverless", cloud="gcp", envs="staging-prod",
+                                           database="postgresql", secrets="cloud"),
+        }
+        for cloud in ("aws", "gcp", "azure"):
+            sec_cases[f"secrets-coffre-{cloud}"] = dict(hosting="kubernetes-managed", cloud=cloud, envs="staging-prod",
+                                                        database="postgresql", cache=True, secrets="cloud")
+        for name, answers in sec_cases.items():
+            answers.setdefault("forge", "gitlab")
+            out[name] = build_starter(StarterAnswers(**answers), catalog)
+        bao = build_starter(StarterAnswers(forge="gitlab", hosting="docker-host", envs="staging-prod",
+                                           database="postgresql", secrets="openbao"), catalog)
+        bao.bricks_for("openbao")[0].params = {"address": "https://coffre.exemple.fr", "kv_mount": "apps"}
+        out["secrets-openbao-existant-compose"] = bao
+        vault = Project(name="Vault lu par la CI", target="kubernetes")
+        vault.app.image_name = "boutique"
+        for t in ("github", "github-actions", "buildkit", "ghcr", "k3s", "helm", "postgresql", "vault"):
+            vault.add(t, catalog[t].stage)
+        vault.bricks_for("vault")[0].params = {"address": "https://vault.exemple.fr", "jwt_role": "boutique-deploy"}
+        out["secrets-vault-ci-helm"] = vault
     return out
 
 

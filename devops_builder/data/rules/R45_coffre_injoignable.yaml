@@ -1,0 +1,6 @@
+id: R45
+title: Coffre injoignable depuis la CI
+family: dependance
+severity: avertissement
+type: vault_unreachable
+message: "{tool} est déployé avec l'application, sur le réseau interne de Compose : la CI ne peut pas y lire les mots de passe des bases avant le déploiement. Renseigner l'adresse d'un coffre joignable par la CI (paramètre « Adresse du coffre ») ou garder les secrets dans des variables CI ou SOPS."

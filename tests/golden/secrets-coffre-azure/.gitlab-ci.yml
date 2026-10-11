@@ -1,0 +1,175 @@
+# Généré par DevOps Builder — à relire avant usage.
+stages:
+- test
+- build
+- security
+- publish
+- infra
+- deploy-staging
+- deploy-production
+variables:
+  TAG: $CI_COMMIT_SHORT_SHA
+  IMAGE: monappregistry.azurecr.io/mon-app:$CI_COMMIT_SHORT_SHA
+unit-tests:
+  stage: test
+  image:
+    name: python:3.12-slim
+    entrypoint:
+    - ''
+  script:
+  - pip install -r requirements.txt
+  - pytest -q
+build-image:
+  stage: build
+  image:
+    name: docker:27
+    entrypoint:
+    - ''
+  services:
+  - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: /certs
+  id_tokens:
+    AZURE_OIDC_TOKEN:
+      aud: api://AzureADTokenExchange
+  script:
+  - export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+  - export ARM_USE_OIDC=true ARM_OIDC_TOKEN="$AZURE_OIDC_TOKEN"
+  - if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" --federated-token "$AZURE_OIDC_TOKEN" >/dev/null; fi
+  - echo "$REGISTRY_PASSWORD" | docker login "monappregistry.azurecr.io" -u "$REGISTRY_USER" --password-stdin
+  - docker buildx build --tag "$IMAGE" --push .
+gitleaks:
+  stage: security
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint:
+    - ''
+  script:
+  - gitleaks detect --source . --verbose
+trivy:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint:
+    - ''
+  id_tokens:
+    AZURE_OIDC_TOKEN:
+      aud: api://AzureADTokenExchange
+  script:
+  - export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+  - export ARM_USE_OIDC=true ARM_OIDC_TOKEN="$AZURE_OIDC_TOKEN"
+  - if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" --federated-token "$AZURE_OIDC_TOKEN" >/dev/null; fi
+  - trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+cosign:
+  stage: publish
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  id_tokens:
+    AZURE_OIDC_TOKEN:
+      aud: api://AzureADTokenExchange
+  script:
+  - export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+  - export ARM_USE_OIDC=true ARM_OIDC_TOKEN="$AZURE_OIDC_TOKEN"
+  - if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" --federated-token "$AZURE_OIDC_TOKEN" >/dev/null; fi
+  - apk add --no-cache cosign
+  - echo "$REGISTRY_PASSWORD" | cosign login "monappregistry.azurecr.io" -u "$REGISTRY_USER" --password-stdin
+  - cosign sign --yes "$IMAGE"
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+iac-plan:
+  stage: infra
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  id_tokens:
+    AZURE_OIDC_TOKEN:
+      aud: api://AzureADTokenExchange
+  script:
+  - export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+  - export ARM_USE_OIDC=true ARM_OIDC_TOKEN="$AZURE_OIDC_TOKEN"
+  - if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" --federated-token "$AZURE_OIDC_TOKEN" >/dev/null; fi
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - cd infra/terraform
+  - tofu fmt -check -recursive
+  - tofu init -input=false
+  - tofu validate
+  - tofu plan -input=false -lock-timeout=5m -out=plan.tfplan
+  artifacts:
+    paths:
+    - infra/terraform/plan.tfplan
+    expire_in: 1 week
+iac-apply:
+  stage: infra
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  resource_group: terraform
+  id_tokens:
+    AZURE_OIDC_TOKEN:
+      aud: api://AzureADTokenExchange
+  script:
+  - export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+  - export ARM_USE_OIDC=true ARM_OIDC_TOKEN="$AZURE_OIDC_TOKEN"
+  - if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" --federated-token "$AZURE_OIDC_TOKEN" >/dev/null; fi
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - cd infra/terraform
+  - tofu init -input=false
+  - tofu apply -input=false -lock-timeout=5m plan.tfplan
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - iac-plan
+deploy-staging:
+  stage: deploy-staging
+  image:
+    name: mcr.microsoft.com/azure-cli:latest
+    entrypoint:
+    - ''
+  environment:
+    name: staging
+  id_tokens:
+    AZURE_OIDC_TOKEN:
+      aud: api://AzureADTokenExchange
+  script:
+  - export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+  - export ARM_USE_OIDC=true ARM_OIDC_TOKEN="$AZURE_OIDC_TOKEN"
+  - if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" --federated-token "$AZURE_OIDC_TOKEN" >/dev/null; fi
+  - az aks install-cli
+  - curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  - az aks get-credentials --name mon-cluster --resource-group rg-mon-app
+  - helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-staging.yaml --namespace mon-app-staging --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+deploy-production:
+  stage: deploy-production
+  image:
+    name: mcr.microsoft.com/azure-cli:latest
+    entrypoint:
+    - ''
+  environment:
+    name: production
+  id_tokens:
+    AZURE_OIDC_TOKEN:
+      aud: api://AzureADTokenExchange
+  script:
+  - export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+  - export ARM_USE_OIDC=true ARM_OIDC_TOKEN="$AZURE_OIDC_TOKEN"
+  - if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" --federated-token "$AZURE_OIDC_TOKEN" >/dev/null; fi
+  - az aks install-cli
+  - curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  - az aks get-credentials --name mon-cluster --resource-group rg-mon-app
+  - helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-production.yaml --namespace mon-app --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - deploy-staging

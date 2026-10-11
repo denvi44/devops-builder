@@ -98,21 +98,30 @@ COMPOSE_SERVICES: dict[str, dict] = {
     "gitea": {"image": "gitea/gitea:latest", "ports": ["3001:3000", "2222:22"], "volumes": ["gitea-data:/data"]},
     "jenkins": {"image": "jenkins/jenkins:lts", "ports": ["8080:8080"], "volumes": ["jenkins-home:/var/jenkins_home"]},
     "sonarqube": {"image": "sonarqube:community", "ports": ["9002:9000"], "volumes": ["sonarqube-data:/opt/sonarqube/data"]},
-    "vault": {"image": "hashicorp/vault:latest", "ports": ["8200:8200"], "cap_add": ["IPC_LOCK"]},
-    "openbao": {"image": "quay.io/openbao/openbao:latest", "ports": ["8200:8200"], "cap_add": ["IPC_LOCK"]},
+    # Vrai serveur (stockage intégré Raft), non publié sur l'hôte : à initialiser puis desceller (PIPELINE.md)
+    "vault": {"image": "hashicorp/vault:latest", "command": ["server"],
+              "environment": {"VAULT_ADDR": "http://127.0.0.1:8200"},
+              "volumes": ["vault-data:/vault/file"],
+              "configs": [{"source": "vault-config", "target": "/vault/config/vault.hcl"}]},
+    "openbao": {"image": "quay.io/openbao/openbao:latest", "command": ["server"],
+                "environment": {"BAO_ADDR": "http://127.0.0.1:8200"},
+                "volumes": ["openbao-data:/openbao/file"],
+                "configs": [{"source": "openbao-config", "target": "/openbao/config/openbao.hcl"}]},
     "falco": {"image": "falcosecurity/falco:latest", "privileged": True,
               "volumes": ["/var/run/docker.sock:/host/var/run/docker.sock", "/proc:/host/proc:ro"]},
 }
 
 
 def install_script(ir: IR) -> dict[str, str]:
+    from . import secrets
     from .extras import embedded_components
 
     embedded = embedded_components(ir)
     for tid, note in embedded.items():
         ir.notes.append(note)
         ir.cover(tid)
-    present = [t for t in PLATFORM_CHARTS if ir.has(t) and t not in embedded]
+    present = [t for t in PLATFORM_CHARTS if ir.has(t) and t not in embedded and not external_vault(ir, t)]
+    ir.cover(*(t for t in ("vault", "openbao") if external_vault(ir, t)))
     if not present:
         return {}
     ir.cover(*present)
@@ -138,13 +147,60 @@ def install_script(ir: IR) -> dict[str, str]:
         if t == "linkerd":
             lines.append("helm upgrade --install linkerd-crds linkerd-edge/linkerd-crds --namespace linkerd --create-namespace")
         args = f" {c.args}" if c.args else ""
+        store_file = t == "external-secrets" and secrets.eso(ir)
+        if store_file:
+            args += " --wait"  # CRD et webhook prêts avant le ClusterSecretStore
         lines.append(f"helm upgrade --install {t} {c.chart} --namespace {c.namespace} --create-namespace{args}")
+        if store_file:
+            lines.append(f'kubectl apply -f "$(dirname "$0")/{secrets.STORE_FILE.split("/", 1)[1]}"')
         lines.append("")
     return {"platform/install.sh": "\n".join(lines)}
 
 
+VAULT_CONFIG = """ui            = true
+disable_mlock = true
+api_addr      = "http://{name}:8200"
+cluster_addr  = "http://{name}:8201"
+
+storage "raft" {{
+  path    = "/{name}/file"
+  node_id = "{name}-1"
+}}
+
+# Réseau interne Compose, sans TLS : ne jamais publier ce port sur l'hôte tel quel.
+listener "tcp" {{
+  address     = "0.0.0.0:8200"
+  tls_disable = true
+}}
+"""
+
+
+def compose_configs(ir: IR) -> dict[str, dict]:
+    """Configurations Compose (contenu en ligne) des services de plateforme."""
+    out = {}
+    for name in ("vault", "openbao"):
+        if ir.has(name) and name in COMPOSE_SERVICES and not external_vault(ir, name):
+            out[f"{name}-config"] = {"content": VAULT_CONFIG.format(name=name)}
+    if out:
+        cli = "vault" if ir.has("vault") else "bao"
+        svc = "vault" if ir.has("vault") else "openbao"
+        ir.notes.append(f"{ir.catalog[svc].name} : serveur à stockage intégré, joignable seulement sur le réseau "
+                        f"Compose. Une fois : `docker compose exec {svc} {cli} operator init` (clés de descellement "
+                        f"et jeton racine à ranger hors de l'hôte), puis `{cli} operator unseal` après chaque "
+                        "redémarrage, ou un descellement automatique (transit, KMS du cloud).")
+    return out
+
+
+def external_vault(ir: IR, tool_id: str) -> bool:
+    """Vault / OpenBao avec une adresse : coffre existant, que le pipeline ne déploie pas."""
+    return tool_id in ("vault", "openbao") and ir.has(tool_id) and bool(ir.params(tool_id).get("address"))
+
+
 def compose_platform_services(ir: IR) -> dict[str, dict]:
-    services = {t: COMPOSE_SERVICES[t] for t in COMPOSE_SERVICES if ir.has(t)}
+    services = {t: COMPOSE_SERVICES[t] for t in COMPOSE_SERVICES if ir.has(t) and not external_vault(ir, t)}
+    for t in ("vault", "openbao"):
+        if external_vault(ir, t):
+            ir.cover(t)  # coffre existant : lu par la CI (scripts/secrets-fetch.sh)
     ir.cover(*services)
     return services
 

@@ -839,6 +839,22 @@ def h_local_state(rule: Rule, ctx: Context) -> list[Diagnostic]:
                   _add_actions(ctx, storages, 3))]
 
 
+@handler("vault_unreachable")
+def h_vault_unreachable(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    from .databases import DATABASE_TOOLS
+    from .params import effective_params
+    if ctx.project.target not in ("docker-host", "vm") or not ctx.has("docker-compose") or ctx.has("sops"):
+        return []
+    if not any(p.tool.id in DATABASE_TOOLS for p in ctx.placed):
+        return []
+    out = []
+    for p in ctx.placed:
+        if p.tool.id in ("vault", "openbao") and not effective_params(p.tool, p.brick, ctx.project).get("address"):
+            out.append(_diag(rule, _fmt(rule.message, tool=p.tool.name), [p.brick.uid], []))
+            break  # Vault l'emporte sur OpenBao comme source : un seul message
+    return out
+
+
 def apply_action(project: Project, action: Action, catalog: Catalog) -> None:
     """Applique une correction proposée au projet (en place)."""
     args = action.args

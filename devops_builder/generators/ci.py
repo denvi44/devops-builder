@@ -76,6 +76,8 @@ def gitlab_ci(ir: IR) -> dict[str, str]:
             job.setdefault("variables", {}).update(st.env)
         if st.cloud and oidc:
             job["id_tokens"] = {TOKEN_VARS[c]: {"aud": AUDIENCES[c]} for c in st.cloud}
+        if st.id_tokens:
+            job.setdefault("id_tokens", {}).update(st.id_tokens)
         job["script"] = full_script(ir, st, TOKEN_VARS if oidc else None)
         rules = []
         if st.main_only:

@@ -190,6 +190,8 @@ def _resource(ir: IR, tool_id: str, p: dict | None = None, sfx: str = "", first:
 }}{cw_addon}'''
     if tool_id == "ecr":
         return f'resource "aws_ecr_repository" "app" {{\n  name                 = "{p.get("repository", app)}"\n  image_tag_mutability = "IMMUTABLE"\n\n  image_scanning_configuration {{\n    scan_on_push = true\n  }}\n}}'
+    if tool_id in ("aws-secrets-manager", "gcp-secret-manager") and _secrets_written(ir):
+        return None  # un secret par base et par environnement, plus bas
     if tool_id == "aws-secrets-manager":
         return f'resource "aws_secretsmanager_secret" "app" {{\n  name = "{app}"\n}}'
     if tool_id in ("s3", "gcs"):
@@ -240,6 +242,11 @@ resource "scaleway_k8s_pool" "default{sfx}" {{
     return None
 
 
+def _secrets_written(ir: IR) -> bool:
+    from . import data, secrets
+    return bool(secrets.tf_dbs(ir, data.compose_dbs(ir)))
+
+
 def _azure(ir: IR, tool_id: str, p: dict, sfx: str = "", first: bool = True) -> str:
     app = ir.app
     loc = ir.params("azure").get("location", "francecentral")
@@ -279,10 +286,12 @@ def _azure(ir: IR, tool_id: str, p: dict, sfx: str = "", first: bool = True) -> 
                 f'  resource_group_name = azurerm_resource_group.main.name\n  location            = azurerm_resource_group.main.location\n'
                 f'  sku                 = "Standard"\n}}')
     if tool_id == "azure-key-vault":
+        rbac = "\n  enable_rbac_authorization = true" if _secrets_written(ir) else ""
+        pad = "      " if rbac else ""
         return (f'data "azurerm_client_config" "current" {{}}\n\nresource "azurerm_key_vault" "main" {{\n'
-                f'  name                = "{p.get("vault_name", "kv-" + app)}"\n  location            = azurerm_resource_group.main.location\n'
-                f'  resource_group_name = azurerm_resource_group.main.name\n'
-                f'  tenant_id           = data.azurerm_client_config.current.tenant_id\n  sku_name            = "standard"\n}}')
+                f'  name                {pad}= "{p.get("vault_name", "kv-" + app)}"\n  location            {pad}= azurerm_resource_group.main.location\n'
+                f'  resource_group_name {pad}= azurerm_resource_group.main.name\n'
+                f'  tenant_id           {pad}= data.azurerm_client_config.current.tenant_id\n  sku_name            {pad}= "standard"{rbac}\n}}')
     if tool_id == "azure-blob":
         return f'# Le compte de stockage de l\'état est créé hors de cette pile (amorçage), région {loc}.'
     if tool_id == "azure-container-apps":
@@ -307,11 +316,13 @@ def terraform(ir: IR) -> dict[str, str]:
     from . import hosts
     db_blocks, _db_variables, db_outputs = data.terraform_blocks(ir)
     host_blocks, host_outputs = hosts.terraform_blocks(ir)
+    from . import secrets
+    secret_blocks, secret_random = secrets.terraform_blocks(ir, data.compose_dbs(ir))
     required = []
     for p in ir.providers:
         src, ver = PROVIDER_SOURCES.get(p.id, (p.terraform_provider, ">= 0"))
         required.append(f'    {PROVIDER_LOCAL.get(p.id, p.id)} = {{\n      source  = "{src}"\n      version = "{ver}"\n    }}')
-    if data.needs_random(ir):
+    if data.needs_random(ir) or secret_random:
         required.append('    random = {\n      source  = "hashicorp/random"\n      version = "~> 3.6"\n    }')
     versions = (f"# {HEADER}\nterraform {{\n  required_version = \"{REQUIRED_VERSION}\"\n\n  required_providers {{\n"
                 + "\n".join(required) + "\n  }\n\n" + _backend(ir) + "\n}\n")
@@ -340,7 +351,7 @@ def terraform(ir: IR) -> dict[str, str]:
             main_parts.append(f"# --- {name}\n{res}")
             if b.tool not in COMMENT_ONLY:
                 ir.cover(b.tool)
-    main_parts += host_blocks + db_blocks
+    main_parts += host_blocks + db_blocks + secret_blocks
     ir.cover(*(p.id for p in ir.providers))
     if backend_tool(ir) in S3_COMPATIBLE:
         ir.cover(backend_tool(ir))  # porte l'état : écrit dans le bloc backend de versions.tf
