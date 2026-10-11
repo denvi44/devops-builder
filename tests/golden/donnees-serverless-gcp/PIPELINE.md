@@ -86,6 +86,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `.gitlab-ci.yml`
 - `PIPELINE.md`
 - `devops-builder.yaml`
+- `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
 - `infra/terraform/outputs.tf`
 - `infra/terraform/variables.tf`

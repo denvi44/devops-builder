@@ -65,15 +65,18 @@ stages:
   - uid: brique012
     tool: terraform
     params: {}
-  deploy:
   - uid: brique013
+    tool: outscale-oos
+    params: {}
+  deploy:
+  - uid: brique014
     tool: helm
     params: {}
-  - uid: brique014
+  - uid: brique015
     tool: argo-cd
     params: {}
   platform:
-  - uid: brique015
+  - uid: brique016
     tool: cert-manager
     params: {}
   observability: []

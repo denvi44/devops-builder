@@ -96,6 +96,8 @@ declare_var REGISTRY_PASSWORD 1 'Mot de passe ou jeton de publication sur regist
 declare_var OVH_APPLICATION_KEY 1 'Clé d'"'"'application OVHcloud'
 declare_var OVH_APPLICATION_SECRET 1 'Secret d'"'"'application OVHcloud'
 declare_var OVH_CONSUMER_KEY 1 'Clé consommateur OVHcloud'
+declare_var OVH_S3_ACCESS_KEY 1 'Clé d'"'"'accès S3 OVHcloud (utilisateur Public Cloud), pour l'"'"'état Terraform'
+declare_var OVH_S3_SECRET_KEY 1 'Clé secrète S3 OVHcloud, pour l'"'"'état Terraform'
 declare_var KUBECONFIG_DATA_STAGING 1 'Contenu du kubeconfig de OVHcloud Managed Kubernetes (Préproduction) (base64)'
 declare_var DATABASE_URL_STAGING 1 'URL de connexion à OVHcloud Public Cloud Databases (Préproduction), lue par l'"'"'application dans DATABASE_URL ; à composer après création de l'"'"'instance (sorties Terraform)'
 declare_var KUBECONFIG_DATA_PRODUCTION 1 'Contenu du kubeconfig de OVHcloud Managed Kubernetes (Production) (base64)'

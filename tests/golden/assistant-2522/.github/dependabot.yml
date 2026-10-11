@@ -3,14 +3,17 @@ version: 2
 updates:
 - package-ecosystem: pip
   directory: /
-  schedule: &id001
+  schedule:
     interval: weekly
 - package-ecosystem: docker
   directory: /
-  schedule: *id001
+  schedule:
+    interval: weekly
 - package-ecosystem: github-actions
   directory: /
-  schedule: *id001
+  schedule:
+    interval: weekly
 - package-ecosystem: terraform
   directory: /infra/terraform
-  schedule: *id001
+  schedule:
+    interval: weekly

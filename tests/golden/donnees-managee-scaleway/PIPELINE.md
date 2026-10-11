@@ -48,6 +48,7 @@ L'application lit l'URL de connexion complète dans la variable indiquée ; le m
 | Infrastructure | Scaleway | proprietary | vérifiée |
 | Infrastructure | Scaleway Kapsule | proprietary | vérifiée |
 | Infrastructure | OpenTofu | MPL-2.0 | vérifiée |
+| Infrastructure | Scaleway Object Storage | proprietary | vérifiée |
 | Données | Scaleway Managed Database | proprietary | vérifiée |
 | Déploiement | Helm | Apache-2.0 | vérifiée |
 | Plateforme | cert-manager | Apache-2.0 | vérifiée |
@@ -86,6 +87,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 ## Diagnostics restants
 
 - **Avertissement** (R34) — Scaleway Kapsule : « Nom du cluster » non renseigné : la valeur d'exemple « mon-cluster » sera écrite dans les fichiers.
+- **Avertissement** (R34) — Scaleway Object Storage : « Bucket de l'état Terraform » non renseigné : la valeur d'exemple « mon-projet-tfstate » sera écrite dans les fichiers.
 
 ## Notes
 
@@ -107,6 +109,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `charts/mon-app/values-staging.yaml`
 - `charts/mon-app/values.yaml`
 - `devops-builder.yaml`
+- `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
 - `infra/terraform/outputs.tf`
 - `infra/terraform/variables.tf`

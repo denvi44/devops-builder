@@ -88,7 +88,7 @@ cosign:
 iac-plan:
   stage: infra
   image:
-    name: hashicorp/terraform:1.9
+    name: hashicorp/terraform:1.16
     entrypoint:
     - ''
   id_tokens:
@@ -99,9 +99,10 @@ iac-plan:
   - export ARM_USE_OIDC=true ARM_OIDC_TOKEN="$AZURE_OIDC_TOKEN"
   - if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" --federated-token "$AZURE_OIDC_TOKEN" >/dev/null; fi
   - cd infra/terraform
+  - terraform fmt -check -recursive
   - terraform init -input=false
   - terraform validate
-  - terraform plan -input=false -out=plan.tfplan
+  - terraform plan -input=false -lock-timeout=5m -out=plan.tfplan
   artifacts:
     paths:
     - infra/terraform/plan.tfplan
@@ -109,9 +110,10 @@ iac-plan:
 iac-apply:
   stage: infra
   image:
-    name: hashicorp/terraform:1.9
+    name: hashicorp/terraform:1.16
     entrypoint:
     - ''
+  resource_group: terraform
   id_tokens:
     AZURE_OIDC_TOKEN:
       aud: api://AzureADTokenExchange
@@ -121,7 +123,7 @@ iac-apply:
   - if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" --federated-token "$AZURE_OIDC_TOKEN" >/dev/null; fi
   - cd infra/terraform
   - terraform init -input=false
-  - terraform apply -input=false plan.tfplan
+  - terraform apply -input=false -lock-timeout=5m plan.tfplan
   rules:
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     when: manual

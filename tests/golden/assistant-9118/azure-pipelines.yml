@@ -114,9 +114,10 @@ stages:
         export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
         if command -v gcloud >/dev/null; then gcloud auth activate-service-account --key-file /tmp/gcp-key.json; fi
         cd infra/terraform
+        terraform fmt -check -recursive
         terraform init -input=false
         terraform validate
-        terraform plan -input=false -out=plan.tfplan
+        terraform plan -input=false -lock-timeout=5m -out=plan.tfplan
       displayName: Plan Terraform
       env:
         SONAR_TOKEN: $(SONAR_TOKEN)
@@ -134,7 +135,7 @@ stages:
         if command -v gcloud >/dev/null; then gcloud auth activate-service-account --key-file /tmp/gcp-key.json; fi
         cd infra/terraform
         terraform init -input=false
-        terraform apply -input=false plan.tfplan
+        terraform apply -input=false -lock-timeout=5m plan.tfplan
       displayName: Application Terraform
       env:
         SONAR_TOKEN: $(SONAR_TOKEN)

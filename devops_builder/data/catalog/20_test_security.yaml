@@ -87,6 +87,41 @@
   provides: [vuln-scan]
   verified: "2026-10-08"
 
+- id: tflint
+  name: TFLint
+  stage: test
+  extra_stages: [security]
+  roles: [iac-lint]
+  description: Linter Terraform et OpenTofu (erreurs de syntaxe, conventions, arguments dépréciés) ; règles propres à chaque cloud par extension.
+  homepage: https://github.com/terraform-linters/tflint
+  license: MPL-2.0
+  repo: https://github.com/terraform-linters/tflint
+  hosting: [ci, cli]
+  verified: "2026-10-11"
+
+- id: infracost
+  name: Infracost
+  stage: test
+  roles: [cost-estimation]
+  description: Estimation du coût mensuel de l'infrastructure Terraform ou OpenTofu, avant l'apply. Clé d'API gratuite requise.
+  homepage: https://www.infracost.io/
+  license: Apache-2.0
+  repo: https://github.com/infracost/infracost
+  hosting: [ci, cli]
+  verified: "2026-10-11"
+
+- id: floci
+  name: Floci
+  stage: test
+  extra_stages: [infrastructure]
+  roles: [cloud-emulator]
+  description: Émulateur AWS local (S3, SQS, DynamoDB, Lambda, IAM, RDS, EKS…), alternative libre à LocalStack. Tests de l'application et plan de l'IaC sans compte AWS, en local et dans la CI.
+  homepage: https://floci.io/
+  license: MIT
+  repo: https://github.com/floci-io/floci
+  hosting: [ci, cli, docker-host]
+  verified: "2026-10-11"
+
 - id: checkov
   name: Checkov
   stage: security

@@ -102,6 +102,7 @@
   secnumcloud: "yes"
   services:
     k8s.managed: oks
+    object-storage: outscale-oos
   verified: "2026-10-08"
 
 - id: scaleway

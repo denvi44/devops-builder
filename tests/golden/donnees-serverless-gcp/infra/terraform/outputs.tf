@@ -1,5 +1,9 @@
 # Généré par DevOps Builder — à relire avant usage.
 
+output "registry" {
+  value = google_artifact_registry_repository.app.id
+}
+
 output "db_connection_name" {
   description = "Pour le Cloud SQL Auth Proxy"
   value       = google_sql_database_instance.db.connection_name

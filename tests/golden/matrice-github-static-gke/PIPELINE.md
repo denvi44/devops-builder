@@ -66,7 +66,9 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `deploy/kustomize/base/service.yaml`
 - `deploy/kustomize/overlays/production/kustomization.yaml`
 - `devops-builder.yaml`
+- `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
+- `infra/terraform/outputs.tf`
 - `infra/terraform/variables.tf`
 - `infra/terraform/versions.tf`
 - `scripts/ci-variables.sh`

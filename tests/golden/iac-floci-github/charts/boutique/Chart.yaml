@@ -1,0 +1,7 @@
+# Généré par DevOps Builder — à relire avant usage.
+apiVersion: v2
+name: boutique
+description: Chart de IaC AWS et Floci
+type: application
+version: 0.1.0
+appVersion: 0.1.0

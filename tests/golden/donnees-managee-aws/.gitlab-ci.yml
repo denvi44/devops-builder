@@ -81,7 +81,7 @@ cosign:
 iac-plan:
   stage: infra
   image:
-    name: ghcr.io/opentofu/opentofu:1.10
+    name: alpine:3.20
     entrypoint:
     - ''
   id_tokens:
@@ -90,10 +90,14 @@ iac-plan:
   script:
   - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
   - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
   - cd infra/terraform
+  - tofu fmt -check -recursive
   - tofu init -input=false
   - tofu validate
-  - tofu plan -input=false -out=plan.tfplan
+  - tofu plan -input=false -lock-timeout=5m -out=plan.tfplan
   artifacts:
     paths:
     - infra/terraform/plan.tfplan
@@ -101,18 +105,22 @@ iac-plan:
 iac-apply:
   stage: infra
   image:
-    name: ghcr.io/opentofu/opentofu:1.10
+    name: alpine:3.20
     entrypoint:
     - ''
+  resource_group: terraform
   id_tokens:
     AWS_OIDC_TOKEN:
       aud: sts.amazonaws.com
   script:
   - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
   - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
   - cd infra/terraform
   - tofu init -input=false
-  - tofu apply -input=false plan.tfplan
+  - tofu apply -input=false -lock-timeout=5m plan.tfplan
   rules:
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     when: manual

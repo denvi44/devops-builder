@@ -59,14 +59,16 @@ steps:
       from_secret: kubeconfig_data
     SONAR_HOST_URL: à-renseigner
 - name: iac-plan
-  image: hashicorp/terraform:1.9
+  image: hashicorp/terraform:1.16
   commands:
   - export TAG="${CI_COMMIT_SHA:0:8}"
   - export IMAGE="rg.fr-par.scw.cloud/mon-app/mon-app:$$TAG"
+  - export AWS_ACCESS_KEY_ID="$$SCW_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$$SCW_SECRET_KEY"
   - cd infra/terraform
+  - terraform fmt -check -recursive
   - terraform init -input=false
   - terraform validate
-  - terraform plan -input=false -out=plan.tfplan
+  - terraform plan -input=false -lock-timeout=5m -out=plan.tfplan
   environment:
     SONAR_TOKEN:
       from_secret: sonar_token
@@ -80,13 +82,14 @@ steps:
       from_secret: kubeconfig_data
     SONAR_HOST_URL: à-renseigner
 - name: iac-apply
-  image: hashicorp/terraform:1.9
+  image: hashicorp/terraform:1.16
   commands:
   - export TAG="${CI_COMMIT_SHA:0:8}"
   - export IMAGE="rg.fr-par.scw.cloud/mon-app/mon-app:$$TAG"
+  - export AWS_ACCESS_KEY_ID="$$SCW_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$$SCW_SECRET_KEY"
   - cd infra/terraform
   - terraform init -input=false
-  - terraform apply -input=false plan.tfplan
+  - terraform apply -input=false -lock-timeout=5m plan.tfplan
   environment:
     SONAR_TOKEN:
       from_secret: sonar_token

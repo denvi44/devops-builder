@@ -106,6 +106,7 @@ Ces briques sont dans le pipeline mais aucun générateur ne les prend en charge
 - `charts/mon-app/values-staging.yaml`
 - `charts/mon-app/values.yaml`
 - `devops-builder.yaml`
+- `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
 - `infra/terraform/variables.tf`
 - `infra/terraform/versions.tf`

@@ -24,6 +24,8 @@ stages:
         OVH_APPLICATION_KEY: $(OVH_APPLICATION_KEY)
         OVH_APPLICATION_SECRET: $(OVH_APPLICATION_SECRET)
         OVH_CONSUMER_KEY: $(OVH_CONSUMER_KEY)
+        OVH_S3_ACCESS_KEY: $(OVH_S3_ACCESS_KEY)
+        OVH_S3_SECRET_KEY: $(OVH_S3_SECRET_KEY)
         KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
         KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)
   - job: sonarqube
@@ -42,6 +44,8 @@ stages:
         OVH_APPLICATION_KEY: $(OVH_APPLICATION_KEY)
         OVH_APPLICATION_SECRET: $(OVH_APPLICATION_SECRET)
         OVH_CONSUMER_KEY: $(OVH_CONSUMER_KEY)
+        OVH_S3_ACCESS_KEY: $(OVH_S3_ACCESS_KEY)
+        OVH_S3_SECRET_KEY: $(OVH_S3_SECRET_KEY)
         KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
         KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)
 - stage: build
@@ -62,6 +66,8 @@ stages:
         OVH_APPLICATION_KEY: $(OVH_APPLICATION_KEY)
         OVH_APPLICATION_SECRET: $(OVH_APPLICATION_SECRET)
         OVH_CONSUMER_KEY: $(OVH_CONSUMER_KEY)
+        OVH_S3_ACCESS_KEY: $(OVH_S3_ACCESS_KEY)
+        OVH_S3_SECRET_KEY: $(OVH_S3_SECRET_KEY)
         KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
         KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)
 - stage: security
@@ -82,6 +88,8 @@ stages:
         OVH_APPLICATION_KEY: $(OVH_APPLICATION_KEY)
         OVH_APPLICATION_SECRET: $(OVH_APPLICATION_SECRET)
         OVH_CONSUMER_KEY: $(OVH_CONSUMER_KEY)
+        OVH_S3_ACCESS_KEY: $(OVH_S3_ACCESS_KEY)
+        OVH_S3_SECRET_KEY: $(OVH_S3_SECRET_KEY)
         KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
         KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)
   - job: trivy
@@ -100,6 +108,8 @@ stages:
         OVH_APPLICATION_KEY: $(OVH_APPLICATION_KEY)
         OVH_APPLICATION_SECRET: $(OVH_APPLICATION_SECRET)
         OVH_CONSUMER_KEY: $(OVH_CONSUMER_KEY)
+        OVH_S3_ACCESS_KEY: $(OVH_S3_ACCESS_KEY)
+        OVH_S3_SECRET_KEY: $(OVH_S3_SECRET_KEY)
         KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
         KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)
 - stage: publish
@@ -123,6 +133,8 @@ stages:
         OVH_APPLICATION_KEY: $(OVH_APPLICATION_KEY)
         OVH_APPLICATION_SECRET: $(OVH_APPLICATION_SECRET)
         OVH_CONSUMER_KEY: $(OVH_CONSUMER_KEY)
+        OVH_S3_ACCESS_KEY: $(OVH_S3_ACCESS_KEY)
+        OVH_S3_SECRET_KEY: $(OVH_S3_SECRET_KEY)
         KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
         KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)
 - stage: infra
@@ -131,13 +143,15 @@ stages:
     displayName: Plan Terraform
     pool:
       vmImage: ubuntu-latest
-    container: hashicorp/terraform:1.9
+    container: hashicorp/terraform:1.16
     steps:
     - script: |
+        export AWS_ACCESS_KEY_ID="$OVH_S3_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$OVH_S3_SECRET_KEY"
         cd infra/terraform
+        terraform fmt -check -recursive
         terraform init -input=false
         terraform validate
-        terraform plan -input=false -out=plan.tfplan
+        terraform plan -input=false -lock-timeout=5m -out=plan.tfplan
       displayName: Plan Terraform
       env:
         SONAR_TOKEN: $(SONAR_TOKEN)
@@ -146,19 +160,22 @@ stages:
         OVH_APPLICATION_KEY: $(OVH_APPLICATION_KEY)
         OVH_APPLICATION_SECRET: $(OVH_APPLICATION_SECRET)
         OVH_CONSUMER_KEY: $(OVH_CONSUMER_KEY)
+        OVH_S3_ACCESS_KEY: $(OVH_S3_ACCESS_KEY)
+        OVH_S3_SECRET_KEY: $(OVH_S3_SECRET_KEY)
         KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
         KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)
   - job: iac_apply
     displayName: Application Terraform
     pool:
       vmImage: ubuntu-latest
-    container: hashicorp/terraform:1.9
+    container: hashicorp/terraform:1.16
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     steps:
     - script: |
+        export AWS_ACCESS_KEY_ID="$OVH_S3_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$OVH_S3_SECRET_KEY"
         cd infra/terraform
         terraform init -input=false
-        terraform apply -input=false plan.tfplan
+        terraform apply -input=false -lock-timeout=5m plan.tfplan
       displayName: Application Terraform
       env:
         SONAR_TOKEN: $(SONAR_TOKEN)
@@ -167,6 +184,8 @@ stages:
         OVH_APPLICATION_KEY: $(OVH_APPLICATION_KEY)
         OVH_APPLICATION_SECRET: $(OVH_APPLICATION_SECRET)
         OVH_CONSUMER_KEY: $(OVH_CONSUMER_KEY)
+        OVH_S3_ACCESS_KEY: $(OVH_S3_ACCESS_KEY)
+        OVH_S3_SECRET_KEY: $(OVH_S3_SECRET_KEY)
         KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
         KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)
 - stage: deploy_staging
@@ -197,6 +216,8 @@ stages:
               OVH_APPLICATION_KEY: $(OVH_APPLICATION_KEY)
               OVH_APPLICATION_SECRET: $(OVH_APPLICATION_SECRET)
               OVH_CONSUMER_KEY: $(OVH_CONSUMER_KEY)
+              OVH_S3_ACCESS_KEY: $(OVH_S3_ACCESS_KEY)
+              OVH_S3_SECRET_KEY: $(OVH_S3_SECRET_KEY)
               KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
               KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)
 - stage: deploy_production
@@ -227,5 +248,7 @@ stages:
               OVH_APPLICATION_KEY: $(OVH_APPLICATION_KEY)
               OVH_APPLICATION_SECRET: $(OVH_APPLICATION_SECRET)
               OVH_CONSUMER_KEY: $(OVH_CONSUMER_KEY)
+              OVH_S3_ACCESS_KEY: $(OVH_S3_ACCESS_KEY)
+              OVH_S3_SECRET_KEY: $(OVH_S3_SECRET_KEY)
               KUBECONFIG_DATA_STAGING: $(KUBECONFIG_DATA_STAGING)
               KUBECONFIG_DATA_PRODUCTION: $(KUBECONFIG_DATA_PRODUCTION)

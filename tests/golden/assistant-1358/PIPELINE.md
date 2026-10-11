@@ -35,6 +35,7 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Infrastructure | OVHcloud | proprietary | vérifiée |
 | Infrastructure | OVHcloud Managed Kubernetes | proprietary | vérifiée |
 | Infrastructure | OpenTofu | MPL-2.0 | vérifiée |
+| Infrastructure | OVHcloud Object Storage | proprietary | vérifiée |
 | Déploiement | Helm | Apache-2.0 | vérifiée |
 | Déploiement | Argo CD | Apache-2.0 | vérifiée |
 | Plateforme | cert-manager | Apache-2.0 | vérifiée |
@@ -66,6 +67,8 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `OVH_APPLICATION_KEY` | oui | à déclarer | Clé d'application OVHcloud |
 | `OVH_APPLICATION_SECRET` | oui | à déclarer | Secret d'application OVHcloud |
 | `OVH_CONSUMER_KEY` | oui | à déclarer | Clé consommateur OVHcloud |
+| `OVH_S3_ACCESS_KEY` | oui | à déclarer | Clé d'accès S3 OVHcloud (utilisateur Public Cloud), pour l'état Terraform |
+| `OVH_S3_SECRET_KEY` | oui | à déclarer | Clé secrète S3 OVHcloud, pour l'état Terraform |
 | `GITOPS_TOKEN` | oui | à déclarer | Jeton autorisé à pousser sur le dépôt GitOps |
 | `GITOPS_REPO` | non | à déclarer | Dépôt GitOps surveillé, sans schéma (hôte/groupe/depot.git) |
 | `RENOVATE_TOKEN` | oui | à déclarer | Jeton de la forge autorisé à ouvrir des merge requests (Renovate) |
@@ -74,12 +77,13 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - **Avertissement** (R34) — OVHcloud : « Projet Public Cloud » non renseigné : la valeur d'exemple « <id-projet-public-cloud> » sera écrite dans les fichiers.
 - **Avertissement** (R34) — OVHcloud Managed Kubernetes : « Nom du cluster » non renseigné : la valeur d'exemple « mon-cluster » sera écrite dans les fichiers.
+- **Avertissement** (R34) — OVHcloud Object Storage : « Bucket de l'état Terraform » non renseigné : la valeur d'exemple « mon-projet-tfstate » sera écrite dans les fichiers.
 
 ## Notes
 
 - Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
-- `scripts/ci-variables.sh` déclare les 10 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 12 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 
@@ -91,7 +95,9 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `charts/mon-app/values.yaml`
 - `deploy/argocd/application.yaml`
 - `devops-builder.yaml`
+- `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
+- `infra/terraform/outputs.tf`
 - `infra/terraform/variables.tf`
 - `infra/terraform/versions.tf`
 - `platform/install.sh`

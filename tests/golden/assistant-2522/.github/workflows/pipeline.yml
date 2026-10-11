@@ -68,14 +68,16 @@ jobs:
         client-id: ${{ vars.AZURE_CLIENT_ID }}
         tenant-id: ${{ vars.AZURE_TENANT_ID }}
         subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-    - &id001
-      uses: opentofu/setup-opentofu@v1
+    - uses: opentofu/setup-opentofu@v1
+      with:
+        tofu_version: 1.13.1
     - name: Plan OpenTofu
       run: |
         cd infra/terraform
+        tofu fmt -check -recursive
         tofu init -input=false
         tofu validate
-        tofu plan -input=false -out=plan.tfplan
+        tofu plan -input=false -lock-timeout=5m -out=plan.tfplan
     - uses: actions/upload-artifact@v4
       with:
         name: iac-plan
@@ -90,6 +92,9 @@ jobs:
     - iac-plan
     if: github.ref == 'refs/heads/main'
     environment: production
+    concurrency:
+      group: terraform
+      cancel-in-progress: false
     steps:
     - uses: actions/checkout@v4
     - uses: azure/login@v2
@@ -97,7 +102,9 @@ jobs:
         client-id: ${{ vars.AZURE_CLIENT_ID }}
         tenant-id: ${{ vars.AZURE_TENANT_ID }}
         subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-    - *id001
+    - uses: opentofu/setup-opentofu@v1
+      with:
+        tofu_version: 1.13.1
     - uses: actions/download-artifact@v4
       with:
         name: iac-plan
@@ -106,7 +113,7 @@ jobs:
       run: |
         cd infra/terraform
         tofu init -input=false
-        tofu apply -input=false plan.tfplan
+        tofu apply -input=false -lock-timeout=5m plan.tfplan
   deploy:
     name: Déploiement Helm
     runs-on: ubuntu-latest

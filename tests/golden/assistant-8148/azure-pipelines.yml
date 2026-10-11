@@ -58,9 +58,10 @@ stages:
     - script: |
         # Identifiants AWS fournis par AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
         cd infra/terraform
+        terraform fmt -check -recursive
         terraform init -input=false
         terraform validate
-        terraform plan -input=false -out=plan.tfplan
+        terraform plan -input=false -lock-timeout=5m -out=plan.tfplan
       displayName: Plan Terraform
       env:
         SONAR_TOKEN: $(SONAR_TOKEN)
@@ -75,7 +76,7 @@ stages:
         # Identifiants AWS fournis par AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
         cd infra/terraform
         terraform init -input=false
-        terraform apply -input=false plan.tfplan
+        terraform apply -input=false -lock-timeout=5m plan.tfplan
       displayName: Application Terraform
       env:
         SONAR_TOKEN: $(SONAR_TOKEN)

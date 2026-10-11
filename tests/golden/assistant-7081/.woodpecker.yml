@@ -56,7 +56,7 @@ steps:
     GCP_WORKLOAD_IDENTITY_PROVIDER: à-renseigner
     GCP_SERVICE_ACCOUNT: à-renseigner
 - name: iac-plan
-  image: hashicorp/terraform:1.9
+  image: hashicorp/terraform:1.16
   commands:
   - export TAG="${CI_COMMIT_SHA:0:8}"
   - export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$$TAG"
@@ -64,9 +64,10 @@ steps:
   - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
   - if command -v gcloud >/dev/null; then gcloud auth activate-service-account --key-file /tmp/gcp-key.json; fi
   - cd infra/terraform
+  - terraform fmt -check -recursive
   - terraform init -input=false
   - terraform validate
-  - terraform plan -input=false -out=plan.tfplan
+  - terraform plan -input=false -lock-timeout=5m -out=plan.tfplan
   environment:
     SONAR_TOKEN:
       from_secret: sonar_token
@@ -78,7 +79,7 @@ steps:
     GCP_WORKLOAD_IDENTITY_PROVIDER: à-renseigner
     GCP_SERVICE_ACCOUNT: à-renseigner
 - name: iac-apply
-  image: hashicorp/terraform:1.9
+  image: hashicorp/terraform:1.16
   commands:
   - export TAG="${CI_COMMIT_SHA:0:8}"
   - export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$$TAG"
@@ -87,7 +88,7 @@ steps:
   - if command -v gcloud >/dev/null; then gcloud auth activate-service-account --key-file /tmp/gcp-key.json; fi
   - cd infra/terraform
   - terraform init -input=false
-  - terraform apply -input=false plan.tfplan
+  - terraform apply -input=false -lock-timeout=5m plan.tfplan
   environment:
     SONAR_TOKEN:
       from_secret: sonar_token

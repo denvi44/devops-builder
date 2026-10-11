@@ -17,12 +17,12 @@ resource "aws_ecr_repository" "app" {
 # --- Amazon EKS (staging)
 module "eks_staging" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.0"
+  version = "~> 21.0"
 
-  cluster_name    = "plateforme-preprod"
-  cluster_version = "1.33"
-  vpc_id          = var.vpc_id
-  subnet_ids      = var.subnet_ids
+  name               = "plateforme-preprod"
+  kubernetes_version = "1.33"
+  vpc_id             = var.vpc_id
+  subnet_ids         = var.subnet_ids
 
   eks_managed_node_groups = {
     default = {
@@ -47,12 +47,12 @@ resource "aws_eks_addon" "cloudwatch_staging" {
 # --- Amazon EKS (production)
 module "eks_production" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.0"
+  version = "~> 21.0"
 
-  cluster_name    = "plateforme-prod"
-  cluster_version = "1.33"
-  vpc_id          = var.vpc_id
-  subnet_ids      = var.subnet_ids
+  name               = "plateforme-prod"
+  kubernetes_version = "1.33"
+  vpc_id             = var.vpc_id
+  subnet_ids         = var.subnet_ids
 
   eks_managed_node_groups = {
     default = {

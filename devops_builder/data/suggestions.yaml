@@ -26,9 +26,10 @@ ecr: [cosign]
 artifact-registry: [cosign]
 acr: [cosign]
 
-# IaC : analyse de configuration
-opentofu: [checkov]
-terraform: [checkov]
+# IaC : analyse de configuration, coûts, émulation AWS
+opentofu: [tflint, checkov, infracost]
+terraform: [tflint, checkov, infracost]
+aws: [floci]
 pulumi: [checkov]
 
 # Déploiement

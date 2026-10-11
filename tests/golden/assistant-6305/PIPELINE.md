@@ -34,6 +34,7 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Infrastructure | Outscale | proprietary | vérifiée |
 | Infrastructure | Outscale Kubernetes as a Service (OKS) | proprietary | vérifiée |
 | Infrastructure | OpenTofu | MPL-2.0 | vérifiée |
+| Infrastructure | Outscale Object Storage (OOS) | proprietary | vérifiée |
 | Déploiement | Helm | Apache-2.0 | vérifiée |
 | Déploiement | Argo CD | Apache-2.0 | vérifiée |
 | Plateforme | cert-manager | Apache-2.0 | vérifiée |
@@ -69,6 +70,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - **Avertissement** (R34) — Harbor : « Adresse du registre » non renseigné : la valeur d'exemple « registry.example.com » sera écrite dans les fichiers.
 - **Avertissement** (R34) — Outscale Kubernetes as a Service (OKS) : « Nom du cluster » non renseigné : la valeur d'exemple « mon-cluster » sera écrite dans les fichiers.
+- **Avertissement** (R34) — Outscale Object Storage (OOS) : « Bucket de l'état Terraform » non renseigné : la valeur d'exemple « mon-projet-tfstate » sera écrite dans les fichiers.
 - **Info** (R31) — Aucun fichier n'est généré pour Outscale Kubernetes as a Service (OKS) dans cette configuration : à configurer à la main (listé dans PIPELINE.md).
 
 ## Notes
@@ -92,6 +94,7 @@ Ces briques sont dans le pipeline mais aucun générateur ne les prend en charge
 - `charts/mon-app/values.yaml`
 - `deploy/argocd/application.yaml`
 - `devops-builder.yaml`
+- `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
 - `infra/terraform/variables.tf`
 - `infra/terraform/versions.tf`

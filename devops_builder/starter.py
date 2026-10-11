@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .catalog import Catalog
+from .generators.iac import REMOTE_BACKENDS
 from .model import Project, env_preset
 
 FORGES = {
@@ -210,7 +211,7 @@ def build_starter(a: StarterAnswers, catalog: Catalog) -> Project:
     if provider and a.iac != "none":
         add(a.iac)
         storage = provider.services.get("object-storage")
-        if storage in ("s3", "gcs", "azure-blob"):
+        if storage in REMOTE_BACKENDS:  # état partagé entre les jobs (R44)
             add(storage)
 
     # Données

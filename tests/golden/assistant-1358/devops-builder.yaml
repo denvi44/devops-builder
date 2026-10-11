@@ -62,15 +62,18 @@ stages:
   - uid: brique013
     tool: opentofu
     params: {}
-  deploy:
   - uid: brique014
+    tool: ovh-object-storage
+    params: {}
+  deploy:
+  - uid: brique015
     tool: helm
     params: {}
-  - uid: brique015
+  - uid: brique016
     tool: argo-cd
     params: {}
   platform:
-  - uid: brique016
+  - uid: brique017
     tool: cert-manager
     params: {}
   observability: []

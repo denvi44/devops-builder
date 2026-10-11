@@ -10,7 +10,8 @@ HEADER = "Généré par DevOps Builder — à relire avant usage."
 
 
 class _Dumper(yaml.SafeDumper):
-    pass
+    def ignore_aliases(self, data):  # noqa: ARG002 — pas d'ancres YAML : toutes les CI ne les lisent pas
+        return True
 
 
 def _str_presenter(dumper: yaml.SafeDumper, data: str):

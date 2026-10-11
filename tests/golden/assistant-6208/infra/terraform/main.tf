@@ -11,9 +11,13 @@ resource "scaleway_registry_namespace" "app" {
 }
 
 # --- Scaleway Kapsule
+data "scaleway_k8s_version" "latest" {
+  name = "latest"
+}
+
 resource "scaleway_k8s_cluster" "main" {
   name                        = "mon-cluster"
-  version                     = "1.32"
+  version                     = data.scaleway_k8s_version.latest.name
   cni                         = "cilium"
   delete_additional_resources = false
 }

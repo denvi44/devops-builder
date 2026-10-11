@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import shlex
 
-from ..ir import CI_STAGES, IR, Step
+from ..ir import CI_STAGES, IR, TERRAFORM_IMAGE, TOFU_INSTALL, TOFU_VERSION, Step
 from .common import AUDIENCES, HEADER, TOKEN_VARS, dump_yaml, full_script
 
 STAGE_ORDER = ["test", "build", "security", "publish", "infra", "deploy"]
@@ -66,6 +66,12 @@ def gitlab_ci(ir: IR) -> dict[str, str]:
         if st.docker:
             job["services"] = ["docker:27-dind"]
             job["variables"] = {"DOCKER_TLS_CERTDIR": "/certs"}
+        if st.services:
+            job.setdefault("services", []).extend(
+                {"name": sv.image, "alias": sv.alias, **({"variables": dict(sv.env)} if sv.env else {})}
+                for sv in st.services)
+        if st.lock:
+            job["resource_group"] = st.lock
         if st.env:
             job.setdefault("variables", {}).update(st.env)
         if st.cloud and oidc:
@@ -94,8 +100,9 @@ def gitlab_ci(ir: IR) -> dict[str, str]:
 # ------------------------------------------------------- GitHub / Gitea Actions
 HOST_SETUP = {
     "cosign": [{"uses": "sigstore/cosign-installer@v3"}],
-    "opentofu": [{"uses": "opentofu/setup-opentofu@v1"}],
-    "terraform": [{"uses": "hashicorp/setup-terraform@v3"}],
+    "opentofu": [{"uses": "opentofu/setup-opentofu@v1", "with": {"tofu_version": TOFU_VERSION}}],
+    "terraform": [{"uses": "hashicorp/setup-terraform@v3",
+                   "with": {"terraform_version": TERRAFORM_IMAGE.split(":")[1] + ".x", "terraform_wrapper": False}}],
     "helm": [{"uses": "azure/setup-helm@v4"}],
 }
 
@@ -181,19 +188,27 @@ def github_actions(ir: IR, path: str = ".github/workflows/pipeline.yml") -> dict
             job["container"] = st.image
         if st.allow_failure:
             job["continue-on-error"] = True
+        if st.lock:
+            job["concurrency"] = {"group": st.lock, "cancel-in-progress": False}
+        if st.services:
+            job["services"] = {sv.alias: {"image": sv.image, **({"env": dict(sv.env)} if sv.env else {}),
+                                          "ports": [f"{sv.port}:{sv.port}"]} for sv in st.services}
         if st.env:
             job["env"] = {k: v.replace("$REGISTRY_USER", "${{ secrets.REGISTRY_USER }}")
                           .replace("$REGISTRY_PASSWORD", "${{ secrets.REGISTRY_PASSWORD }}")
                           .replace("$GITHUB_TOKEN", "${{ secrets.GITHUB_TOKEN }}")
                           .replace("$GITHUB_ACTOR", "${{ github.actor }}")
                           for k, v in st.env.items()}
+            if host:  # job sur la machine du runner : les services sont publiés sur localhost
+                for sv in st.services:
+                    job["env"] = {k: v.replace(f"http://{sv.alias}:", "http://localhost:") for k, v in job["env"].items()}
         gsteps: list[dict] = [{"uses": "actions/checkout@v4"}]
         script = list(st.script)
         if host:
             gsteps += _gha_cloud_steps(ir, st.cloud)
             gsteps += HOST_SETUP.get(st.tool, [])
             script = [l for l in script if not l.startswith(("apk add", "yum install", "az aks install-cli"))
-                      and "get-helm-3" not in l]
+                      and "get-helm-3" not in l and l not in TOFU_INSTALL]
             if st.tool == "buildkit":
                 gsteps.append({"uses": "docker/setup-buildx-action@v3"})
         if st.stage == "infra" and st.id == "iac-apply":
@@ -290,11 +305,22 @@ def woodpecker(ir: IR) -> dict[str, str]:
             w["when"] = [{"branch": "main", "event": "manual" if st.manual and st.environment else "push"}]
         if st.allow_failure:
             w["failure"] = "ignore"
+        extra = {k: v for k, v in st.env.items() if "$" not in v}
+        if extra:
+            w.setdefault("environment", {}).update(extra)
         steps.append(w)
     note = HEADER + " Les étapes Docker montent le socket de l'hôte : dépôt de confiance requis."
     _note_gates(ir, "Woodpecker n'a pas de porte d'approbation : l'étape ne s'exécute que sur un pipeline "
                     "lancé manuellement depuis l'interface (événement « manual »).")
-    return {".woodpecker.yml": dump_yaml({"steps": steps}, note)}
+    services: dict[str, dict] = {}
+    for st in _ordered(ir):
+        for sv in st.services:
+            services.setdefault(sv.alias, {"name": sv.alias, "image": sv.image,
+                                           **({"environment": dict(sv.env)} if sv.env else {})})
+    doc: dict = {"steps": steps}
+    if services:
+        doc["services"] = list(services.values())
+    return {".woodpecker.yml": dump_yaml(doc, note)}
 
 
 # ---------------------------------------------------------------------- Tekton

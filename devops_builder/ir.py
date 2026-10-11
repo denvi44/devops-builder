@@ -18,6 +18,16 @@ CI_STAGES = ["build", "test", "security", "publish", "deploy", "infra"]
 
 
 @dataclass
+class Service:
+    """Conteneur annexe d'un job CI, joignable par son alias."""
+
+    alias: str
+    image: str
+    port: int
+    env: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
 class Step:
     id: str
     name: str
@@ -34,6 +44,8 @@ class Step:
     env: dict[str, str] = field(default_factory=dict)
     needs: list[str] = field(default_factory=list)  # dépendances dans la même étape
     environment: str | None = None  # identifiant de l'environnement déployé
+    services: list[Service] = field(default_factory=list)  # conteneurs annexes (Floci…)
+    lock: str = ""  # groupe d'exclusion : deux jobs du même groupe ne tournent jamais ensemble
 
 
 @dataclass
@@ -145,6 +157,35 @@ TEST_IMAGES = {
 }
 DOCKER_IMAGE = "docker:27"
 ALPINE = "alpine:3.20"
+TERRAFORM_IMAGE = "hashicorp/terraform:1.16"
+TOFU_VERSION = "1.13.1"
+# Depuis OpenTofu 1.10, l'image officielle ne sert plus qu'à copier le binaire : la CI l'installe.
+TOFU_INSTALL = [
+    "apk add --no-cache curl unzip",
+    f'curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v{TOFU_VERSION}/'
+    f'tofu_{TOFU_VERSION}_linux_amd64.zip"',
+    "unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin",
+]
+FLOCI_IMAGE = "floci/floci:2.2.0"  # épinglée ; Renovate la tient à jour
+
+
+FLOCI_CLIENT_ENV = {"AWS_ENDPOINT_URL": "http://floci:4566", "AWS_ACCESS_KEY_ID": "test",
+                    "AWS_SECRET_ACCESS_KEY": "test"}
+
+
+SERVICE_CI = ("gitlab-ci", "github-actions", "gitea-actions", "woodpecker")  # conteneurs annexes par job
+
+
+def floci_in_ci(ir: IR) -> bool:
+    return ir.ci is not None and ir.ci.id in SERVICE_CI
+
+
+def floci_region(ir: IR) -> str:
+    return str(ir.params("aws").get("region", "eu-west-3")) if ir.has("aws") else "us-east-1"
+
+
+def floci_service(ir: IR) -> Service:
+    return Service("floci", FLOCI_IMAGE, 4566, {"FLOCI_HOSTNAME": "floci", "FLOCI_DEFAULT_REGION": floci_region(ir)})
 
 
 def _first(project: Project, catalog: Catalog, role: str) -> Tool | None:
@@ -408,8 +449,12 @@ def _add_steps(ir: IR) -> None:
 
     # ----------------------------------------------------------------- tests
     if ir.has("unit-tests"):
-        s.append(Step("unit-tests", "Tests unitaires", "test", TEST_IMAGES.get(lang, ALPINE),
-                      TEST_COMMANDS.get(lang, TEST_COMMANDS["other"]), tool="unit-tests"))
+        unit = Step("unit-tests", "Tests unitaires", "test", TEST_IMAGES.get(lang, ALPINE),
+                    TEST_COMMANDS.get(lang, TEST_COMMANDS["other"]), tool="unit-tests")
+        if ir.has("floci") and floci_in_ci(ir):  # les tests de l'application appellent AWS sur l'émulateur
+            unit.services = [floci_service(ir)]
+            unit.env = dict(FLOCI_CLIENT_ENV, AWS_DEFAULT_REGION=floci_region(ir), AWS_REGION=floci_region(ir))
+        s.append(unit)
     if ir.has("sonarqube") or ir.has("sonarqube-cloud"):
         host = "https://sonarcloud.io" if ir.has("sonarqube-cloud") else "$SONAR_HOST_URL"
         if ir.has("sonarqube"):
@@ -493,20 +538,41 @@ def _add_steps(ir: IR) -> None:
             'cosign sign --yes "$IMAGE"'], tool="cosign", cloud=_cloud_of_registry(ir), main_only=True))
 
     # ----------------------------------------------------------- infrastructure
-    if ir.iac and ir.iac.id in ("terraform", "opentofu"):
+    tf_stack = bool(ir.iac and ir.iac.id in ("terraform", "opentofu"))
+    if tf_stack and ir.has("tflint"):
+        s.append(Step("tflint", "Analyse TFLint", "test", "ghcr.io/terraform-linters/tflint:latest",
+                      [f"tflint --chdir={iac_dir} --init", f"tflint --chdir={iac_dir} --format compact"],
+                      tool="tflint"))
+    if tf_stack and ir.has("infracost"):
+        ir.add_var("INFRACOST_API_KEY", "Clé d'API Infracost (gratuite, infracost auth login)")
+        s.append(Step("infracost", "Estimation des coûts Infracost", "test", "infracost/infracost:ci-latest",
+                      [f"infracost breakdown --path {iac_dir} --format table"], tool="infracost", allow_failure=True))
+    if tf_stack:
         cmd = ir.iac_cmd
-        image = "hashicorp/terraform:1.9" if cmd == "terraform" else "ghcr.io/opentofu/opentofu:1.10"
+        image, install = (TERRAFORM_IMAGE, []) if cmd == "terraform" else (ALPINE, list(TOFU_INSTALL))
         clouds = [p.id for p in ir.providers if p.id in OIDC_CLOUDS]
         for prov in ir.providers:
             for name, desc in PROVIDER_ENV.get(prov.id, []):
                 ir.add_var(name, desc)
+        from .generators.iac import backend_credentials, required_vars
+        for tv in required_vars(ir):
+            ir.add_var(f"TF_VAR_{tv.name}", f"{tv.description} (variable Terraform {tv.name}, ex. {tv.example})",
+                       secret=False)
+        creds = backend_credentials(ir)
         s.append(Step("iac-plan", f"Plan {ir.iac.name}", "infra", image, [
-            f"cd {iac_dir}", f"{cmd} init -input=false", f"{cmd} validate",
-            f"{cmd} plan -input=false -out=plan.tfplan"], tool=ir.iac.id, cloud=clouds,
+            *install, *creds,
+            f"cd {iac_dir}", f"{cmd} fmt -check -recursive", f"{cmd} init -input=false", f"{cmd} validate",
+            f"{cmd} plan -input=false -lock-timeout=5m -out=plan.tfplan"], tool=ir.iac.id, cloud=clouds,
             artifacts=[f"{iac_dir}/plan.tfplan"]))
         s.append(Step("iac-apply", f"Application {ir.iac.name}", "infra", image, [
-            f"cd {iac_dir}", f"{cmd} init -input=false", f"{cmd} apply -input=false plan.tfplan"],
-            tool=ir.iac.id, cloud=clouds, main_only=True, manual=True, needs=["iac-plan"]))
+            *install, *creds,
+            f"cd {iac_dir}", f"{cmd} init -input=false", f"{cmd} apply -input=false -lock-timeout=5m plan.tfplan"],
+            tool=ir.iac.id, cloud=clouds, main_only=True, manual=True, needs=["iac-plan"], lock="terraform"))
+        if ir.has("floci") and floci_in_ci(ir) and {p.id for p in ir.providers} == {"aws"}:
+            s.append(Step("iac-floci", "Plan de l'IaC sur Floci (émulateur AWS)", "test", ALPINE, [
+                *install, "apk add --no-cache bash curl", "bash scripts/tf-floci.sh plan"],
+                tool="floci", allow_failure=True, env={"FLOCI_ENDPOINT": "http://floci:4566"},
+                services=[floci_service(ir)]))
     elif ir.iac and ir.iac.id == "pulumi":
         ir.add_var("PULUMI_ACCESS_TOKEN", "Jeton Pulumi")
         s.append(Step("iac-preview", "Prévisualisation Pulumi", "infra", "pulumi/pulumi:latest",

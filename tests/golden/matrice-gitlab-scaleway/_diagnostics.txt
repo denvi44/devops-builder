@@ -1,1 +1,2 @@
 avertissement R34 Scaleway Kapsule : « Nom du cluster » non renseigné : la valeur d'exemple « mon-cluster » sera écrite dans les fichiers.
+avertissement R44 OpenTofu tourne dans la CI sans stockage d'état distant : l'état, écrit dans le job, serait perdu à la fin de chaque pipeline et l'apply suivant recréerait les ressources. Ajouter le stockage objet du fournisseur.

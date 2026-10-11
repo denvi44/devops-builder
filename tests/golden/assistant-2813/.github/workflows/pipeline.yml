@@ -61,14 +61,17 @@ jobs:
     - build-image
     steps:
     - uses: actions/checkout@v4
-    - &id001
-      uses: opentofu/setup-opentofu@v1
+    - uses: opentofu/setup-opentofu@v1
+      with:
+        tofu_version: 1.13.1
     - name: Plan OpenTofu
       run: |
+        export AWS_ACCESS_KEY_ID="$OSC_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$OSC_SECRET_KEY"
         cd infra/terraform
+        tofu fmt -check -recursive
         tofu init -input=false
         tofu validate
-        tofu plan -input=false -out=plan.tfplan
+        tofu plan -input=false -lock-timeout=5m -out=plan.tfplan
     - uses: actions/upload-artifact@v4
       with:
         name: iac-plan
@@ -83,18 +86,24 @@ jobs:
     - iac-plan
     if: github.ref == 'refs/heads/main'
     environment: production
+    concurrency:
+      group: terraform
+      cancel-in-progress: false
     steps:
     - uses: actions/checkout@v4
-    - *id001
+    - uses: opentofu/setup-opentofu@v1
+      with:
+        tofu_version: 1.13.1
     - uses: actions/download-artifact@v4
       with:
         name: iac-plan
         path: infra/terraform
     - name: Application OpenTofu
       run: |
+        export AWS_ACCESS_KEY_ID="$OSC_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$OSC_SECRET_KEY"
         cd infra/terraform
         tofu init -input=false
-        tofu apply -input=false plan.tfplan
+        tofu apply -input=false -lock-timeout=5m plan.tfplan
   deploy-staging:
     name: Mise à jour GitOps (Argo CD) — Préproduction
     runs-on: ubuntu-latest

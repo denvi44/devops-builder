@@ -1,0 +1,7 @@
+# Généré par DevOps Builder — à relire avant usage.
+# Valeurs des variables sans défaut : copier en terraform.tfvars (non versionné) pour un
+# usage local ; la CI les reçoit par les variables TF_VAR_<nom> (voir PIPELINE.md).
+vpc_id = "vpc-0123456789abcdef0"
+subnet_ids = ["subnet-0123456789abcdef0", "subnet-0fedcba9876543210"]
+db_subnet_group = "rds-prive"
+db_security_group_ids = ["sg-0123456789abcdef0"]

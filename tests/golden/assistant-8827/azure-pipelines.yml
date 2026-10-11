@@ -119,13 +119,15 @@ stages:
     displayName: Plan Terraform
     pool:
       vmImage: ubuntu-latest
-    container: hashicorp/terraform:1.9
+    container: hashicorp/terraform:1.16
     steps:
     - script: |
+        export AWS_ACCESS_KEY_ID="$OSC_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$OSC_SECRET_KEY"
         cd infra/terraform
+        terraform fmt -check -recursive
         terraform init -input=false
         terraform validate
-        terraform plan -input=false -out=plan.tfplan
+        terraform plan -input=false -lock-timeout=5m -out=plan.tfplan
       displayName: Plan Terraform
       env:
         SONAR_TOKEN: $(SONAR_TOKEN)
@@ -138,13 +140,14 @@ stages:
     displayName: Application Terraform
     pool:
       vmImage: ubuntu-latest
-    container: hashicorp/terraform:1.9
+    container: hashicorp/terraform:1.16
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     steps:
     - script: |
+        export AWS_ACCESS_KEY_ID="$OSC_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$OSC_SECRET_KEY"
         cd infra/terraform
         terraform init -input=false
-        terraform apply -input=false plan.tfplan
+        terraform apply -input=false -lock-timeout=5m plan.tfplan
       displayName: Application Terraform
       env:
         SONAR_TOKEN: $(SONAR_TOKEN)

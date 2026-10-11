@@ -53,12 +53,15 @@ stages:
   - uid: brique010
     tool: terraform
     params: {}
-  deploy:
   - uid: brique011
+    tool: scaleway-object-storage
+    params: {}
+  deploy:
+  - uid: brique012
     tool: helm
     params: {}
   platform:
-  - uid: brique012
+  - uid: brique013
     tool: cert-manager
     params: {}
   observability: []

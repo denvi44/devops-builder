@@ -52,6 +52,8 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | Variable | Secret | Valeur | Rôle |
 | --- | --- | --- | --- |
 | `AWS_ACCOUNT_ID` | non | à déclarer | Identifiant du compte AWS du registre ECR |
+| `TF_VAR_vpc_id` | non | à déclarer | VPC du cluster EKS (variable Terraform vpc_id, ex. "vpc-0123456789abcdef0") |
+| `TF_VAR_subnet_ids` | non | à déclarer | Sous-réseaux privés du cluster (variable Terraform subnet_ids, ex. ["subnet-0123456789abcdef0", "subnet-0fedcba9876543210"]) |
 | `AWS_ROLE_ARN` | non | à déclarer | Rôle IAM assumé par la CI via OIDC |
 | `AWS_REGION` | non | `eu-west-3` | Région AWS |
 
@@ -63,7 +65,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 ## Notes
 
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
-- `scripts/ci-variables.sh` déclare les 2 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 4 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 
@@ -74,7 +76,10 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `charts/mon-app/templates/service.yaml`
 - `charts/mon-app/values.yaml`
 - `devops-builder.yaml`
+- `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
+- `infra/terraform/outputs.tf`
+- `infra/terraform/terraform.tfvars.example`
 - `infra/terraform/variables.tf`
 - `infra/terraform/versions.tf`
 - `scripts/ci-variables.sh`

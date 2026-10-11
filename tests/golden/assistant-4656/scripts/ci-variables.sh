@@ -118,6 +118,8 @@ send() {
 declare_var SONAR_HOST_URL 0 'URL du serveur SonarQube'
 declare_var SONAR_TOKEN 1 'Jeton d'"'"'analyse SonarQube'
 declare_var AWS_ACCOUNT_ID 0 'Identifiant du compte AWS du registre ECR'
+declare_var TF_VAR_vpc_id 0 'VPC du cluster EKS (variable Terraform vpc_id, ex. "vpc-0123456789abcdef0")'
+declare_var TF_VAR_subnet_ids 0 'Sous-réseaux privés du cluster (variable Terraform subnet_ids, ex. ["subnet-0123456789abcdef0", "subnet-0fedcba9876543210"])'
 declare_var GITOPS_TOKEN 1 'Jeton autorisé à pousser sur le dépôt GitOps'
 declare_var GITOPS_REPO 0 'Dépôt GitOps surveillé, sans schéma (hôte/groupe/depot.git)'
 declare_var AWS_ROLE_ARN 0 'Rôle IAM assumé par la CI via OIDC'

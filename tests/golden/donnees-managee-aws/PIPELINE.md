@@ -76,6 +76,10 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | Variable | Secret | Valeur | Rôle |
 | --- | --- | --- | --- |
 | `AWS_ACCOUNT_ID` | non | à déclarer | Identifiant du compte AWS du registre ECR |
+| `TF_VAR_vpc_id` | non | à déclarer | VPC du cluster EKS (variable Terraform vpc_id, ex. "vpc-0123456789abcdef0") |
+| `TF_VAR_subnet_ids` | non | à déclarer | Sous-réseaux privés du cluster (variable Terraform subnet_ids, ex. ["subnet-0123456789abcdef0", "subnet-0fedcba9876543210"]) |
+| `TF_VAR_db_subnet_group` | non | à déclarer | Groupe de sous-réseaux privés des instances RDS (variable Terraform db_subnet_group, ex. "rds-prive") |
+| `TF_VAR_db_security_group_ids` | non | à déclarer | Groupes de sécurité autorisant l'application à joindre la base (variable Terraform db_security_group_ids, ex. ["sg-0123456789abcdef0"]) |
 | `DATABASE_URL_STAGING` | oui | à déclarer | URL de connexion à Amazon RDS (Préproduction), lue par l'application dans DATABASE_URL ; à composer après création de l'instance (sorties Terraform) |
 | `DATABASE_URL_PRODUCTION` | oui | à déclarer | URL de connexion à Amazon RDS (Production), lue par l'application dans DATABASE_URL ; à composer après création de l'instance (sorties Terraform) |
 | `AWS_ROLE_ARN` | non | à déclarer | Rôle IAM assumé par la CI via OIDC |
@@ -93,7 +97,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Bases managées : une instance par environnement ; après `apply`, composer l'URL de connexion à partir des sorties Terraform (outputs.tf) et la déclarer en variable CI.
 - Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
-- `scripts/ci-variables.sh` déclare les 5 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 9 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 
@@ -107,8 +111,10 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `charts/mon-app/values-staging.yaml`
 - `charts/mon-app/values.yaml`
 - `devops-builder.yaml`
+- `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
 - `infra/terraform/outputs.tf`
+- `infra/terraform/terraform.tfvars.example`
 - `infra/terraform/variables.tf`
 - `infra/terraform/versions.tf`
 - `platform/install.sh`

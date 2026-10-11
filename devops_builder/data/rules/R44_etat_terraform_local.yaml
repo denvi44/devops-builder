@@ -1,0 +1,6 @@
+id: R44
+title: État Terraform local dans la CI
+family: dependance
+severity: avertissement
+type: local_state
+message: "{tool} tourne dans la CI sans stockage d'état distant : l'état, écrit dans le job, serait perdu à la fin de chaque pipeline et l'apply suivant recréerait les ressources. Ajouter le stockage objet du fournisseur."

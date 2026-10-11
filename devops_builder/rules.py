@@ -822,6 +822,18 @@ def h_database_statefulset(rule: Rule, ctx: Context) -> list[Diagnostic]:
     return out
 
 
+@handler("local_state")
+def h_local_state(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    from .generators.iac import REMOTE_BACKENDS
+    stacks = [p for p in ctx.placed if p.tool.id in ("terraform", "opentofu")]
+    if not stacks or not ctx.with_role("ci") or any(ctx.has(t) for t in REMOTE_BACKENDS):
+        return []
+    storages = [prov.services["object-storage"] for prov in _present_providers(ctx)
+                if prov.services.get("object-storage") in REMOTE_BACKENDS]
+    return [_diag(rule, _fmt(rule.message, tool=stacks[0].tool.name), [p.brick.uid for p in stacks],
+                  _add_actions(ctx, storages, 3))]
+
+
 def apply_action(project: Project, action: Action, catalog: Catalog) -> None:
     """Applique une correction proposée au projet (en place)."""
     args = action.args

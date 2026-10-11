@@ -47,6 +47,10 @@ DB_DRIVERS: dict[str, list[tuple[str, str]]] = {
 COMPOSE_DB_IMAGES = [("postgresql", r"image:\s*['\"]?(\S*/)?postgres(ql)?[:'\"\s]"), ("mariadb", r"image:\s*['\"]?(\S*/)?mariadb[:'\"\s]"),
                      ("mysql", r"image:\s*['\"]?(\S*/)?mysql[:'\"\s]"), ("mongodb", r"image:\s*['\"]?(\S*/)?mongo(db)?[:'\"\s]"),
                      ("valkey", r"image:\s*['\"]?(\S*/)?(valkey|redis)[:'\"\s]")]
+AWS_SDKS = {"python": r"\b(boto3|aioboto3|botocore)\b", "node": r'"@aws-sdk/|"aws-sdk"',
+            "java": r"software\.amazon\.awssdk|aws-java-sdk", "go": r"aws/aws-sdk-go", "dotnet": r"AWSSDK\."}
+EMULATORS = [("floci", r"floci/floci|testcontainers-floci|@floci/testcontainers|io\.floci"),
+             ("localstack", r"localstack")]
 FORGE_HOSTS = [("github.com", "github"), ("gitlab", "gitlab"), ("bitbucket.org", "bitbucket"),
                ("dev.azure.com", "azure-repos"), ("visualstudio.com", "azure-repos"), ("codeberg.org", "gitea"),
                ("gitea", "gitea")]
@@ -74,6 +78,8 @@ class AppProfile:
     dependencies: str | None = None
     has_tests: bool = False
     databases: list[str] = field(default_factory=list)   # moteurs détectés, le principal d'abord
+    aws_sdk: bool = False                                 # l'application appelle des API AWS
+    aws_emulator: str | None = None                      # émulateur déjà utilisé : floci ou localstack
     migrations: str | None = None                        # commande de migration de schéma
     evidence: list[str] = field(default_factory=list)
 
@@ -338,6 +344,18 @@ def _databases(root: Path, p: AppProfile, files: list[Path], top: dict[str, Path
         p.databases.append(engine)
         p.evidence.append(f"Base {labels[engine]} : {proof}")
     _migrations(root, p, files, top, deps, prisma)
+    _aws(p, deps, _read(compose) if compose else "")
+
+
+def _aws(p: AppProfile, deps: str, compose: str) -> None:
+    if re.search(AWS_SDKS.get(p.language, r"$^"), deps, re.I):
+        p.aws_sdk = True
+        p.evidence.append("SDK AWS dans les dépendances")
+    for name, pattern in EMULATORS:
+        if re.search(pattern, deps + "\n" + compose, re.I):
+            p.aws_emulator = name
+            p.evidence.append(f"Émulateur AWS : {'Floci' if name == 'floci' else 'LocalStack'}")
+            break
 
 
 def _migrations(root: Path, p: AppProfile, files: list[Path], top: dict[str, Path], deps: str,
@@ -432,6 +450,12 @@ def proposed_bricks(profile: AppProfile, project, catalog) -> list[tuple[str, st
         held.add(family)
     if profile.migrations and (families or "database" in roles):
         offer("db-migrations", f"migrations « {profile.migrations} »")
+    if profile.aws_emulator == "floci":
+        offer("floci", "Floci déjà utilisé par l'application")
+    elif profile.aws_emulator == "localstack":
+        offer("floci", "LocalStack utilisé : Floci le remplace, libre et sans jeton d'accès")
+    elif profile.aws_sdk:
+        offer("floci", "SDK AWS : tests des appels AWS sur un émulateur local, sans compte")
     return out
 
 

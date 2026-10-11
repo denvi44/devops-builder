@@ -1,6 +1,6 @@
 # Généré par DevOps Builder — à relire avant usage.
 terraform {
-  required_version = ">= 1.6"
+  required_version = ">= 1.10"
 
   required_providers {
     azurerm = {

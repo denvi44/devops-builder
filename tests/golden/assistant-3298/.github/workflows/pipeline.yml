@@ -112,8 +112,7 @@ jobs:
     environment: dev
     steps:
     - uses: actions/checkout@v4
-    - &id001
-      uses: azure/setup-helm@v4
+    - uses: azure/setup-helm@v4
     - name: Déploiement Helm — Développement
       run: |
         echo "$KUBECONFIG_DATA_DEV" | base64 -d > /tmp/kubeconfig
@@ -134,7 +133,7 @@ jobs:
     environment: staging
     steps:
     - uses: actions/checkout@v4
-    - *id001
+    - uses: azure/setup-helm@v4
     - name: Déploiement Helm — Préproduction
       run: |
         echo "$KUBECONFIG_DATA_STAGING" | base64 -d > /tmp/kubeconfig
@@ -155,7 +154,7 @@ jobs:
     environment: production
     steps:
     - uses: actions/checkout@v4
-    - *id001
+    - uses: azure/setup-helm@v4
     - name: Déploiement Helm — Production
       run: |
         echo "$KUBECONFIG_DATA_PRODUCTION" | base64 -d > /tmp/kubeconfig

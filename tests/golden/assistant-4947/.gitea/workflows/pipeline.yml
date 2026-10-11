@@ -21,6 +21,8 @@ env:
   OVH_APPLICATION_KEY: ${{ secrets.OVH_APPLICATION_KEY }}
   OVH_APPLICATION_SECRET: ${{ secrets.OVH_APPLICATION_SECRET }}
   OVH_CONSUMER_KEY: ${{ secrets.OVH_CONSUMER_KEY }}
+  OVH_S3_ACCESS_KEY: ${{ secrets.OVH_S3_ACCESS_KEY }}
+  OVH_S3_SECRET_KEY: ${{ secrets.OVH_S3_SECRET_KEY }}
   GITOPS_TOKEN: ${{ secrets.GITOPS_TOKEN }}
   GITOPS_REPO: ${{ vars.GITOPS_REPO }}
 jobs:
@@ -65,14 +67,18 @@ jobs:
     - build-image
     steps:
     - uses: actions/checkout@v4
-    - &id001
-      uses: hashicorp/setup-terraform@v3
+    - uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.16.x
+        terraform_wrapper: false
     - name: Plan Terraform
       run: |
+        export AWS_ACCESS_KEY_ID="$OVH_S3_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$OVH_S3_SECRET_KEY"
         cd infra/terraform
+        terraform fmt -check -recursive
         terraform init -input=false
         terraform validate
-        terraform plan -input=false -out=plan.tfplan
+        terraform plan -input=false -lock-timeout=5m -out=plan.tfplan
     - uses: actions/upload-artifact@v4
       with:
         name: iac-plan
@@ -87,18 +93,25 @@ jobs:
     - iac-plan
     if: github.ref == 'refs/heads/main'
     environment: production
+    concurrency:
+      group: terraform
+      cancel-in-progress: false
     steps:
     - uses: actions/checkout@v4
-    - *id001
+    - uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.16.x
+        terraform_wrapper: false
     - uses: actions/download-artifact@v4
       with:
         name: iac-plan
         path: infra/terraform
     - name: Application Terraform
       run: |
+        export AWS_ACCESS_KEY_ID="$OVH_S3_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$OVH_S3_SECRET_KEY"
         cd infra/terraform
         terraform init -input=false
-        terraform apply -input=false plan.tfplan
+        terraform apply -input=false -lock-timeout=5m plan.tfplan
   deploy-dev:
     name: Mise à jour GitOps (Argo CD) — Développement
     runs-on: ubuntu-latest

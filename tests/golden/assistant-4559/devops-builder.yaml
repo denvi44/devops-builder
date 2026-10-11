@@ -68,18 +68,21 @@ stages:
   - uid: brique013
     tool: terraform
     params: {}
-  deploy:
   - uid: brique014
+    tool: outscale-oos
+    params: {}
+  deploy:
+  - uid: brique015
     tool: helm
     params: {}
   platform:
-  - uid: brique015
+  - uid: brique016
     tool: cert-manager
     params: {}
   observability:
-  - uid: brique016
+  - uid: brique017
     tool: prometheus
     params: {}
-  - uid: brique017
+  - uid: brique018
     tool: grafana
     params: {}

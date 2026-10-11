@@ -64,14 +64,16 @@ jobs:
       with:
         aws-region: eu-west-3
         role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-    - &id001
-      uses: opentofu/setup-opentofu@v1
+    - uses: opentofu/setup-opentofu@v1
+      with:
+        tofu_version: 1.13.1
     - name: Plan OpenTofu
       run: |
         cd infra/terraform
+        tofu fmt -check -recursive
         tofu init -input=false
         tofu validate
-        tofu plan -input=false -out=plan.tfplan
+        tofu plan -input=false -lock-timeout=5m -out=plan.tfplan
     - uses: actions/upload-artifact@v4
       with:
         name: iac-plan
@@ -86,13 +88,18 @@ jobs:
     - iac-plan
     if: github.ref == 'refs/heads/main'
     environment: production
+    concurrency:
+      group: terraform
+      cancel-in-progress: false
     steps:
     - uses: actions/checkout@v4
     - uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-region: eu-west-3
         role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-    - *id001
+    - uses: opentofu/setup-opentofu@v1
+      with:
+        tofu_version: 1.13.1
     - uses: actions/download-artifact@v4
       with:
         name: iac-plan
@@ -101,7 +108,7 @@ jobs:
       run: |
         cd infra/terraform
         tofu init -input=false
-        tofu apply -input=false plan.tfplan
+        tofu apply -input=false -lock-timeout=5m plan.tfplan
   deploy-staging:
     name: Déploiement ECS — Préproduction
     runs-on: ubuntu-latest

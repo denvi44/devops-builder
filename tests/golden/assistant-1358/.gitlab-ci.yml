@@ -73,14 +73,19 @@ cosign:
 iac-plan:
   stage: infra
   image:
-    name: ghcr.io/opentofu/opentofu:1.10
+    name: alpine:3.20
     entrypoint:
     - ''
   script:
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - export AWS_ACCESS_KEY_ID="$OVH_S3_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$OVH_S3_SECRET_KEY"
   - cd infra/terraform
+  - tofu fmt -check -recursive
   - tofu init -input=false
   - tofu validate
-  - tofu plan -input=false -out=plan.tfplan
+  - tofu plan -input=false -lock-timeout=5m -out=plan.tfplan
   artifacts:
     paths:
     - infra/terraform/plan.tfplan
@@ -88,13 +93,18 @@ iac-plan:
 iac-apply:
   stage: infra
   image:
-    name: ghcr.io/opentofu/opentofu:1.10
+    name: alpine:3.20
     entrypoint:
     - ''
+  resource_group: terraform
   script:
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - export AWS_ACCESS_KEY_ID="$OVH_S3_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$OVH_S3_SECRET_KEY"
   - cd infra/terraform
   - tofu init -input=false
-  - tofu apply -input=false plan.tfplan
+  - tofu apply -input=false -lock-timeout=5m plan.tfplan
   rules:
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     when: manual

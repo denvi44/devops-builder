@@ -71,12 +71,15 @@ stages:
   - uid: brique012
     tool: opentofu
     params: {}
-  deploy:
   - uid: brique013
+    tool: outscale-oos
+    params: {}
+  deploy:
+  - uid: brique014
     tool: helm
     params: {}
   platform:
-  - uid: brique014
+  - uid: brique015
     tool: cert-manager
     params: {}
   observability: []

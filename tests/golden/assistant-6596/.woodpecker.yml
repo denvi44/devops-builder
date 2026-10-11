@@ -121,17 +121,21 @@ steps:
   - branch: main
     event: push
 - name: iac-plan
-  image: ghcr.io/opentofu/opentofu:1.10
+  image: alpine:3.20
   commands:
   - export TAG="${CI_COMMIT_SHA:0:8}"
   - export IMAGE="monappregistry.azurecr.io/mon-app:$$TAG"
   - export ARM_CLIENT_ID="$$AZURE_CLIENT_ID" ARM_TENANT_ID="$$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$$AZURE_SUBSCRIPTION_ID"
   - export ARM_CLIENT_SECRET="$$AZURE_CLIENT_SECRET"
   - if command -v az >/dev/null; then az login --service-principal -u "$$AZURE_CLIENT_ID" -p "$$AZURE_CLIENT_SECRET" -t "$$AZURE_TENANT_ID" >/dev/null; fi
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
   - cd infra/terraform
+  - tofu fmt -check -recursive
   - tofu init -input=false
   - tofu validate
-  - tofu plan -input=false -out=plan.tfplan
+  - tofu plan -input=false -lock-timeout=5m -out=plan.tfplan
   environment:
     SONAR_TOKEN:
       from_secret: sonar_token
@@ -144,16 +148,19 @@ steps:
     AZURE_TENANT_ID: à-renseigner
     AZURE_SUBSCRIPTION_ID: à-renseigner
 - name: iac-apply
-  image: ghcr.io/opentofu/opentofu:1.10
+  image: alpine:3.20
   commands:
   - export TAG="${CI_COMMIT_SHA:0:8}"
   - export IMAGE="monappregistry.azurecr.io/mon-app:$$TAG"
   - export ARM_CLIENT_ID="$$AZURE_CLIENT_ID" ARM_TENANT_ID="$$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$$AZURE_SUBSCRIPTION_ID"
   - export ARM_CLIENT_SECRET="$$AZURE_CLIENT_SECRET"
   - if command -v az >/dev/null; then az login --service-principal -u "$$AZURE_CLIENT_ID" -p "$$AZURE_CLIENT_SECRET" -t "$$AZURE_TENANT_ID" >/dev/null; fi
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
   - cd infra/terraform
   - tofu init -input=false
-  - tofu apply -input=false plan.tfplan
+  - tofu apply -input=false -lock-timeout=5m plan.tfplan
   environment:
     SONAR_TOKEN:
       from_secret: sonar_token

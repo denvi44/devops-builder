@@ -81,7 +81,7 @@ cosign:
 iac-plan:
   stage: infra
   image:
-    name: ghcr.io/opentofu/opentofu:1.10
+    name: alpine:3.20
     entrypoint:
     - ''
   id_tokens:
@@ -91,10 +91,14 @@ iac-plan:
   - export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
   - export ARM_USE_OIDC=true ARM_OIDC_TOKEN="$AZURE_OIDC_TOKEN"
   - if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" --federated-token "$AZURE_OIDC_TOKEN" >/dev/null; fi
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
   - cd infra/terraform
+  - tofu fmt -check -recursive
   - tofu init -input=false
   - tofu validate
-  - tofu plan -input=false -out=plan.tfplan
+  - tofu plan -input=false -lock-timeout=5m -out=plan.tfplan
   artifacts:
     paths:
     - infra/terraform/plan.tfplan
@@ -102,9 +106,10 @@ iac-plan:
 iac-apply:
   stage: infra
   image:
-    name: ghcr.io/opentofu/opentofu:1.10
+    name: alpine:3.20
     entrypoint:
     - ''
+  resource_group: terraform
   id_tokens:
     AZURE_OIDC_TOKEN:
       aud: api://AzureADTokenExchange
@@ -112,9 +117,12 @@ iac-apply:
   - export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
   - export ARM_USE_OIDC=true ARM_OIDC_TOKEN="$AZURE_OIDC_TOKEN"
   - if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" --federated-token "$AZURE_OIDC_TOKEN" >/dev/null; fi
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
   - cd infra/terraform
   - tofu init -input=false
-  - tofu apply -input=false plan.tfplan
+  - tofu apply -input=false -lock-timeout=5m plan.tfplan
   rules:
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     when: manual

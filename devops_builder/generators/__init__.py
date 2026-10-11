@@ -51,7 +51,7 @@ def render(project: Project, catalog: Catalog) -> tuple[dict[str, str], IR]:
     Utilisé par generate() et par la règle R31 : le rapport et le diagnostic
     disent donc exactement la même chose.
     """
-    from . import ci, civars, data, deploy, extras, iac, localtest, platform
+    from . import ci, civars, data, deploy, extras, floci, iac, localtest, platform
 
     ir = build_ir(project, catalog)
     files: dict[str, str] = {}
@@ -77,6 +77,7 @@ def render(project: Project, catalog: Catalog) -> tuple[dict[str, str], IR]:
     if ir.iac and ir.iac.id in ("terraform", "opentofu") or ir.providers:
         files.update(iac.terraform(ir))
     files.update(platform.platform_files(ir))
+    files.update(floci.floci_files(ir))
     data.notes(ir)
     files.update(extras.renovate(ir))
     files.update(extras.dependabot(ir))

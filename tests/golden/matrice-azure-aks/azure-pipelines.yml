@@ -49,9 +49,10 @@ stages:
         export ARM_CLIENT_SECRET="$AZURE_CLIENT_SECRET"
         if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" >/dev/null; fi
         cd infra/terraform
+        terraform fmt -check -recursive
         terraform init -input=false
         terraform validate
-        terraform plan -input=false -out=plan.tfplan
+        terraform plan -input=false -lock-timeout=5m -out=plan.tfplan
       displayName: Plan Terraform
       env:
         REGISTRY_USER: $(REGISTRY_USER)
@@ -68,7 +69,7 @@ stages:
         if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" >/dev/null; fi
         cd infra/terraform
         terraform init -input=false
-        terraform apply -input=false plan.tfplan
+        terraform apply -input=false -lock-timeout=5m plan.tfplan
       displayName: Application Terraform
       env:
         REGISTRY_USER: $(REGISTRY_USER)

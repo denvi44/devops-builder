@@ -52,6 +52,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 ## Diagnostics restants
 
 - **Avertissement** (R34) — Scaleway Kapsule : « Nom du cluster » non renseigné : la valeur d'exemple « mon-cluster » sera écrite dans les fichiers.
+- **Avertissement** (R44) — OpenTofu tourne dans la CI sans stockage d'état distant : l'état, écrit dans le job, serait perdu à la fin de chaque pipeline et l'apply suivant recréerait les ressources. Ajouter le stockage objet du fournisseur.
 
 ## Notes
 
@@ -67,7 +68,9 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `charts/mon-app/templates/service.yaml`
 - `charts/mon-app/values.yaml`
 - `devops-builder.yaml`
+- `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
+- `infra/terraform/outputs.tf`
 - `infra/terraform/variables.tf`
 - `infra/terraform/versions.tf`
 - `scripts/ci-variables.sh`

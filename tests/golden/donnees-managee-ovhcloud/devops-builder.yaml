@@ -65,22 +65,25 @@ stages:
   - uid: brique012
     tool: opentofu
     params: {}
-  data:
   - uid: brique013
+    tool: ovh-object-storage
+    params: {}
+  data:
+  - uid: brique014
     tool: ovh-databases
     params: {}
   deploy:
-  - uid: brique014
+  - uid: brique015
     tool: helm
     params: {}
   platform:
-  - uid: brique015
+  - uid: brique016
     tool: cert-manager
     params: {}
   observability:
-  - uid: brique016
+  - uid: brique017
     tool: prometheus
     params: {}
-  - uid: brique017
+  - uid: brique018
     tool: grafana
     params: {}

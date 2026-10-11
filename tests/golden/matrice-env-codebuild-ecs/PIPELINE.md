@@ -64,6 +64,8 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `buildspec-deploy-production.yml`
 - `buildspec.yml`
 - `devops-builder.yaml`
+- `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
+- `infra/terraform/outputs.tf`
 - `infra/terraform/variables.tf`
 - `infra/terraform/versions.tf`

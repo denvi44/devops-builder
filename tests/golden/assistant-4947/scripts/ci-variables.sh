@@ -122,6 +122,8 @@ declare_var REGISTRY_PASSWORD 1 'Mot de passe ou jeton de publication sur regist
 declare_var OVH_APPLICATION_KEY 1 'Clé d'"'"'application OVHcloud'
 declare_var OVH_APPLICATION_SECRET 1 'Secret d'"'"'application OVHcloud'
 declare_var OVH_CONSUMER_KEY 1 'Clé consommateur OVHcloud'
+declare_var OVH_S3_ACCESS_KEY 1 'Clé d'"'"'accès S3 OVHcloud (utilisateur Public Cloud), pour l'"'"'état Terraform'
+declare_var OVH_S3_SECRET_KEY 1 'Clé secrète S3 OVHcloud, pour l'"'"'état Terraform'
 declare_var GITOPS_TOKEN 1 'Jeton autorisé à pousser sur le dépôt GitOps'
 declare_var GITOPS_REPO 0 'Dépôt GitOps surveillé, sans schéma (hôte/groupe/depot.git)'
 declare_var RENOVATE_TOKEN 1 'Jeton de la forge autorisé à ouvrir des merge requests (Renovate)'

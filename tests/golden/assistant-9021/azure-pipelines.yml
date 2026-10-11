@@ -95,10 +95,14 @@ stages:
     steps:
     - script: |
         # Identifiants AWS fournis par AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+        apk add --no-cache curl unzip
+        curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+        unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
         cd infra/terraform
+        tofu fmt -check -recursive
         tofu init -input=false
         tofu validate
-        tofu plan -input=false -out=plan.tfplan
+        tofu plan -input=false -lock-timeout=5m -out=plan.tfplan
       displayName: Plan OpenTofu
       env:
         SONAR_TOKEN: $(SONAR_TOKEN)
@@ -110,9 +114,12 @@ stages:
     steps:
     - script: |
         # Identifiants AWS fournis par AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+        apk add --no-cache curl unzip
+        curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+        unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
         cd infra/terraform
         tofu init -input=false
-        tofu apply -input=false plan.tfplan
+        tofu apply -input=false -lock-timeout=5m plan.tfplan
       displayName: Application OpenTofu
       env:
         SONAR_TOKEN: $(SONAR_TOKEN)

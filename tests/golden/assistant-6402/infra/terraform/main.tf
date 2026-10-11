@@ -17,12 +17,12 @@ resource "aws_ecr_repository" "app" {
 # --- Amazon EKS
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.0"
+  version = "~> 21.0"
 
-  cluster_name    = "mon-cluster"
-  cluster_version = "1.33"
-  vpc_id          = var.vpc_id
-  subnet_ids      = var.subnet_ids
+  name               = "mon-cluster"
+  kubernetes_version = "1.36"
+  vpc_id             = var.vpc_id
+  subnet_ids         = var.subnet_ids
 
   eks_managed_node_groups = {
     default = {

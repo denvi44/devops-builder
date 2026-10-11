@@ -68,14 +68,19 @@ steps:
     SONAR_HOST_URL: à-renseigner
     GITOPS_REPO: à-renseigner
 - name: iac-plan
-  image: ghcr.io/opentofu/opentofu:1.10
+  image: alpine:3.20
   commands:
   - export TAG="${CI_COMMIT_SHA:0:8}"
   - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - export AWS_ACCESS_KEY_ID="$$OSC_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$$OSC_SECRET_KEY"
   - cd infra/terraform
+  - tofu fmt -check -recursive
   - tofu init -input=false
   - tofu validate
-  - tofu plan -input=false -out=plan.tfplan
+  - tofu plan -input=false -lock-timeout=5m -out=plan.tfplan
   environment:
     SONAR_TOKEN:
       from_secret: sonar_token
@@ -92,13 +97,17 @@ steps:
     SONAR_HOST_URL: à-renseigner
     GITOPS_REPO: à-renseigner
 - name: iac-apply
-  image: ghcr.io/opentofu/opentofu:1.10
+  image: alpine:3.20
   commands:
   - export TAG="${CI_COMMIT_SHA:0:8}"
   - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - export AWS_ACCESS_KEY_ID="$$OSC_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$$OSC_SECRET_KEY"
   - cd infra/terraform
   - tofu init -input=false
-  - tofu apply -input=false plan.tfplan
+  - tofu apply -input=false -lock-timeout=5m plan.tfplan
   environment:
     SONAR_TOKEN:
       from_secret: sonar_token

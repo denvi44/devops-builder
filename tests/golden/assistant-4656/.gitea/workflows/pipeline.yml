@@ -16,6 +16,8 @@ env:
   IMAGE: $AWS_ACCOUNT_ID.dkr.ecr.eu-west-3.amazonaws.com/mon-app:${{ github.sha }}
   SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
   SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  TF_VAR_vpc_id: ${{ vars.TF_VAR_vpc_id }}
+  TF_VAR_subnet_ids: ${{ vars.TF_VAR_subnet_ids }}
   GITOPS_TOKEN: ${{ secrets.GITOPS_TOKEN }}
   GITOPS_REPO: ${{ vars.GITOPS_REPO }}
 jobs:
@@ -68,14 +70,17 @@ jobs:
       with:
         aws-region: eu-west-3
         role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-    - &id001
-      uses: hashicorp/setup-terraform@v3
+    - uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.16.x
+        terraform_wrapper: false
     - name: Plan Terraform
       run: |
         cd infra/terraform
+        terraform fmt -check -recursive
         terraform init -input=false
         terraform validate
-        terraform plan -input=false -out=plan.tfplan
+        terraform plan -input=false -lock-timeout=5m -out=plan.tfplan
     - uses: actions/upload-artifact@v4
       with:
         name: iac-plan
@@ -90,13 +95,19 @@ jobs:
     - iac-plan
     if: github.ref == 'refs/heads/main'
     environment: production
+    concurrency:
+      group: terraform
+      cancel-in-progress: false
     steps:
     - uses: actions/checkout@v4
     - uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-region: eu-west-3
         role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-    - *id001
+    - uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.16.x
+        terraform_wrapper: false
     - uses: actions/download-artifact@v4
       with:
         name: iac-plan
@@ -105,7 +116,7 @@ jobs:
       run: |
         cd infra/terraform
         terraform init -input=false
-        terraform apply -input=false plan.tfplan
+        terraform apply -input=false -lock-timeout=5m plan.tfplan
   deploy-staging:
     name: Mise à jour GitOps (Argo CD) — Préproduction
     runs-on: ubuntu-latest

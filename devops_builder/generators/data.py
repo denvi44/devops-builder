@@ -478,11 +478,6 @@ def terraform_blocks(ir: IR) -> tuple[list[str], list[str], list[str]]:
             blocks.append(f"# --- {title}\n{res}")
             outputs += outs
         ir.cover(db.id)
-    if any(d.id == "aws-rds" for d in managed_dbs(ir)):
-        variables += ['variable "db_subnet_group" {\n  type        = string\n'
-                      '  description = "Groupe de sous-réseaux privés des instances RDS"\n}',
-                      'variable "db_security_group_ids" {\n  type        = list(string)\n'
-                      '  description = "Groupes de sécurité autorisant l\'application à joindre la base"\n}']
     return blocks, variables, outputs
 
 

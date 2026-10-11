@@ -1,0 +1,16 @@
+# Généré par DevOps Builder — à relire avant usage. Émulateur AWS local : docker compose -f dev/floci/compose.yaml up -d
+name: boutique-floci
+services:
+  floci:
+    image: floci/floci:2.2.0
+    ports:
+    - 4566:4566
+    user: root
+    environment:
+      FLOCI_DEFAULT_REGION: eu-west-3
+      FLOCI_STORAGE_MODE: hybrid
+    volumes:
+    - floci-data:/app/data
+    - /var/run/docker.sock:/var/run/docker.sock
+volumes:
+  floci-data: {}

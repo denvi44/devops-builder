@@ -87,7 +87,9 @@ Ces briques sont dans le pipeline mais aucun générateur ne les prend en charge
 - `.github/workflows/pipeline.yml`
 - `PIPELINE.md`
 - `devops-builder.yaml`
+- `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
+- `infra/terraform/outputs.tf`
 - `infra/terraform/variables.tf`
 - `infra/terraform/versions.tf`
 - `scripts/ci-variables.sh`

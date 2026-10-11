@@ -77,6 +77,8 @@ CASES = [
     ("R41", lambda: put(make(), "k3s", "helm", "postgresql"), Severity.WARNING),
     ("R42", lambda: put(make("docker-host"), "docker-compose", "postgresql", "mariadb"), Severity.WARNING),
     ("R43", lambda: put(make("docker-host"), "docker-compose", "valkey", "redis"), Severity.WARNING),
+    ("R44", lambda: put(make("kubernetes-managed"), "gitlab", "gitlab-ci", "scaleway", "kapsule", "opentofu"),
+     Severity.WARNING),
 ]
 
 

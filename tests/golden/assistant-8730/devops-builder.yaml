@@ -68,12 +68,15 @@ stages:
   - uid: brique013
     tool: terraform
     params: {}
-  deploy:
   - uid: brique014
+    tool: ovh-object-storage
+    params: {}
+  deploy:
+  - uid: brique015
     tool: helm
     params: {}
   platform:
-  - uid: brique015
+  - uid: brique016
     tool: cert-manager
     params: {}
   observability: []

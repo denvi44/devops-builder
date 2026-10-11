@@ -1,0 +1,183 @@
+# Généré par DevOps Builder — à relire avant usage.
+stages:
+- test
+- build
+- infra
+- deploy-staging
+- deploy-production
+variables:
+  TAG: $CI_COMMIT_SHORT_SHA
+  IMAGE: $AWS_ACCOUNT_ID.dkr.ecr.eu-west-3.amazonaws.com/boutique:$CI_COMMIT_SHORT_SHA
+  AWS_REGION: eu-west-3
+unit-tests:
+  stage: test
+  image:
+    name: python:3.12-slim
+    entrypoint:
+    - ''
+  services:
+  - name: floci/floci:2.2.0
+    alias: floci
+    variables:
+      FLOCI_HOSTNAME: floci
+      FLOCI_DEFAULT_REGION: eu-west-3
+  variables:
+    AWS_ENDPOINT_URL: http://floci:4566
+    AWS_ACCESS_KEY_ID: test
+    AWS_SECRET_ACCESS_KEY: test
+    AWS_DEFAULT_REGION: eu-west-3
+    AWS_REGION: eu-west-3
+  script:
+  - pip install -r requirements.txt
+  - pytest -q
+tflint:
+  stage: test
+  image:
+    name: ghcr.io/terraform-linters/tflint:latest
+    entrypoint:
+    - ''
+  script:
+  - tflint --chdir=infra/terraform --init
+  - tflint --chdir=infra/terraform --format compact
+infracost:
+  stage: test
+  image:
+    name: infracost/infracost:ci-latest
+    entrypoint:
+    - ''
+  script:
+  - infracost breakdown --path infra/terraform --format table
+  allow_failure: true
+iac-floci:
+  stage: test
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  services:
+  - name: floci/floci:2.2.0
+    alias: floci
+    variables:
+      FLOCI_HOSTNAME: floci
+      FLOCI_DEFAULT_REGION: eu-west-3
+  variables:
+    FLOCI_ENDPOINT: http://floci:4566
+  script:
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - apk add --no-cache bash curl
+  - bash scripts/tf-floci.sh plan
+  allow_failure: true
+build-image:
+  stage: build
+  image:
+    name: docker:27
+    entrypoint:
+    - ''
+  services:
+  - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: /certs
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - apk add --no-cache aws-cli || true
+  - aws ecr get-login-password --region eu-west-3 | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.eu-west-3.amazonaws.com"
+  - docker buildx build --tag "$IMAGE" --push .
+iac-plan:
+  stage: infra
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - cd infra/terraform
+  - tofu fmt -check -recursive
+  - tofu init -input=false
+  - tofu validate
+  - tofu plan -input=false -lock-timeout=5m -out=plan.tfplan
+  artifacts:
+    paths:
+    - infra/terraform/plan.tfplan
+    expire_in: 1 week
+iac-apply:
+  stage: infra
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  resource_group: terraform
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - cd infra/terraform
+  - tofu init -input=false
+  - tofu apply -input=false -lock-timeout=5m plan.tfplan
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - iac-plan
+deploy-staging:
+  stage: deploy-staging
+  image:
+    name: amazon/aws-cli:latest
+    entrypoint:
+    - ''
+  environment:
+    name: staging
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - yum install -y -q tar gzip openssl >/dev/null
+  - curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  - aws eks update-kubeconfig --name boutique --region eu-west-3
+  - helm upgrade --install boutique charts/boutique -f charts/boutique/values-staging.yaml --namespace boutique-staging --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --set-string
+    database.aws_rds.url="$DATABASE_URL_STAGING" --wait
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+deploy-production:
+  stage: deploy-production
+  image:
+    name: amazon/aws-cli:latest
+    entrypoint:
+    - ''
+  environment:
+    name: production
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - yum install -y -q tar gzip openssl >/dev/null
+  - curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  - aws eks update-kubeconfig --name boutique --region eu-west-3
+  - helm upgrade --install boutique charts/boutique -f charts/boutique/values-production.yaml --namespace boutique --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --set-string
+    database.aws_rds.url="$DATABASE_URL_PRODUCTION" --wait
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - deploy-staging

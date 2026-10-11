@@ -417,6 +417,19 @@
   provider: scaleway
   verified: "2026-10-08"
 
+- id: outscale-oos
+  name: Outscale Object Storage (OOS)
+  kind: service
+  stage: infrastructure
+  roles: [object-storage]
+  description: Stockage objet compatible S3 d'Outscale.
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [object-storage]
+  provider: outscale
+  verified: "2026-10-11"
+
 - id: minio
   name: MinIO
   stage: infrastructure

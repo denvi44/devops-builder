@@ -96,6 +96,22 @@ def extra_cases(catalog) -> dict[str, Project]:
                                                        database="mysql" if cloud == "azure" else "postgresql")
         for name, answers in db_cases.items():
             out[name] = build_starter(StarterAnswers(forge="gitlab", **answers), catalog)
+    # 0.9 : outillage Terraform (TFLint, Infracost) et Floci
+    if "floci" in catalog:
+        from devops_builder.model import env_preset
+        for forge, ci in (("gitlab", "gitlab-ci"), ("github", "github-actions")):
+            p = Project(name="IaC AWS et Floci", target="kubernetes-managed", environments=env_preset("staging-prod"))
+            p.app.image_name = "boutique"
+            for t in (forge, ci, "buildkit", "unit-tests", "aws", "ecr", "eks", "helm", "opentofu", "s3", "aws-rds",
+                      "tflint", "infracost", "floci"):
+                p.add(t, catalog[t].stage)
+            p.bricks_for("eks")[0].params = {"cluster_name": "boutique"}
+            p.bricks_for("s3")[0].params = {"bucket": "boutique-tfstate"}
+            out[f"iac-floci-{forge}"] = p
+        for cloud in ("scaleway", "ovhcloud", "outscale"):
+            out[f"iac-etat-{cloud}"] = build_starter(StarterAnswers(
+                forge="gitlab", hosting="kubernetes-managed", cloud=cloud, envs="staging-prod",
+                secnumcloud=cloud == "outscale"), catalog)
     return out
 
 

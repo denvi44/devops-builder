@@ -113,14 +113,18 @@ jobs:
     - cosign
     steps:
     - uses: actions/checkout@v4
-    - &id001
-      uses: hashicorp/setup-terraform@v3
+    - uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.16.x
+        terraform_wrapper: false
     - name: Plan Terraform
       run: |
+        export AWS_ACCESS_KEY_ID="$OSC_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$OSC_SECRET_KEY"
         cd infra/terraform
+        terraform fmt -check -recursive
         terraform init -input=false
         terraform validate
-        terraform plan -input=false -out=plan.tfplan
+        terraform plan -input=false -lock-timeout=5m -out=plan.tfplan
     - uses: actions/upload-artifact@v4
       with:
         name: iac-plan
@@ -138,18 +142,25 @@ jobs:
     - iac-plan
     if: github.ref == 'refs/heads/main'
     environment: production
+    concurrency:
+      group: terraform
+      cancel-in-progress: false
     steps:
     - uses: actions/checkout@v4
-    - *id001
+    - uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.16.x
+        terraform_wrapper: false
     - uses: actions/download-artifact@v4
       with:
         name: iac-plan
         path: infra/terraform
     - name: Application Terraform
       run: |
+        export AWS_ACCESS_KEY_ID="$OSC_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$OSC_SECRET_KEY"
         cd infra/terraform
         terraform init -input=false
-        terraform apply -input=false plan.tfplan
+        terraform apply -input=false -lock-timeout=5m plan.tfplan
   deploy-staging:
     name: Déploiement Helm — Préproduction
     runs-on: ubuntu-latest
@@ -166,8 +177,7 @@ jobs:
     environment: staging
     steps:
     - uses: actions/checkout@v4
-    - &id002
-      uses: azure/setup-helm@v4
+    - uses: azure/setup-helm@v4
     - name: Déploiement Helm — Préproduction
       run: |
         echo "$KUBECONFIG_DATA_STAGING" | base64 -d > /tmp/kubeconfig
@@ -190,7 +200,7 @@ jobs:
     environment: production
     steps:
     - uses: actions/checkout@v4
-    - *id002
+    - uses: azure/setup-helm@v4
     - name: Déploiement Helm — Production
       run: |
         echo "$KUBECONFIG_DATA_PRODUCTION" | base64 -d > /tmp/kubeconfig

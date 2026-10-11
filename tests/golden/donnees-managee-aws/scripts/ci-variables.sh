@@ -92,6 +92,10 @@ send() {
 }
 
 declare_var AWS_ACCOUNT_ID 0 'Identifiant du compte AWS du registre ECR'
+declare_var TF_VAR_vpc_id 0 'VPC du cluster EKS (variable Terraform vpc_id, ex. "vpc-0123456789abcdef0")'
+declare_var TF_VAR_subnet_ids 0 'Sous-réseaux privés du cluster (variable Terraform subnet_ids, ex. ["subnet-0123456789abcdef0", "subnet-0fedcba9876543210"])'
+declare_var TF_VAR_db_subnet_group 0 'Groupe de sous-réseaux privés des instances RDS (variable Terraform db_subnet_group, ex. "rds-prive")'
+declare_var TF_VAR_db_security_group_ids 0 'Groupes de sécurité autorisant l'"'"'application à joindre la base (variable Terraform db_security_group_ids, ex. ["sg-0123456789abcdef0"])'
 declare_var DATABASE_URL_STAGING 1 'URL de connexion à Amazon RDS (Préproduction), lue par l'"'"'application dans DATABASE_URL ; à composer après création de l'"'"'instance (sorties Terraform)'
 declare_var DATABASE_URL_PRODUCTION 1 'URL de connexion à Amazon RDS (Production), lue par l'"'"'application dans DATABASE_URL ; à composer après création de l'"'"'instance (sorties Terraform)'
 declare_var AWS_ROLE_ARN 0 'Rôle IAM assumé par la CI via OIDC'
