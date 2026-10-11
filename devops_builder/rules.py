@@ -427,6 +427,7 @@ CAP_LABELS = {  # complément de « a besoin … »
     "kubernetes-cluster": "d'un cluster Kubernetes",
     "database": "d'une base de données",
     "config-mgmt": "de playbooks Ansible",
+    "iac-hcl": "de Terraform ou OpenTofu pour créer les machines",
 }
 MANAGED_TARGETS = ("kubernetes", "kubernetes-managed")
 
@@ -579,6 +580,9 @@ def h_params(rule: Rule, ctx: Context) -> list[Diagnostic]:
     for p in ctx.placed:
         for issue in check_brick(p.tool, p.brick, ctx.project):
             if issue.kind not in kinds:
+                continue
+            spec = p.tool.param_schema.get(issue.key)
+            if issue.kind == "example" and spec and spec.provided_by and ctx.provides(spec.provided_by):
                 continue
             actions: list[Action] = []
             if issue.kind == "unknown":

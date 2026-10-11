@@ -95,6 +95,13 @@ def clouds_for(hosting: str, secnumcloud: bool) -> list[str]:
     return options
 
 
+def host_clouds(hosting: str, secnumcloud: bool) -> list[str]:
+    """Clouds où créer les machines d'un hôte Docker ou de VM (facultatif : sinon, serveurs existants)."""
+    if hosting not in ("docker-host", "vm"):
+        return []
+    return [c for c in CLOUDS if not secnumcloud or c in SECNUMCLOUD_CLOUDS]
+
+
 def validate(a: StarterAnswers) -> list[str]:
     """Problèmes bloquants dans les réponses (affichés par l'assistant avant de créer)."""
     problems = []
@@ -107,6 +114,8 @@ def validate(a: StarterAnswers) -> list[str]:
                             "choisir Kubernetes managé ou un hébergement autogéré.")
         elif a.cloud not in allowed:
             problems.append("Choisir un cloud compatible avec cet hébergement.")
+    elif a.hosting in ("docker-host", "vm") and a.cloud is not None and a.cloud not in host_clouds(a.hosting, a.secnumcloud):
+        problems.append("Ce cloud ne convient pas (SecNumCloud) : choisir Outscale, OVHcloud ou des serveurs existants.")
     return problems
 
 
@@ -152,7 +161,8 @@ def build_starter(a: StarterAnswers, catalog: Catalog) -> Project:
         if tool_id in catalog and not p.bricks_for(tool_id):
             p.add(tool_id, catalog[tool_id].stage, **params)
 
-    cloud = a.cloud if a.hosting in ("kubernetes-managed", "serverless") else None
+    vm_cloud = a.hosting in ("docker-host", "vm") and a.cloud is not None  # machines créées par Terraform
+    cloud = a.cloud if a.hosting in ("kubernetes-managed", "serverless") or vm_cloud else None
     provider = catalog.get(cloud) if cloud else None
 
     # Code, CI, build
@@ -169,8 +179,8 @@ def build_starter(a: StarterAnswers, catalog: Catalog) -> Project:
             tool = None
         add(tool or ("dependabot" if a.forge == "github" else "renovate"))
 
-    # Registre
-    if provider and provider.services.get("registry"):
+    # Registre (sur des machines, celui de la forge : les hôtes s'y connectent avec les identifiants de la CI)
+    if provider and provider.services.get("registry") and not vm_cloud:
         add(provider.services["registry"])
     elif a.forge == "github":
         add("ghcr")
@@ -207,9 +217,13 @@ def build_starter(a: StarterAnswers, catalog: Catalog) -> Project:
     if a.gitops and a.hosting in ("kubernetes", "kubernetes-managed"):
         add("argo-cd")
 
-    # Infrastructure as code pour un cloud
-    if provider and a.iac != "none":
-        add(a.iac)
+    # Machines créées par Terraform / OpenTofu (hôte Docker ou VM sur un cloud)
+    if vm_cloud and provider and provider.services.get("compute"):
+        add(provider.services["compute"])
+
+    # Infrastructure as code pour un cloud (indispensable pour créer les machines)
+    if provider and (a.iac != "none" or vm_cloud):
+        add(a.iac if a.iac != "none" else "opentofu")
         storage = provider.services.get("object-storage")
         if storage in REMOTE_BACKENDS:  # état partagé entre les jobs (R44)
             add(storage)
@@ -224,7 +238,8 @@ def build_starter(a: StarterAnswers, catalog: Catalog) -> Project:
         add("db-migrations", command=a.migrations)
 
     # Observabilité
-    if a.observability == "prometheus" and a.hosting != "serverless":
+    if (a.observability == "prometheus" and a.hosting != "serverless") or (a.observability == "cloud" and vm_cloud):
+        # sur des machines, les agents des services d'observabilité du cloud ne sont pas générés
         add("prometheus")
         add("grafana")
     elif a.observability == "cloud" and provider and provider.services.get("observability"):

@@ -166,6 +166,13 @@ TOFU_INSTALL = [
     f'tofu_{TOFU_VERSION}_linux_amd64.zip"',
     "unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin",
 ]
+TERRAFORM_VERSION = "1.16.5"
+TERRAFORM_INSTALL = [
+    "apk add --no-cache curl unzip",
+    f'curl -fsSLo /tmp/terraform.zip "https://releases.hashicorp.com/terraform/{TERRAFORM_VERSION}/'
+    f'terraform_{TERRAFORM_VERSION}_linux_amd64.zip"',
+    "unzip -o -q /tmp/terraform.zip terraform -d /usr/local/bin",
+]
 FLOCI_IMAGE = "floci/floci:2.2.0"  # épinglée ; Renovate la tient à jour
 
 
@@ -392,17 +399,36 @@ def _registry_note(ir: IR) -> None:
             ir.notes.append(note)
 
 
+BACKEND_CLOUD = {"s3": "aws", "gcs": "gcp", "azure-blob": "azure"}
+
+
+def _tf_hosts(ir: IR, env: Environment, first_into: str | None = None) -> tuple[list[str], list[str]]:
+    """Lignes qui lisent les machines créées par la pile (sortie « hosts »), et clouds à authentifier."""
+    from .generators.hosts import INVENTORY_SCRIPT, creates_hosts, deploy_user
+    from .generators.iac import backend_credentials, backend_tool
+    if not creates_hosts(ir):
+        return [], []
+    install = list(TOFU_INSTALL if ir.iac_cmd == "tofu" else TERRAFORM_INSTALL) + ["apk add --no-cache bash jq"]
+    cloud = BACKEND_CLOUD.get(backend_tool(ir) or "")
+    if first_into:
+        run = f'export {first_into}="{deploy_user(ir)}@$(bash {INVENTORY_SCRIPT} --first {env.id})"'
+    else:
+        run = f"bash {INVENTORY_SCRIPT} {env.id}"
+    return [*install, *backend_credentials(ir), run], [cloud] if cloud else []
+
+
 def _ansible_step(ir: IR, env: Environment, ns: str, secrets: list[str], name: str) -> Step:
     ssh_variables(ir, "les hôtes")
+    hosts, clouds = _tf_hosts(ir, env)
     reg = host_registry(ir)
     _registry_note(ir)
     login = ([f'export DEPLOY_REGISTRY="{reg[0]}" DEPLOY_REGISTRY_USER="{reg[1]}" DEPLOY_REGISTRY_PASSWORD="{reg[2]}"']
              if reg else [])
     return Step("deploy", name, "deploy", ANSIBLE_IMAGE, [
-        *ANSIBLE_INSTALL, SSH_SETUP, KNOWN_HOSTS, *secrets, *login,
+        *ANSIBLE_INSTALL, *hosts, SSH_SETUP, KNOWN_HOSTS, *secrets, *login,
         f'ansible-playbook -i {ir.inventory(env)} ansible/deploy.yml -e "image=$IMAGE" -e "project={ns}" '
         f'-e "deploy_env={env.id}"'],
-        tool="ansible", env={"ANSIBLE_CONFIG": "ansible/ansible.cfg"})
+        tool="ansible", env={"ANSIBLE_CONFIG": "ansible/ansible.cfg"}, cloud=clouds)
 
 
 def _deploy_step(ir: IR, env: Environment) -> Step | None:
@@ -419,15 +445,18 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
         if ir.has("ansible"):
             return _ansible_step(ir, env, ns, secrets, "Déploiement Ansible + Compose")
         host = ir.env_var("DEPLOY_HOST", env)
+        tf_hosts, tf_clouds = _tf_hosts(ir, env, first_into=host)
         ssh_variables(ir, "l'hôte Docker")
         reg = host_registry(ir)
         _registry_note(ir)
         login = ([f'echo "{reg[2]}" | ssh "${host}" "docker login {reg[0]} -u {reg[1]} --password-stdin"']
                  if reg else [])
         where = f" ({env.display})" if ir.multi_env else ""
-        ir.add_var(host, f"Hôte Docker cible{where} (utilisateur@hôte)", secret=False)
+        if not tf_hosts:
+            ir.add_var(host, f"Hôte Docker cible{where} (utilisateur@hôte)", secret=False)
         return Step("deploy", "Déploiement Docker Compose (SSH)", "deploy", ALPINE, [
             "apk add --no-cache openssh-client",
+            *tf_hosts,
             SSH_SETUP,
             KNOWN_HOSTS,
             f'ssh -o StrictHostKeyChecking=accept-new "${host}" "mkdir -p /opt/{ns}"',
@@ -440,7 +469,7 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
             *([f'scp {dbgen.BACKUP_SCRIPT} "${host}:/opt/{ns}/db-backup.sh"'] if dbgen.backup_script(ir) else []),
             *login,
             f'ssh "${host}" "cd /opt/{ns} && IMAGE=$IMAGE docker compose -p {ns} pull && IMAGE=$IMAGE docker compose -p {ns} up -d"'],
-            tool="docker-compose")
+            tool="docker-compose", cloud=tf_clouds)
     if ir.has("argo-cd") or ir.has("flux"):
         gitops = "Argo CD" if ir.has("argo-cd") else "Flux"
         if ir.has("helm"):

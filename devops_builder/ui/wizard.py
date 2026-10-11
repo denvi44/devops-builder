@@ -33,6 +33,7 @@ from ..starter import (
     StarterAnswers,
     build_starter,
     clouds_for,
+    host_clouds,
     validate,
 )
 from .widgets import muted, plain
@@ -176,11 +177,17 @@ class StarterWizard(QWizard):
     def _update_clouds(self) -> None:
         current = self.w_cloud.currentData()
         self.w_cloud.clear()
-        options = clouds_for(_checked(self.g_hosting), self.w_secnum.isChecked())
+        hosting = _checked(self.g_hosting)
+        options = clouds_for(hosting, self.w_secnum.isChecked())
+        machines = host_clouds(hosting, self.w_secnum.isChecked())
+        if machines:  # hôte Docker ou VM : serveurs existants, ou machines créées par Terraform sur un cloud
+            self.w_cloud.addItem("Serveurs existants", None)
+            options = machines
         for c in options:
-            self.w_cloud.addItem(CLOUDS[c], c)
-        if current in options:
-            self.w_cloud.setCurrentIndex(options.index(current))
+            self.w_cloud.addItem(CLOUDS[c] + (" — machines créées par Terraform" if machines else ""), c)
+        index = self.w_cloud.findData(current)
+        if index >= 0:
+            self.w_cloud.setCurrentIndex(index)
         self.w_cloud.setEnabled(bool(options))
         problems = validate(self.collect())
         self.hosting_error.setText(" ".join(problems))
@@ -242,6 +249,8 @@ class StarterWizard(QWizard):
         if not k8s:
             self.w_gitops.setChecked(False)
         self.w_iac.setEnabled(a.cloud is not None)
+        if a.cloud is not None and a.hosting in ("docker-host", "vm") and self.w_iac.currentData() == "none":
+            self.w_iac.setCurrentIndex(max(0, self.w_iac.findData("opentofu")))  # les machines viennent de la pile
         docker = a.hosting in ("docker-host", "vm")
         self.w_shared.setEnabled(docker)
         if not docker:

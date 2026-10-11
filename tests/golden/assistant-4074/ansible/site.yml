@@ -3,16 +3,22 @@
   hosts: app
   become: true
   tasks:
-    - name: Docker sur Debian et Ubuntu
+    - name: Docker déjà installé ?
+      ansible.builtin.stat:
+        path: /usr/bin/docker
+      register: docker_bin
+    - name: Prérequis (Debian, Ubuntu)
       when: ansible_os_family == 'Debian'
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - python3-yaml
+        update_cache: true
+        cache_valid_time: 3600
+    - name: Docker sur Debian et Ubuntu
+      when: ansible_os_family == 'Debian' and not docker_bin.stat.exists
       block:
-        - name: Prérequis
-          ansible.builtin.apt:
-            name:
-              - ca-certificates
-              - curl
-              - python3-yaml
-            update_cache: true
         - name: Clé du dépôt Docker
           ansible.builtin.get_url:
             url: https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg
@@ -40,7 +46,7 @@
               - docker-compose-plugin
             update_cache: true
     - name: Docker sur RHEL, Rocky, Alma et Fedora
-      when: ansible_os_family == 'RedHat'
+      when: ansible_os_family == 'RedHat' and not docker_bin.stat.exists
       block:
         - name: Dépôt Docker
           ansible.builtin.get_url:

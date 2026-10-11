@@ -106,7 +106,7 @@ def test_preparation_des_hotes_depuis_le_depot_docker():
     site = yaml.safe_load(files_of(project(*BASE, "docker-compose", **HARBOR))["ansible/site.yml"])
     blocks = {t["name"]: t for t in site[0]["tasks"]}
     debian = blocks["Docker sur Debian et Ubuntu"]
-    assert debian["when"] == "ansible_os_family == 'Debian'"
+    assert debian["when"] == "ansible_os_family == 'Debian' and not docker_bin.stat.exists"
     assert any("ansible.builtin.deb822_repository" in t for t in debian["block"])
     assert "docker-compose-plugin" in str(blocks["Docker sur RHEL, Rocky, Alma et Fedora"])
 

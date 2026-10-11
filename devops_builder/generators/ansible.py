@@ -40,7 +40,11 @@ def _inventory(ir: IR, env) -> str:
     lines = [f"# {HEADER}"]
     if ir.multi_env:
         lines.append(f"# Environnement : {env.display} — hôtes : paramètre « Hôtes de l'application » de la brique Ansible")
-    lines += ["[app]", *ansible_hosts(ir, env), ""]
+    from .hosts import INVENTORY_SCRIPT, creates_hosts
+    if creates_hosts(ir):
+        lines += [f"# Machines créées par Terraform : {INVENTORY_SCRIPT} {env.id} remplit ce groupe.", "[app]", ""]
+    else:
+        lines += ["[app]", *ansible_hosts(ir, env), ""]
     if ir.has("k3s"):
         lines += ["[k3s]", f"k3s1{('.' + env.id) if ir.multi_env else ''}.example.com", ""]
     lines += ["[all:vars]", f"ansible_user={user}", f"deploy_env={env.id}", ""]
@@ -127,11 +131,16 @@ def _site(ir: IR) -> list[dict]:
         "hosts": "app",
         "become": True,
         "tasks": [
-            {"name": "Docker sur Debian et Ubuntu",
+            {"name": "Docker déjà installé ?",
+             "ansible.builtin.stat": {"path": "/usr/bin/docker"},
+             "register": "docker_bin"},
+            {"name": "Prérequis (Debian, Ubuntu)",
              "when": "ansible_os_family == 'Debian'",
+             "ansible.builtin.apt": {"name": ["ca-certificates", "curl", "python3-yaml"], "update_cache": True,
+                                     "cache_valid_time": 3600}},
+            {"name": "Docker sur Debian et Ubuntu",
+             "when": "ansible_os_family == 'Debian' and not docker_bin.stat.exists",
              "block": [
-                 {"name": "Prérequis",
-                  "ansible.builtin.apt": {"name": ["ca-certificates", "curl", "python3-yaml"], "update_cache": True}},
                  {"name": "Clé du dépôt Docker",
                   "ansible.builtin.get_url": {"url": f"{debian_repo}/gpg", "dest": "/etc/apt/keyrings/docker.asc",
                                               "mode": "0644"}},
@@ -144,7 +153,7 @@ def _site(ir: IR) -> list[dict]:
                   "ansible.builtin.apt": {"name": DOCKER_PACKAGES, "update_cache": True}},
              ]},
             {"name": "Docker sur RHEL, Rocky, Alma et Fedora",
-             "when": "ansible_os_family == 'RedHat'",
+             "when": "ansible_os_family == 'RedHat' and not docker_bin.stat.exists",
              "block": [
                  {"name": "Dépôt Docker",
                   "ansible.builtin.get_url": {

@@ -101,6 +101,9 @@ class ParamSpec(BaseModel):
     # Cible de déploiement propre à chaque environnement : sans surcharge, la valeur
     # reçoit le suffixe « -<environnement> » (sauf pour l'environnement de production).
     per_env: bool = False
+    # Capacité qui fournit la valeur à la génération (ex. hôtes créés par Terraform) : l'exemple n'est
+    # alors pas signalé.
+    provided_by: str | None = None
 
 
 class LandscapeRef(BaseModel):

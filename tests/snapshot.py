@@ -122,6 +122,14 @@ def extra_cases(catalog) -> dict[str, Project]:
         for t in ("github", "github-actions", "buildkit", "ghcr", "ansible"):
             alone.add(t, catalog[t].stage)
         out["ansible-sans-compose"] = alone
+        # 0.11 : machines créées par Terraform, inventaire Ansible et hôte SSH lus dans ses sorties
+        from devops_builder.starter import host_clouds
+        for cloud in host_clouds("vm", False):
+            out[f"machines-ansible-{cloud}"] = build_starter(StarterAnswers(
+                forge="gitlab", hosting="vm", cloud=cloud, envs="dev-recette-prod", shared_host=True,
+                secnumcloud=cloud == "outscale"), catalog)
+        out["machines-ssh-aws-github"] = build_starter(StarterAnswers(
+            forge="github", hosting="docker-host", cloud="aws", envs="staging-prod"), catalog)
         for cloud in ("scaleway", "ovhcloud", "outscale"):
             out[f"iac-etat-{cloud}"] = build_starter(StarterAnswers(
                 forge="gitlab", hosting="kubernetes-managed", cloud=cloud, envs="staging-prod",

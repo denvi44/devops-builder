@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import shlex
 
-from ..ir import CI_STAGES, IR, TERRAFORM_IMAGE, TOFU_INSTALL, TOFU_VERSION, Step
+from ..ir import CI_STAGES, IR, TERRAFORM_IMAGE, TERRAFORM_INSTALL, TOFU_INSTALL, TOFU_VERSION, Step
 from .common import AUDIENCES, HEADER, TOKEN_VARS, dump_yaml, full_script
 
 STAGE_ORDER = ["test", "build", "security", "publish", "infra", "deploy"]
@@ -208,7 +208,11 @@ def github_actions(ir: IR, path: str = ".github/workflows/pipeline.yml") -> dict
             gsteps += _gha_cloud_steps(ir, st.cloud)
             gsteps += HOST_SETUP.get(st.tool, [])
             script = [l for l in script if not l.startswith(("apk add", "yum install", "az aks install-cli"))
-                      and "get-helm-3" not in l and l not in TOFU_INSTALL]
+                      and "get-helm-3" not in l and l not in TOFU_INSTALL and l not in TERRAFORM_INSTALL]
+            if st.tool not in HOST_SETUP and any(l in st.script for l in TOFU_INSTALL[1:]):
+                gsteps += HOST_SETUP["opentofu"]
+            if st.tool not in HOST_SETUP and any(l in st.script for l in TERRAFORM_INSTALL[1:]):
+                gsteps += HOST_SETUP["terraform"]
             if st.tool == "buildkit":
                 gsteps.append({"uses": "docker/setup-buildx-action@v3"})
         if st.stage == "infra" and st.id == "iac-apply":

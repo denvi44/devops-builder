@@ -41,6 +41,10 @@ TF_VARS = {
                         '["subnet-0123456789abcdef0", "subnet-0fedcba9876543210"]', '["subnet-0f10c1a", "subnet-0f10c1b"]'),
     "db_subnet_group": TfVar("db_subnet_group", "string", "Groupe de sous-réseaux privés des instances RDS",
                              '"rds-prive"', '"floci"'),
+    "ssh_public_key": TfVar("ssh_public_key", "string",
+                            "Clé SSH publique du compte de déploiement (moitié publique de SSH_PRIVATE_KEY)",
+                            '"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA… deploy@ci"',
+                            '"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFlociFlociFlociFlociFlociFlociFlociFloci floci"'),
     "db_security_group_ids": TfVar("db_security_group_ids", "list(string)",
                                    "Groupes de sécurité autorisant l'application à joindre la base",
                                    '["sg-0123456789abcdef0"]', '["sg-0f10c1"]'),
@@ -300,7 +304,9 @@ def terraform(ir: IR) -> dict[str, str]:
     from . import data
     if not ir.providers and not any(ir.has(t) for t in IAC_RESOURCES):
         return {}
+    from . import hosts
     db_blocks, _db_variables, db_outputs = data.terraform_blocks(ir)
+    host_blocks, host_outputs = hosts.terraform_blocks(ir)
     required = []
     for p in ir.providers:
         src, ver = PROVIDER_SOURCES.get(p.id, (p.terraform_provider, ">= 0"))
@@ -334,7 +340,7 @@ def terraform(ir: IR) -> dict[str, str]:
             main_parts.append(f"# --- {name}\n{res}")
             if b.tool not in COMMENT_ONLY:
                 ir.cover(b.tool)
-    main_parts += db_blocks
+    main_parts += host_blocks + db_blocks
     ir.cover(*(p.id for p in ir.providers))
     if backend_tool(ir) in S3_COMPATIBLE:
         ir.cover(backend_tool(ir))  # porte l'état : écrit dans le bloc backend de versions.tf
@@ -356,7 +362,7 @@ def terraform(ir: IR) -> dict[str, str]:
         f"{DIR}/variables.tf": "\n\n".join(variables) + "\n",
         f"{DIR}/.gitignore": GITIGNORE,
     }
-    outputs = _outputs(ir) + db_outputs
+    outputs = _outputs(ir) + host_outputs + db_outputs
     if outputs:
         files[f"{DIR}/outputs.tf"] = "\n\n".join([f"# {HEADER}", *outputs]) + "\n"
     tvs = required_vars(ir)
@@ -397,7 +403,10 @@ plugin "terraform" {
 
 def required_vars(ir: IR) -> list[TfVar]:
     """Variables de la pile sans valeur connue, dans l'ordre d'écriture."""
+    from .hosts import creates_hosts
     names: list[str] = []
+    if creates_hosts(ir):
+        names.append("ssh_public_key")
     if ir.has("eks"):
         names += ["vpc_id", "subnet_ids"]
     from .data import managed_dbs

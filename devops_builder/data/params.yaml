@@ -546,9 +546,150 @@ ansible:
     required: true
     pattern: '[A-Za-z0-9.:_-]+(\s*,\s*[A-Za-z0-9.:_-]+)*'
     pattern_hint: "noms d'hôte ou adresses séparés par des virgules, ex. app1.exemple.fr, app2.exemple.fr"
+    provided_by: vm-hosts
   user:
     label: Compte SSH
     description: Compte de déploiement, avec sudo sans mot de passe.
     default: deploy
     pattern: '[a-z_][a-z0-9_-]{0,31}'
     pattern_hint: "nom de compte Unix, ex. deploy"
+
+# ------------------------------------------------------------- Machines virtuelles
+aws-ec2:
+  instance_type:
+    label: Type d'instance
+    default: t3.small
+    suggestions: [t3.small, t3.medium, t3.large, t4g.small, m7i.large]
+    pattern: '[a-z][a-z0-9-]*\.[a-z0-9]+'
+    pattern_hint: "type EC2, ex. t3.small"
+  count:
+    label: Nombre de machines
+    description: Par environnement (surchargeable) ; les environnements qui partagent un hôte partagent ces machines.
+    type: int
+    default: 1
+  disk_gb:
+    label: Disque système (Go)
+    type: int
+    default: 30
+  ssh_cidrs:
+    label: Accès SSH autorisé
+    description: Plages d'adresses autorisées sur le port 22, séparées par des virgules (runners de la CI compris).
+    default: 0.0.0.0/0
+    pattern: '[0-9./]+(\s*,\s*[0-9./]+)*'
+    pattern_hint: "plages CIDR séparées par des virgules, ex. 203.0.113.0/24"
+gce:
+  instance_type:
+    label: Type de machine
+    default: e2-small
+    suggestions: [e2-small, e2-medium, e2-standard-2, n2-standard-2]
+    pattern: '[a-z0-9]+-[a-z0-9-]+'
+    pattern_hint: "type de machine, ex. e2-small"
+  count:
+    label: Nombre de machines
+    description: Par environnement (surchargeable) ; les environnements qui partagent un hôte partagent ces machines.
+    type: int
+    default: 1
+  disk_gb:
+    label: Disque système (Go)
+    type: int
+    default: 30
+  ssh_cidrs:
+    label: Accès SSH autorisé
+    description: Plages d'adresses autorisées sur le port 22, séparées par des virgules (runners de la CI compris).
+    default: 0.0.0.0/0
+    pattern: '[0-9./]+(\s*,\s*[0-9./]+)*'
+    pattern_hint: "plages CIDR séparées par des virgules, ex. 203.0.113.0/24"
+azure-vm:
+  instance_type:
+    label: Taille
+    default: Standard_B2s
+    suggestions: [Standard_B2s, Standard_B2ms, Standard_D2s_v5]
+    pattern: 'Standard_[A-Za-z0-9_]+'
+    pattern_hint: "taille Azure, ex. Standard_B2s"
+  count:
+    label: Nombre de machines
+    description: Par environnement (surchargeable) ; les environnements qui partagent un hôte partagent ces machines.
+    type: int
+    default: 1
+  disk_gb:
+    label: Disque système (Go)
+    type: int
+    default: 30
+  ssh_cidrs:
+    label: Accès SSH autorisé
+    description: Plages d'adresses autorisées sur le port 22, séparées par des virgules (runners de la CI compris).
+    default: 0.0.0.0/0
+    pattern: '[0-9./]+(\s*,\s*[0-9./]+)*'
+    pattern_hint: "plages CIDR séparées par des virgules, ex. 203.0.113.0/24"
+scaleway-instance:
+  instance_type:
+    label: Type d'instance
+    default: PLAY2-NANO
+    suggestions: [PLAY2-NANO, PLAY2-MICRO, PRO2-XXS, PRO2-XS, POP2-2C-8G]
+    pattern: '[A-Z0-9][A-Z0-9-]+'
+    pattern_hint: "type Scaleway, ex. PLAY2-NANO"
+  count:
+    label: Nombre de machines
+    description: Par environnement (surchargeable) ; les environnements qui partagent un hôte partagent ces machines.
+    type: int
+    default: 1
+  disk_gb:
+    label: Disque système (Go)
+    type: int
+    default: 30
+  ssh_cidrs:
+    label: Accès SSH autorisé
+    description: Plages d'adresses autorisées sur le port 22, séparées par des virgules (runners de la CI compris).
+    default: 0.0.0.0/0
+    pattern: '[0-9./]+(\s*,\s*[0-9./]+)*'
+    pattern_hint: "plages CIDR séparées par des virgules, ex. 203.0.113.0/24"
+ovh-instance:
+  instance_type:
+    label: Gabarit
+    default: b3-8
+    suggestions: [d2-4, b3-8, b3-16, c3-8]
+    pattern: '[a-z0-9]+-[0-9]+'
+    pattern_hint: "gabarit OVHcloud, ex. b3-8"
+  region:
+    label: Région
+    default: GRA11
+    suggestions: [GRA11, GRA9, SBG5, BHS5, DE1, UK1, WAW1]
+    pattern: '[A-Z0-9-]{2,20}'
+    pattern_hint: "région OVHcloud, ex. GRA11"
+  count:
+    label: Nombre de machines
+    description: Par environnement (surchargeable) ; les environnements qui partagent un hôte partagent ces machines.
+    type: int
+    default: 1
+  disk_gb:
+    label: Disque système (Go)
+    type: int
+    default: 30
+  ssh_cidrs:
+    label: Accès SSH autorisé
+    description: Plages d'adresses autorisées sur le port 22, séparées par des virgules (runners de la CI compris).
+    default: 0.0.0.0/0
+    pattern: '[0-9./]+(\s*,\s*[0-9./]+)*'
+    pattern_hint: "plages CIDR séparées par des virgules, ex. 203.0.113.0/24"
+outscale-vm:
+  instance_type:
+    label: Type de VM
+    default: tinav6.c2r4p2
+    suggestions: [tinav6.c2r4p2, tinav6.c4r8p2, tinav7.c2r4p2]
+    pattern: 'tinav[0-9]+\.c[0-9]+r[0-9]+p[0-9]'
+    pattern_hint: "type Outscale, ex. tinav6.c2r4p2"
+  count:
+    label: Nombre de machines
+    description: Par environnement (surchargeable) ; les environnements qui partagent un hôte partagent ces machines.
+    type: int
+    default: 1
+  disk_gb:
+    label: Disque système (Go)
+    type: int
+    default: 30
+  ssh_cidrs:
+    label: Accès SSH autorisé
+    description: Plages d'adresses autorisées sur le port 22, séparées par des virgules (runners de la CI compris).
+    default: 0.0.0.0/0
+    pattern: '[0-9./]+(\s*,\s*[0-9./]+)*'
+    pattern_hint: "plages CIDR séparées par des virgules, ex. 203.0.113.0/24"

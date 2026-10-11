@@ -149,6 +149,7 @@
   description: Infrastructure as code de HashiCorp, sous licence BSL depuis 2023.
   license: BSL-1.1
   hosting: [ci, cli]
+  provides: [iac-hcl]
   alternatives: [opentofu]
   verified: "2026-10-08"
 
@@ -159,6 +160,7 @@
   description: Fork open source de Terraform, projet CNCF.
   license: MPL-2.0
   hosting: [ci, cli]
+  provides: [iac-hcl]
   verified: "2026-10-08"
 
 - id: pulumi
@@ -225,6 +227,92 @@
   repo: https://github.com/ansible/ansible-lint
   hosting: [ci, cli]
   requires: [config-mgmt]
+  verified: "2026-10-11"
+
+
+# ------------------------------------------------------------ Machines virtuelles
+- id: aws-ec2
+  name: Amazon EC2
+  kind: service
+  stage: infrastructure
+  roles: [compute]
+  description: Machines virtuelles AWS, dans le VPC par défaut de la région. Créées par Terraform ou OpenTofu, un groupe par environnement (ou par hôte partagé) ; leurs adresses alimentent l'inventaire Ansible ou le déploiement SSH.
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [vm-hosts]
+  requires: [iac-hcl]
+  provider: aws
+  verified: "2026-10-11"
+
+- id: gce
+  name: Google Compute Engine
+  kind: service
+  stage: infrastructure
+  roles: [compute]
+  description: Machines virtuelles Google Cloud, sur le réseau par défaut. Créées par Terraform ou OpenTofu, un groupe par environnement (ou par hôte partagé) ; leurs adresses alimentent l'inventaire Ansible ou le déploiement SSH.
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [vm-hosts]
+  requires: [iac-hcl]
+  provider: gcp
+  verified: "2026-10-11"
+
+- id: azure-vm
+  name: Azure Virtual Machines
+  kind: service
+  stage: infrastructure
+  roles: [compute]
+  description: Machines virtuelles Linux Azure, avec leur réseau virtuel. Créées par Terraform ou OpenTofu, un groupe par environnement (ou par hôte partagé) ; leurs adresses alimentent l'inventaire Ansible ou le déploiement SSH.
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [vm-hosts]
+  requires: [iac-hcl]
+  provider: azure
+  verified: "2026-10-11"
+
+- id: scaleway-instance
+  name: Scaleway Instances
+  kind: service
+  stage: infrastructure
+  roles: [compute]
+  description: Machines virtuelles Scaleway, hébergées en France, aux Pays-Bas ou en Pologne. Créées par Terraform ou OpenTofu, un groupe par environnement (ou par hôte partagé) ; leurs adresses alimentent l'inventaire Ansible ou le déploiement SSH.
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [vm-hosts]
+  requires: [iac-hcl]
+  provider: scaleway
+  verified: "2026-10-11"
+
+- id: ovh-instance
+  name: OVHcloud Public Cloud Instances
+  kind: service
+  stage: infrastructure
+  roles: [compute]
+  description: Machines virtuelles OVHcloud Public Cloud. Créées par Terraform ou OpenTofu, un groupe par environnement (ou par hôte partagé) ; leurs adresses alimentent l'inventaire Ansible ou le déploiement SSH.
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [vm-hosts]
+  requires: [iac-hcl]
+  provider: ovhcloud
+  verified: "2026-10-11"
+
+- id: outscale-vm
+  name: Outscale VM
+  kind: service
+  stage: infrastructure
+  roles: [compute]
+  description: Machines virtuelles Outscale, cloud qualifié SecNumCloud. Créées par Terraform ou OpenTofu, un groupe par environnement (ou par hôte partagé) ; leurs adresses alimentent l'inventaire Ansible ou le déploiement SSH.
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [vm-hosts]
+  requires: [iac-hcl]
+  provider: outscale
   verified: "2026-10-11"
 
 # ------------------------------------------------------------ Clusters Kubernetes
