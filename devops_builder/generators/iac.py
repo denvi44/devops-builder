@@ -247,6 +247,19 @@ def _secrets_written(ir: IR) -> bool:
     return bool(secrets.tf_dbs(ir, data.compose_dbs(ir)))
 
 
+def _kv_rbac(ir: IR) -> bool:
+    """Key Vault en mode RBAC : la pile y écrit, ou y donne la lecture à External Secrets."""
+    from . import secrets
+    return _secrets_written(ir) or secrets.eso_identity(ir) == "azure-key-vault"
+
+
+def _aks_workload_identity(ir: IR) -> str:
+    from . import secrets
+    if secrets.eso_identity(ir) != "azure-key-vault":
+        return ""
+    return "\n\n  oidc_issuer_enabled       = true\n  workload_identity_enabled = true"
+
+
 def _azure(ir: IR, tool_id: str, p: dict, sfx: str = "", first: bool = True) -> str:
     app = ir.app
     loc = ir.params("azure").get("location", "francecentral")
@@ -279,14 +292,14 @@ def _azure(ir: IR, tool_id: str, p: dict, sfx: str = "", first: bool = True) -> 
 
   identity {{
     type = "SystemAssigned"
-  }}{oms}
+  }}{oms}{_aks_workload_identity(ir)}
 }}{workspace}'''
     if tool_id == "acr":
         return (f'resource "azurerm_container_registry" "main" {{\n  name                = "{p.get("registry_name", "monappregistry")}"\n'
                 f'  resource_group_name = azurerm_resource_group.main.name\n  location            = azurerm_resource_group.main.location\n'
                 f'  sku                 = "Standard"\n}}')
     if tool_id == "azure-key-vault":
-        rbac = "\n  enable_rbac_authorization = true" if _secrets_written(ir) else ""
+        rbac = "\n  enable_rbac_authorization = true" if _kv_rbac(ir) else ""
         pad = "      " if rbac else ""
         return (f'data "azurerm_client_config" "current" {{}}\n\nresource "azurerm_key_vault" "main" {{\n'
                 f'  name                {pad}= "{p.get("vault_name", "kv-" + app)}"\n  location            {pad}= azurerm_resource_group.main.location\n'
@@ -318,6 +331,7 @@ def terraform(ir: IR) -> dict[str, str]:
     host_blocks, host_outputs = hosts.terraform_blocks(ir)
     from . import secrets
     secret_blocks, secret_random = secrets.terraform_blocks(ir, data.compose_dbs(ir))
+    eso_blocks, eso_outputs = secrets.eso_identity_blocks(ir)
     required = []
     for p in ir.providers:
         src, ver = PROVIDER_SOURCES.get(p.id, (p.terraform_provider, ">= 0"))
@@ -351,7 +365,7 @@ def terraform(ir: IR) -> dict[str, str]:
             main_parts.append(f"# --- {name}\n{res}")
             if b.tool not in COMMENT_ONLY:
                 ir.cover(b.tool)
-    main_parts += host_blocks + db_blocks + secret_blocks
+    main_parts += host_blocks + db_blocks + secret_blocks + eso_blocks
     ir.cover(*(p.id for p in ir.providers))
     if backend_tool(ir) in S3_COMPATIBLE:
         ir.cover(backend_tool(ir))  # porte l'état : écrit dans le bloc backend de versions.tf
@@ -373,7 +387,7 @@ def terraform(ir: IR) -> dict[str, str]:
         f"{DIR}/variables.tf": "\n\n".join(variables) + "\n",
         f"{DIR}/.gitignore": GITIGNORE,
     }
-    outputs = _outputs(ir) + host_outputs + db_outputs
+    outputs = _outputs(ir) + host_outputs + db_outputs + eso_outputs
     if outputs:
         files[f"{DIR}/outputs.tf"] = "\n\n".join([f"# {HEADER}", *outputs]) + "\n"
     tvs = required_vars(ir)

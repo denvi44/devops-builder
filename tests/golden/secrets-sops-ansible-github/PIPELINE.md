@@ -90,6 +90,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
 - Ansible : préparer chaque hôte une fois avec `ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook -i ansible/inventories/staging.ini ansible/site.yml` (Docker depuis son dépôt officiel, Debian, Ubuntu, RHEL et dérivées) ; le compte SSH doit avoir sudo sans mot de passe.
 - Secrets par SOPS : renseigner la clé publique age dans la brique SOPS (.sops.yaml), puis `scripts/secrets-seed.sh <environnement>` chiffre les valeurs dans deploy/secrets/<environnement>.enc.env, à committer. La CI les déchiffre avec SOPS_AGE_KEY.
@@ -112,6 +113,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `deploy/docker-compose.yml`
 - `deploy/secrets.sh`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `scripts/ci-variables.sh`
 - `scripts/db-backup.sh`
 - `scripts/secrets-fetch.sh`

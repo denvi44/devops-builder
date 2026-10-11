@@ -80,6 +80,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
 - Machines créées par OpenTofu (Amazon EC2) : la clé publique de SSH_PRIVATE_KEY va dans TF_VAR_ssh_public_key ; au déploiement, `scripts/tf-inventory.sh` lit la sortie « hosts » de la pile et écrit l'inventaire de l'environnement. Lancer l'apply de la pile avant le premier déploiement.
 - SSH des machines ouvert à tout Internet (clé seulement) : restreindre « Accès SSH autorisé » aux adresses de l'équipe et des runners quand c'est possible.
@@ -92,6 +93,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `PIPELINE.md`
 - `deploy/docker-compose.yml`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
 - `infra/terraform/outputs.tf`

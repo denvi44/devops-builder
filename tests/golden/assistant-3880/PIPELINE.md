@@ -83,6 +83,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
 - Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
 - `scripts/ci-variables.sh` déclare les 10 variable(s) à renseigner avec Gitea (API), sans écrire leurs valeurs dans le dépôt.
@@ -93,5 +94,6 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `PIPELINE.md`
 - `deploy/docker-compose.yml`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `renovate.json`
 - `scripts/ci-variables.sh`

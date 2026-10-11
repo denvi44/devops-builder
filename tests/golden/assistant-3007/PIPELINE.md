@@ -82,6 +82,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
 - `scripts/ci-variables.sh` déclare les 6 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
@@ -99,6 +100,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `charts/mon-app/values-staging.yaml`
 - `charts/mon-app/values.yaml`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
 - `infra/terraform/outputs.tf`

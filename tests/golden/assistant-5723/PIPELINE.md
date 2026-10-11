@@ -84,6 +84,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : Woodpecker n'a pas de porte d'approbation : l'étape ne s'exécute que sur un pipeline lancé manuellement depuis l'interface (événement « manual »).
 - Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
 
@@ -93,4 +94,5 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `PIPELINE.md`
 - `deploy/docker-compose.yml`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `renovate.json`

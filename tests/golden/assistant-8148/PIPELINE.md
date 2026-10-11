@@ -74,6 +74,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
 - `scripts/ci-variables.sh` déclare les 9 variable(s) à renseigner avec Azure Pipelines (az), sans écrire leurs valeurs dans le dépôt.
@@ -88,6 +89,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `charts/mon-app/values.yaml`
 - `deploy/argocd/application.yaml`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
 - `infra/terraform/outputs.tf`

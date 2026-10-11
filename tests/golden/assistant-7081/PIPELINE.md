@@ -65,6 +65,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
 
 ## Fichiers générés
@@ -72,6 +73,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `.woodpecker.yml`
 - `PIPELINE.md`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
 - `infra/terraform/outputs.tf`

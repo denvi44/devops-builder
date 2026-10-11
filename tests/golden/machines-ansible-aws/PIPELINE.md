@@ -90,6 +90,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
 - Plusieurs environnements partagent un hôte Docker : leurs ports publiés sont décalés (deploy/env/<environnement>.env, copié en .env à côté du fichier Compose).
 - Ansible : préparer chaque hôte une fois avec `ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook -i ansible/inventories/dev.ini ansible/site.yml` (Docker depuis son dépôt officiel, Debian, Ubuntu, RHEL et dérivées) ; le compte SSH doit avoir sudo sans mot de passe.
@@ -114,6 +115,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `deploy/env/production.env`
 - `deploy/env/recette.env`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
 - `infra/terraform/outputs.tf`

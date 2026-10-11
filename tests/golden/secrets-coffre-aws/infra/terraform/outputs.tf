@@ -29,3 +29,8 @@ output "db_production_secret_arn" {
   description = "Secret Secrets Manager du mot de passe principal"
   value       = aws_db_instance.db_production.master_user_secret[0].secret_arn
 }
+
+output "eso_role_arn" {
+  description = "Rôle IAM du contrôleur External Secrets (Pod Identity)"
+  value       = aws_iam_role.external_secrets.arn
+}

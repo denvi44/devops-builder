@@ -180,3 +180,14 @@ resource "google_secret_manager_secret_version" "secret_valkey_production" {
   secret      = google_secret_manager_secret.secret_valkey_production.id
   secret_data = jsonencode({ password = random_password.secret_valkey_production.result })
 }
+
+# --- External Secrets : lecture du coffre par le contrôleur (Workload Identity Federation de GKE)
+data "google_project" "current" {
+  project_id = var.gcp_project_id
+}
+
+resource "google_project_iam_member" "external_secrets" {
+  project = var.gcp_project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "principal://iam.googleapis.com/projects/${data.google_project.current.number}/locations/global/workloadIdentityPools/${var.gcp_project_id}.svc.id.goog/subject/ns/external-secrets/sa/external-secrets"
+}

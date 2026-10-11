@@ -93,6 +93,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
 - Bases de données avec GitOps : la CI ne touche pas au cluster ; créer dans chaque espace de noms le Secret « mon-app-mongodb » (clés password et url), « mon-app-valkey » (clés password et url), par External Secrets ou SOPS.
 - MongoDB : l'application se connecte avec le compte administrateur initial ; créer un compte dédié aux droits limités avant la production.
@@ -113,6 +114,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `deploy/kustomize/overlays/production/kustomization.yaml`
 - `deploy/kustomize/overlays/staging/kustomization.yaml`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `infra/cluster/install-k3s.sh`
 - `platform/install.sh`
 - `renovate.json`

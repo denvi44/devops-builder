@@ -83,6 +83,7 @@ Aucun.
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
 - Plusieurs environnements partagent un hôte Docker : leurs ports publiés sont décalés (deploy/env/<environnement>.env, copié en .env à côté du fichier Compose).
 - Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
@@ -97,5 +98,6 @@ Aucun.
 - `deploy/env/production.env`
 - `deploy/env/staging.env`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `renovate.json`
 - `scripts/ci-variables.sh`

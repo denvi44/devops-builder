@@ -76,6 +76,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Ansible : préparer chaque hôte une fois avec `ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook -i ansible/inventory.ini ansible/site.yml` (Docker depuis son dépôt officiel, Debian, Ubuntu, RHEL et dérivées) ; le compte SSH doit avoir sudo sans mot de passe.
 - MariaDB : service Compose non publié sur l'hôte (réseau interne), données dans un volume nommé ; `deploy/secrets.sh` écrit les mots de passe et l'URL de connexion lus par les conteneurs (env_file), à partir des variables CI.
 - Sauvegardes : planifier `scripts/db-backup.sh` sur chaque hôte (cron quotidien) et copier les fichiers hors de la machine.
@@ -94,6 +95,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `deploy/docker-compose.yml`
 - `deploy/secrets.sh`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `renovate.json`
 - `scripts/ci-variables.sh`
 - `scripts/db-backup.sh`

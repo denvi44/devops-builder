@@ -74,9 +74,10 @@ Aucun.
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
 - Amazon EKS : 2 clusters distincts (un par nom d'environnement), décrits dans la même pile.
-- External Secrets : le ClusterSecretStore « commandes » (platform/external-secrets/cluster-secret-store.yaml, appliqué par platform/install.sh) lit AWS Secrets Manager et les ExternalSecret de l'application s'y réfèrent ; donner au compte de service external-secrets/external-secrets la lecture du coffre (IRSA, Workload Identity, identité managée).
+- External Secrets : le ClusterSecretStore « commandes » (platform/external-secrets/cluster-secret-store.yaml, appliqué par platform/install.sh) lit AWS Secrets Manager et les ExternalSecret de l'application s'y réfèrent ; la pile Terraform donne au contrôleur la lecture du coffre (identité de charge de travail).
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
 - `scripts/ci-variables.sh` déclare les 4 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 
@@ -91,6 +92,7 @@ Aucun.
 - `charts/commandes/values-staging.yaml`
 - `charts/commandes/values.yaml`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
 - `infra/terraform/outputs.tf`

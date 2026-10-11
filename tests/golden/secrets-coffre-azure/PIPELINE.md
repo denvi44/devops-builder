@@ -96,8 +96,9 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
-- External Secrets : le ClusterSecretStore « mon-app » (platform/external-secrets/cluster-secret-store.yaml, appliqué par platform/install.sh) lit Azure Key Vault et chaque ExternalSecret recrée le Secret de base de données attendu par l'application ; donner au compte de service external-secrets/external-secrets la lecture du coffre (IRSA, Workload Identity, identité managée).
+- External Secrets : le ClusterSecretStore « mon-app » (platform/external-secrets/cluster-secret-store.yaml, appliqué par platform/install.sh) lit Azure Key Vault et chaque ExternalSecret recrée le Secret de base de données attendu par l'application ; la pile Terraform donne au contrôleur la lecture du coffre (identité de charge de travail).
 - Azure Key Vault : la pile Terraform y écrit les secrets de connexion (Azure Database (serveur flexible), Valkey ; clé <espace de noms>-<brique>, JSON, lu par External Secrets) ; les valeurs passent par l'état, à garder dans un backend chiffré à accès restreint.
 - Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
@@ -117,6 +118,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `charts/mon-app/values-staging.yaml`
 - `charts/mon-app/values.yaml`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
 - `infra/terraform/outputs.tf`

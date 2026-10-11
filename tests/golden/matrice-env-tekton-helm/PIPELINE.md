@@ -58,6 +58,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : Tekton n'a pas de porte d'approbation native : ces déploiements sont des pipelines séparés (tekton/pipeline-deploy-*.yaml), à lancer après validation (tkn pipeline start).
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
 
@@ -71,6 +72,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `charts/mon-app/values-staging.yaml`
 - `charts/mon-app/values.yaml`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `infra/cluster/install-rke2.sh`
 - `platform/install.sh`
 - `scripts/test-kind.sh`

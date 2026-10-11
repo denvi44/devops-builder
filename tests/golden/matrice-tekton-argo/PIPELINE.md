@@ -57,6 +57,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
 
 ## Fichiers générés
@@ -68,6 +69,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `charts/mon-app/values.yaml`
 - `deploy/argocd/application.yaml`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `infra/cluster/install-rke2.sh`
 - `platform/install.sh`
 - `scripts/test-kind.sh`

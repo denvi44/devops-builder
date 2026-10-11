@@ -56,6 +56,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : placer une action d'approbation manuelle CodePipeline avant le projet CodeBuild qui exécute buildspec-deploy-*.yml.
 
 ## Fichiers générés
@@ -64,6 +65,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `buildspec-deploy-production.yml`
 - `buildspec.yml`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
 - `infra/terraform/outputs.tf`

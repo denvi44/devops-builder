@@ -19,3 +19,8 @@ output "cluster_production_endpoint" {
 output "registry" {
   value = aws_ecr_repository.app.repository_url
 }
+
+output "eso_role_arn" {
+  description = "Rôle IAM du contrôleur External Secrets (Pod Identity)"
+  value       = aws_iam_role.external_secrets.arn
+}

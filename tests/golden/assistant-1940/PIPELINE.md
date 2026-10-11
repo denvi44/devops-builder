@@ -74,6 +74,7 @@ Aucun.
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
 - `scripts/ci-variables.sh` déclare les 7 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
 
@@ -84,4 +85,5 @@ Aucun.
 - `PIPELINE.md`
 - `deploy/docker-compose.yml`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `scripts/ci-variables.sh`

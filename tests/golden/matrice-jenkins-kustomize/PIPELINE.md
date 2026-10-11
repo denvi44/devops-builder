@@ -61,6 +61,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (overlay Kustomize) : utile avant la première mise en production.
 
 ## Fichiers générés
@@ -72,6 +73,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `deploy/kustomize/base/service.yaml`
 - `deploy/kustomize/overlays/production/kustomization.yaml`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `infra/cluster/install-k3s.sh`
 - `platform/install.sh`
 - `scripts/test-kind.sh`

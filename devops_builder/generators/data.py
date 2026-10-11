@@ -677,6 +677,15 @@ resource "{user_res}" "{label}" {{
 
 
 # ----------------------------------------------------------------- notes
+SERVERLESS_SECRETS = {
+    "cloud-run": "Cloud Run : `gcloud run deploy --set-secrets DATABASE_URL=<secret>:latest` et, pour "
+                 "Cloud SQL, `--add-cloudsql-instances <projet>:<région>:<instance>`",
+    "ecs-fargate": "ECS : bloc `secrets` de la définition de tâche (Secrets Manager ou Parameter Store)",
+    "azure-container-apps": "Azure Container Apps : `az containerapp secret set` puis "
+                            "`--set-env-vars DATABASE_URL=secretref:<nom>`",
+}
+
+
 def notes(ir: IR) -> None:
     dbs = all_dbs(ir)
     if not dbs:
@@ -701,12 +710,7 @@ def notes(ir: IR) -> None:
     if any(d.mode == "managed" and d.id not in written for d in dbs):
         ir.notes.append("Bases managées : une instance par environnement ; après `apply`, composer l'URL de connexion "
                         "à partir des sorties Terraform (outputs.tf) et la déclarer en variable CI.")
-    serverless = {"cloud-run": "Cloud Run : `gcloud run deploy --set-secrets DATABASE_URL=<secret>:latest` et, pour "
-                               "Cloud SQL, `--add-cloudsql-instances <projet>:<région>:<instance>`",
-                  "ecs-fargate": "ECS : bloc `secrets` de la définition de tâche (Secrets Manager ou Parameter Store)",
-                  "azure-container-apps": "Azure Container Apps : `az containerapp secret set` puis "
-                                          "`--set-env-vars DATABASE_URL=secretref:<nom>`"}
-    for tid, how in serverless.items():
+    for tid, how in SERVERLESS_SECRETS.items():
         if ir.has(tid):
             ir.notes.append(f"Connexion de l'application à la base sur un service serverless — {how}.")
     if any(d.engine.family == "document" and d.mode == "self-hosted" for d in dbs):

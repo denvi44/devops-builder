@@ -54,11 +54,16 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - **Avertissement** (R34) — Amazon ECS (Fargate) : « Cluster ECS » non renseigné : la valeur d'exemple « mon-cluster-ecs » sera écrite dans les fichiers.
 
+## Notes
+
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
+
 ## Fichiers générés
 
 - `PIPELINE.md`
 - `buildspec.yml`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
 - `infra/terraform/outputs.tf`

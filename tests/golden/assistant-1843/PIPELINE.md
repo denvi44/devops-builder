@@ -66,6 +66,7 @@ Aucun.
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - `scripts/ci-variables.sh` déclare les 5 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
@@ -75,4 +76,5 @@ Aucun.
 - `PIPELINE.md`
 - `deploy/docker-compose.yml`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `scripts/ci-variables.sh`

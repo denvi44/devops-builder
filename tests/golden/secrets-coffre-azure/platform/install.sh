@@ -13,7 +13,9 @@ helm repo update
 helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set crds.enabled=true
 
 # External Secrets Operator
-helm upgrade --install external-secrets external-secrets/external-secrets --namespace external-secrets --create-namespace --wait
+ESO_CLIENT_ID="${ESO_CLIENT_ID:-$(tofu -chdir="$(dirname "$0")/../infra/terraform" output -raw eso_client_id)}"
+ESO_TENANT_ID="${ESO_TENANT_ID:-$(tofu -chdir="$(dirname "$0")/../infra/terraform" output -raw eso_tenant_id)}"
+helm upgrade --install external-secrets external-secrets/external-secrets --namespace external-secrets --create-namespace --set-string "serviceAccount.annotations.azure\.workload\.identity/client-id=$ESO_CLIENT_ID" --set-string "serviceAccount.annotations.azure\.workload\.identity/tenant-id=$ESO_TENANT_ID" --set-string "podLabels.azure\.workload\.identity/use=true" --wait
 kubectl apply -f "$(dirname "$0")/external-secrets/cluster-secret-store.yaml"
 
 # Grafana — Déjà inclus si kube-prometheus-stack est installé.

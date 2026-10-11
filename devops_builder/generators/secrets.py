@@ -26,6 +26,7 @@ STORES = (*VAULTS, *CLOUD_STORES)
 SOPS_VERSION = "3.11.0"
 FETCH_SCRIPT = "scripts/secrets-fetch.sh"
 SEED_SCRIPT = "scripts/secrets-seed.sh"
+VAULT_SETUP = "scripts/vault-setup.sh"
 SOPS_CONFIG = ".sops.yaml"
 STORE_FILE = "platform/external-secrets/cluster-secret-store.yaml"
 SOPS_INSTALL = [  # dans $HOME : conteneur root comme machine du runner
@@ -297,8 +298,9 @@ def cluster_secret_store(ir: IR) -> dict[str, str]:
                               "auth": {"kubernetes": {"mountPath": "kubernetes", "role": "external-secrets",
                                                       "serviceAccountRef": sa}}}}
     elif st == "aws-secrets-manager":
-        provider = {"aws": {"service": "SecretsManager", "region": str(ir.params("aws").get("region", "eu-west-3")),
-                            "auth": {"jwt": {"serviceAccountRef": sa}}}}
+        provider = {"aws": {"service": "SecretsManager", "region": str(ir.params("aws").get("region", "eu-west-3"))}}
+        if eso_identity(ir) != st:  # sans Pod Identity : jeton du compte de service, rôle en annotation (IRSA)
+            provider["aws"]["auth"] = {"jwt": {"serviceAccountRef": sa}}
     elif st == "gcp-secret-manager":
         provider = {"gcpsm": {"projectID": str(ir.params("gcp").get("project_id", "mon-projet"))}}
     else:
@@ -372,10 +374,13 @@ def notes(ir: IR, dbs: list[Database]) -> None:
                         "noms>/*) ou par VAULT_TOKEN.")
     if eso(ir) and (ir.project.target in ("kubernetes", "kubernetes-managed") or ir.cluster is not None):
         st = ir.catalog[store(ir)].name
-        extra = (" ; dans le coffre : `auth enable kubernetes` et un rôle « external-secrets » lié au compte de "
-                 "service external-secrets/external-secrets" if store(ir) in VAULTS else
-                 " ; donner au compte de service external-secrets/external-secrets la lecture du coffre "
-                 "(IRSA, Workload Identity, identité managée)")
+        if store(ir) in VAULTS:
+            extra = f" ; {VAULT_SETUP} configure la connexion Kubernetes et le rôle « external-secrets »"
+        elif eso_identity(ir):
+            extra = " ; la pile Terraform donne au contrôleur la lecture du coffre (identité de charge de travail)"
+        else:
+            extra = (" ; donner au compte de service external-secrets/external-secrets la lecture du coffre "
+                     "(IRSA, Workload Identity, identité managée)")
         what = ("chaque ExternalSecret recrée le Secret de base de données attendu par l'application"
                 if any(d.mode != "operator" for d in dbs) else "les ExternalSecret de l'application s'y réfèrent")
         ir.notes.append(f"External Secrets : le ClusterSecretStore « {ir.app} » ({STORE_FILE}, appliqué par "
@@ -515,6 +520,7 @@ def files(ir: IR, dbs: list[Database]) -> dict[str, str]:
         if path != FETCH_SCRIPT or fetched:
             out[path] = text
     out.update(sops_files(ir))
+    out.update(setup_script(ir))
     if ir.project.target in ("kubernetes", "kubernetes-managed") or ir.cluster is not None:
         out.update(cluster_secret_store(ir))
     if out.get(FETCH_SCRIPT) or out.get(SEED_SCRIPT) or out.get(STORE_FILE):
@@ -522,3 +528,271 @@ def files(ir: IR, dbs: list[Database]) -> dict[str, str]:
     notes(ir, dbs)
     tf_note(ir, dbs)
     return out
+
+
+# ------------------------------------------------------------------ identité d'External Secrets
+ESO_SA = ("external-secrets", "external-secrets")  # espace de noms, compte de service du contrôleur
+ESO_CLUSTERS = {"aws-secrets-manager": "eks", "gcp-secret-manager": "gke", "azure-key-vault": "aks"}
+
+
+def eso_identity(ir: IR) -> str | None:
+    """Coffre du cloud dont la pile Terraform donne l'accès au contrôleur External Secrets."""
+    st = tf_store(ir)
+    if st and eso(ir) and ir.has(ESO_CLUSTERS[st]):
+        return st
+    return None
+
+
+def eso_identity_blocks(ir: IR) -> tuple[list[str], list[str]]:
+    """Blocs main.tf et sorties : Pod Identity (EKS), Workload Identity (GKE, AKS)."""
+    from .iac import cluster_instances
+    st = eso_identity(ir)
+    if not st:
+        return [], []
+    ns, sa = ESO_SA
+    prefixes = sorted({ir.namespace(e) for e in ir.envs})
+    clusters = cluster_instances(ir, ESO_CLUSTERS[st])
+    title = "# --- External Secrets : lecture du coffre par le contrôleur"
+    if st == "aws-secrets-manager":
+        arns = ", ".join(f'"arn:aws:secretsmanager:*:*:secret:{p}/*"' for p in prefixes)
+        blocks = [f'''{title} (EKS Pod Identity)
+resource "aws_iam_role" "external_secrets" {{
+  name = "{ir.app}-external-secrets"
+  assume_role_policy = jsonencode({{
+    Version = "2012-10-17"
+    Statement = [{{
+      Effect    = "Allow"
+      Principal = {{ Service = "pods.eks.amazonaws.com" }}
+      Action    = ["sts:AssumeRole", "sts:TagSession"]
+    }}]
+  }})
+}}
+
+resource "aws_iam_role_policy" "external_secrets" {{
+  name = "lecture-secrets"
+  role = aws_iam_role.external_secrets.id
+  policy = jsonencode({{
+    Version = "2012-10-17"
+    Statement = [{{
+      Effect   = "Allow"
+      Action   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
+      Resource = [{arns}]
+    }}]
+  }})
+}}''']
+        for sfx, _ in clusters:
+            blocks.append(f'''resource "aws_eks_addon" "pod_identity{sfx}" {{
+  cluster_name = module.eks{sfx}.cluster_name
+  addon_name   = "eks-pod-identity-agent"
+}}
+
+resource "aws_eks_pod_identity_association" "external_secrets{sfx}" {{
+  cluster_name    = module.eks{sfx}.cluster_name
+  namespace       = "{ns}"
+  service_account = "{sa}"
+  role_arn        = aws_iam_role.external_secrets.arn
+}}''')
+        outputs = ['output "eso_role_arn" {\n  description = "Rôle IAM du contrôleur External Secrets (Pod Identity)"\n'
+                   '  value       = aws_iam_role.external_secrets.arn\n}']
+    elif st == "gcp-secret-manager":
+        blocks = [f'''{title} (Workload Identity Federation de GKE)
+data "google_project" "current" {{
+  project_id = var.gcp_project_id
+}}
+
+resource "google_project_iam_member" "external_secrets" {{
+  project = var.gcp_project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "principal://iam.googleapis.com/projects/${{data.google_project.current.number}}/locations/global/workloadIdentityPools/${{var.gcp_project_id}}.svc.id.goog/subject/ns/{ns}/sa/{sa}"
+}}''']
+        outputs = []
+    else:
+        blocks = [f'''{title} (Workload Identity d'AKS)
+resource "azurerm_user_assigned_identity" "external_secrets" {{
+  name                = "id-{ir.app}-external-secrets"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+}}
+
+resource "azurerm_role_assignment" "kv_external_secrets" {{
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.external_secrets.principal_id
+}}''']
+        for sfx, _ in clusters:
+            blocks.append(f'''resource "azurerm_federated_identity_credential" "external_secrets{sfx}" {{
+  name                = "external-secrets{sfx.replace("_", "-")}"
+  resource_group_name = azurerm_resource_group.main.name
+  parent_id           = azurerm_user_assigned_identity.external_secrets.id
+  issuer              = azurerm_kubernetes_cluster.main{sfx}.oidc_issuer_url
+  subject             = "system:serviceaccount:{ns}:{sa}"
+  audience            = ["api://AzureADTokenExchange"]
+}}''')
+        outputs = ['output "eso_client_id" {\n  description = "Identité managée du contrôleur External Secrets"\n'
+                   '  value       = azurerm_user_assigned_identity.external_secrets.client_id\n}',
+                   'output "eso_tenant_id" {\n  value = data.azurerm_client_config.current.tenant_id\n}']
+    ir.cover(st, "external-secrets")
+    return blocks, outputs
+
+
+def eso_helm_args(ir: IR) -> tuple[list[str], str]:
+    """Lignes à placer avant l'installation d'External Secrets, et options du chart (Azure)."""
+    if eso_identity(ir) != "azure-key-vault":
+        return [], ""
+    out = f'{ir.iac_cmd} -chdir="$(dirname "$0")/../infra/terraform" output -raw'
+    lines = [f'ESO_CLIENT_ID="${{ESO_CLIENT_ID:-$({out} eso_client_id)}}"',
+             f'ESO_TENANT_ID="${{ESO_TENANT_ID:-$({out} eso_tenant_id)}}"']
+    args = (' --set-string "serviceAccount.annotations.azure\\.workload\\.identity/client-id=$ESO_CLIENT_ID"'
+            ' --set-string "serviceAccount.annotations.azure\\.workload\\.identity/tenant-id=$ESO_TENANT_ID"'
+            ' --set-string "podLabels.azure\\.workload\\.identity/use=true"')
+    return lines, args
+
+
+# ------------------------------------------------------------------ configuration du coffre
+JWT_ISSUERS = {"gitlab-ci": ("GitLab", "https://gitlab.com"),
+               "github-actions": ("GitHub Actions", "https://token.actions.githubusercontent.com")}
+
+_SETUP = r"""#!/usr/bin/env bash
+# @HEADER@
+# Configure @NAME@ pour @APP@, sans rien supprimer ; relançable sans risque :
+#   moteur KV v2 « @MOUNT@ », politique de lecture @POLICIES@@JWT_DOC@@K8S_DOC@
+#
+#   VAULT_ADDR=https://… VAULT_TOKEN=<jeton d'administration> @ENVHINT@scripts/vault-setup.sh
+#
+# Variables : VAULT_ADDR, VAULT_TOKEN (racine au premier passage, puis à révoquer)@VARS_DOC@
+set -euo pipefail
+command -v jq >/dev/null || { echo "Outil manquant : jq" >&2; exit 3; }
+: "${VAULT_ADDR:?VAULT_ADDR manquant}"
+: "${VAULT_TOKEN:?VAULT_TOKEN manquant : jeton administrateur}"
+@REQUIRED@
+api() {  # api MÉTHODE CHEMIN [JSON] : corps de la réponse ; l'erreur du coffre sur la sortie d'erreur
+  local out code
+  out="$(curl -sS -X "$1" -H "X-Vault-Token: $VAULT_TOKEN" ${3:+-H "Content-Type: application/json" -d "$3"} \
+    -w '\n%{http_code}' "$VAULT_ADDR/v1/$2")" || return 1
+  code="${out##*$'\n'}"
+  out="${out%$'\n'*}"
+  if [ "$code" -ge 300 ]; then
+    echo "$1 $2 : HTTP $code $out" >&2
+    return 1
+  fi
+  printf '%s' "$out"
+}
+enabled() {  # enabled sys/mounts|sys/auth CHEMIN : déjà activé ?
+  api GET "$1" | jq -e --arg p "$2/" '(.data // .) | has($p)' >/dev/null
+}
+policy() {  # policy NOM PRÉFIXE… : lecture de <moteur>/data/<préfixe>/*
+  local name="$1" rules=""
+  shift
+  for prefix in "$@"; do
+    rules+="path \"@MOUNT@/data/$prefix/*\" { capabilities = [\"read\"] }"$'\n'
+  done
+  api PUT "sys/policies/acl/$name" "$(jq -n --arg p "$rules" '{policy: $p}')" >/dev/null
+  echo "Politique $name : lecture de @MOUNT@/data/<préfixe>/* ($*)"
+}
+
+api GET auth/token/lookup-self >/dev/null || { echo "VAULT_TOKEN refusé par $VAULT_ADDR" >&2; exit 1; }
+if enabled sys/mounts "@MOUNT@"; then
+  echo "Moteur @MOUNT@ déjà activé"
+else
+  api POST "sys/mounts/@MOUNT@" '{"type": "kv", "options": {"version": "2"}}' >/dev/null
+  echo "Moteur KV v2 @MOUNT@ activé"
+fi
+@BODY@
+echo "Configuration terminée. Écrire ensuite les secrets : scripts/secrets-seed.sh <environnement>"
+"""
+
+_SETUP_JWT = r"""
+# Connexion de la CI (@CI@) : jeton OIDC du job, limité au dépôt @CLAIM_DOC@
+policy "@CI_POLICY@" @PREFIXES@
+ISSUER="${CI_ISSUER:-@ISSUER@}"
+if ! enabled sys/auth jwt; then
+  api POST sys/auth/jwt '{"type": "jwt"}' >/dev/null
+  echo "Méthode auth/jwt activée"
+fi
+api POST auth/jwt/config "$(jq -n --arg i "$ISSUER" '{oidc_discovery_url: $i, bound_issuer: $i}')" >/dev/null
+api POST auth/jwt/role/@ROLE@ "$(jq -n --arg aud "${CI_AUDIENCE:-$VAULT_ADDR}" --arg repo "$CI_REPO" \
+  --arg branch "${CI_BRANCH:-main}" '{
+    role_type: "jwt", user_claim: "sub", bound_audiences: [$aud],
+    bound_claims_type: "string", bound_claims: @CLAIMS@,
+    token_policies: ["@CI_POLICY@"], token_ttl: "15m", token_max_ttl: "30m"}')" >/dev/null
+echo "Rôle auth/jwt/role/@ROLE@ : $CI_REPO, branche ${CI_BRANCH:-main}, émetteur $ISSUER"
+"""
+
+_SETUP_K8S = r"""
+# Connexion d'External Secrets : compte de service @SA_NS@/@SA@ du cluster
+policy "@ESO_POLICY@" @PREFIXES@
+if ! enabled sys/auth kubernetes; then
+  api POST sys/auth/kubernetes '{"type": "kubernetes"}' >/dev/null
+  echo "Méthode auth/kubernetes activée"
+fi
+if [ -n "${KUBE_HOST:-}" ]; then  # coffre hors du cluster : adresse, autorité et jeton de relecture
+  : "${KUBE_CA_FILE:?KUBE_CA_FILE manquant : autorité de certification du cluster}"
+  config="$(jq -n --arg h "$KUBE_HOST" --rawfile ca "$KUBE_CA_FILE" --arg j "${KUBE_REVIEWER_JWT:-}" \
+    '{kubernetes_host: $h, kubernetes_ca_cert: $ca} + (if $j == "" then {} else {token_reviewer_jwt: $j} end)')"
+else  # coffre dans le cluster : son propre compte de service relit les jetons
+  config='{"kubernetes_host": "https://kubernetes.default.svc"}'
+fi
+api POST auth/kubernetes/config "$config" >/dev/null \
+  || { echo "Coffre hors du cluster ? Renseigner KUBE_HOST et KUBE_CA_FILE (voir l'en-tête)" >&2; exit 1; }
+api POST auth/kubernetes/role/external-secrets "$(jq -n '{
+    bound_service_account_names: ["@SA@"], bound_service_account_namespaces: ["@SA_NS@"],
+    token_policies: ["@ESO_POLICY@"], token_ttl: "1h"}')" >/dev/null
+echo "Rôle auth/kubernetes/role/external-secrets : @SA_NS@/@SA@"
+"""
+
+
+def jwt_ci(ir: IR) -> tuple[str, str] | None:
+    """(nom de la CI, émetteur par défaut) quand la CI sait présenter un jeton OIDC au coffre."""
+    return JWT_ISSUERS.get(ir.ci.id) if ir.ci else None
+
+
+def setup_script(ir: IR) -> dict[str, str]:
+    """scripts/vault-setup.sh : KV v2, politiques, auth/jwt pour la CI, auth/kubernetes pour External Secrets."""
+    tool = vault_tool(ir)
+    if not tool:
+        return {}
+    k8s = eso(ir) and store(ir) == tool
+    ci_reads = source(ir) == "vault" and any(FETCH_SCRIPT in line for st in ir.steps for line in st.script)
+    jwt = jwt_ci(ir) if ci_reads else None
+    if not (k8s or ci_reads):
+        return {}
+    mount = kv_mount(ir)
+    prefixes = " ".join(sorted({shlex.quote(ir.namespace(e)) for e in ir.envs}))
+    role = str(vault_params(ir).get("jwt_role") or f"{ir.app}-ci")
+    ci_policy, eso_policy = f"{ir.app}-ci-read", f"{ir.app}-eso-read"
+    policies = " et ".join(p for p, on in ((ci_policy, ci_reads), (eso_policy, k8s)) if on)
+    body, var_doc, required = "", "", ""
+    jwt_doc = k8s_doc = env_hint = ""
+    if ci_reads and jwt:
+        gitlab = ir.ci.id == "gitlab-ci"
+        claims = ('{project_path: $repo, ref_type: "branch", ref: $branch, ref_protected: "true"}' if gitlab
+                  else '{repository: $repo, ref: ("refs/heads/" + $branch)}')
+        claim_doc = ("et à la branche protégée" if gitlab else "et à la branche")
+        body += (_SETUP_JWT.replace("@CI@", jwt[0]).replace("@ISSUER@", jwt[1]).replace("@CLAIMS@", claims)
+                 .replace("@CLAIM_DOC@", claim_doc).replace("@ROLE@", role))
+        jwt_doc = f",\n#   connexion JWT de la CI ({jwt[0]}, rôle « {role} »)"
+        repo = "groupe/projet" if gitlab else "propriétaire/dépôt"
+        var_doc += (f",\n#   CI_REPO ({repo}), CI_BRANCH (main par défaut),"
+                    f"\n#   CI_ISSUER ({jwt[1]} par défaut{' ; GitLab autohébergé : son adresse' if gitlab else ''}),"
+                    "\n#   CI_AUDIENCE (VAULT_ADDR par défaut : l'audience que la CI demande)")
+        required = f': "${{CI_REPO:?CI_REPO manquant ({repo})}}"'
+        env_hint = f"CI_REPO={repo} "
+    elif ci_reads:
+        body += f'\npolicy "{ci_policy}" {prefixes}\n'
+        body += (f'echo "{ir.ci.name if ir.ci else "La CI"} ne présente pas de jeton OIDC : créer pour elle un jeton '
+                 f'limité, par exemple : curl -H \\"X-Vault-Token: $VAULT_TOKEN\\" -d \'{{\\"policies\\": '
+                 f'[\\"{ci_policy}\\"], \\"period\\": \\"720h\\"}}\' $VAULT_ADDR/v1/auth/token/create"\n')
+    if k8s:
+        body += (_SETUP_K8S.replace("@SA_NS@", ESO_SA[0]).replace("@SA@", ESO_SA[1])
+                 .replace("@ESO_POLICY@", eso_policy))
+        k8s_doc = ",\n#   connexion Kubernetes d'External Secrets (rôle « external-secrets »)"
+        var_doc += (",\n#   KUBE_HOST, KUBE_CA_FILE, KUBE_REVIEWER_JWT : seulement si le coffre tourne hors du "
+                    "cluster")
+    text = (_SETUP.replace("@HEADER@", HEADER).replace("@NAME@", ir.catalog[tool].name).replace("@APP@", ir.app)
+            .replace("@MOUNT@", mount).replace("@POLICIES@", policies).replace("@JWT_DOC@", jwt_doc)
+            .replace("@K8S_DOC@", k8s_doc).replace("@VARS_DOC@", var_doc).replace("@ENVHINT@", env_hint)
+            .replace("@REQUIRED@", required).replace("@BODY@", body.replace("@MOUNT@", mount)
+                                                      .replace("@CI_POLICY@", ci_policy)
+                                                      .replace("@PREFIXES@", prefixes)))
+    text = text.replace("@PREFIXES@", prefixes)
+    return {VAULT_SETUP: text}

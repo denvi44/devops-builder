@@ -84,6 +84,7 @@ Aucun.
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
 - Floci : `docker compose -f dev/floci/compose.yaml up -d` lance l'émulateur AWS sur le port 4566 ; `dev/floci/aws.env` y pointe les SDK et la CLI (identifiants factices test/test).
 - Floci tourne à côté des tests unitaires dans la CI : AWS_ENDPOINT_URL désigne l'émulateur.
@@ -106,6 +107,7 @@ Aucun.
 - `dev/floci/aws.env`
 - `dev/floci/compose.yaml`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `infra/terraform/.gitignore`
 - `infra/terraform/.tflint.hcl`
 - `infra/terraform/main.tf`

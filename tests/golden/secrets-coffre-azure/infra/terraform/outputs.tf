@@ -25,3 +25,12 @@ output "db_production_password" {
   value     = random_password.db_production.result
   sensitive = true
 }
+
+output "eso_client_id" {
+  description = "Identité managée du contrôleur External Secrets"
+  value       = azurerm_user_assigned_identity.external_secrets.client_id
+}
+
+output "eso_tenant_id" {
+  value = data.azurerm_client_config.current.tenant_id
+}

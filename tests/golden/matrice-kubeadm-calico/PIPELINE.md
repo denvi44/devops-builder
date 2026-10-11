@@ -48,6 +48,7 @@ Aucun.
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (overlay Kustomize) : utile avant la première mise en production.
 - `scripts/ci-variables.sh` déclare les 1 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 
@@ -60,6 +61,7 @@ Aucun.
 - `deploy/kustomize/base/service.yaml`
 - `deploy/kustomize/overlays/production/kustomization.yaml`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `infra/cluster/install-kubeadm.sh`
 - `platform/install.sh`
 - `scripts/ci-variables.sh`

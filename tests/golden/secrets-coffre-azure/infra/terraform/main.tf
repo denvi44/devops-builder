@@ -33,6 +33,9 @@ resource "azurerm_kubernetes_cluster" "main" {
   identity {
     type = "SystemAssigned"
   }
+
+  oidc_issuer_enabled       = true
+  workload_identity_enabled = true
 }
 
 # --- Azure Blob Storage
@@ -175,4 +178,26 @@ resource "azurerm_key_vault_secret" "secret_valkey_production" {
   value        = jsonencode({ password = random_password.secret_valkey_production.result })
 
   depends_on = [azurerm_role_assignment.kv_terraform]
+}
+
+# --- External Secrets : lecture du coffre par le contrôleur (Workload Identity d'AKS)
+resource "azurerm_user_assigned_identity" "external_secrets" {
+  name                = "id-mon-app-external-secrets"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+}
+
+resource "azurerm_role_assignment" "kv_external_secrets" {
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.external_secrets.principal_id
+}
+
+resource "azurerm_federated_identity_credential" "external_secrets" {
+  name                = "external-secrets"
+  resource_group_name = azurerm_resource_group.main.name
+  parent_id           = azurerm_user_assigned_identity.external_secrets.id
+  issuer              = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  subject             = "system:serviceaccount:external-secrets:external-secrets"
+  audience            = ["api://AzureADTokenExchange"]
 }

@@ -54,6 +54,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : créer pour cloudbuild-deploy-*.yaml un déclencheur Cloud Build avec l'option « Approbation requise ».
 
 ## Fichiers générés
@@ -62,6 +63,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `cloudbuild-deploy-production.yaml`
 - `cloudbuild.yaml`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
 - `infra/terraform/outputs.tf`

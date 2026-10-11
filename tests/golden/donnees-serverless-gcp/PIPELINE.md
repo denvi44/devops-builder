@@ -76,6 +76,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Notes
 
+- Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Bases managées : une instance par environnement ; après `apply`, composer l'URL de connexion à partir des sorties Terraform (outputs.tf) et la déclarer en variable CI.
 - Connexion de l'application à la base sur un service serverless — Cloud Run : `gcloud run deploy --set-secrets DATABASE_URL=<secret>:latest` et, pour Cloud SQL, `--add-cloudsql-instances <projet>:<région>:<instance>`.
 - Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
@@ -86,6 +87,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `.gitlab-ci.yml`
 - `PIPELINE.md`
 - `devops-builder.yaml`
+- `docs/mise-en-route.md`
 - `infra/terraform/.gitignore`
 - `infra/terraform/main.tf`
 - `infra/terraform/outputs.tf`

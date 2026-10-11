@@ -86,6 +86,11 @@ def render(project: Project, catalog: Catalog) -> tuple[dict[str, str], IR]:
     files.update(extras.clusters(ir))
     files.update(localtest.kind_test(ir, files))
     files.update(civars.ci_variables(ir))
+    from .runbook import runbook
+    guide = runbook(ir, files)
+    if guide:
+        files.update(guide)
+        ir.notes.insert(0, "Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.")
     if ir.registry and files:
         ir.cover(ir.registry.id)  # sa référence d'image est écrite dans la CI ou le déploiement
     seen: set[str] = set()

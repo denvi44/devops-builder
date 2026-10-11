@@ -149,7 +149,9 @@ def install_script(ir: IR) -> dict[str, str]:
         args = f" {c.args}" if c.args else ""
         store_file = t == "external-secrets" and secrets.eso(ir)
         if store_file:
-            args += " --wait"  # CRD et webhook prêts avant le ClusterSecretStore
+            pre, extra = secrets.eso_helm_args(ir)
+            lines += pre
+            args += extra + " --wait"  # CRD et webhook prêts avant le ClusterSecretStore
         lines.append(f"helm upgrade --install {t} {c.chart} --namespace {c.namespace} --create-namespace{args}")
         if store_file:
             lines.append(f'kubectl apply -f "$(dirname "$0")/{secrets.STORE_FILE.split("/", 1)[1]}"')
