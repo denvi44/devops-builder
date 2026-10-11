@@ -17,6 +17,7 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
 - name: sonarqube
   image: sonarsource/sonar-scanner-cli:latest
   commands:
@@ -33,6 +34,7 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
 - name: build-image
   image: docker:27
   commands:
@@ -52,14 +54,19 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
 - name: deploy-dev
-  image: alpine/ansible:latest
+  image: python:3.12-alpine
   commands:
   - export TAG="${CI_COMMIT_SHA:0:8}"
   - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
+  - apk add --no-cache openssh-client
+  - pip install --no-cache-dir "ansible-core>=2.21,<2.22" || pipx install "ansible-core>=2.21,<2.22"
+  - ansible-galaxy collection install -r ansible/requirements.yml
   - mkdir -p ~/.ssh && echo "$$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
-  - ansible-galaxy collection install community.docker
-  - ansible-playbook -i ansible/inventories/dev.ini ansible/deploy.yml -e "image=$$IMAGE" -e "project=mon-app-dev"
+  - if [ -n "$${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+  - export DEPLOY_REGISTRY="registry.example.com" DEPLOY_REGISTRY_USER="$$REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$$REGISTRY_PASSWORD"
+  - ansible-playbook -i ansible/inventories/dev.ini ansible/deploy.yml -e "image=$$IMAGE" -e "project=mon-app-dev" -e "deploy_env=dev"
   environment:
     SONAR_TOKEN:
       from_secret: sonar_token
@@ -70,17 +77,23 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
+    ANSIBLE_CONFIG: ansible/ansible.cfg
   when:
   - branch: main
     event: push
 - name: deploy-staging
-  image: alpine/ansible:latest
+  image: python:3.12-alpine
   commands:
   - export TAG="${CI_COMMIT_SHA:0:8}"
   - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
+  - apk add --no-cache openssh-client
+  - pip install --no-cache-dir "ansible-core>=2.21,<2.22" || pipx install "ansible-core>=2.21,<2.22"
+  - ansible-galaxy collection install -r ansible/requirements.yml
   - mkdir -p ~/.ssh && echo "$$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
-  - ansible-galaxy collection install community.docker
-  - ansible-playbook -i ansible/inventories/staging.ini ansible/deploy.yml -e "image=$$IMAGE" -e "project=mon-app-staging"
+  - if [ -n "$${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+  - export DEPLOY_REGISTRY="registry.example.com" DEPLOY_REGISTRY_USER="$$REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$$REGISTRY_PASSWORD"
+  - ansible-playbook -i ansible/inventories/staging.ini ansible/deploy.yml -e "image=$$IMAGE" -e "project=mon-app-staging" -e "deploy_env=staging"
   environment:
     SONAR_TOKEN:
       from_secret: sonar_token
@@ -91,17 +104,23 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
+    ANSIBLE_CONFIG: ansible/ansible.cfg
   when:
   - branch: main
     event: push
 - name: deploy-production
-  image: alpine/ansible:latest
+  image: python:3.12-alpine
   commands:
   - export TAG="${CI_COMMIT_SHA:0:8}"
   - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
+  - apk add --no-cache openssh-client
+  - pip install --no-cache-dir "ansible-core>=2.21,<2.22" || pipx install "ansible-core>=2.21,<2.22"
+  - ansible-galaxy collection install -r ansible/requirements.yml
   - mkdir -p ~/.ssh && echo "$$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
-  - ansible-galaxy collection install community.docker
-  - ansible-playbook -i ansible/inventories/production.ini ansible/deploy.yml -e "image=$$IMAGE" -e "project=mon-app"
+  - if [ -n "$${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+  - export DEPLOY_REGISTRY="registry.example.com" DEPLOY_REGISTRY_USER="$$REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$$REGISTRY_PASSWORD"
+  - ansible-playbook -i ansible/inventories/production.ini ansible/deploy.yml -e "image=$$IMAGE" -e "project=mon-app" -e "deploy_env=production"
   environment:
     SONAR_TOKEN:
       from_secret: sonar_token
@@ -112,6 +131,8 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
+    ANSIBLE_CONFIG: ansible/ansible.cfg
   when:
   - branch: main
     event: manual

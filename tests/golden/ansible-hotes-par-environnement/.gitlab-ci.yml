@@ -1,0 +1,64 @@
+# Généré par DevOps Builder — à relire avant usage.
+stages:
+- build
+- deploy-staging
+- deploy-production
+variables:
+  TAG: $CI_COMMIT_SHORT_SHA
+  IMAGE: registry.exemple.fr/site/site:$CI_COMMIT_SHORT_SHA
+build-image:
+  stage: build
+  image:
+    name: docker:27
+    entrypoint:
+    - ''
+  services:
+  - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: /certs
+  script:
+  - echo "$REGISTRY_PASSWORD" | docker login "registry.exemple.fr" -u "$REGISTRY_USER" --password-stdin
+  - docker buildx build --tag "$IMAGE" --push .
+deploy-staging:
+  stage: deploy-staging
+  image:
+    name: python:3.12-alpine
+    entrypoint:
+    - ''
+  environment:
+    name: staging
+  variables:
+    ANSIBLE_CONFIG: ansible/ansible.cfg
+  script:
+  - apk add --no-cache openssh-client
+  - pip install --no-cache-dir "ansible-core>=2.21,<2.22" || pipx install "ansible-core>=2.21,<2.22"
+  - ansible-galaxy collection install -r ansible/requirements.yml
+  - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+  - export DEPLOY_REGISTRY="registry.exemple.fr" DEPLOY_REGISTRY_USER="$REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$REGISTRY_PASSWORD"
+  - ansible-playbook -i ansible/inventories/staging.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=site-staging" -e "deploy_env=staging"
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+deploy-production:
+  stage: deploy-production
+  image:
+    name: python:3.12-alpine
+    entrypoint:
+    - ''
+  environment:
+    name: production
+  variables:
+    ANSIBLE_CONFIG: ansible/ansible.cfg
+  script:
+  - apk add --no-cache openssh-client
+  - pip install --no-cache-dir "ansible-core>=2.21,<2.22" || pipx install "ansible-core>=2.21,<2.22"
+  - ansible-galaxy collection install -r ansible/requirements.yml
+  - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+  - export DEPLOY_REGISTRY="registry.exemple.fr" DEPLOY_REGISTRY_USER="$REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$REGISTRY_PASSWORD"
+  - ansible-playbook -i ansible/inventories/production.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=site" -e "deploy_env=production"
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - deploy-staging

@@ -61,6 +61,7 @@ deploy-dev:
   script:
   - apk add --no-cache openssh-client
   - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
   - ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_DEV" "mkdir -p /opt/boutique-dev"
   - scp deploy/docker-compose.yml "$DEPLOY_HOST_DEV:/opt/boutique-dev/docker-compose.yml"
   - scp deploy/env/dev.env "$DEPLOY_HOST_DEV:/opt/boutique-dev/.env"
@@ -68,6 +69,7 @@ deploy-dev:
   - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_DEV" "mkdir -p /opt/boutique-dev/secrets && chmod 700 /opt/boutique-dev/secrets && tar -C /opt/boutique-dev/secrets -xf - && chmod 600 /opt/boutique-dev/secrets/*"
   - rm -rf .secrets
   - scp scripts/db-backup.sh "$DEPLOY_HOST_DEV:/opt/boutique-dev/db-backup.sh"
+  - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_DEV" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
   - ssh "$DEPLOY_HOST_DEV" "cd /opt/boutique-dev && IMAGE=$IMAGE docker compose -p boutique-dev pull && IMAGE=$IMAGE docker compose -p boutique-dev up -d"
   rules:
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -82,6 +84,7 @@ deploy-recette:
   script:
   - apk add --no-cache openssh-client
   - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
   - ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_RECETTE" "mkdir -p /opt/boutique-recette"
   - scp deploy/docker-compose.yml "$DEPLOY_HOST_RECETTE:/opt/boutique-recette/docker-compose.yml"
   - scp deploy/env/recette.env "$DEPLOY_HOST_RECETTE:/opt/boutique-recette/.env"
@@ -89,6 +92,7 @@ deploy-recette:
   - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_RECETTE" "mkdir -p /opt/boutique-recette/secrets && chmod 700 /opt/boutique-recette/secrets && tar -C /opt/boutique-recette/secrets -xf - && chmod 600 /opt/boutique-recette/secrets/*"
   - rm -rf .secrets
   - scp scripts/db-backup.sh "$DEPLOY_HOST_RECETTE:/opt/boutique-recette/db-backup.sh"
+  - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_RECETTE" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
   - ssh "$DEPLOY_HOST_RECETTE" "cd /opt/boutique-recette && IMAGE=$IMAGE docker compose -p boutique-recette pull && IMAGE=$IMAGE docker compose -p boutique-recette up -d"
   rules:
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -105,6 +109,7 @@ deploy-production:
   script:
   - apk add --no-cache openssh-client
   - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
   - ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_PRODUCTION" "mkdir -p /opt/boutique"
   - scp deploy/docker-compose.yml "$DEPLOY_HOST_PRODUCTION:/opt/boutique/docker-compose.yml"
   - scp deploy/env/production.env "$DEPLOY_HOST_PRODUCTION:/opt/boutique/.env"
@@ -112,6 +117,7 @@ deploy-production:
   - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_PRODUCTION" "mkdir -p /opt/boutique/secrets && chmod 700 /opt/boutique/secrets && tar -C /opt/boutique/secrets -xf - && chmod 600 /opt/boutique/secrets/*"
   - rm -rf .secrets
   - scp scripts/db-backup.sh "$DEPLOY_HOST_PRODUCTION:/opt/boutique/db-backup.sh"
+  - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_PRODUCTION" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
   - ssh "$DEPLOY_HOST_PRODUCTION" "cd /opt/boutique && IMAGE=$IMAGE docker compose -p boutique pull && IMAGE=$IMAGE docker compose -p boutique up -d"
   rules:
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

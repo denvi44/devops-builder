@@ -17,6 +17,7 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
     DEPLOY_HOST_DEV: à-renseigner
     DEPLOY_HOST_STAGING: à-renseigner
     DEPLOY_HOST_PRODUCTION: à-renseigner
@@ -36,6 +37,7 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
     DEPLOY_HOST_DEV: à-renseigner
     DEPLOY_HOST_STAGING: à-renseigner
     DEPLOY_HOST_PRODUCTION: à-renseigner
@@ -58,6 +60,7 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
     DEPLOY_HOST_DEV: à-renseigner
     DEPLOY_HOST_STAGING: à-renseigner
     DEPLOY_HOST_PRODUCTION: à-renseigner
@@ -77,6 +80,7 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
     DEPLOY_HOST_DEV: à-renseigner
     DEPLOY_HOST_STAGING: à-renseigner
     DEPLOY_HOST_PRODUCTION: à-renseigner
@@ -96,6 +100,7 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
     DEPLOY_HOST_DEV: à-renseigner
     DEPLOY_HOST_STAGING: à-renseigner
     DEPLOY_HOST_PRODUCTION: à-renseigner
@@ -117,6 +122,7 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
     DEPLOY_HOST_DEV: à-renseigner
     DEPLOY_HOST_STAGING: à-renseigner
     DEPLOY_HOST_PRODUCTION: à-renseigner
@@ -130,8 +136,10 @@ steps:
   - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
   - apk add --no-cache openssh-client
   - mkdir -p ~/.ssh && echo "$$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - if [ -n "$${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
   - ssh -o StrictHostKeyChecking=accept-new "$$DEPLOY_HOST_DEV" "mkdir -p /opt/mon-app-dev"
   - scp deploy/docker-compose.yml "$$DEPLOY_HOST_DEV:/opt/mon-app-dev/docker-compose.yml"
+  - echo "$$REGISTRY_PASSWORD" | ssh "$$DEPLOY_HOST_DEV" "docker login registry.example.com -u $$REGISTRY_USER --password-stdin"
   - ssh "$$DEPLOY_HOST_DEV" "cd /opt/mon-app-dev && IMAGE=$$IMAGE docker compose -p mon-app-dev pull && IMAGE=$$IMAGE docker compose -p mon-app-dev up -d"
   environment:
     SONAR_TOKEN:
@@ -143,6 +151,7 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
     DEPLOY_HOST_DEV: à-renseigner
     DEPLOY_HOST_STAGING: à-renseigner
     DEPLOY_HOST_PRODUCTION: à-renseigner
@@ -156,8 +165,10 @@ steps:
   - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
   - apk add --no-cache openssh-client
   - mkdir -p ~/.ssh && echo "$$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - if [ -n "$${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
   - ssh -o StrictHostKeyChecking=accept-new "$$DEPLOY_HOST_STAGING" "mkdir -p /opt/mon-app-staging"
   - scp deploy/docker-compose.yml "$$DEPLOY_HOST_STAGING:/opt/mon-app-staging/docker-compose.yml"
+  - echo "$$REGISTRY_PASSWORD" | ssh "$$DEPLOY_HOST_STAGING" "docker login registry.example.com -u $$REGISTRY_USER --password-stdin"
   - ssh "$$DEPLOY_HOST_STAGING" "cd /opt/mon-app-staging && IMAGE=$$IMAGE docker compose -p mon-app-staging pull && IMAGE=$$IMAGE docker compose -p mon-app-staging up -d"
   environment:
     SONAR_TOKEN:
@@ -169,6 +180,7 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
     DEPLOY_HOST_DEV: à-renseigner
     DEPLOY_HOST_STAGING: à-renseigner
     DEPLOY_HOST_PRODUCTION: à-renseigner
@@ -182,8 +194,10 @@ steps:
   - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
   - apk add --no-cache openssh-client
   - mkdir -p ~/.ssh && echo "$$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - if [ -n "$${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
   - ssh -o StrictHostKeyChecking=accept-new "$$DEPLOY_HOST_PRODUCTION" "mkdir -p /opt/mon-app"
   - scp deploy/docker-compose.yml "$$DEPLOY_HOST_PRODUCTION:/opt/mon-app/docker-compose.yml"
+  - echo "$$REGISTRY_PASSWORD" | ssh "$$DEPLOY_HOST_PRODUCTION" "docker login registry.example.com -u $$REGISTRY_USER --password-stdin"
   - ssh "$$DEPLOY_HOST_PRODUCTION" "cd /opt/mon-app && IMAGE=$$IMAGE docker compose -p mon-app pull && IMAGE=$$IMAGE docker compose -p mon-app up -d"
   environment:
     SONAR_TOKEN:
@@ -195,6 +209,7 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
     DEPLOY_HOST_DEV: à-renseigner
     DEPLOY_HOST_STAGING: à-renseigner
     DEPLOY_HOST_PRODUCTION: à-renseigner

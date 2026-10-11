@@ -536,3 +536,19 @@ db-migrations:
     example: "alembic upgrade head"
     required: true
     suggestions: ["alembic upgrade head", "python manage.py migrate --noinput", "npx prisma migrate deploy", "npx knex migrate:latest", "npx sequelize-cli db:migrate", "goose -dir migrations up", "dotnet ef database update"]
+
+# ------------------------------------------------------------- Ansible
+ansible:
+  hosts:
+    label: Hôtes de l'application
+    description: Noms ou adresses des machines, séparés par des virgules ; à surcharger par environnement.
+    example: app1.example.com
+    required: true
+    pattern: '[A-Za-z0-9.:_-]+(\s*,\s*[A-Za-z0-9.:_-]+)*'
+    pattern_hint: "noms d'hôte ou adresses séparés par des virgules, ex. app1.exemple.fr, app2.exemple.fr"
+  user:
+    label: Compte SSH
+    description: Compte de déploiement, avec sudo sans mot de passe.
+    default: deploy
+    pattern: '[a-z_][a-z0-9_-]{0,31}'
+    pattern_hint: "nom de compte Unix, ex. deploy"

@@ -48,6 +48,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | Variable | Secret | Valeur | Rôle |
 | --- | --- | --- | --- |
 | `SSH_PRIVATE_KEY` | oui | à déclarer | Clé SSH de déploiement vers l'hôte Docker |
+| `SSH_KNOWN_HOSTS` | non | à déclarer | Facultatif : clés d'hôte attendues (ssh-keyscan) ; sans elle, la clé est acceptée à la première connexion de chaque job |
 | `DEPLOY_HOST` | non | à déclarer | Hôte Docker cible (utilisateur@hôte) |
 
 ## Diagnostics restants
@@ -56,7 +57,7 @@ Aucun.
 
 ## Notes
 
-- `scripts/ci-variables.sh` déclare les 2 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 3 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 

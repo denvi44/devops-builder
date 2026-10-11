@@ -108,6 +108,20 @@ def extra_cases(catalog) -> dict[str, Project]:
             p.bricks_for("eks")[0].params = {"cluster_name": "boutique"}
             p.bricks_for("s3")[0].params = {"bucket": "boutique-tfstate"}
             out[f"iac-floci-{forge}"] = p
+        # 0.10 : Ansible — hôtes par environnement, sans Compose, registre privé
+        hosts = Project(name="Ansible", target="vm", environments=env_preset("staging-prod"))
+        hosts.app.image_name = "site"
+        for t in ("gitlab", "gitlab-ci", "buildkit", "harbor", "ansible", "ansible-lint", "docker-compose", "traefik"):
+            hosts.add(t, catalog[t].stage)
+        hosts.bricks_for("harbor")[0].params = {"url": "registry.exemple.fr"}
+        hosts.bricks_for("ansible")[0].params = {"hosts": "app1.exemple.fr, app2.exemple.fr"}
+        hosts.env("staging").overrides["ansible"] = {"hosts": "recette.exemple.fr"}
+        out["ansible-hotes-par-environnement"] = hosts
+        alone = Project(name="Ansible seul", target="vm")
+        alone.app.image_name = "site"
+        for t in ("github", "github-actions", "buildkit", "ghcr", "ansible"):
+            alone.add(t, catalog[t].stage)
+        out["ansible-sans-compose"] = alone
         for cloud in ("scaleway", "ovhcloud", "outscale"):
             out[f"iac-etat-{cloud}"] = build_starter(StarterAnswers(
                 forge="gitlab", hosting="kubernetes-managed", cloud=cloud, envs="staging-prod",

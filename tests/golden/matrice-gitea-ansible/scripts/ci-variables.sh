@@ -118,6 +118,7 @@ send() {
 declare_var REGISTRY_USER 1 'Compte de publication sur registry.example.com'
 declare_var REGISTRY_PASSWORD 1 'Mot de passe ou jeton de publication sur registry.example.com'
 declare_var SSH_PRIVATE_KEY 1 'Clé SSH de déploiement vers les hôtes'
+declare_var SSH_KNOWN_HOSTS 0 'Facultatif : clés d'"'"'hôte attendues (ssh-keyscan) ; sans elle, la clé est acceptée à la première connexion de chaque job'
 
 echo
 if [ "$DRY_RUN" = 1 ]; then

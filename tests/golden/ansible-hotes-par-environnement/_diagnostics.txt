@@ -1,0 +1,1 @@
+info R31 Aucun fichier n'est généré pour ansible-lint dans cette configuration : à configurer à la main (listé dans PIPELINE.md).

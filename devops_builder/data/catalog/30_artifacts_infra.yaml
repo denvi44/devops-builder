@@ -212,7 +212,20 @@
   description: Configuration et déploiement sans agent, par SSH.
   license: GPL-3.0
   hosting: [ci, cli]
+  provides: [config-mgmt]
   verified: "2026-10-08"
+
+- id: ansible-lint
+  name: ansible-lint
+  stage: test
+  roles: [config-lint]
+  description: Contrôle des playbooks Ansible (bonnes pratiques, modules dépréciés, sécurité).
+  homepage: https://ansible.readthedocs.io/projects/lint/
+  license: GPL-3.0
+  repo: https://github.com/ansible/ansible-lint
+  hosting: [ci, cli]
+  requires: [config-mgmt]
+  verified: "2026-10-11"
 
 # ------------------------------------------------------------ Clusters Kubernetes
 - id: k3s

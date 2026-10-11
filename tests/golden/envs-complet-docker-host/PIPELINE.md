@@ -83,6 +83,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | Variable | Secret | Valeur | Rôle |
 | --- | --- | --- | --- |
 | `SSH_PRIVATE_KEY` | oui | à déclarer | Clé SSH de déploiement vers l'hôte Docker |
+| `SSH_KNOWN_HOSTS` | non | à déclarer | Facultatif : clés d'hôte attendues (ssh-keyscan) ; sans elle, la clé est acceptée à la première connexion de chaque job |
 | `DEPLOY_HOST_SANDBOX` | non | à déclarer | Hôte Docker cible (Bac à sable) (utilisateur@hôte) |
 | `DEPLOY_HOST_DEV` | non | à déclarer | Hôte Docker cible (Développement) (utilisateur@hôte) |
 | `DEPLOY_HOST_RECETTE` | non | à déclarer | Hôte Docker cible (Recette) (utilisateur@hôte) |
@@ -98,7 +99,7 @@ Aucun.
 
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
 - Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
-- `scripts/ci-variables.sh` déclare les 7 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 8 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 

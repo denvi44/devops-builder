@@ -94,6 +94,7 @@ send() {
 declare_var POSTGRESQL_PASSWORD_DEV 1 'Mot de passe PostgreSQL (Développement) — lettres, chiffres et . _ ~ - (il entre dans l'"'"'URL de connexion)'
 declare_var VALKEY_PASSWORD_DEV 1 'Mot de passe Valkey (Développement) — lettres, chiffres et . _ ~ - (il entre dans l'"'"'URL de connexion)'
 declare_var SSH_PRIVATE_KEY 1 'Clé SSH de déploiement vers l'"'"'hôte Docker'
+declare_var SSH_KNOWN_HOSTS 0 'Facultatif : clés d'"'"'hôte attendues (ssh-keyscan) ; sans elle, la clé est acceptée à la première connexion de chaque job'
 declare_var DEPLOY_HOST_DEV 0 'Hôte Docker cible (Développement) (utilisateur@hôte)'
 declare_var POSTGRESQL_PASSWORD_RECETTE 1 'Mot de passe PostgreSQL (Recette) — lettres, chiffres et . _ ~ - (il entre dans l'"'"'URL de connexion)'
 declare_var VALKEY_PASSWORD_RECETTE 1 'Mot de passe Valkey (Recette) — lettres, chiffres et . _ ~ - (il entre dans l'"'"'URL de connexion)'

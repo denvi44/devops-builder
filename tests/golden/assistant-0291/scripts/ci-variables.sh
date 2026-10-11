@@ -94,6 +94,7 @@ send() {
 declare_var SONAR_HOST_URL 0 'URL du serveur SonarQube'
 declare_var SONAR_TOKEN 1 'Jeton d'"'"'analyse SonarQube'
 declare_var SSH_PRIVATE_KEY 1 'Clé SSH de déploiement vers les hôtes'
+declare_var SSH_KNOWN_HOSTS 0 'Facultatif : clés d'"'"'hôte attendues (ssh-keyscan) ; sans elle, la clé est acceptée à la première connexion de chaque job'
 declare_var RENOVATE_TOKEN 1 'Jeton de la forge autorisé à ouvrir des merge requests (Renovate)'
 
 echo

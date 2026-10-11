@@ -342,6 +342,67 @@ def _ports_shifted(ir: IR) -> bool:
 
 
 SSH_SETUP = 'mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519'
+KNOWN_HOSTS = 'if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf \'%s\\n\' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi'
+ANSIBLE_INSTALL = [
+    "apk add --no-cache openssh-client",
+    'pip install --no-cache-dir "ansible-core>=2.21,<2.22" || pipx install "ansible-core>=2.21,<2.22"',
+    "ansible-galaxy collection install -r ansible/requirements.yml",
+]
+ANSIBLE_IMAGE = "python:3.12-alpine"
+CLOUD_REGISTRIES = ("ecr", "artifact-registry", "gcr", "acr")
+
+
+def ssh_variables(ir: IR, what: str) -> None:
+    ir.add_var("SSH_PRIVATE_KEY", f"Clé SSH de déploiement vers {what}")
+    ir.add_var("SSH_KNOWN_HOSTS", "Facultatif : clés d'hôte attendues (ssh-keyscan) ; sans elle, la clé est "
+                                  "acceptée à la première connexion de chaque job", secret=False)
+
+
+def host_registry(ir: IR) -> tuple[str, str, str] | None:
+    """(registre, utilisateur, mot de passe) pour que les hôtes Docker tirent l'image ; None : rien à faire."""
+    reg = ir.registry
+    if reg is None:
+        if ir.forge and ir.forge.id == "gitlab":
+            return "$CI_REGISTRY", "$CI_REGISTRY_USER", "$CI_REGISTRY_PASSWORD"
+        return None
+    if reg.id in CLOUD_REGISTRIES:
+        return None  # identité de la machine (rôle IAM, compte de service) : voir PIPELINE.md
+    host = registry_host(ir)
+    if reg.id == "ghcr":
+        return host, "$GITHUB_ACTOR", "$GITHUB_TOKEN"
+    if reg.id == "scaleway-registry":
+        ir.add_var("SCW_SECRET_KEY", "Clé secrète d'API Scaleway")
+        return host, "nologin", "$SCW_SECRET_KEY"
+    ir.add_var("REGISTRY_USER", f"Compte de lecture et de publication sur {host}")
+    ir.add_var("REGISTRY_PASSWORD", f"Mot de passe ou jeton sur {host}")
+    return host, "$REGISTRY_USER", "$REGISTRY_PASSWORD"
+
+
+def ansible_hosts(ir: IR, env: Environment) -> list[str]:
+    from .generators.ansible import lint_hosts
+    return lint_hosts(str(ir.params("ansible", env).get("hosts") or "app1.example.com"))
+
+
+def _registry_note(ir: IR) -> None:
+    if ir.registry and ir.registry.id in CLOUD_REGISTRIES:
+        note = (f"{ir.registry.name} : les hôtes Docker tirent l'image avec l'identité de la machine (rôle IAM, "
+                "compte de service ou identité managée) et l'assistant d'identification du fournisseur "
+                "(docker-credential-ecr-login, gcloud auth configure-docker, az acr login).")
+        if note not in ir.notes:
+            ir.notes.append(note)
+
+
+def _ansible_step(ir: IR, env: Environment, ns: str, secrets: list[str], name: str) -> Step:
+    ssh_variables(ir, "les hôtes")
+    reg = host_registry(ir)
+    _registry_note(ir)
+    login = ([f'export DEPLOY_REGISTRY="{reg[0]}" DEPLOY_REGISTRY_USER="{reg[1]}" DEPLOY_REGISTRY_PASSWORD="{reg[2]}"']
+             if reg else [])
+    return Step("deploy", name, "deploy", ANSIBLE_IMAGE, [
+        *ANSIBLE_INSTALL, SSH_SETUP, KNOWN_HOSTS, *secrets, *login,
+        f'ansible-playbook -i {ir.inventory(env)} ansible/deploy.yml -e "image=$IMAGE" -e "project={ns}" '
+        f'-e "deploy_env={env.id}"'],
+        tool="ansible", env={"ANSIBLE_CONFIG": "ansible/ansible.cfg"})
 
 
 def _deploy_step(ir: IR, env: Environment) -> Step | None:
@@ -356,21 +417,19 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
             prefix = dbgen.env_prefix(dbgen.secret_bindings(ir, env, dbgen.compose_dbs(ir)))
             secrets = [f"{prefix}sh {dbgen.SECRETS_SCRIPT} .secrets"]
         if ir.has("ansible"):
-            ir.add_var("SSH_PRIVATE_KEY", "Clé SSH de déploiement vers les hôtes")
-            return Step("deploy", "Déploiement Ansible + Compose", "deploy", "alpine/ansible:latest", [
-                SSH_SETUP,
-                *secrets,
-                "ansible-galaxy collection install community.docker",
-                f'ansible-playbook -i {ir.inventory(env)} ansible/deploy.yml -e "image=$IMAGE" -e "project={ns}"'
-                + (f' -e "deploy_env={env.id}"' if _ports_shifted(ir) else "")],
-                tool="ansible")
+            return _ansible_step(ir, env, ns, secrets, "Déploiement Ansible + Compose")
         host = ir.env_var("DEPLOY_HOST", env)
-        ir.add_var("SSH_PRIVATE_KEY", "Clé SSH de déploiement vers l'hôte Docker")
+        ssh_variables(ir, "l'hôte Docker")
+        reg = host_registry(ir)
+        _registry_note(ir)
+        login = ([f'echo "{reg[2]}" | ssh "${host}" "docker login {reg[0]} -u {reg[1]} --password-stdin"']
+                 if reg else [])
         where = f" ({env.display})" if ir.multi_env else ""
         ir.add_var(host, f"Hôte Docker cible{where} (utilisateur@hôte)", secret=False)
         return Step("deploy", "Déploiement Docker Compose (SSH)", "deploy", ALPINE, [
             "apk add --no-cache openssh-client",
             SSH_SETUP,
+            KNOWN_HOSTS,
             f'ssh -o StrictHostKeyChecking=accept-new "${host}" "mkdir -p /opt/{ns}"',
             f'scp deploy/docker-compose.yml "${host}:/opt/{ns}/docker-compose.yml"',
             *([f'scp deploy/env/{env.id}.env "${host}:/opt/{ns}/.env"'] if _ports_shifted(ir) else []),
@@ -379,6 +438,7 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
                f'&& tar -C /opt/{ns}/secrets -xf - && chmod 600 /opt/{ns}/secrets/*"',
                "rm -rf .secrets"] if secrets else []),
             *([f'scp {dbgen.BACKUP_SCRIPT} "${host}:/opt/{ns}/db-backup.sh"'] if dbgen.backup_script(ir) else []),
+            *login,
             f'ssh "${host}" "cd /opt/{ns} && IMAGE=$IMAGE docker compose -p {ns} pull && IMAGE=$IMAGE docker compose -p {ns} up -d"'],
             tool="docker-compose")
     if ir.has("argo-cd") or ir.has("flux"):
@@ -434,11 +494,7 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
             f'--resource-group {a.get("resource_group", "rg-mon-projet")} --image "$IMAGE"'],
             tool="azure-container-apps", cloud=["azure"])
     if ir.has("ansible") and target in ("vm", "docker-host"):
-        ir.add_var("SSH_PRIVATE_KEY", "Clé SSH de déploiement vers les hôtes")
-        return Step("deploy", "Déploiement Ansible", "deploy", "alpine/ansible:latest", [
-            SSH_SETUP,
-            f'ansible-playbook -i {ir.inventory(env)} ansible/deploy.yml -e "image=$IMAGE" -e "project={ns}"'],
-            tool="ansible")
+        return _ansible_step(ir, env, ns, [], "Déploiement Ansible")
     return None
 
 

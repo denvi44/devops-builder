@@ -77,26 +77,30 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `SONAR_HOST_URL` | non | à déclarer | URL du serveur SonarQube |
 | `SONAR_TOKEN` | oui | à déclarer | Jeton d'analyse SonarQube |
 | `SSH_PRIVATE_KEY` | oui | à déclarer | Clé SSH de déploiement vers les hôtes |
+| `SSH_KNOWN_HOSTS` | non | à déclarer | Facultatif : clés d'hôte attendues (ssh-keyscan) ; sans elle, la clé est acceptée à la première connexion de chaque job |
 | `RENOVATE_TOKEN` | oui | à déclarer | Jeton de la forge autorisé à ouvrir des merge requests (Renovate) |
 
 ## Diagnostics restants
 
-Aucun.
+- **Avertissement** (R34) — Ansible : « Hôtes de l'application » non renseigné : la valeur d'exemple « app1.example.com » sera écrite dans les fichiers.
 
 ## Notes
 
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
+- Ansible : préparer chaque hôte une fois avec `ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook -i ansible/inventories/dev.ini ansible/site.yml` (Docker depuis son dépôt officiel, Debian, Ubuntu, RHEL et dérivées) ; le compte SSH doit avoir sudo sans mot de passe.
 - Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
-- `scripts/ci-variables.sh` déclare les 4 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 5 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 
 - `.gitlab-ci.yml`
 - `PIPELINE.md`
+- `ansible/ansible.cfg`
 - `ansible/deploy.yml`
 - `ansible/inventories/dev.ini`
 - `ansible/inventories/production.ini`
 - `ansible/inventories/staging.ini`
+- `ansible/requirements.yml`
 - `ansible/site.yml`
 - `deploy/docker-compose.yml`
 - `devops-builder.yaml`

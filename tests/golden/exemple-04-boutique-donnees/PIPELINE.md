@@ -91,6 +91,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `POSTGRESQL_PASSWORD_DEV` | oui | à déclarer | Mot de passe PostgreSQL (Développement) — lettres, chiffres et . _ ~ - (il entre dans l'URL de connexion) |
 | `VALKEY_PASSWORD_DEV` | oui | à déclarer | Mot de passe Valkey (Développement) — lettres, chiffres et . _ ~ - (il entre dans l'URL de connexion) |
 | `SSH_PRIVATE_KEY` | oui | à déclarer | Clé SSH de déploiement vers l'hôte Docker |
+| `SSH_KNOWN_HOSTS` | non | à déclarer | Facultatif : clés d'hôte attendues (ssh-keyscan) ; sans elle, la clé est acceptée à la première connexion de chaque job |
 | `DEPLOY_HOST_DEV` | non | à déclarer | Hôte Docker cible (Développement) (utilisateur@hôte) |
 | `POSTGRESQL_PASSWORD_RECETTE` | oui | à déclarer | Mot de passe PostgreSQL (Recette) — lettres, chiffres et . _ ~ - (il entre dans l'URL de connexion) |
 | `VALKEY_PASSWORD_RECETTE` | oui | à déclarer | Mot de passe Valkey (Recette) — lettres, chiffres et . _ ~ - (il entre dans l'URL de connexion) |
@@ -111,7 +112,7 @@ Aucun.
 - PostgreSQL, Valkey : service Compose non publié sur l'hôte (réseau interne), données dans un volume nommé ; `deploy/secrets.sh` écrit les mots de passe et l'URL de connexion lus par les conteneurs (env_file), à partir des variables CI.
 - Sauvegardes : planifier `scripts/db-backup.sh` sur chaque hôte (cron quotidien) et copier les fichiers hors de la machine.
 - Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
-- `scripts/ci-variables.sh` déclare les 11 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 12 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 

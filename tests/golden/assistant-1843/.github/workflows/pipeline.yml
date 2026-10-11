@@ -15,6 +15,7 @@ env:
   SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
   SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
   SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  SSH_KNOWN_HOSTS: ${{ vars.SSH_KNOWN_HOSTS }}
   DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 jobs:
@@ -113,6 +114,8 @@ jobs:
     - name: Déploiement Docker Compose (SSH)
       run: |
         mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+        if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
         ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST" "mkdir -p /opt/mon-app"
         scp deploy/docker-compose.yml "$DEPLOY_HOST:/opt/mon-app/docker-compose.yml"
+        echo "$GITHUB_TOKEN" | ssh "$DEPLOY_HOST" "docker login ghcr.io -u $GITHUB_ACTOR --password-stdin"
         ssh "$DEPLOY_HOST" "cd /opt/mon-app && IMAGE=$IMAGE docker compose -p mon-app pull && IMAGE=$IMAGE docker compose -p mon-app up -d"

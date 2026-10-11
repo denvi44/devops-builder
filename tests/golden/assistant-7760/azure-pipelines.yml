@@ -67,9 +67,13 @@ stages:
           steps:
           - checkout: self
           - script: |
+              apk add --no-cache openssh-client
+              pip install --no-cache-dir "ansible-core>=2.21,<2.22" || pipx install "ansible-core>=2.21,<2.22"
+              ansible-galaxy collection install -r ansible/requirements.yml
               mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
-              ansible-galaxy collection install community.docker
-              ansible-playbook -i ansible/inventories/dev.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-dev"
+              if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+              export DEPLOY_REGISTRY="registry.example.com" DEPLOY_REGISTRY_USER="$REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$REGISTRY_PASSWORD"
+              ansible-playbook -i ansible/inventories/dev.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-dev" -e "deploy_env=dev"
             displayName: Déploiement Ansible + Compose — Développement
             env:
               SONAR_TOKEN: $(SONAR_TOKEN)
@@ -91,9 +95,13 @@ stages:
           steps:
           - checkout: self
           - script: |
+              apk add --no-cache openssh-client
+              pip install --no-cache-dir "ansible-core>=2.21,<2.22" || pipx install "ansible-core>=2.21,<2.22"
+              ansible-galaxy collection install -r ansible/requirements.yml
               mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
-              ansible-galaxy collection install community.docker
-              ansible-playbook -i ansible/inventories/staging.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-staging"
+              if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+              export DEPLOY_REGISTRY="registry.example.com" DEPLOY_REGISTRY_USER="$REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$REGISTRY_PASSWORD"
+              ansible-playbook -i ansible/inventories/staging.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-staging" -e "deploy_env=staging"
             displayName: Déploiement Ansible + Compose — Préproduction
             env:
               SONAR_TOKEN: $(SONAR_TOKEN)
@@ -115,9 +123,13 @@ stages:
           steps:
           - checkout: self
           - script: |
+              apk add --no-cache openssh-client
+              pip install --no-cache-dir "ansible-core>=2.21,<2.22" || pipx install "ansible-core>=2.21,<2.22"
+              ansible-galaxy collection install -r ansible/requirements.yml
               mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
-              ansible-galaxy collection install community.docker
-              ansible-playbook -i ansible/inventories/production.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app"
+              if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+              export DEPLOY_REGISTRY="registry.example.com" DEPLOY_REGISTRY_USER="$REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$REGISTRY_PASSWORD"
+              ansible-playbook -i ansible/inventories/production.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app" -e "deploy_env=production"
             displayName: Déploiement Ansible + Compose — Production
             env:
               SONAR_TOKEN: $(SONAR_TOKEN)

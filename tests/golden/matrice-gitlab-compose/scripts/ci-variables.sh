@@ -92,6 +92,7 @@ send() {
 }
 
 declare_var SSH_PRIVATE_KEY 1 'Clé SSH de déploiement vers l'"'"'hôte Docker'
+declare_var SSH_KNOWN_HOSTS 0 'Facultatif : clés d'"'"'hôte attendues (ssh-keyscan) ; sans elle, la clé est acceptée à la première connexion de chaque job'
 declare_var DEPLOY_HOST 0 'Hôte Docker cible (utilisateur@hôte)'
 
 echo

@@ -93,6 +93,7 @@ send() {
 
 declare_var MARIADB_PASSWORD 1 'Mot de passe MariaDB — lettres, chiffres et . _ ~ - (il entre dans l'"'"'URL de connexion)'
 declare_var SSH_PRIVATE_KEY 1 'Clé SSH de déploiement vers les hôtes'
+declare_var SSH_KNOWN_HOSTS 0 'Facultatif : clés d'"'"'hôte attendues (ssh-keyscan) ; sans elle, la clé est acceptée à la première connexion de chaque job'
 declare_var RENOVATE_TOKEN 1 'Jeton de la forge autorisé à ouvrir des merge requests (Renovate)'
 
 echo

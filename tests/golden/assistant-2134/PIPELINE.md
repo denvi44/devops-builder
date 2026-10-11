@@ -64,25 +64,29 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `SONAR_HOST_URL` | non | à déclarer | URL du serveur SonarQube |
 | `SONAR_TOKEN` | oui | à déclarer | Jeton d'analyse SonarQube |
 | `SSH_PRIVATE_KEY` | oui | à déclarer | Clé SSH de déploiement vers les hôtes |
+| `SSH_KNOWN_HOSTS` | non | à déclarer | Facultatif : clés d'hôte attendues (ssh-keyscan) ; sans elle, la clé est acceptée à la première connexion de chaque job |
 
 ## Diagnostics restants
 
-Aucun.
+- **Avertissement** (R34) — Ansible : « Hôtes de l'application » non renseigné : la valeur d'exemple « app1.example.com » sera écrite dans les fichiers.
 
 ## Notes
 
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
-- `scripts/ci-variables.sh` déclare les 3 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
+- Ansible : préparer chaque hôte une fois avec `ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook -i ansible/inventories/dev.ini ansible/site.yml` (Docker depuis son dépôt officiel, Debian, Ubuntu, RHEL et dérivées) ; le compte SSH doit avoir sudo sans mot de passe.
+- `scripts/ci-variables.sh` déclare les 4 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 
 - `.github/dependabot.yml`
 - `.github/workflows/pipeline.yml`
 - `PIPELINE.md`
+- `ansible/ansible.cfg`
 - `ansible/deploy.yml`
 - `ansible/inventories/dev.ini`
 - `ansible/inventories/production.ini`
 - `ansible/inventories/staging.ini`
+- `ansible/requirements.yml`
 - `ansible/site.yml`
 - `deploy/docker-compose.yml`
 - `devops-builder.yaml`

@@ -30,6 +30,7 @@ acr: [cosign]
 opentofu: [tflint, checkov, infracost]
 terraform: [tflint, checkov, infracost]
 aws: [floci]
+ansible: [ansible-lint]
 pulumi: [checkov]
 
 # Déploiement

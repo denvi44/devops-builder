@@ -59,14 +59,20 @@ trivy:
 deploy:
   stage: deploy
   image:
-    name: alpine/ansible:latest
+    name: python:3.12-alpine
     entrypoint:
     - ''
   environment:
     name: production
+  variables:
+    ANSIBLE_CONFIG: ansible/ansible.cfg
   script:
+  - apk add --no-cache openssh-client
+  - pip install --no-cache-dir "ansible-core>=2.21,<2.22" || pipx install "ansible-core>=2.21,<2.22"
+  - ansible-galaxy collection install -r ansible/requirements.yml
   - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
-  - ansible-galaxy collection install community.docker
-  - ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=site-web"
+  - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+  - export DEPLOY_REGISTRY="registry.example.com" DEPLOY_REGISTRY_USER="$REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$REGISTRY_PASSWORD"
+  - ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=site-web" -e "deploy_env=production"
   rules:
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

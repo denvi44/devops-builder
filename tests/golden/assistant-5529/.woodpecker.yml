@@ -17,6 +17,7 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
     DEPLOY_HOST: à-renseigner
 - name: sonarqube
   image: sonarsource/sonar-scanner-cli:latest
@@ -34,6 +35,7 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
     DEPLOY_HOST: à-renseigner
 - name: build-image
   image: docker:27
@@ -54,6 +56,7 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
     DEPLOY_HOST: à-renseigner
 - name: gitleaks
   image: zricethezav/gitleaks:latest
@@ -71,6 +74,7 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
     DEPLOY_HOST: à-renseigner
 - name: trivy
   image: aquasec/trivy:latest
@@ -88,6 +92,7 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
     DEPLOY_HOST: à-renseigner
 - name: cosign
   image: alpine:3.20
@@ -107,6 +112,7 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
     DEPLOY_HOST: à-renseigner
   when:
   - branch: main
@@ -118,8 +124,10 @@ steps:
   - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
   - apk add --no-cache openssh-client
   - mkdir -p ~/.ssh && echo "$$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - if [ -n "$${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
   - ssh -o StrictHostKeyChecking=accept-new "$$DEPLOY_HOST" "mkdir -p /opt/mon-app"
   - scp deploy/docker-compose.yml "$$DEPLOY_HOST:/opt/mon-app/docker-compose.yml"
+  - echo "$$REGISTRY_PASSWORD" | ssh "$$DEPLOY_HOST" "docker login registry.example.com -u $$REGISTRY_USER --password-stdin"
   - ssh "$$DEPLOY_HOST" "cd /opt/mon-app && IMAGE=$$IMAGE docker compose -p mon-app pull && IMAGE=$$IMAGE docker compose -p mon-app up -d"
   environment:
     SONAR_TOKEN:
@@ -131,6 +139,7 @@ steps:
     SSH_PRIVATE_KEY:
       from_secret: ssh_private_key
     SONAR_HOST_URL: à-renseigner
+    SSH_KNOWN_HOSTS: à-renseigner
     DEPLOY_HOST: à-renseigner
   when:
   - branch: main

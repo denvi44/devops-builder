@@ -15,6 +15,7 @@ env:
   SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
   SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
   SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  SSH_KNOWN_HOSTS: ${{ vars.SSH_KNOWN_HOSTS }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 jobs:
   unit-tests:
@@ -58,13 +59,18 @@ jobs:
     - build-image
     if: github.ref == 'refs/heads/main'
     environment: dev
+    env:
+      ANSIBLE_CONFIG: ansible/ansible.cfg
     steps:
     - uses: actions/checkout@v4
     - name: Déploiement Ansible + Compose — Développement
       run: |
+        pip install --no-cache-dir "ansible-core>=2.21,<2.22" || pipx install "ansible-core>=2.21,<2.22"
+        ansible-galaxy collection install -r ansible/requirements.yml
         mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
-        ansible-galaxy collection install community.docker
-        ansible-playbook -i ansible/inventories/dev.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-dev"
+        if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+        export DEPLOY_REGISTRY="ghcr.io" DEPLOY_REGISTRY_USER="$GITHUB_ACTOR" DEPLOY_REGISTRY_PASSWORD="$GITHUB_TOKEN"
+        ansible-playbook -i ansible/inventories/dev.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-dev" -e "deploy_env=dev"
   deploy-staging:
     name: Déploiement Ansible + Compose — Préproduction
     runs-on: ubuntu-latest
@@ -75,13 +81,18 @@ jobs:
     - deploy-dev
     if: github.ref == 'refs/heads/main'
     environment: staging
+    env:
+      ANSIBLE_CONFIG: ansible/ansible.cfg
     steps:
     - uses: actions/checkout@v4
     - name: Déploiement Ansible + Compose — Préproduction
       run: |
+        pip install --no-cache-dir "ansible-core>=2.21,<2.22" || pipx install "ansible-core>=2.21,<2.22"
+        ansible-galaxy collection install -r ansible/requirements.yml
         mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
-        ansible-galaxy collection install community.docker
-        ansible-playbook -i ansible/inventories/staging.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-staging"
+        if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+        export DEPLOY_REGISTRY="ghcr.io" DEPLOY_REGISTRY_USER="$GITHUB_ACTOR" DEPLOY_REGISTRY_PASSWORD="$GITHUB_TOKEN"
+        ansible-playbook -i ansible/inventories/staging.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-staging" -e "deploy_env=staging"
   deploy-production:
     name: Déploiement Ansible + Compose — Production
     runs-on: ubuntu-latest
@@ -92,10 +103,15 @@ jobs:
     - deploy-staging
     if: github.ref == 'refs/heads/main'
     environment: production
+    env:
+      ANSIBLE_CONFIG: ansible/ansible.cfg
     steps:
     - uses: actions/checkout@v4
     - name: Déploiement Ansible + Compose — Production
       run: |
+        pip install --no-cache-dir "ansible-core>=2.21,<2.22" || pipx install "ansible-core>=2.21,<2.22"
+        ansible-galaxy collection install -r ansible/requirements.yml
         mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
-        ansible-galaxy collection install community.docker
-        ansible-playbook -i ansible/inventories/production.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app"
+        if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+        export DEPLOY_REGISTRY="ghcr.io" DEPLOY_REGISTRY_USER="$GITHUB_ACTOR" DEPLOY_REGISTRY_PASSWORD="$GITHUB_TOKEN"
+        ansible-playbook -i ansible/inventories/production.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app" -e "deploy_env=production"

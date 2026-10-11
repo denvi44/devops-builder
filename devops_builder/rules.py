@@ -426,6 +426,7 @@ CAP_LABELS = {  # complément de « a besoin … »
     "cni": "d'un plugin réseau (CNI)",
     "kubernetes-cluster": "d'un cluster Kubernetes",
     "database": "d'une base de données",
+    "config-mgmt": "de playbooks Ansible",
 }
 MANAGED_TARGETS = ("kubernetes", "kubernetes-managed")
 

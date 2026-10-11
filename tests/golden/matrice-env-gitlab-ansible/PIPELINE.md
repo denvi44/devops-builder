@@ -46,24 +46,28 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | Variable | Secret | Valeur | Rôle |
 | --- | --- | --- | --- |
 | `SSH_PRIVATE_KEY` | oui | à déclarer | Clé SSH de déploiement vers les hôtes |
+| `SSH_KNOWN_HOSTS` | non | à déclarer | Facultatif : clés d'hôte attendues (ssh-keyscan) ; sans elle, la clé est acceptée à la première connexion de chaque job |
 
 ## Diagnostics restants
 
-Aucun.
+- **Avertissement** (R34) — Ansible : « Hôtes de l'application » non renseigné : la valeur d'exemple « app1.example.com » sera écrite dans les fichiers.
 
 ## Notes
 
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
-- `scripts/ci-variables.sh` déclare les 1 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
+- Ansible : préparer chaque hôte une fois avec `ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook -i ansible/inventories/dev.ini ansible/site.yml` (Docker depuis son dépôt officiel, Debian, Ubuntu, RHEL et dérivées) ; le compte SSH doit avoir sudo sans mot de passe.
+- `scripts/ci-variables.sh` déclare les 2 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 
 - `.gitlab-ci.yml`
 - `PIPELINE.md`
+- `ansible/ansible.cfg`
 - `ansible/deploy.yml`
 - `ansible/inventories/dev.ini`
 - `ansible/inventories/production.ini`
 - `ansible/inventories/staging.ini`
+- `ansible/requirements.yml`
 - `ansible/site.yml`
 - `deploy/docker-compose.yml`
 - `devops-builder.yaml`

@@ -1,0 +1,46 @@
+# Généré par DevOps Builder — à relire avant usage.
+- name: Déployer site
+  hosts: app
+  become: true
+  serial: 1
+  vars:
+    image: registry.exemple.fr/site/site:latest
+    project: site
+    app_dir: /opt/{{ project }}
+    registry_host: '{{ lookup(''ansible.builtin.env'', ''DEPLOY_REGISTRY'') }}'
+    registry_user: '{{ lookup(''ansible.builtin.env'', ''DEPLOY_REGISTRY_USER'') }}'
+    registry_password: '{{ lookup(''ansible.builtin.env'', ''DEPLOY_REGISTRY_PASSWORD'') }}'
+  tasks:
+    - name: Créer le répertoire de l'application
+      ansible.builtin.file:
+        path: '{{ app_dir }}'
+        state: directory
+        mode: '0755'
+    - name: Copier le fichier Compose
+      ansible.builtin.copy:
+        src: ../deploy/docker-compose.yml
+        dest: '{{ app_dir }}/docker-compose.yml'
+        mode: '0644'
+    - name: Se connecter au registre d'images
+      ansible.builtin.command:
+        argv:
+          - docker
+          - login
+          - '{{ registry_host }}'
+          - --username
+          - '{{ registry_user }}'
+          - --password-stdin
+        stdin: '{{ registry_password }}'
+      no_log: true
+      changed_when: false
+      when: registry_password | length > 0
+    - name: Démarrer les services
+      community.docker.docker_compose_v2:
+        project_src: '{{ app_dir }}'
+        project_name: '{{ project }}'
+        pull: always
+        state: present
+        wait: true
+        wait_timeout: 180
+      environment:
+        IMAGE: '{{ image }}'

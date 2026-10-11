@@ -15,6 +15,7 @@ env:
   SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
   SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
   SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  SSH_KNOWN_HOSTS: ${{ vars.SSH_KNOWN_HOSTS }}
   DEPLOY_HOST_DEV: ${{ vars.DEPLOY_HOST_DEV }}
   DEPLOY_HOST_STAGING: ${{ vars.DEPLOY_HOST_STAGING }}
   DEPLOY_HOST_PRODUCTION: ${{ vars.DEPLOY_HOST_PRODUCTION }}
@@ -115,8 +116,10 @@ jobs:
     - name: Déploiement Docker Compose (SSH) — Développement
       run: |
         mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+        if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
         ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_DEV" "mkdir -p /opt/mon-app-dev"
         scp deploy/docker-compose.yml "$DEPLOY_HOST_DEV:/opt/mon-app-dev/docker-compose.yml"
+        echo "$GITHUB_TOKEN" | ssh "$DEPLOY_HOST_DEV" "docker login ghcr.io -u $GITHUB_ACTOR --password-stdin"
         ssh "$DEPLOY_HOST_DEV" "cd /opt/mon-app-dev && IMAGE=$IMAGE docker compose -p mon-app-dev pull && IMAGE=$IMAGE docker compose -p mon-app-dev up -d"
   deploy-staging:
     name: Déploiement Docker Compose (SSH) — Préproduction
@@ -136,8 +139,10 @@ jobs:
     - name: Déploiement Docker Compose (SSH) — Préproduction
       run: |
         mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+        if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
         ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_STAGING" "mkdir -p /opt/mon-app-staging"
         scp deploy/docker-compose.yml "$DEPLOY_HOST_STAGING:/opt/mon-app-staging/docker-compose.yml"
+        echo "$GITHUB_TOKEN" | ssh "$DEPLOY_HOST_STAGING" "docker login ghcr.io -u $GITHUB_ACTOR --password-stdin"
         ssh "$DEPLOY_HOST_STAGING" "cd /opt/mon-app-staging && IMAGE=$IMAGE docker compose -p mon-app-staging pull && IMAGE=$IMAGE docker compose -p mon-app-staging up -d"
   deploy-production:
     name: Déploiement Docker Compose (SSH) — Production
@@ -157,6 +162,8 @@ jobs:
     - name: Déploiement Docker Compose (SSH) — Production
       run: |
         mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+        if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
         ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_PRODUCTION" "mkdir -p /opt/mon-app"
         scp deploy/docker-compose.yml "$DEPLOY_HOST_PRODUCTION:/opt/mon-app/docker-compose.yml"
+        echo "$GITHUB_TOKEN" | ssh "$DEPLOY_HOST_PRODUCTION" "docker login ghcr.io -u $GITHUB_ACTOR --password-stdin"
         ssh "$DEPLOY_HOST_PRODUCTION" "cd /opt/mon-app && IMAGE=$IMAGE docker compose -p mon-app pull && IMAGE=$IMAGE docker compose -p mon-app up -d"

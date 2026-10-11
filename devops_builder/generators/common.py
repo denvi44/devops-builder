@@ -23,8 +23,16 @@ def _str_presenter(dumper: yaml.SafeDumper, data: str):
 _Dumper.add_representer(str, _str_presenter)
 
 
-def dump_yaml(data, comment: str | None = HEADER) -> str:
-    text = yaml.dump(data, Dumper=_Dumper, sort_keys=False, allow_unicode=True, width=200)
+class _IndentedDumper(_Dumper):
+    """Listes indentées sous leur clé, comme l'attendent yamllint et ansible-lint."""
+
+    def increase_indent(self, flow=False, indentless=False):  # noqa: ARG002
+        return super().increase_indent(flow, False)
+
+
+def dump_yaml(data, comment: str | None = HEADER, indent_lists: bool = False) -> str:
+    dumper = _IndentedDumper if indent_lists else _Dumper
+    text = yaml.dump(data, Dumper=dumper, sort_keys=False, allow_unicode=True, width=200)
     head = f"# {comment}\n" if comment else ""
     return head + text
 
