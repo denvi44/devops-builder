@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Lancement de l'interface graphique."""
 
 from __future__ import annotations

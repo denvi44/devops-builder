@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Panneau des diagnostics : liste triée par gravité et corrections en un clic."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Briques adaptées au projet : ce que la palette propose par défaut.
 
 Une brique est écartée quand les règles la refuseraient ou la signaleraient aussitôt posée :

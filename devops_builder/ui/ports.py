@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Vue « Ports et exposition » : ports de l'application et des briques, par environnement."""
 
 from __future__ import annotations

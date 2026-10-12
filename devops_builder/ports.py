@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Ports de l'application et des briques, par environnement.
 
 Sur un hôte Docker, chaque service Compose publie des ports. Des environnements qui

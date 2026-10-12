@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Génération : les 3 pipelines de référence et une matrice CI × déploiement.
 
 Chaque fichier YAML produit doit se charger ; quand les outils sont installés,

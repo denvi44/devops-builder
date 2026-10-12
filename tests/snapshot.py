@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Instantanés de non-régression : ce que l'application génère pour un corpus fixe de projets.
 
     python tests/snapshot.py sortie/      écrit un instantané (un dossier par projet)

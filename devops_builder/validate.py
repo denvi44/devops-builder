@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Validation locale des fichiers générés, avec les outils installés sur le poste.
 
 Chaque contrôle s'applique à une partie des fichiers. Quand l'outil manque, le

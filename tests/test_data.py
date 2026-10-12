@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Lot 0.8 : étape « Données » — bases autogérées, opérateur, bases managées, migrations."""
 
 from __future__ import annotations

@@ -1,15 +1,35 @@
 [build-system]
-requires = ["hatchling>=1.24"]
+requires = ["hatchling>=1.27"]  # 1.27 : expression de licence SPDX (PEP 639)
 build-backend = "hatchling.build"
 
 [project]
 name = "devops-builder"
-version = "0.16.0"
+version = "0.16.1"
 description = "Application graphique Material pour composer des pipelines DevOps cohérents à partir du CNCF Landscape."
 readme = "README.md"
 requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "Vincent Denise" }]
+keywords = ["devops", "ci-cd", "cncf", "kubernetes", "terraform", "pipeline", "générateur"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Developers",
+    "Natural Language :: French",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: System :: Systems Administration",
+]
 dependencies = [
-    "PySide6>=6.6",
+    # PySide6 6.12.0 décrémente trop le compteur de None : fatal sous Python 3.11 (None n'y est pas immortel)
+    "PySide6>=6.6,<6.12; python_version < '3.12'",
+    "PySide6>=6.6; python_version >= '3.12'",
     "qt-material>=2.14",
     "QtAwesome>=1.3",
     "pydantic>=2.6",
@@ -29,6 +49,12 @@ dev = [
     "shellcheck-py>=0.10",
     "ruff>=0.5",
 ]
+
+[project.urls]
+Source = "https://github.com/denvi44/devops-builder"
+Documentation = "https://github.com/denvi44/devops-builder#readme"
+Signalements = "https://github.com/denvi44/devops-builder/issues"
+Changements = "https://github.com/denvi44/devops-builder/blob/main/CHANGELOG.md"
 
 [project.scripts]
 devops-builder = "devops_builder.cli:main"

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Environnements Bac à sable et Recette, ports par environnement, hôte partagé."""
 
 from __future__ import annotations

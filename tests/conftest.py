@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Isolation des tests : aucun catalogue personnel ni index rafraîchi du poste ne doit compter."""
 
 from __future__ import annotations

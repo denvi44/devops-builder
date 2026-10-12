@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Lot 0.16 : contrat de la ligne de commande (codes de sortie, sortie --json, --version)."""
 
 from __future__ import annotations

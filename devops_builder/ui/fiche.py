@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Création et modification d'une fiche personnelle (souvent à partir d'une entrée du Landscape)."""
 
 from __future__ import annotations

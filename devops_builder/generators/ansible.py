@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Ansible : inventaires par environnement, préparation des hôtes, déploiement Compose.
 
 La CI lance `ansible-playbook` depuis la racine du dépôt avec ANSIBLE_CONFIG=ansible/ansible.cfg.

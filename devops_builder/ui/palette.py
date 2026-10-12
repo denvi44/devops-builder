@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Palette d'outils : recherche, filtres, glisser vers le canevas."""
 
 from __future__ import annotations

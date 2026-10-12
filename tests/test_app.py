@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """L'application d'abord : analyse du dossier, projet pré-rempli, catalogue restreint au projet."""
 
 from __future__ import annotations

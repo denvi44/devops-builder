@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Fichiers de déploiement : Compose, chart Helm, Kustomize, Argo CD, Flux, Ansible."""
 
 from __future__ import annotations

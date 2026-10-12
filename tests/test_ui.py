@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Tests de l'interface en mode hors écran (QT_QPA_PLATFORM=offscreen)."""
 
 from __future__ import annotations

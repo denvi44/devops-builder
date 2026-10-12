@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Bases de données du pipeline : moteurs, briques et informations de connexion.
 
 Trois façons d'avoir une base, chacune avec son contrat de connexion :

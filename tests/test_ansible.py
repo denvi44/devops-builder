@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Lot 0.10 : Ansible — hôtes paramétrés, configuration, collections épinglées, connexion au registre."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Lot 0.16 : contrat de compatibilité des fichiers projet (voir docs/format.md)."""
 
 from __future__ import annotations

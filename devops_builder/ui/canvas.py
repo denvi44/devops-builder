@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Canevas du pipeline : une carte par étape, des briques glissables."""
 
 from __future__ import annotations

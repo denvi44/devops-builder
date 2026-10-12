@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Lot 0.15 : fournisseur d'identité — Keycloak et Dex, realm en code, connexion unique des outils."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Script de déclaration des variables CI : chaque variable « à déclarer » de PIPELINE.md.
 
 Le script ne contient aucune valeur : il les lit dans l'environnement, dans un fichier

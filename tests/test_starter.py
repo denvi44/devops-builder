@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Assistant de démarrage et suggestions : invariants sur toutes les combinaisons."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Assistant de démarrage : quelques questions, un pipeline complet et cohérent."""
 
 from __future__ import annotations

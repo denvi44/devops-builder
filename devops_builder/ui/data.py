@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Vue « Données » : chaque base, par environnement — mode, version, taille, connexion, secret, sauvegarde."""
 
 from __future__ import annotations

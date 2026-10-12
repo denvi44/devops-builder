@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Bouton « Valider » : contrôles locaux des fichiers générés, puis test dans un cluster kind."""
 
 from __future__ import annotations

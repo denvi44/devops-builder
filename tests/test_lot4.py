@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Lot 4 : entretien du catalogue, catalogue personnel, rafraîchissement du Landscape.
 
 Chaque test travaille dans son propre dossier utilisateur (DEVOPS_BUILDER_HOME) ; l'API

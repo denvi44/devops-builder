@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Interface en ligne de commande (sans interface graphique).
 
     python -m devops_builder                      # lance l'interface graphique

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Entretien du catalogue : ce qui a changé depuis la vérification des fiches.
 
 Contrôles hors ligne : maturité dans le Landscape, fiche disparue du Landscape, date de

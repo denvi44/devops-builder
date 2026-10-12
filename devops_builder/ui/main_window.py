@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Fenêtre principale de DevOps Builder."""
 
 from __future__ import annotations

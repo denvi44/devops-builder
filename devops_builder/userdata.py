@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Emplacements des données de l'utilisateur (catalogue personnel, index du Landscape, caches).
 
 DEVOPS_BUILDER_HOME change le dossier de base : utile pour partager un catalogue d'équipe

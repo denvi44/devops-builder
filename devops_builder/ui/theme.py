@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Thème Material (qt-material) avec des couleurs au contraste vérifié (WCAG AA).
 
 Les thèmes « teal » fournis par qt-material utilisent #1de9b6, illisible en

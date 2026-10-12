@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Lot 0.9 : Terraform / OpenTofu (état, verrous, variables, versions) et Floci."""
 
 from __future__ import annotations

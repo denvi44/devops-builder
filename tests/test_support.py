@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Lot 0.16 : niveau de prise en charge des fiches, confronté à ce que les générateurs produisent vraiment."""
 
 from __future__ import annotations

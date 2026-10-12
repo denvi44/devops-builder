@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Matrice publique de prise en charge : ce que les générateurs savent faire de chaque fiche.
 
     python -m devops_builder.support > docs/prise-en-charge.md

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Bases de données : services Compose, manifestes Kubernetes, Terraform des bases managées.
 
 Le contrat avec l'application est toujours le même : elle lit l'URL de connexion complète

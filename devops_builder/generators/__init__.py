@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Point d'entrée des générateurs : projet → fichiers prêts à committer."""
 
 from __future__ import annotations

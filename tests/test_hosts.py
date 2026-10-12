@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Lot 0.11 : machines créées par Terraform, inventaire Ansible et déploiement SSH tirés de ses sorties."""
 
 from __future__ import annotations

@@ -1,0 +1,12 @@
+DevOps Builder
+Copyright 2026 Vincent Denise et les contributeurs de DevOps Builder
+
+Ce produit est distribué sous la licence Apache, version 2.0 (fichier LICENSE).
+
+Ce produit contient un index dérivé du CNCF Landscape (https://github.com/cncf/landscape),
+distribué par la Cloud Native Computing Foundation sous la licence Apache, version 2.0 :
+devops_builder/data/landscape_index.json (noms, catégories, maturité, adresses des projets).
+Les noms et marques des projets appartiennent à leurs détenteurs ; aucun logo n'est inclus.
+
+Les fichiers qu'il génère pour un projet appartiennent à l'utilisateur et ne sont pas soumis à la
+licence de DevOps Builder (voir README, section Licence).

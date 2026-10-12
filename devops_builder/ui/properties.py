@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Panneau des propriétés : fiche de l'outil et paramètres de la brique."""
 
 from __future__ import annotations

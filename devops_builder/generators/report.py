@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Rapport PIPELINE.md : briques, licences, variables CI, avertissements restants."""
 
 from __future__ import annotations

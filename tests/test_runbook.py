@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Lot 0.13 : mode d'emploi généré, configuration du coffre par script, identité d'External Secrets par Terraform."""
 
 from __future__ import annotations

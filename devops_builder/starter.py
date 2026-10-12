@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Assistant de démarrage : quelques réponses → un pipeline complet et cohérent.
 
 La fonction `build_starter` ne dépend pas de l'interface ; les tests vérifient que

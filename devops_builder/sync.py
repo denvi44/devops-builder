@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Écriture prudente des fichiers générés dans un dossier ou un dépôt existant.
 
 Un manifeste (`.devops-builder/manifest.json`) garde l'empreinte de chaque fichier

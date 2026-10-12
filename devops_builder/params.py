@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Validation et résolution des paramètres de briques."""
 
 from __future__ import annotations

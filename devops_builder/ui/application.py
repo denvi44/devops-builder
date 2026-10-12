@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """L'application mise en pipeline : son dossier, ce que l'analyse y a trouvé, ses réglages."""
 
 from __future__ import annotations

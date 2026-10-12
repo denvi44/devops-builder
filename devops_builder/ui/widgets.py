@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Petits composants Material : icônes, puces, en-têtes de section."""
 
 from __future__ import annotations

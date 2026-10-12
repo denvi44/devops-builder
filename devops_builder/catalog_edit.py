@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Écriture du catalogue personnel : fiches créées depuis le Landscape, corrections de fiches.
 
 Les fichiers livrés avec l'application ne sont jamais modifiés : tout va dans le dossier

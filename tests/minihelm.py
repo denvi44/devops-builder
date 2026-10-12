@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Rendu Helm minimal pour les tests : le sous-ensemble de gabarits qu'écrit DevOps Builder.
 
 Le binaire helm n'est pas toujours installé (ni téléchargeable) sur le poste de test ; ce rendu

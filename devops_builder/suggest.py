@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Suggestions de briques complémentaires pour la brique sélectionnée."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Secrets de l'application : d'où viennent les valeurs, et comment elles atteignent les conteneurs.
 
 Trois sources, une seule convention de nommage :

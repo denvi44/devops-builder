@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Fournisseur d'identité : Keycloak ou Dex — déploiement, realm en code, clients OIDC des outils et de l'application.
 
 L'application reçoit OIDC_ISSUER_URL et OIDC_CLIENT_ID : son client est public, avec PKCE, sans secret

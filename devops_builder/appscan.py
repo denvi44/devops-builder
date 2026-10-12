@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Analyse du dossier d'une application : ce qu'il faut savoir pour lui construire un pipeline.
 
 Lecture seule et sans exécuter de code : les fichiers sont lus tels quels (pas de `git`,

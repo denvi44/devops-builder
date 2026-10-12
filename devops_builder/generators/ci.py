@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Générateurs de définitions CI à partir de l'IR."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Floci, émulateur AWS local : environnement de développement, tests de l'application, plan de l'IaC.
 
 Floci écoute sur le port 4566 et accepte n'importe quels identifiants (test/test). Les services qui

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Lot 3 : validation locale, test kind, écriture prudente, export Git, variables CI.
 
 Les outils externes (kind, kubectl, helm, docker, gh, glab) sont remplacés par de petits

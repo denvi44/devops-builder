@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """docs/mise-en-route.md : les gestes à faire à la main, dans l'ordre, avec les valeurs du projet.
 
 Chaque section ne paraît que si sa brique est dans le pipeline. Les commandes sont prêtes à copier ;

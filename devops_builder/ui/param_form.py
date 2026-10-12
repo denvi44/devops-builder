@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Formulaire typé des paramètres d'une brique (à partir du schéma de la fiche)."""
 
 from __future__ import annotations

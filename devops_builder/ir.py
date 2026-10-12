@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Représentation intermédiaire (IR) neutre du pipeline.
 
 Les générateurs CI ne lisent que l'IR : une liste ordonnée d'étapes avec une

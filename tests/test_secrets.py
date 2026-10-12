@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Lot 0.12 : secrets — SOPS, Vault / OpenBao lus par la CI, External Secrets, coffres des clouds."""
 
 from __future__ import annotations

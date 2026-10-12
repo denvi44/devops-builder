@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Export des fichiers générés vers un dépôt Git : branche dédiée, commit, push, demande de fusion.
 
 Rien n'est écrit sur la branche courante : les fichiers partent sur une nouvelle branche,

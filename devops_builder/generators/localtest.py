@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Test de déploiement local : un cluster kind jetable reçoit le chart Helm ou l'overlay Kustomize."""
 
 from __future__ import annotations

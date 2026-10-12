@@ -1,5 +1,7 @@
 # DevOps Builder
 
+[![CI](https://github.com/denvi44/devops-builder/actions/workflows/ci.yml/badge.svg)](https://github.com/denvi44/devops-builder/actions/workflows/ci.yml) [![Licence Apache 2.0](https://img.shields.io/badge/licence-Apache%202.0-blue.svg)](LICENSE)
+
 Application de bureau Python, en Material Design, pour composer un pipeline DevOps en posant des briques issues du [CNCF Landscape](https://landscape.cncf.io/). Un moteur de règles bloque les combinaisons incohérentes avant de générer les fichiers à committer.
 
 ![Pipeline de référence](docs/captures/01-pipeline.png)
@@ -69,7 +71,7 @@ Application de bureau Python, en Material Design, pour composer un pipeline DevO
 
 ## Installation
 
-Il faut Python 3.11 ou plus récent.
+Il faut Python 3.11 ou plus récent. Sous Python 3.11, PySide6 est limité aux versions 6.11 : la 6.12.0 y fait planter l'interpréteur (défaut de comptage de références, sans effet à partir de Python 3.12).
 
 ```bash
 python -m venv .venv
@@ -244,3 +246,17 @@ Pour l'interface, `tools/screenshot.py` refait les captures et `tools/compare_ca
 - Une brique issue du Landscape sans fiche n'est contrôlée par aucune règle et ne produit aucun fichier : en faire une fiche personnelle. Une fiche personnelle est contrôlée par les règles, mais aucun générateur ne la connaît : elle apparaît dans « À configurer à la main ».
 - L'entretien n'interroge que GitHub et GitLab.com ; un dépôt hébergé ailleurs (Gitea, Codeberg, GitLab autohébergé) n'est suivi que par le Landscape et la date de vérification.
 - L'authentification cloud par OIDC n'est générée que pour GitLab CI et GitHub Actions. Gitea Actions reprend les actions GitHub, mais l'émission du jeton dépend de l'instance. Jenkins, Woodpecker, Tekton, Azure Pipelines et Cloud Build reposent sur des secrets ou sur l'identité du service.
+
+## Contribuer
+
+Les contributions sont bienvenues, en français : voir [CONTRIBUTING.md](CONTRIBUTING.md) (poste de
+développement, projets de référence, ajout d'une fiche, d'une règle ou d'un générateur), la
+[feuille de route](ROADMAP.md) et le [code de conduite](CODE_OF_CONDUCT.md). Une vulnérabilité se signale en
+privé : [SECURITY.md](SECURITY.md).
+
+## Licence
+
+DevOps Builder est distribué sous la [licence Apache 2.0](LICENSE) ; voir aussi [NOTICE](NOTICE) et les
+[licences tierces](docs/licences-tierces.md) (PySide6 est sous LGPL-3.0, données dérivées du CNCF Landscape).
+Les fichiers que l'application génère pour votre projet vous appartiennent : la licence de DevOps Builder ne
+s'y applique pas, placez-les sous celle de votre choix.

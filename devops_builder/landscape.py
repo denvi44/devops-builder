@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Index du CNCF Landscape : construction depuis landscape.yml, rafraîchissement, écarts.
 
 L'index livré avec l'application (data/landscape_index.json) date de la version. Le

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Entretien du catalogue : contrôle des fiches, corrections, rafraîchissement du Landscape."""
 
 from __future__ import annotations

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Signaler une vulnérabilité
+    url: https://github.com/denvi44/devops-builder/security/advisories/new
+    about: En privé, jamais dans un ticket public (voir SECURITY.md).

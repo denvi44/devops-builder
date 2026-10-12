@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Ce que deviennent les bases d'un projet : mode, emplacement, connexion, secret, sauvegarde.
 
 Une seule source pour la carte du canevas, le panneau des propriétés, la vue « Données » et la

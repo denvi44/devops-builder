@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Chargement du catalogue : fiches livrées, catalogue personnel, index du CNCF Landscape.
 
 Ordre de fusion : fiches livrées, puis fiches personnelles (dossier utilisateur), puis

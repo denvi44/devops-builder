@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Non-régression : sorties figées et projets enregistrés par les versions précédentes.
 
 Si une différence est voulue (nouveau générateur, correction), régénérer l'instantané :

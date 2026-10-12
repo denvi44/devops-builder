@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Capture hors écran de l'interface (vérification visuelle, documentation).
 
     QT_QPA_PLATFORM=offscreen python tools/screenshot.py sortie/ [--dark]

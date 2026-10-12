@@ -4,6 +4,24 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## 0.16.1 — 2026-10-12
+
+Préparation de l'ouverture du dépôt ; aucun changement des fichiers générés.
+
+### Corrigé
+- Sous Python 3.11, PySide6 6.12.0 fait planter l'interpréteur (« deallocating None », défaut de comptage de
+  références de PySide6, masqué à partir de Python 3.12) : PySide6 est limité aux 6.11 sous Python 3.11.
+  Trouvé en lançant la suite dans un environnement neuf, comme le fera la CI.
+
+### Ajouté
+- Licence Apache 2.0 (`LICENSE`, texte officiel vérifié par un test), `NOTICE` (attribution des données du
+  CNCF Landscape), en-tête SPDX dans chaque fichier Python, métadonnées du paquet (expression de licence,
+  adresses du dépôt GitHub).
+- `docs/licences-tierces.md` : licence de chaque dépendance et des données embarquées, obligations de la LGPL
+  de PySide6 pour les futurs exécutables.
+- Fichiers du dépôt public : CI GitHub Actions (actions épinglées par empreinte), Dependabot, modèles de
+  ticket et de demande de fusion, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `ROADMAP.md`.
+
 ## 0.16.0 — 2026-10-12
 
 Gel du périmètre en vue de la 1.0 : aucune brique nouvelle, un contrat de compatibilité.

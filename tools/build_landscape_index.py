@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Reconstruit l'index livré (devops_builder/data/landscape_index.json) depuis un landscape.yml.
 
 Usage (mainteneurs de l'application) :

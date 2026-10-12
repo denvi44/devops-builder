@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Utilitaires partagés par les générateurs."""
 
 from __future__ import annotations

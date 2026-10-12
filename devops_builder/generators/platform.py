@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Briques de plateforme : charts Helm (Kubernetes) et services Compose (hôte Docker)."""
 
 from __future__ import annotations

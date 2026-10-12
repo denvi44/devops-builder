@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Compare deux séries de captures (non-régression visuelle) : part de pixels différents.
 
     QT_QPA_PLATFORM=offscreen python tools/compare_captures.py reference/ nouvelles/ [--seuil 2]

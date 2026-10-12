@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Moteur de règles de compatibilité et résolveur de corrections.
 
 Chaque règle est un fichier YAML de `data/rules/` qui choisit un *type*

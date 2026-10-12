@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Fichiers complémentaires : mises à jour de dépendances et installation des clusters autogérés."""
 
 from __future__ import annotations

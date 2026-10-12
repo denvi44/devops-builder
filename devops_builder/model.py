@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Modèle de données : fiches outils, projet, pipeline.
 
 Tout est sérialisable en YAML pour que le format `.devops.yaml` reste lisible

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Génération Terraform / OpenTofu : fournisseurs, backend d'état et services managés."""
 
 from __future__ import annotations

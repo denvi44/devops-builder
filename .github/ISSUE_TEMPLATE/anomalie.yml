@@ -1,0 +1,38 @@
+name: Anomalie
+description: Un fichier généré faux, une règle qui se trompe, une erreur de l'interface.
+labels: [anomalie]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Sortie de `devops-builder --version`.
+      placeholder: devops-builder 0.16.1
+    validations:
+      required: true
+  - type: dropdown
+    id: domaine
+    attributes:
+      label: Domaine
+      options:
+        - Fichiers générés
+        - Règles et diagnostics
+        - Interface
+        - Ligne de commande
+        - Catalogue et Landscape
+        - Autre
+    validations:
+      required: true
+  - type: textarea
+    id: projet
+    attributes:
+      label: Fichier projet
+      description: Le `.devops.yaml` réduit au minimum qui montre le problème (sans secret).
+      render: yaml
+  - type: textarea
+    id: constat
+    attributes:
+      label: Ce qui se passe et ce qui était attendu
+      description: Commande lancée, fichier concerné, message d'erreur.
+    validations:
+      required: true

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Boîtes de dialogue : paramètres du projet, génération, à propos."""
 
 from __future__ import annotations

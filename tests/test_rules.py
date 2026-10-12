@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Un test par règle de la matrice (R00 à R24), plus les corrections."""
 
 from __future__ import annotations

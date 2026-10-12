@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Lot 0.14 : ergonomie des données — vue Données, format de connexion, poste de développement, restauration,
 sauvegardes CloudNativePG."""
 

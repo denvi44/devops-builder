@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Export : différences avant écriture dans un dossier, et export vers un dépôt Git."""
 
 from __future__ import annotations

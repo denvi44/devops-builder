@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Machines virtuelles créées par Terraform / OpenTofu, et chaînage vers Ansible ou le déploiement SSH.
 
 Un groupe de machines par environnement — ou par hôte partagé, quand des environnements indiquent le
