@@ -333,6 +333,56 @@ _vault: &vault
     pattern_hint: "segments de lettres, chiffres, _ et -, séparés par /"
 vault: *vault
 openbao: *vault
+_idp_host: &idp_host
+  label: Adresse publique
+  description: Nom d'hôte servi en HTTPS (Traefik sur un hôte Docker, Ingress sur Kubernetes) ; il fixe l'émetteur OIDC.
+  example: auth.example.com
+  required: true
+  pattern: '[a-z0-9]([a-z0-9.-]*[a-z0-9])?'
+  pattern_hint: "nom d'hôte sans schéma, ex. auth.example.com"
+_tools_domain: &tools_domain
+  label: Domaine des outils
+  description: >-
+    Les outils branchés sur la connexion unique sont attendus à https://<outil>.<domaine>
+    (argocd., grafana., vault., harbor., sonarqube.) ; modifiable ensuite dans les variables de la pile.
+  example: example.com
+  pattern: '[a-z0-9]([a-z0-9.-]*[a-z0-9])?'
+  pattern_hint: "domaine, ex. example.com"
+_app_url: &app_url
+  label: Adresse de l'application
+  description: URL publique de l'application, pour les adresses de retour du client OIDC.
+  example: https://app.example.com
+  pattern: 'https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?'
+  pattern_hint: "https://hôte[:port]"
+keycloak:
+  hostname: *idp_host
+  realm:
+    label: Realm
+    description: Espace des comptes, groupes et clients du projet.
+    default: "{app}"
+    pattern: '[a-z0-9][a-z0-9-]{0,62}'
+    pattern_hint: "minuscules, chiffres et tirets"
+  version:
+    label: Version
+    default: "26.8"
+    suggestions: ["26.8", "26.7"]
+    pattern: '[0-9]{2}\.[0-9]+(\.[0-9]+)?'
+    pattern_hint: "version, ex. 26.8"
+  tools_domain: *tools_domain
+  app_url: *app_url
+dex:
+  hostname: *idp_host
+  connector:
+    label: Connexion déléguée à
+    description: "Vide : la forge du pipeline (GitLab ou GitHub)."
+    choices: [gitlab, github]
+  org:
+    label: Groupe ou organisation autorisé
+    description: "Seuls ses membres se connectent ; le nom du groupe arrive dans la revendication « groups »."
+    pattern: '[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*'
+    pattern_hint: "groupe GitLab ou organisation GitHub"
+  tools_domain: *tools_domain
+  app_url: *app_url
 sops:
   age_recipients:
     label: Destinataires age

@@ -877,6 +877,21 @@ def h_backup_plugin(rule: Rule, ctx: Context) -> list[Diagnostic]:
     return [_diag(rule, rule.message, [placed[0].brick.uid], _add_actions(ctx, ["cert-manager"]))]
 
 
+@handler("identity_prereq")
+def h_identity_prereq(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    """Keycloak et Dex sur un hôte Docker : terminaison HTTPS par Traefik."""
+    out = []
+    for p in ctx.placed:
+        if p.tool.id not in ("keycloak", "dex"):
+            continue
+        if ctx.project.target in ("docker-host", "vm") and ctx.has("docker-compose") and not ctx.has("traefik"):
+            out.append(_diag(rule, _fmt(rule.message, tool=p.tool.name,
+                                        detail="un fournisseur d'identité se sert en HTTPS : ajouter Traefik, qui "
+                                               "termine TLS devant lui sur l'hôte Docker"),
+                             [p.brick.uid], _add_actions(ctx, ["traefik"])))
+    return out
+
+
 @handler("vault_unreachable")
 def h_vault_unreachable(rule: Rule, ctx: Context) -> list[Diagnostic]:
     from .databases import DATABASE_TOOLS

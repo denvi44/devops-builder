@@ -60,7 +60,28 @@ def kube_dbs(ir: IR) -> list[Database]:
 
 
 def needs_secrets(ir: IR) -> bool:
-    return bool(compose_dbs(ir))
+    from .identity import all_compose_secrets
+    return bool(compose_dbs(ir)) or bool(all_compose_secrets(ir))
+
+
+def compose_bindings(ir: IR, env) -> list[tuple[str, str]]:
+    """Variables lues par deploy/secrets.sh : bases, puis services de plateforme (fournisseur d'identité)."""
+    from . import secrets
+    from .identity import all_compose_secrets
+    out = secret_bindings(ir, env, compose_dbs(ir))
+    seen = {local for local, _ in out}
+    where = f" ({env.display})" if ir.multi_env else ""
+    for cs in all_compose_secrets(ir):
+        if cs.var in seen:
+            continue
+        seen.add(cs.var)
+        if secrets.source(ir) != "ci":
+            out.append((cs.var, cs.var))
+            continue
+        ci = _var(ir, cs.var, env)
+        ir.add_var(ci, f"{cs.description}{where}")
+        out.append((cs.var, ci))
+    return out
 
 
 # ----------------------------------------------------------------- variables CI
@@ -146,16 +167,23 @@ def compose_parts(ir: IR, app_service: dict, image: str) -> dict[str, dict]:
 
 def secrets_script(ir: IR) -> dict[str, str]:
     """deploy/secrets.sh : écrit les fichiers lus par Compose (env_file) à partir des variables."""
+    from .identity import all_compose_secrets
     dbs = compose_dbs(ir)
-    if not dbs:
+    extras = all_compose_secrets(ir)
+    if not dbs and not extras:
         return {}
+    names = list(dict.fromkeys([*_script_vars(dbs), *(cs.var for cs in extras)]))
     lines = ["#!/bin/sh", f"# {HEADER}",
              "# Écrit les fichiers de secrets lus par Docker Compose (env_file) à partir des variables",
              "# d'environnement ; appelé par la CI avant chaque déploiement, ou à la main sur un poste :",
-             "#   " + " ".join(f"{v}=…" for v in _script_vars(dbs)) + f" sh {SECRETS_SCRIPT} deploy/secrets",
+             "#   " + " ".join(f"{v}=…" for v in names) + f" sh {SECRETS_SCRIPT} deploy/secrets",
              "set -eu", 'dir="${1:-secrets}"', "umask 077", 'mkdir -p "$dir"', ""]
-    for var in _script_vars(dbs):
-        lines.append(f': "${{{var}:?variable {var} manquante}}"')
+    optional = {cs.var for cs in extras if cs.optional}
+    for var in names:
+        if var in optional:
+            lines.append(f': "${{{var}:=}}"  # facultative au premier déploiement')
+        else:
+            lines.append(f': "${{{var}:?variable {var} manquante}}"')
     for db in dbs:
         if db.mode == "self-hosted":
             lines += [f'case "${db.password_var}" in *[!{URL_SAFE}]*)',
@@ -172,7 +200,14 @@ def secrets_script(ir: IR) -> dict[str, str]:
             app_lines += [f"{var}={part_value(db, key, db.id, pw)}" for var, key in db.parts()]
         else:
             app_lines.append(f"{db.url_var}=${db.url_ci_var}")
-    lines += ['cat > "$dir/app.env" <<EOF', *app_lines, "EOF", 'echo "Secrets écrits dans $dir"', ""]
+    by_file: dict[str, list[str]] = {}
+    for cs in extras:
+        by_file.setdefault(cs.file, []).append(f"{cs.key}=${cs.var}")
+    for name, entries in by_file.items():
+        lines += [f'cat > "$dir/{name}" <<EOF', *entries, "EOF"]
+    if dbs:
+        lines += ['cat > "$dir/app.env" <<EOF', *app_lines, "EOF"]
+    lines += ['echo "Secrets écrits dans $dir"', ""]
     return {SECRETS_SCRIPT: "\n".join(lines)}
 
 

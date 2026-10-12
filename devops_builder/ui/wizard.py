@@ -28,6 +28,7 @@ from ..starter import (
     FORGES,
     HOSTINGS,
     IAC,
+    IDENTITY,
     NATIVE_CI,
     OBSERVABILITY,
     SECRET_CLOUDS,
@@ -233,6 +234,11 @@ class StarterWizard(QWizard):
         self.w_secrets.setToolTip("D'où la CI et le cluster tirent les mots de passe : variables de la CI, fichiers "
                                   "chiffrés par SOPS, OpenBao (External Secrets sur Kubernetes) ou le coffre du "
                                   "cloud (écrit par Terraform, lu par External Secrets).")
+        self.w_identity = QComboBox()
+        for k, v in IDENTITY.items():
+            self.w_identity.addItem(v, k)
+        self.w_identity.setToolTip("Fournisseur d'identité OIDC : connexion unique à Argo CD, Grafana, Vault / OpenBao "
+                                   "et à l'application ; Dex délègue la connexion à la forge.")
         self.w_cache = QCheckBox("Cache et sessions (Valkey)")
         db_row = QWidget()
         db_lay = QHBoxLayout(db_row)
@@ -240,11 +246,12 @@ class StarterWizard(QWizard):
         db_lay.addWidget(self.w_db, 1)
         db_lay.addWidget(self.w_cache)
         for label, w in (("Base de données", self.w_db), ("Cache Valkey", self.w_cache),
-                         ("Secrets", self.w_secrets),
+                         ("Secrets", self.w_secrets), ("Connexion unique", self.w_identity),
                          ("Observabilité", self.w_obs), ("Infrastructure as code", self.w_iac)):
             w.setAccessibleName(label)
         form.addRow("Base de données", db_row)
         form.addRow("Secrets", self.w_secrets)
+        form.addRow("Connexion unique", self.w_identity)
         form.addRow("Observabilité", self.w_obs)
         form.addRow("Infrastructure as code (cloud)", self.w_iac)
         lay.addLayout(form)
@@ -270,6 +277,9 @@ class StarterWizard(QWizard):
                 item.setEnabled(ok)
         if not allowed.get(self.w_secrets.currentData(), True):
             self.w_secrets.setCurrentIndex(0)
+        self.w_identity.setEnabled(a.hosting != "serverless")
+        if a.hosting == "serverless":
+            self.w_identity.setCurrentIndex(0)
         docker = a.hosting in ("docker-host", "vm")
         self.w_shared.setEnabled(docker)
         if not docker:
@@ -329,6 +339,7 @@ class StarterWizard(QWizard):
             database=self.w_db.currentData() if hasattr(self, "w_db") else "none",
             cache=self.w_cache.isChecked() if hasattr(self, "w_cache") else False,
             secrets=self.w_secrets.currentData() if hasattr(self, "w_secrets") else "ci",
+            identity=self.w_identity.currentData() if hasattr(self, "w_identity") else "none",
         )
 
     def project(self) -> Project:

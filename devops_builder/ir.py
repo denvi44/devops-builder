@@ -444,7 +444,7 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
     if ir.has("docker-compose") and target in ("docker-host", "vm"):
         secrets: list[str] = []
         if dbgen.needs_secrets(ir):
-            prefix = dbgen.env_prefix(dbgen.secret_bindings(ir, env, dbgen.compose_dbs(ir)))
+            prefix = dbgen.env_prefix(dbgen.compose_bindings(ir, env))
             image = ANSIBLE_IMAGE if ir.has("ansible") else ALPINE
             secrets = [*sec.ci_lines(ir, env, dbgen.compose_dbs(ir), image),
                        f"{prefix}sh {dbgen.SECRETS_SCRIPT} .secrets"]

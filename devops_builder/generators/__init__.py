@@ -81,6 +81,8 @@ def render(project: Project, catalog: Catalog) -> tuple[dict[str, str], IR]:
     files.update(hosts.inventory_script(ir))
     files.update(secrets.files(ir, data.compose_dbs(ir)))
     files.update(data.dev_files(ir))
+    from . import identity
+    files.update(identity.files(ir))
     data.notes(ir)
     files.update(extras.renovate(ir))
     files.update(extras.dependabot(ir))

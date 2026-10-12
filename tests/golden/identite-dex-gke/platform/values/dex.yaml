@@ -1,0 +1,45 @@
+# Généré par DevOps Builder — à relire avant usage. Valeurs du chart dex/dex (platform/install.sh).
+config:
+  issuer: https://dex.boutique.fr
+  storage:
+    type: kubernetes
+    config:
+      inCluster: true
+  web:
+    http: 0.0.0.0:5556
+  oauth2:
+    skipApprovalScreen: true
+  connectors:
+  - type: gitlab
+    id: gitlab
+    name: GitLab
+    config:
+      clientID: $DEX_CONNECTOR_ID
+      clientSecret: $DEX_CONNECTOR_SECRET
+      redirectURI: https://dex.boutique.fr/callback
+      baseURL: https://gitlab.com
+      groups:
+      - boutique
+  staticClients:
+  - id: mon-app
+    name: mon-app
+    public: true
+    redirectURIs:
+    - https://app.example.com/callback
+    - https://app.example.com/oauth2/callback
+  - id: grafana
+    name: grafana
+    secretEnv: GRAFANA_OIDC_SECRET
+    redirectURIs:
+    - https://grafana.example.com/login/generic_oauth
+envFrom:
+- secretRef:
+    name: dex-secrets
+ingress:
+  enabled: false
+  className: ''
+  hosts:
+  - host: dex.boutique.fr
+    paths:
+    - path: /
+      pathType: ImplementationSpecific

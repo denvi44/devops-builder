@@ -42,9 +42,17 @@ def compose(ir: IR) -> dict[str, str]:
         ]
     else:
         service["ports"] = [_published(ir, "app", port, port)]
+    from . import identity
+    service["environment"].update(identity.app_env(ir))
     services = {app: service}
     services.update(data.compose_parts(ir, service, service["image"]))
     services.update(compose_platform_services(ir))
+    services.update(identity.compose_services(ir))
+    if "grafana" in services and identity.grafana_compose_env(ir):
+        grafana = dict(services["grafana"])
+        grafana["environment"] = {**grafana.get("environment", {}), **identity.grafana_compose_env(ir)}
+        grafana["env_file"] = ["secrets/grafana.env"]
+        services["grafana"] = grafana
     files: dict[str, str] = {}
     if parametrized(ir.project):
         for tid, svc in services.items():
@@ -63,7 +71,7 @@ def compose(ir: IR) -> dict[str, str]:
     if volumes:
         doc["volumes"] = {v: {} for v in volumes}
     from .platform import compose_configs
-    configs = compose_configs(ir)
+    configs = {**compose_configs(ir), **identity.compose_configs(ir)}
     if configs:
         doc["configs"] = configs
     files.update(data.secrets_script(ir))
@@ -118,8 +126,9 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
 """
-    if db_env:
-        deployment += _indent({"env": db_env}, 10)
+    oidc = [{"name": k, "value": v} for k, v in identity_env(ir).items()]
+    if db_env or oidc:
+        deployment += _indent({"env": db_env + oidc}, 10)
     if db_init:
         deployment = deployment.replace("      containers:\n", _indent({"initContainers": db_init}, 6) + "      containers:\n", 1)
     service = f"""apiVersion: v1
@@ -152,6 +161,11 @@ spec:
     }
 
 
+def identity_env(ir: IR) -> dict[str, str]:
+    from .identity import app_env
+    return app_env(ir)
+
+
 def _indent(obj: dict, spaces: int) -> str:
     """Fragment YAML indenté, à insérer dans un gabarit Helm écrit à la main."""
     import yaml
@@ -173,8 +187,9 @@ def kustomize(ir: IR) -> dict[str, str]:
                "spec": {"selector": {"app": app}, "ports": [{"port": 80, "targetPort": port}]}}
     db_files, db_resources, db_env, db_init = data.kustomize_parts(ir)
     pod = deployment["spec"]["template"]["spec"]
-    if db_env:
-        pod["containers"][0]["env"] = db_env
+    oidc = [{"name": k, "value": v} for k, v in identity_env(ir).items()]
+    if db_env or oidc:
+        pod["containers"][0]["env"] = db_env + oidc
     if db_init:
         deployment["spec"]["template"]["spec"] = {"initContainers": db_init, **pod}
     base_k = {"apiVersion": "kustomize.config.k8s.io/v1beta1", "kind": "Kustomization",

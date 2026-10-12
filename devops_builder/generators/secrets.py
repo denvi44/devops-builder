@@ -79,12 +79,18 @@ def kv_mount(ir: IR) -> str:
 # ------------------------------------------------------------------ valeurs
 def values(ir: IR, dbs: list[Database]) -> list[tuple[str, str, str]]:
     """(variable lue par les scripts, brique, propriété dans le coffre) des secrets de l'application."""
+    from .identity import all_compose_secrets, idp
     out = []
     for db in dbs:
         if db.mode == "self-hosted":
             out.append((db.password_var, db.id, "password"))
         elif db.mode == "managed":
             out.append((db.url_ci_var, db.id, "url"))
+    seen = {v for v, _, _ in out}
+    for cs in all_compose_secrets(ir):  # services de plateforme sur l'hôte Docker (fournisseur d'identité)
+        if cs.var not in seen:
+            seen.add(cs.var)
+            out.append((cs.var, idp(ir) or "plateforme", cs.var.lower()))
     return out
 
 
@@ -736,6 +742,29 @@ echo "Rôle auth/kubernetes/role/external-secrets : @SA_NS@/@SA@"
 """
 
 
+_SETUP_OIDC = r"""
+# Connexion des personnes : OIDC par @IDP@ ; le groupe « @ADMINS@ » reçoit la politique admin
+OIDC_SECRET="${OIDC_CLIENT_SECRET:-}"
+@SECRET_FALLBACK@if [ -z "$OIDC_SECRET" ]; then
+  echo "OIDC_CLIENT_SECRET absent : connexion OIDC des personnes non configurée (relancer avec la valeur)" >&2
+else
+  api PUT sys/policies/acl/admin "$(jq -n '{policy: "path \"*\" { capabilities = [\"create\", \"read\", \"update\", \"delete\", \"list\", \"sudo\"] }"}')" >/dev/null
+  if ! enabled sys/auth oidc; then
+    api POST sys/auth/oidc '{"type": "oidc"}' >/dev/null
+    echo "Méthode auth/oidc activée"
+  fi
+  api POST auth/oidc/config "$(jq -n --arg i "@ISSUER@" --arg s "$OIDC_SECRET" \
+    '{oidc_discovery_url: $i, oidc_client_id: "@CLIENT@", oidc_client_secret: $s, default_role: "admin"}')" >/dev/null
+  UI="${OIDC_REDIRECT_BASE:-@UI@}"
+  api POST auth/oidc/role/admin "$(jq -n --arg ui "$UI" '{
+      user_claim: "sub", groups_claim: "groups", oidc_scopes: ["openid", "profile", "email", "groups"],
+      allowed_redirect_uris: [($ui + "/ui/vault/auth/oidc/oidc/callback"), "http://localhost:8250/oidc/callback"],
+      bound_claims: {groups: ["@ADMINS@"]}, token_policies: ["admin"], token_ttl: "8h"}')" >/dev/null
+  echo "Rôle auth/oidc/role/admin : groupe @ADMINS@ de @IDP@ (@ISSUER@)"
+fi
+"""
+
+
 def jwt_ci(ir: IR) -> tuple[str, str] | None:
     """(nom de la CI, émetteur par défaut) quand la CI sait présenter un jeton OIDC au coffre."""
     return JWT_ISSUERS.get(ir.ci.id) if ir.ci else None
@@ -749,7 +778,9 @@ def setup_script(ir: IR) -> dict[str, str]:
     k8s = eso(ir) and store(ir) == tool
     ci_reads = source(ir) == "vault" and any(FETCH_SCRIPT in line for st in ir.steps for line in st.script)
     jwt = jwt_ci(ir) if ci_reads else None
-    if not (k8s or ci_reads):
+    from . import identity
+    oidc = identity.issuer(ir)
+    if not (k8s or ci_reads or oidc):
         return {}
     mount = kv_mount(ir)
     prefixes = " ".join(sorted({shlex.quote(ir.namespace(e)) for e in ir.envs}))
@@ -783,6 +814,21 @@ def setup_script(ir: IR) -> dict[str, str]:
         k8s_doc = ",\n#   connexion Kubernetes d'External Secrets (rôle « external-secrets »)"
         var_doc += (",\n#   KUBE_HOST, KUBE_CA_FILE, KUBE_REVIEWER_JWT : seulement si le coffre tourne hors du "
                     "cluster")
+    if oidc:
+        client = next((c for c in identity.clients(ir) if c.tool == tool), None)
+        if client:
+            fallback = ""
+            if identity.idp(ir) == "keycloak":
+                fallback = (f'[ -n "$OIDC_SECRET" ] || OIDC_SECRET="$({ir.iac_cmd} -chdir="$(dirname "$0")/../'
+                            f'{identity.KC_DIR}" output -raw {client.client_id}_client_secret 2>/dev/null || true)"\n')
+            body += (_SETUP_OIDC.replace("@IDP@", ir.catalog[identity.idp(ir)].name)
+                     .replace("@ADMINS@", identity.admin_group(ir)).replace("@ISSUER@", oidc)
+                     .replace("@CLIENT@", client.client_id).replace("@UI@", identity.tool_url(ir, client))
+                     .replace("@SECRET_FALLBACK@", fallback))
+            jwt_doc += (f",\n#   connexion OIDC des personnes ({ir.catalog[identity.idp(ir)].name}, groupe "
+                        f"{identity.admin_group(ir)})")
+            var_doc += ",\n#   OIDC_CLIENT_SECRET (secret du client OIDC du coffre), OIDC_REDIRECT_BASE (adresse de l'interface)"
+            policies = (policies + " et " if policies else "") + "admin"
     text = (_SETUP.replace("@HEADER@", HEADER).replace("@NAME@", ir.catalog[tool].name).replace("@APP@", ir.app)
             .replace("@MOUNT@", mount).replace("@POLICIES@", policies).replace("@JWT_DOC@", jwt_doc)
             .replace("@K8S_DOC@", k8s_doc).replace("@VARS_DOC@", var_doc).replace("@ENVHINT@", env_hint)

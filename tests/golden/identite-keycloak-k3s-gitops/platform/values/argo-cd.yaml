@@ -1,0 +1,18 @@
+# Généré par DevOps Builder — à relire avant usage. Argo CD : connexion par Keycloak.
+configs:
+  cm:
+    url: https://argocd.boutique.fr
+    oidc.config: |
+      name: Keycloak
+      issuer: https://auth.boutique.fr/realms/mon-app
+      clientID: argo-cd
+      clientSecret: $oidc.clientSecret
+      requestedScopes:
+      - openid
+      - profile
+      - email
+      - groups
+  rbac:
+    policy.csv: |
+      g, admins, role:admin
+    policy.default: role:readonly

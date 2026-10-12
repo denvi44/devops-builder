@@ -82,6 +82,8 @@ CASES = [
     ("R45", lambda: put(make("docker-host"), "docker-compose", "postgresql", "openbao"), Severity.WARNING),
     ("R46", lambda: with_params(put(make("kubernetes-managed"), "aws", "eks", "helm", "aws-rds"), "aws-rds",
                                 url_format="parts"), Severity.WARNING),
+    ("R48", lambda: put(make("kubernetes"), "k3s", "helm", "cloudnative-pg", "keycloak", "dex"), Severity.WARNING),
+    ("R49", lambda: put(make("docker-host"), "docker-compose", "keycloak"), Severity.WARNING),
     ("R47", lambda: with_params(put(make("kubernetes"), "k3s", "helm", "cloudnative-pg"), "cloudnative-pg",
                                 backup_destination="s3://sauvegardes"), Severity.WARNING),
 ]

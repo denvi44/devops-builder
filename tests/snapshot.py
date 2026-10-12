@@ -183,6 +183,23 @@ def extra_cases(catalog) -> dict[str, Project]:
                                              envs="staging-prod"), catalog)
             p.add("cloudnative-pg", "data")
             out[f"donnees-cnpg-sauvegarde-{cloud}"] = p
+    # 0.15 : fournisseur d'identité — Keycloak, Dex, connexion unique des outils et de l'application
+    if "identity" in getattr(StarterAnswers, "__dataclass_fields__", {}):
+        kc = {"hostname": "auth.boutique.fr", "tools_domain": "boutique.fr", "app_url": "https://boutique.fr"}
+        compose = build_starter(StarterAnswers(forge="gitlab", hosting="docker-host", envs="staging-prod",
+                                               database="postgresql", identity="keycloak", secrets="openbao"), catalog)
+        compose.add("grafana", catalog["grafana"].stage)
+        out["identite-keycloak-compose"] = brick(brick(compose, "keycloak", **kc), "openbao",
+                                                 address="https://coffre.boutique.fr")
+        k3s = build_starter(StarterAnswers(forge="github", hosting="kubernetes", envs="dev-staging-prod",
+                                           gitops=True, identity="keycloak", secrets="openbao"), catalog)
+        out["identite-keycloak-k3s-gitops"] = brick(k3s, "keycloak", **kc)
+        dex = build_starter(StarterAnswers(forge="gitlab", hosting="kubernetes-managed", cloud="gcp",
+                                           envs="staging-prod", identity="dex", k8s_deploy="kustomize"), catalog)
+        out["identite-dex-gke"] = brick(dex, "dex", hostname="dex.boutique.fr", org="boutique")
+        out["identite-dex-compose-github"] = brick(build_starter(StarterAnswers(
+            forge="github", hosting="vm", envs="staging-prod", identity="dex"), catalog), "dex",
+            hostname="dex.boutique.fr")
     return out
 
 

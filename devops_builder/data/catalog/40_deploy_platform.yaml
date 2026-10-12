@@ -264,6 +264,34 @@
   provides: [secret-store]
   verified: "2026-10-08"
 
+- id: keycloak
+  name: Keycloak
+  stage: platform
+  extra_stages: [security]
+  roles: [identity-provider]
+  description: Fournisseur d'identité OIDC et SAML (CNCF) — comptes, groupes, connexion unique des outils et de l'application.
+  license: Apache-2.0
+  repo: https://github.com/keycloak/keycloak
+  hosting: [docker-host, vm, kubernetes]
+  provides: [oidc-provider]
+  alternatives: [dex]
+  landscape_name: Keycloak
+  verified: "2026-10-12"
+
+- id: dex
+  name: Dex
+  stage: platform
+  extra_stages: [security]
+  roles: [identity-provider]
+  description: Fédération OIDC légère (CNCF) qui délègue la connexion à la forge (GitLab, GitHub).
+  license: Apache-2.0
+  repo: https://github.com/dexidp/dex
+  hosting: [docker-host, vm, kubernetes]
+  provides: [oidc-provider]
+  alternatives: [keycloak]
+  landscape_name: Dex
+  verified: "2026-10-12"
+
 - id: external-secrets
   name: External Secrets Operator
   stage: platform

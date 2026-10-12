@@ -76,6 +76,7 @@ def main() -> int:
         b.setChecked(b.property("key") == "dev-staging-prod")
     wiz.w_db.setCurrentIndex(max(0, wiz.w_db.findData("postgresql")))
     wiz.w_cache.setChecked(True)
+    wiz.w_identity.setCurrentIndex(max(0, wiz.w_identity.findData("keycloak")))
     wiz.show()
     for _ in range(4):
         wiz.next()

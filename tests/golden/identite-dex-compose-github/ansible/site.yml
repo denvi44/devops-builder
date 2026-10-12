@@ -1,0 +1,70 @@
+# Généré par DevOps Builder — à relire avant usage.
+- name: Préparer les hôtes Docker
+  hosts: app
+  become: true
+  tasks:
+    - name: Docker déjà installé ?
+      ansible.builtin.stat:
+        path: /usr/bin/docker
+      register: docker_bin
+    - name: Prérequis (Debian, Ubuntu)
+      when: ansible_os_family == 'Debian'
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - python3-yaml
+        update_cache: true
+        cache_valid_time: 3600
+    - name: Docker sur Debian et Ubuntu
+      when: ansible_os_family == 'Debian' and not docker_bin.stat.exists
+      block:
+        - name: Clé du dépôt Docker
+          ansible.builtin.get_url:
+            url: https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg
+            dest: /etc/apt/keyrings/docker.asc
+            mode: '0644'
+        - name: Dépôt Docker
+          ansible.builtin.deb822_repository:
+            name: docker
+            types:
+              - deb
+            uris:
+              - https://download.docker.com/linux/{{ ansible_distribution | lower }}
+            suites:
+              - '{{ ansible_distribution_release }}'
+            components:
+              - stable
+            signed_by: /etc/apt/keyrings/docker.asc
+        - name: Paquets Docker
+          ansible.builtin.apt:
+            name:
+              - docker-ce
+              - docker-ce-cli
+              - containerd.io
+              - docker-buildx-plugin
+              - docker-compose-plugin
+            update_cache: true
+    - name: Docker sur RHEL, Rocky, Alma et Fedora
+      when: ansible_os_family == 'RedHat' and not docker_bin.stat.exists
+      block:
+        - name: Dépôt Docker
+          ansible.builtin.get_url:
+            url: https://download.docker.com/linux/{{ 'fedora' if ansible_distribution == 'Fedora' else 'rhel' }}/docker-ce.repo
+            dest: /etc/yum.repos.d/docker-ce.repo
+            mode: '0644'
+        - name: Paquets Docker
+          ansible.builtin.dnf:
+            name:
+              - docker-ce
+              - docker-ce-cli
+              - containerd.io
+              - docker-buildx-plugin
+              - docker-compose-plugin
+              - python3-pyyaml
+            state: present
+    - name: Activer Docker
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true

@@ -1,0 +1,6 @@
+id: R49
+title: Fournisseur d'identité sans prérequis
+family: dependance
+severity: avertissement
+type: identity_prereq
+message: "{tool} : {detail}."

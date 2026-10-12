@@ -1,0 +1,8 @@
+id: R48
+title: Deux fournisseurs d'identité
+family: exclusivite
+severity: avertissement
+type: exclusive_role
+params:
+  role: identity-provider
+message: "Deux fournisseurs d'identité ({tools}) : les outils et l'application ne sont branchés que sur le premier. N'en garder qu'un, ou fédérer l'un dans l'autre à la main."

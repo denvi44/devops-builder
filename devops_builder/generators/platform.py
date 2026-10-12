@@ -62,6 +62,7 @@ PLATFORM_CHARTS: dict[str, Chart] = {
     "crossplane": Chart("crossplane-stable", "https://charts.crossplane.io/stable", "crossplane-stable/crossplane", "crossplane-system"),
     "cloudnative-pg": Chart("cnpg", "https://cloudnative-pg.github.io/charts", "cnpg/cloudnative-pg", "cnpg-system",
                             note="Opérateur seulement : le Cluster PostgreSQL est livré avec l'application."),
+    "dex": Chart("dex", "https://charts.dexidp.io", "dex/dex", "dex"),
     "kubescape": Chart("kubescape", "https://kubescape.github.io/helm-charts/", "kubescape/kubescape-operator", "kubescape"),
 }
 
@@ -113,7 +114,7 @@ COMPOSE_SERVICES: dict[str, dict] = {
 
 
 def install_script(ir: IR) -> dict[str, str]:
-    from . import secrets
+    from . import identity, secrets
     from .data import cnpg_backup
     from .extras import embedded_components
 
@@ -123,7 +124,11 @@ def install_script(ir: IR) -> dict[str, str]:
         ir.cover(tid)
     present = [t for t in PLATFORM_CHARTS if ir.has(t) and t not in embedded and not external_vault(ir, t)]
     ir.cover(*(t for t in ("vault", "openbao") if external_vault(ir, t)))
-    if not present:
+    idp_lines = identity.install_lines(ir)
+    after_cnpg = bool(idp_lines) and "cloudnative-pg" in present
+    if after_cnpg:  # le Cluster de la base de Keycloak attend l'opérateur
+        idp_lines.insert(1, "kubectl -n cnpg-system rollout status deployment/cloudnative-pg --timeout=180s")
+    if not present and not idp_lines:
         return {}
     ir.cover(*present)
     present.sort(key=lambda t: (FIRST.index(t) if t in FIRST else len(FIRST), t))
@@ -139,6 +144,9 @@ def install_script(ir: IR) -> dict[str, str]:
         lines.append(f"helm repo add {name} {url}")
     if repos:
         lines += ["helm repo update", ""]
+    if idp_lines and not after_cnpg:  # le fournisseur d'identité avant les outils qui s'y branchent
+        lines += idp_lines
+        idp_lines = []
     for t in present:
         c = PLATFORM_CHARTS[t]
         tool = ir.catalog[t]
@@ -148,6 +156,9 @@ def install_script(ir: IR) -> dict[str, str]:
         if t == "linkerd":
             lines.append("helm upgrade --install linkerd-crds linkerd-edge/linkerd-crds --namespace linkerd --create-namespace")
         args = f" {c.args}" if c.args else ""
+        pre_idp, idp_args = identity.chart_args(ir, t)
+        lines += pre_idp
+        args += idp_args
         store_file = t == "external-secrets" and secrets.eso(ir)
         if store_file:
             pre, extra = secrets.eso_helm_args(ir)
@@ -156,11 +167,16 @@ def install_script(ir: IR) -> dict[str, str]:
         lines.append(f"helm upgrade --install {t} {c.chart} --namespace {c.namespace} --create-namespace{args}")
         if store_file:
             lines.append(f'kubectl apply -f "$(dirname "$0")/{secrets.STORE_FILE.split("/", 1)[1]}"')
+        if t == "cloudnative-pg" and after_cnpg:
+            lines.append("")
+            lines += idp_lines
+            idp_lines = []
         if t == "cloudnative-pg" and cnpg_backup(ir):
             lines.append("# Plugin Barman Cloud : sauvegardes et archivage des WAL (demande cert-manager)")
             lines.append("helm upgrade --install plugin-barman-cloud cnpg/plugin-barman-cloud --namespace cnpg-system "
                          "--wait")
         lines.append("")
+    lines += idp_lines
     return {"platform/install.sh": "\n".join(lines)}
 
 

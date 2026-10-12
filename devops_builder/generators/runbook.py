@@ -431,6 +431,55 @@ def _dbs(ir: IR):
     return compose_dbs(ir)
 
 
+def _identity(ir: IR, files: dict[str, str]) -> list[str]:
+    from . import identity
+    tool = identity.idp(ir)
+    if not tool:
+        return []
+    name = ir.catalog[tool].name
+    out = [f"## {name}", ""]
+    if tool == "keycloak":
+        if identity.compose_target(ir):
+            ns = ir.namespace(ir.envs[-1])
+            first = ['# administrateur temporaire : admin-temporaire / KEYCLOAK_ADMIN_PASSWORD (deploy/secrets.sh)',
+                     f'ssh "<hôte>" "cd /opt/{ns} && docker compose -p {ns} logs keycloak | tail -n 5"']
+        else:
+            first = ["kubectl -n keycloak wait keycloak/keycloak --for=condition=Ready --timeout=300s",
+                     "kubectl -n keycloak get secret keycloak-initial-admin -o jsonpath='{.data.username}' | base64 -d; echo",
+                     "kubectl -n keycloak get secret keycloak-initial-admin -o jsonpath='{.data.password}' | base64 -d; echo"]
+        out += ["Keycloak démarre avec un administrateur temporaire, à remplacer par un compte nominatif dans le "
+                "realm master (Console › Users), puis supprimer :", "", *_sh(*first),
+                f"Décrire le realm « {identity.realm(ir)} » (groupes {identity.ADMINS} et {identity.DEVELOPERS}, "
+                "clients de l'application et des outils) :", "",
+                *_sh('export KEYCLOAK_USER="<administrateur>" KEYCLOAK_PASSWORD="<mot de passe>"',
+                     f"{ir.iac_cmd} -chdir={identity.KC_DIR} init",
+                     f"{ir.iac_cmd} -chdir={identity.KC_DIR} apply",
+                     f"curl -fsS {identity.issuer(ir)}/.well-known/openid-configuration | jq -r .issuer"),
+                f"Ajouter les personnes au groupe « {identity.ADMINS} » (droits d'administration des outils) ou "
+                f"« {identity.DEVELOPERS} ».", ""]
+    else:
+        forge = "GitHub (Settings › Developer settings › OAuth Apps)" if (
+            str(identity.params(ir).get("connector") or "") == "github" or (ir.forge and ir.forge.id == "github")) \
+            else "GitLab (Préférences › Applications, portée read_user openid)"
+        secrets = " ".join(f'--from-literal={identity.secret_env_name(c)}="$(openssl rand -hex 24)"'
+                           for c in identity.clients(ir))
+        lines = ['kubectl create namespace dex --dry-run=client -o yaml | kubectl apply -f -',
+                 f'kubectl -n dex create secret generic dex-secrets --from-literal=DEX_CONNECTOR_ID="<id>" '
+                 f'--from-literal=DEX_CONNECTOR_SECRET="<secret>" {secrets}'.rstrip()] \
+            if identity.kube_target(ir) else ["# DEX_CONNECTOR_ID dans la configuration (compose), DEX_CONNECTOR_SECRET "
+                                              "et les secrets des clients en variables CI (section Variables CI)"]
+        out += [f"Dex délègue la connexion à {forge} : y créer une application OAuth avec l'adresse de retour "
+                f"`{identity.issuer(ir)}/callback`, puis :", "", *_sh(*lines),
+                f"Vérifier : `curl -fsS {identity.issuer(ir)}/.well-known/openid-configuration | jq -r .issuer`.", ""]
+    wired = [ir.catalog[c.tool].name for c in identity.clients(ir)]
+    if wired:
+        out += [f"Outils branchés : {', '.join(wired)}. Vault / OpenBao : relancer `scripts/vault-setup.sh` avec "
+                "`OIDC_CLIENT_SECRET` pour la connexion des personnes ; Argo CD et Grafana : `platform/install.sh` "
+                "reprend leurs secrets. Harbor et SonarQube : renseigner l'émetteur et le client dans leur "
+                "administration.", ""]
+    return out
+
+
 def _backups(ir: IR, files: dict[str, str]) -> list[str]:
     from .data import BACKUP_SECRET, RESTORE_SCRIPT, backup_needs_secret, cnpg_backup
     out: list[str] = []
@@ -483,7 +532,7 @@ def _dev(ir: IR, files: dict[str, str]) -> list[str]:
             f"passe `dev`). Les fichiers de `{DEV_DIR}/init/<base>/` sont joués à la création :", "", *_sh(*lines)]
 
 
-SECTIONS = (_state, _ci_cloud, _infra, _platform, _vault, _app_secrets, _eso, _hosts, _gitops, _ci_vars,
+SECTIONS = (_state, _ci_cloud, _infra, _platform, _identity, _vault, _app_secrets, _eso, _hosts, _gitops, _ci_vars,
             _first_deploy, _backups, _dev, _upkeep)
 
 

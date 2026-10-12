@@ -45,7 +45,8 @@ DATABASES = {"none": "Aucune", "postgresql": "PostgreSQL", "mysql": "MySQL", "ma
              "mongodb": "MongoDB"}
 SECRETS = {"ci": "Variables de la CI", "sops": "Chiffrés dans le dépôt (SOPS + age)",
            "openbao": "Coffre OpenBao", "cloud": "Coffre du cloud"}
-SECRET_CLOUDS = ("aws", "gcp", "azure")  # fournisseurs dont la fiche porte un coffre de secrets
+SECRET_CLOUDS = ("aws", "gcp", "azure")
+IDENTITY = {"none": "Aucune", "keycloak": "Keycloak (comptes et groupes)", "dex": "Dex (comptes de la forge)"}  # fournisseurs dont la fiche porte un coffre de secrets
 # Valeur du paramètre « engine » d'une base managée, selon le moteur demandé
 MANAGED_ENGINE_PARAM = {
     "aws-rds": {"postgresql": "postgres", "mysql": "mysql", "mariadb": "mariadb"},
@@ -85,6 +86,7 @@ class StarterAnswers:
     migrations: str = ""              # commande de migration de schéma, détectée dans l'application
     secrets: str = "ci"               # source des secrets de l'application (SECRETS)
     connections: dict = field(default_factory=dict)  # variable et format de connexion détectés, par famille
+    identity: str = "none"            # connexion unique des outils et de l'application (IDENTITY)
 
 
 def clouds_for(hosting: str, secnumcloud: bool) -> list[str]:
@@ -121,6 +123,9 @@ def validate(a: StarterAnswers) -> list[str]:
             problems.append("Choisir un cloud compatible avec cet hébergement.")
     elif a.hosting in ("docker-host", "vm") and a.cloud is not None and a.cloud not in host_clouds(a.hosting, a.secnumcloud):
         problems.append("Ce cloud ne convient pas (SecNumCloud) : choisir Outscale, OVHcloud ou des serveurs existants.")
+    if a.hosting == "serverless" and a.identity != "none":
+        problems.append("Serverless : pas de fournisseur d'identité déployé avec l'application ; utiliser celui "
+                        "du cloud (Cognito, Identity Platform, Entra ID).")
     if a.hosting == "serverless" and a.secrets in ("sops", "openbao"):
         problems.append("Serverless : le service lit ses secrets dans le coffre du cloud ; choisir ce coffre ou "
                         "les variables de la CI.")
@@ -259,6 +264,10 @@ def build_starter(a: StarterAnswers, catalog: Catalog) -> Project:
         add(provider.services["secrets"])
     if a.secrets in ("openbao", "cloud") and k8s:
         add("external-secrets")  # écrit les Secrets Kubernetes à partir du coffre
+
+    # Connexion unique
+    if a.identity in ("keycloak", "dex") and a.hosting != "serverless":
+        add(a.identity)  # sur Kubernetes, sa base : Cluster CloudNativePG s'il est là, sinon StatefulSet dédié
 
     # Observabilité
     if (a.observability == "prometheus" and a.hosting != "serverless") or (a.observability == "cloud" and vm_cloud):
