@@ -288,6 +288,21 @@ def h_lifecycle(rule: Rule, ctx: Context) -> list[Diagnostic]:
     return out
 
 
+@handler("experimental")
+def h_experimental(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    """Fiches générées avec une limite connue (support: experimental) : la limite est rappelée."""
+    seen: dict[str, list[str]] = {}
+    tools = {}
+    for p in ctx.placed:
+        if p.tool.support_level == "experimental":
+            seen.setdefault(p.tool.id, []).append(p.brick.uid)
+            tools[p.tool.id] = p.tool
+    def note(t) -> str:  # après les deux-points : minuscule
+        return t.support_note[:1].lower() + t.support_note[1:]
+    return [_diag(rule, _fmt(rule.message, tool=tools[tid].name, note=note(tools[tid])), uids, [])
+            for tid, uids in seen.items()]
+
+
 @handler("sovereignty")
 def h_sovereignty(rule: Rule, ctx: Context) -> list[Diagnostic]:
     if not ctx.project.secnumcloud:

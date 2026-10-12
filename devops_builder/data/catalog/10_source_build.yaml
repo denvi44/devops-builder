@@ -81,6 +81,8 @@
   name: Secure Source Manager
   kind: service
   stage: source
+  support: manual
+  support_note: "Dépôt à créer à la main ; aucune CI générée ne s'y branche."
   roles: [scm]
   description: Forge Git managée de Google Cloud.
   license: proprietary
@@ -139,6 +141,8 @@
 - id: tekton
   name: Tekton
   stage: build
+  support: experimental
+  support_note: "Pas de porte d'approbation native : la production part d'un déclenchement manuel ; secrets de la CI à déclarer à la main."
   extra_stages: [deploy]
   roles: [ci]
   description: Pipelines CI/CD natifs Kubernetes (CRD Pipeline, Task).
@@ -151,6 +155,8 @@
 - id: woodpecker
   name: Woodpecker CI
   stage: build
+  support: experimental
+  support_note: "Pas de porte d'approbation native : la production part d'un déclenchement manuel ; secrets de la CI à déclarer à la main."
   roles: [ci]
   description: CI légère à base de conteneurs, compatible Gitea, GitHub, GitLab, Bitbucket.
   license: Apache-2.0
@@ -175,6 +181,8 @@
   name: AWS CodeBuild
   kind: service
   stage: build
+  support: experimental
+  support_note: "Pas de porte d'approbation native : la production part d'un déclenchement manuel ; secrets de la CI à déclarer à la main."
   roles: [ci]
   description: Service de build managé AWS (buildspec.yml).
   license: proprietary
@@ -188,6 +196,8 @@
   name: Google Cloud Build
   kind: service
   stage: build
+  support: experimental
+  support_note: "Pas de porte d'approbation native : la production part d'un déclenchement manuel ; secrets de la CI à déclarer à la main."
   roles: [ci]
   description: Service de build managé Google Cloud (cloudbuild.yaml).
   license: proprietary
@@ -259,6 +269,8 @@
 - id: packer
   name: Packer
   stage: build
+  support: manual
+  support_note: "Modèle d'image à écrire à la main."
   extra_stages: [infrastructure]
   roles: [vm-image]
   description: Construction d'images de machines virtuelles.

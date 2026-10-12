@@ -1,0 +1,6 @@
+id: R50
+title: Brique expérimentale
+family: completude
+severity: info
+type: experimental
+message: "{tool} est expérimental : {note}"

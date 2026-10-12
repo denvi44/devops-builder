@@ -11,6 +11,12 @@
     python -m devops_builder landscape-refresh [--source landscape.yml] [--reset]
     python -m devops_builder scan ../mon-app [--json]
     python -m devops_builder init ../mon-app -o mon-app.devops.yaml [--hosting …] [--envs …]
+
+Codes de sortie (contrat stable, voir docs/ligne-de-commande.md) :
+    0  succès
+    1  problème trouvé : erreur bloquante, contrôle en échec, export impossible, fiche à corriger
+    2  utilisation incorrecte ou fichier projet illisible
+    test-kind rend le code de sortie du script de test.
 """
 
 from __future__ import annotations
@@ -22,11 +28,36 @@ import sys
 import tempfile
 from pathlib import Path
 
-from . import sync
+from . import __version__, sync
 from .catalog import default_catalog
 from .generators import BlockingDiagnostics, GenerationResult, generate
-from .model import Project
+from .model import Project, ProjectFormatError
 from .rules import RuleEngine
+
+OK, PROBLEM, USAGE = 0, 1, 2
+JSON_SCHEMA = 1  # version de la sortie --json : un champ retiré ou renommé l'augmente
+
+
+def _diag_json(d) -> dict:
+    return {"rule": d.rule_id, "severity": d.severity.value, "family": d.family, "message": d.message,
+            "bricks": list(d.bricks), "actions": [a.label for a in d.actions]}
+
+
+def _emit(command: str, ok: bool, **data) -> None:
+    import json
+    print(json.dumps({"schema": JSON_SCHEMA, "command": command, "version": __version__, "ok": ok, **data},
+                     ensure_ascii=False, indent=2))
+
+
+def _load_project(path: str) -> Project | None:
+    """Fichier absent ou illisible : message sur la sortie d'erreur, None (code 2)."""
+    try:
+        return Project.load(path)
+    except FileNotFoundError:
+        print(f"Fichier projet introuvable : {path}", file=sys.stderr)
+    except (ProjectFormatError, OSError) as exc:
+        print(f"Fichier projet illisible : {path} : {exc}", file=sys.stderr)
+    return None
 
 
 def _print_diags(diags) -> None:
@@ -80,21 +111,27 @@ def run_kind_test(files: dict[str, str], env: str | None = None, app_dir: str | 
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="devops-builder", description="Composer des pipelines DevOps cohérents.")
+    parser = argparse.ArgumentParser(prog="devops-builder", description="Composer des pipelines DevOps cohérents.",
+                                     epilog="Codes de sortie : 0 succès, 1 problème trouvé, 2 utilisation ou fichier "
+                                            "illisible.")
+    parser.add_argument("--version", action="version", version=f"devops-builder {__version__}")
     sub = parser.add_subparsers(dest="cmd")
     c = sub.add_parser("check", help="Vérifier un projet")
     c.add_argument("project")
+    c.add_argument("--json", action="store_true", help="Sortie JSON (diagnostics)")
     g = sub.add_parser("generate", help="Générer les fichiers d'un projet dans un dossier")
     g.add_argument("project")
     g.add_argument("-o", "--output", required=True)
     g.add_argument("--force", action="store_true", help="Générer malgré les erreurs bloquantes")
     g.add_argument("--dry-run", action="store_true", help="Afficher les changements sans rien écrire")
+    g.add_argument("--json", action="store_true", help="Sortie JSON (fichiers et leur état)")
     g.add_argument("--overwrite", action="store_true",
                    help="Remplacer aussi les fichiers retouchés à la main ou étrangers à DevOps Builder")
     v = sub.add_parser("validate", help="Contrôler les fichiers générés avec les outils installés")
     v.add_argument("project")
     v.add_argument("--offline", action="store_true", help="Sauter les contrôles qui téléchargent des schémas")
     v.add_argument("-v", "--verbose", action="store_true", help="Afficher la sortie de chaque contrôle")
+    v.add_argument("--json", action="store_true", help="Sortie JSON (résultat de chaque contrôle)")
     k = sub.add_parser("test-kind", help="Déployer le pipeline dans un cluster kind jetable")
     k.add_argument("project")
     k.add_argument("--env", help="Environnement à tester (défaut : développement, ou le premier)")
@@ -145,31 +182,57 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd in ("catalog-check", "catalog-import", "landscape-refresh"):
         return _catalog_command(args)
 
+    project = _load_project(args.project)
+    if project is None:
+        return USAGE
+    as_json = getattr(args, "json", False)
+    unknown = project.unknown_fields()
+    if unknown and not as_json:
+        print(f"Champs inconnus de cette version, conservés : {', '.join(unknown)}", file=sys.stderr)
     catalog = default_catalog()
-    project = Project.load(args.project)
     engine = RuleEngine(catalog)
     if args.cmd == "check":
         diags = engine.evaluate(project)
-        _print_diags(diags)
-        return 1 if RuleEngine.blocking(diags) else 0
+        blocking = RuleEngine.blocking(diags)
+        if as_json:
+            _emit("check", not blocking, project=args.project, blocking=len(blocking),
+                  diagnostics=[_diag_json(d) for d in diags], unknown_fields=unknown)
+        else:
+            _print_diags(diags)
+        return PROBLEM if blocking else OK
     try:
         result = generate(project, catalog, engine, allow_blocking=getattr(args, "force", False))
     except BlockingDiagnostics as exc:
-        print("Génération refusée : erreurs bloquantes.")
-        _print_diags(exc.diagnostics)
-        return 1
+        if as_json:
+            _emit(args.cmd, False, project=args.project, error="erreurs bloquantes",
+                  diagnostics=[_diag_json(d) for d in exc.diagnostics], unknown_fields=unknown)
+        else:
+            print("Génération refusée : erreurs bloquantes.")
+            _print_diags(exc.diagnostics)
+        return PROBLEM
 
     if args.cmd == "generate":
         changes = sync.plan(result.files, args.output)
         _select(changes, args.overwrite)
+        touched = [] if args.dry_run else sync.apply(changes, args.output)
+        kept = [c.path for c in changes if c.status in (sync.EDITED, sync.FOREIGN) and not c.selected]
+        if as_json:
+            files = []
+            for c in changes:
+                added, removed = c.stats()
+                files.append({"path": c.path, "status": c.status, "selected": c.selected, "deletion": c.deletion,
+                              "added": added, "removed": removed})
+            _emit("generate", True, project=args.project, output=args.output, dry_run=args.dry_run,
+                  written=len([t for t in touched if t != sync.MANIFEST]), kept=kept, files=files,
+                  unsupported=[t.id for t in result.ir.unsupported], unknown_fields=unknown)
+            return OK
         if args.dry_run:
             _print_plan(changes)
-            return 0
-        touched = sync.apply(changes, args.output)
+            return OK
         print(f"{len([t for t in touched if t != sync.MANIFEST])} fichier(s) écrit(s) dans {args.output} "
               f"({sync.describe(changes)}).")
         _skipped_hint(changes)
-        return 0
+        return OK
 
     if args.cmd == "validate":
         from .validate import FAILED, summary, validate_files
@@ -179,9 +242,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{marks.get(r.status, '?')} {r.label:52} {r.status}" + (f" ({r.seconds:.1f} s)" if r.seconds else ""))
             if r.output and (args.verbose or r.status == FAILED):
                 print("    " + r.output.replace("\n", "\n    "))
-        results = validate_files(result.files, network=not args.offline, on_result=show)
-        print(summary(results))
-        return 1 if any(r.failed for r in results) else 0
+        results = validate_files(result.files, network=not args.offline, on_result=None if as_json else show)
+        failed = any(r.failed for r in results)
+        if as_json:
+            _emit("validate", not failed, project=args.project, summary=summary(results),
+                  results=[{"id": r.id, "label": r.label, "status": r.status, "files": r.files,
+                            "seconds": round(r.seconds, 2), "output": r.output, "hint": r.hint} for r in results])
+        else:
+            print(summary(results))
+        return PROBLEM if failed else OK
 
     if args.cmd == "test-kind":
         return run_kind_test(result.files, args.env, args.app_dir, args.keep)
@@ -222,8 +291,8 @@ def _app_command(args) -> int:
     try:
         profile = appscan.scan(args.folder)
     except ValueError as exc:
-        print(exc)
-        return 1
+        print(exc, file=sys.stderr)
+        return USAGE
     if args.cmd == "scan":
         if args.json:
             print(json.dumps(appscan.to_json(profile), ensure_ascii=False, indent=2))

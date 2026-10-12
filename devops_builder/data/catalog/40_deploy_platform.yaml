@@ -104,6 +104,8 @@
   name: Azure Container Apps
   kind: service
   stage: deploy
+  support: experimental
+  support_note: "Aucune ressource Terraform générée : l'application Container Apps se crée à la main, la CI la met ensuite à jour."
   roles: [deploy, serverless-containers]
   description: Conteneurs serverless d'Azure.
   license: proprietary
@@ -165,6 +167,8 @@
   name: AWS App Mesh
   kind: service
   stage: platform
+  support: manual
+  support_note: "Service arrêté par AWS, sans générateur."
   roles: [service-mesh]
   description: Service mesh managé AWS.
   license: proprietary
@@ -281,6 +285,8 @@
 - id: dex
   name: Dex
   stage: platform
+  support: experimental
+  support_note: "Configuration vérifiée, pas encore exécutée de bout en bout."
   extra_stages: [security]
   roles: [identity-provider]
   description: Fédération OIDC légère (CNCF) qui délègue la connexion à la forge (GitLab, GitHub).
@@ -395,6 +401,8 @@
 - id: knative
   name: Knative
   stage: platform
+  support: manual
+  support_note: "Installation et services Knative à écrire à la main."
   roles: [serverless]
   description: Serverless sur Kubernetes.
   license: Apache-2.0

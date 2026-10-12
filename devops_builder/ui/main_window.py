@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 
 from ..catalog import DATA_DIR, Catalog
 from ..generators import BlockingDiagnostics, generate
-from ..model import ENVIRONMENTS, STAGE_IDS, STAGE_LABELS, TARGETS, Project, Severity
+from ..model import ENVIRONMENTS, STAGE_IDS, STAGE_LABELS, TARGETS, Project, ProjectFormatError, Severity
 from ..rules import Action, RuleEngine, apply_action
 from . import theme
 from .canvas import PipelineCanvas
@@ -662,10 +662,19 @@ class MainWindow(QMainWindow):
             return
         try:
             project = Project.load(path)
-        except Exception as exc:
-            QMessageBox.critical(self, "Ouverture impossible", f"{path.name} n'est pas un projet valide :\n{exc}")
+        except (ProjectFormatError, OSError) as exc:
+            QMessageBox.critical(self, "Ouverture impossible", f"{path.name} n'a pas pu être ouvert :\n{exc}")
             return
         self._load(project, None if as_template else path)
+        self.announce_unknown_fields(project)
+
+    def announce_unknown_fields(self, project: Project) -> None:
+        """Fichier d'une version plus récente : ses champs inconnus sont gardés, et on le dit."""
+        unknown = project.unknown_fields()
+        if unknown:
+            shown = ", ".join(unknown[:4]) + (f" et {len(unknown) - 4} autre(s)" if len(unknown) > 4 else "")
+            self.statusBar().showMessage(f"Champs inconnus de cette version, conservés à l'enregistrement : {shown}.",
+                                         15000)
 
     def _load(self, project: Project, path: Path | None) -> None:
         self.project = project
@@ -698,7 +707,10 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Sauvegarde automatique", "Aucune sauvegarde automatique.")
             return
         if self._confirm_discard():
-            self._load(Project.load(autosave_path()), None)
+            try:
+                self._load(Project.load(autosave_path()), None)
+            except (ProjectFormatError, OSError) as exc:
+                QMessageBox.critical(self, "Sauvegarde automatique illisible", str(exc))
 
     def _generation(self):
         if not self.project.all_bricks():

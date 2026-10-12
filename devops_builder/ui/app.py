@@ -8,7 +8,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 
 from ..catalog import default_catalog
-from ..model import Project
+from ..model import Project, ProjectFormatError
 from ..rules import RuleEngine
 from . import theme
 from .main_window import MainWindow
@@ -23,16 +23,22 @@ def create_window(argv: list[str] | None = None) -> tuple[QApplication, MainWind
     catalog = default_catalog()
     engine = RuleEngine(catalog)
 
-    project, path = None, None
+    project, path, problem = None, None, ""
     files = [a for a in argv[1:] if a.endswith((".yaml", ".yml"))]
     if files and Path(files[0]).exists():
-        path = Path(files[0])
-        project = Project.load(path)
+        try:
+            project, path = Project.load(files[0]), Path(files[0])
+        except (ProjectFormatError, OSError) as exc:  # fenêtre vide et message, plutôt qu'un arrêt
+            problem = f"{Path(files[0]).name} n'a pas pu être ouvert : {exc}"
 
     from PySide6.QtCore import QSettings
     dark = QSettings("DevOpsBuilder", "DevOpsBuilder").value("dark", False, type=bool)
     theme.apply(app, dark)  # type: ignore[arg-type]
     window = MainWindow(catalog, engine, project, path)
+    if problem:
+        window.statusBar().showMessage(problem, 15000)
+    elif project is not None:
+        window.announce_unknown_fields(project)
     return app, window  # type: ignore[return-value]
 
 

@@ -140,7 +140,11 @@ TOFU = shutil.which("tofu") or os.environ.get("DEVOPS_BUILDER_TOFU")
 @pytest.mark.skipif(not (TOFU and os.environ.get("DEVOPS_BUILDER_TOFU_MIRROR")), reason="tofu et miroir absents")
 def test_realm_terraform_valide(tmp_path):
     gen(project("docker-host", *COMPOSE, "keycloak", "grafana", "openbao", keycloak=KC)).write(tmp_path)
-    env = {**os.environ, "TF_CLI_CONFIG_FILE": os.environ["DEVOPS_BUILDER_TOFU_MIRROR"]}
+    # même sens que dans test_iac : DEVOPS_BUILDER_TOFU_MIRROR est le dossier d'un filesystem_mirror
+    rc = tmp_path / "tofurc"
+    rc.write_text('provider_installation {\n  filesystem_mirror {\n'
+                  f'    path = "{os.environ["DEVOPS_BUILDER_TOFU_MIRROR"]}"\n  }}\n}}\n')
+    env = {**os.environ, "TF_CLI_CONFIG_FILE": str(rc)}
     stack = tmp_path / "infra/keycloak"
     assert subprocess.run([TOFU, "init", "-backend=false", "-input=false"], cwd=stack, env=env,
                           capture_output=True).returncode == 0

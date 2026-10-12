@@ -69,7 +69,9 @@ def test_projets_des_versions_precedentes(path: Path, tmp_path: Path):
     diags = RuleEngine(catalog).evaluate(project)
     assert RuleEngine.blocking(diags) == [], [d.message for d in RuleEngine.blocking(diags)]
     result = generate(project, catalog)
-    assert "PIPELINE.md" in result.files and result.ir.unsupported == []
+    assert "PIPELINE.md" in result.files
+    # seules des briques sans générateur (niveau « à configurer à la main ») restent sans fichier
+    assert [t.id for t in result.ir.unsupported if t.support_level != "manual"] == []
     # enregistré à nouveau : format courant, relu à l'identique
     saved = tmp_path / path.name
     project.save(saved)

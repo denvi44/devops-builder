@@ -13,6 +13,8 @@
 - id: thanos
   name: Thanos
   stage: observability
+  support: manual
+  support_note: "Installation à écrire à la main, à côté de Prometheus."
   roles: [metrics-longterm]
   description: Rétention longue durée et vue globale au-dessus de Prometheus.
   license: Apache-2.0
@@ -112,6 +114,8 @@
 - id: zabbix
   name: Zabbix
   stage: observability
+  support: manual
+  support_note: "Installation et agents à poser à la main."
   roles: [metrics]
   description: Supervision d'infrastructure classique (agents, SNMP).
   license: AGPL-3.0

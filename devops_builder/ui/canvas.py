@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..catalog import Catalog
-from ..model import STAGES, Project
+from ..model import STAGES, SUPPORT, Project
 from . import theme
 from .palette import MIME_TOOL
 from .widgets import KIND_ICONS, SEVERITY_ICONS, STAGE_ICONS, icon
@@ -357,12 +357,15 @@ class PipelineCanvas(QScrollArea):
                 item.setData(R_NAME, name)
                 info = data.get(b.tool)
                 sub = (f"{info.badge} · {info.db.url_var}" if info else self._subtitle(t) if t else "Fiche introuvable")
+                if t and t.curated and t.support_level != "supported":
+                    sub = f"{SUPPORT[t.support_level]} · {sub}" if sub else SUPPORT[t.support_level]
                 item.setData(R_SUB, sub)
                 item.setData(R_SEV, severity.get(b.uid, ""))
                 item.setData(R_KIND, t.kind if t else "tool")
                 item.setData(R_CURATED, bool(t and t.curated))
                 sev = severity.get(b.uid)
-                item.setData(Qt.ItemDataRole.AccessibleTextRole, f"{name}{', ' + sev if sev else ''}")
+                level = f", {SUPPORT[t.support_level].lower()}" if t and t.curated and t.support_level != "supported" else ""
+                item.setData(Qt.ItemDataRole.AccessibleTextRole, f"{name}{level}{', ' + sev if sev else ''}")
                 item.setToolTip((f"{info.where}\n{info.connection}\n{info.secret}" if info else "")
                                 or (t.description if t else ""))
                 lst.addItem(item)

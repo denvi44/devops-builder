@@ -1,0 +1,100 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: kubernetes
+environments:
+- id: dev
+  label: ''
+  kind: dev
+  approval: false
+  cluster: null
+  overrides: {}
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: github
+    params: {}
+  build:
+  - uid: brique002
+    tool: github-actions
+    params: {}
+  - uid: brique003
+    tool: buildkit
+    params: {}
+  - uid: brique004
+    tool: dependabot
+    params: {}
+  test:
+  - uid: brique005
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: brique006
+    tool: gitleaks
+    params: {}
+  - uid: brique007
+    tool: trivy
+    params: {}
+  - uid: brique008
+    tool: cosign
+    params: {}
+  artifacts:
+  - uid: brique009
+    tool: ghcr
+    params: {}
+  infrastructure:
+  - uid: brique010
+    tool: k3s
+    params: {}
+  deploy:
+  - uid: brique011
+    tool: helm
+    params: {}
+  - uid: brique012
+    tool: argo-cd
+    params: {}
+  platform:
+  - uid: brique013
+    tool: traefik
+    params: {}
+  - uid: brique014
+    tool: cert-manager
+    params: {}
+  - uid: brique015
+    tool: openbao
+    params: {}
+  - uid: brique016
+    tool: external-secrets
+    params: {}
+  - uid: brique017
+    tool: keycloak
+    params:
+      hostname: auth.boutique.fr
+      tools_domain: boutique.fr
+      app_url: https://boutique.fr
+  observability:
+  - uid: brique018
+    tool: prometheus
+    params: {}
+  - uid: brique019
+    tool: grafana
+    params: {}

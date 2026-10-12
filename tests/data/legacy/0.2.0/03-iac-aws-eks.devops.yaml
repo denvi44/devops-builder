@@ -1,0 +1,44 @@
+format_version: 1
+name: Plateforme AWS EKS
+description: Infrastructure OpenTofu sur AWS (EKS, ECR, S3), CI GitLab avec fédération d'identité OIDC.
+target: kubernetes-managed
+environment: production
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: java
+  image_name: commandes
+  port: 8080
+stages:
+  source:
+  - tool: gitlab
+  build:
+  - tool: gitlab-ci
+  - tool: buildkit
+  test:
+  - tool: unit-tests
+  security:
+  - tool: checkov
+  - tool: trivy
+  artifacts:
+  - tool: ecr
+    params: {repository: commandes}
+  infrastructure:
+  - tool: aws
+    params: {region: eu-west-3}
+  - tool: opentofu
+  - tool: eks
+    params: {cluster_name: plateforme-prod, region: eu-west-3, version: "1.33"}
+  - tool: s3
+    params: {bucket: plateforme-prod-tfstate}
+  deploy:
+  - tool: helm
+  platform:
+  - tool: aws-secrets-manager
+  - tool: external-secrets
+  - tool: cert-manager
+  - tool: velero
+  observability:
+  - tool: prometheus
+  - tool: cloudwatch

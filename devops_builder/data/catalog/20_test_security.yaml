@@ -26,6 +26,8 @@
 - id: sonarqube-cloud
   name: SonarQube Cloud
   stage: test
+  support: manual
+  support_note: "Analyse à brancher à la main dans la CI."
   extra_stages: [security]
   roles: [code-quality]
   description: Version SaaS de SonarQube.
@@ -113,6 +115,8 @@
 - id: floci
   name: Floci
   stage: test
+  support: experimental
+  support_note: "Dans la CI, le plan passe ; EKS, RDS et Lambda ne se créent qu'en local, et un apply échoue sur les réseaux existants."
   extra_stages: [infrastructure]
   roles: [cloud-emulator]
   description: Émulateur AWS local (S3, SQS, DynamoDB, Lambda, IAM, RDS, EKS…), alternative libre à LocalStack. Tests de l'application et plan de l'IaC sans compte AWS, en local et dans la CI.

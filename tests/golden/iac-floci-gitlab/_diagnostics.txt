@@ -1,1 +1,1 @@
-
+info R50 Floci est expérimental : dans la CI, le plan passe ; EKS, RDS et Lambda ne se créent qu'en local, et un apply échoue sur les réseaux existants.

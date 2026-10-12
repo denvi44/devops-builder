@@ -187,6 +187,8 @@
   name: AWS CloudFormation
   kind: service
   stage: infrastructure
+  support: manual
+  support_note: "L'infrastructure générée est écrite en Terraform ou OpenTofu."
   roles: [iac]
   description: IaC native AWS.
   license: proprietary
@@ -198,6 +200,8 @@
   name: Azure Bicep
   kind: service
   stage: infrastructure
+  support: manual
+  support_note: "L'infrastructure générée est écrite en Terraform ou OpenTofu."
   roles: [iac]
   description: Langage IaC natif Azure (compilé en ARM).
   license: MIT
@@ -220,6 +224,8 @@
 - id: ansible-lint
   name: ansible-lint
   stage: test
+  support: manual
+  support_note: "Aucune étape de CI générée ; les playbooks générés passent ansible-lint dans les tests de l'application."
   roles: [config-lint]
   description: Contrôle des playbooks Ansible (bonnes pratiques, modules dépréciés, sécurité).
   homepage: https://ansible.readthedocs.io/projects/lint/
@@ -329,6 +335,8 @@
 - id: rke2
   name: RKE2
   stage: infrastructure
+  support: experimental
+  support_note: "Le contrôleur d'entrée embarqué dépend de la version : à désactiver à la main si un autre contrôleur est posé."
   roles: [kubernetes-cluster]
   description: Distribution Kubernetes orientée sécurité (SUSE).
   license: Apache-2.0
@@ -449,6 +457,8 @@
   name: Outscale Kubernetes as a Service (OKS)
   kind: service
   stage: infrastructure
+  support: manual
+  support_note: "Aucune ressource Terraform générée ; la prise en charge d'OKS par le provider outscale/outscale reste à vérifier."
   roles: [kubernetes-cluster]
   description: Kubernetes managé dédié d'Outscale, sur cloud qualifié SecNumCloud 3.2 ; disponible depuis mars 2025.
   license: proprietary

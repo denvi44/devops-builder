@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..catalog import Catalog
-from ..model import STAGE_LABELS, STAGES, Tool
+from ..model import STAGE_LABELS, STAGES, SUPPORT, SUPPORT_BADGES, Tool
 from . import theme
 from .widgets import KIND_ICONS, STAGE_ICONS, icon
 
@@ -181,6 +181,8 @@ class PaletteWidget(QWidget):
             item = QTreeWidgetItem([self._label(t)])
             item.setData(0, Qt.ItemDataRole.UserRole, t.id)
             item.setToolTip(0, self._tooltip(t))
+            if t.curated and t.support_level != "supported":  # le symbole seul ne dit rien à un lecteur d'écran
+                item.setData(0, Qt.ItemDataRole.AccessibleTextRole, f"{t.name}, {SUPPORT[t.support_level].lower()}")
             color = pal.text if t.curated else pal.text_muted
             item.setIcon(0, icon(KIND_ICONS.get(t.kind, "mdi6.puzzle"), color))
             item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled)
@@ -222,6 +224,8 @@ class PaletteWidget(QWidget):
             badge += "  ✎"
         elif t.corrections:
             badge += "  ✱"
+        if t.curated and t.support_level != "supported":
+            badge += SUPPORT_BADGES[t.support_level]
         return t.name + badge
 
     @staticmethod
@@ -239,6 +243,8 @@ class PaletteWidget(QWidget):
         meta.append("Étapes : " + ", ".join(STAGE_LABELS[s] for s in t.allowed_stages))
         if not t.curated:
             meta.append("Fiche non vérifiée — clic droit pour créer une fiche")
+        else:
+            meta.append(f"Prise en charge : {SUPPORT[t.support_level].lower()}")
         if t.origin == "utilisateur":
             meta.append("Fiche personnelle")
         if t.corrections:
@@ -246,6 +252,8 @@ class PaletteWidget(QWidget):
         lines.append(" · ".join(meta))
         if t.lifecycle_note:
             lines.append(f"⚠ {t.lifecycle_note}")
+        if t.curated and t.support_level != "supported" and t.support_note:
+            lines.append(f"{SUPPORT_BADGES[t.support_level].strip()} {t.support_note}")
         return "<br>".join(lines)
 
     def _context_menu(self, pos: QPoint) -> None:

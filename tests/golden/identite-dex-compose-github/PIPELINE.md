@@ -74,6 +74,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 ## Diagnostics restants
 
 - **Avertissement** (R34) — Ansible : « Hôtes de l'application » non renseigné : la valeur d'exemple « app1.example.com » sera écrite dans les fichiers.
+- **Info** (R50) — Dex est expérimental : configuration vérifiée, pas encore exécutée de bout en bout.
 
 ## Notes
 

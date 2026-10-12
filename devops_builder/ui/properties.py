@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..catalog import Catalog
-from ..model import STAGE_LABELS, BrickInstance, Project, Tool
+from ..model import STAGE_LABELS, SUPPORT, BrickInstance, Project, Tool
 from . import theme
 from .widgets import FlowRow, chip, icon, muted, plain, section_title
 
@@ -92,6 +92,8 @@ class PropertiesPanel(QScrollArea):
             chips.append(chip(LIFECYCLE[tool.lifecycle]))
         if not tool.curated:
             chips.append(chip("Fiche non vérifiée"))
+        elif tool.support_level != "supported":
+            chips.append(chip(SUPPORT[tool.support_level], tooltip="Prise en charge par les générateurs"))
         if tool.origin == "utilisateur":
             chips.append(chip("Fiche personnelle", tooltip="Catalogue personnel"))
         if tool.corrections:
@@ -106,6 +108,13 @@ class PropertiesPanel(QScrollArea):
             note.setWordWrap(True)
             note.setStyleSheet(f"color: {pal.warning};")
             lay.addWidget(note)
+        if tool.curated and tool.support_level != "supported":
+            why = tool.support_note or ("Aucun générateur ne la connaît : elle est listée dans « À configurer à la main »."
+                                        if tool.support_level == "manual" else "")
+            if why:
+                level = muted(f"{SUPPORT[tool.support_level]} : {why}")
+                level.setWordWrap(True)
+                lay.addWidget(level)
 
         if brick is not None:
             self._brick_section(lay, tool, brick, project)

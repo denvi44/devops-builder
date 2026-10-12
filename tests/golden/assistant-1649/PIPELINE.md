@@ -74,6 +74,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - **Avertissement** (R34) — Azure Blob Storage : « Compte de stockage » non renseigné : la valeur d'exemple « monprojettfstate » sera écrite dans les fichiers.
 - **Info** (R24) — Terraform est sous licence BSL-1.1.
 - **Info** (R31) — Aucun fichier n'est généré pour Azure Monitor dans cette configuration : à configurer à la main (listé dans PIPELINE.md).
+- **Info** (R50) — Azure Container Apps est expérimental : aucune ressource Terraform générée : l'application Container Apps se crée à la main, la CI la met ensuite à jour.
 
 ## Notes
 

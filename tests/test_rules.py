@@ -84,6 +84,7 @@ CASES = [
                                 url_format="parts"), Severity.WARNING),
     ("R48", lambda: put(make("kubernetes"), "k3s", "helm", "cloudnative-pg", "keycloak", "dex"), Severity.WARNING),
     ("R49", lambda: put(make("docker-host"), "docker-compose", "keycloak"), Severity.WARNING),
+    ("R50", lambda: put(make(), "woodpecker"), Severity.INFO),
     ("R47", lambda: with_params(put(make("kubernetes"), "k3s", "helm", "cloudnative-pg"), "cloudnative-pg",
                                 backup_destination="s3://sauvegardes"), Severity.WARNING),
 ]

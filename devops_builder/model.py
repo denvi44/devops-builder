@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 FORMAT_VERSION = 2
 
@@ -113,6 +113,10 @@ class LandscapeRef(BaseModel):
     repo_url: str | None = None
 
 
+SUPPORT = {"supported": "Pris en charge", "experimental": "Expérimental", "manual": "À configurer à la main"}
+SUPPORT_BADGES = {"supported": "", "experimental": "  β", "manual": "  ⚙"}  # palette et canevas
+
+
 class Tool(BaseModel):
     """Fiche d'un outil, d'un service managé ou d'un fournisseur cloud."""
 
@@ -153,6 +157,10 @@ class Tool(BaseModel):
     # Alternatives open source (licences BSL / propriétaires)
     alternatives: list[str] = Field(default_factory=list)
     dev_only: bool = False
+    # Prise en charge par les générateurs : supported (fichiers générés et validés), experimental
+    # (générés, avec une limite connue décrite par support_note), manual (aucun générateur)
+    support: Literal["supported", "experimental", "manual"] = "supported"
+    support_note: str = ""
     landscape_name: str | None = None
     landscape: LandscapeRef | None = None
     curated: bool = True
@@ -163,6 +171,13 @@ class Tool(BaseModel):
     param_schema: dict[str, ParamSpec] = Field(default_factory=dict)
     # Étapes où l'outil peut aussi être posé, en plus de `stage` (étape principale).
     extra_stages: list[str] = Field(default_factory=list)
+
+    @property
+    def support_level(self) -> str:
+        """Niveau effectif : une entrée du Landscape ou une fiche personnelle n'a pas de générateur."""
+        if not self.curated or self.origin == "utilisateur":
+            return "manual"
+        return self.support
 
     @property
     def allowed_stages(self) -> list[str]:
@@ -189,8 +204,30 @@ class Tool(BaseModel):
         return set(self.hosting) == {"kubernetes"}
 
 
+class ProjectFormatError(ValueError):
+    """Fichier projet illisible, d'un format plus récent, ou dont un champ est invalide."""
+
+
+_ERRORS_FR = {
+    "string_type": "texte attendu", "list_type": "liste attendue", "dict_type": "dictionnaire attendu",
+    "int_type": "nombre entier attendu", "int_parsing": "nombre entier attendu", "bool_type": "oui ou non attendu",
+    "bool_parsing": "oui ou non attendu", "missing": "champ obligatoire absent", "extra_forbidden": "champ inconnu",
+    "model_type": "dictionnaire attendu",
+}
+
+
+def _error_fr(error: dict) -> str:
+    if error["type"] == "literal_error":
+        expected = str(error.get('ctx', {}).get('expected', '?')).replace("' or '", "' ou '")
+        return f"valeur « {error.get('input')} » refusée, attendu : {expected}"
+    return _ERRORS_FR.get(error["type"], error["msg"])
+
+
 class BrickInstance(BaseModel):
     """Une brique posée dans une étape du pipeline."""
+
+    # Champs inconnus (fichier d'une version plus récente du même format) : conservés tels quels
+    model_config = ConfigDict(extra="allow")
 
     uid: str = Field(default_factory=lambda: uuid.uuid4().hex[:8])
     tool: str
@@ -198,6 +235,8 @@ class BrickInstance(BaseModel):
 
 
 class AppSettings(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     language: str = "python"
     image_name: str = "mon-app"
     port: int = 8000
@@ -254,6 +293,8 @@ ENV_PRESETS = {
 
 
 class Project(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     format_version: int = FORMAT_VERSION
     name: str = "Nouveau projet"
     description: str = ""
@@ -365,10 +406,37 @@ class Project(BaseModel):
 
     @classmethod
     def from_yaml(cls, text: str) -> Project:
-        data = yaml.safe_load(text) or {}
-        project = cls.model_validate(data)
+        """Lit un fichier projet ; ProjectFormatError avec un message lisible s'il ne peut pas l'être."""
+        try:
+            data = yaml.safe_load(text) or {}
+        except yaml.YAMLError as exc:
+            mark = getattr(exc, "problem_mark", None)
+            where = f" (ligne {mark.line + 1})" if mark else ""
+            raise ProjectFormatError(f"YAML invalide{where} : {getattr(exc, 'problem', None) or exc}") from exc
+        if not isinstance(data, dict):
+            raise ProjectFormatError("le fichier ne décrit pas un projet (il faut des clés : name, stages…)")
+        version = data.get("format_version", 1)
+        if isinstance(version, int) and version > FORMAT_VERSION:
+            raise ProjectFormatError(
+                f"fichier écrit au format {version} par une version plus récente de DevOps Builder ; "
+                f"cette version lit jusqu'au format {FORMAT_VERSION} : mettre à jour l'application.")
+        try:
+            project = cls.model_validate(data)
+        except ValidationError as exc:
+            details = "; ".join(f"{'.'.join(str(x) for x in e['loc']) or 'racine'} : {_error_fr(e)}"
+                                for e in exc.errors()[:5])
+            raise ProjectFormatError(f"champ invalide — {details}") from exc
         project.ensure_stages()
         return project
+
+    def unknown_fields(self) -> list[str]:
+        """Champs que cette version ne connaît pas, conservés à l'enregistrement (projet, application, briques)."""
+        out = [k for k in (self.model_extra or {})]
+        out += [f"app.{k}" for k in (self.app.model_extra or {})]
+        for stage, bricks in self.stages.items():
+            for b in bricks:
+                out += [f"stages.{stage}.{b.tool}.{k}" for k in (b.model_extra or {})]
+        return out
 
     def save(self, path: str | Path) -> None:
         Path(path).write_text(self.to_yaml(), encoding="utf-8")

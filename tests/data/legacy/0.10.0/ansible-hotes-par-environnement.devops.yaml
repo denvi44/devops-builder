@@ -1,0 +1,62 @@
+format_version: 2
+name: Ansible
+description: ''
+target: vm
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides:
+    ansible:
+      hosts: recette.exemple.fr
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: site
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: gitlab
+    params: {}
+  build:
+  - uid: brique002
+    tool: gitlab-ci
+    params: {}
+  - uid: brique003
+    tool: buildkit
+    params: {}
+  test:
+  - uid: brique004
+    tool: ansible-lint
+    params: {}
+  security: []
+  artifacts:
+  - uid: brique005
+    tool: harbor
+    params:
+      url: registry.exemple.fr
+  infrastructure:
+  - uid: brique006
+    tool: ansible
+    params:
+      hosts: app1.exemple.fr, app2.exemple.fr
+  deploy:
+  - uid: brique007
+    tool: docker-compose
+    params: {}
+  platform:
+  - uid: brique008
+    tool: traefik
+    params: {}
+  observability: []

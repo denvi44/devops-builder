@@ -65,6 +65,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - **Avertissement** (R34) — Azure Container Registry : « Nom du registre ACR » non renseigné : la valeur d'exemple « monappregistry » sera écrite dans les fichiers.
 - **Info** (R31) — Aucun fichier n'est généré pour Azure Monitor dans cette configuration : à configurer à la main (listé dans PIPELINE.md).
+- **Info** (R50) — Azure Container Apps est expérimental : aucune ressource Terraform générée : l'application Container Apps se crée à la main, la CI la met ensuite à jour.
 
 ## Notes
 
