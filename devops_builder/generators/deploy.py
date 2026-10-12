@@ -68,6 +68,7 @@ def compose(ir: IR) -> dict[str, str]:
         doc["configs"] = configs
     files.update(data.secrets_script(ir))
     files.update(data.backup_script(ir))
+    files.update(data.restore_script(ir))
     ir.cover("docker-compose")
     files["deploy/docker-compose.yml"] = dump_yaml(doc)
     return files
@@ -198,6 +199,10 @@ def kustomize(ir: IR) -> dict[str, str]:
         patches = data.kustomize_patches(ir, env)
         if patches:
             overlay["patches"] = patches
+        store = data.kustomize_object_store(ir, env)
+        if store:
+            overlay["resources"].append("objectstore.yaml")
+            files[f"{ir.overlay(env)}/objectstore.yaml"] = store
         external = data.kustomize_external_secrets(ir, env)
         if external:
             overlay["resources"].append("externalsecrets.yaml")
@@ -288,6 +293,9 @@ def _ansible_db_tasks(ir: IR) -> list[dict]:
         tasks += [
             {"name": "Copier le script de sauvegarde des bases",
              "ansible.builtin.copy": {"src": f"../{data.BACKUP_SCRIPT}", "dest": "{{ app_dir }}/db-backup.sh",
+                                      "mode": "0750"}},
+            {"name": "Copier le script de restauration des bases",
+             "ansible.builtin.copy": {"src": f"../{data.RESTORE_SCRIPT}", "dest": "{{ app_dir }}/db-restore.sh",
                                       "mode": "0750"}},
             {"name": "Planifier la sauvegarde quotidienne des bases",
              "ansible.builtin.cron": {"name": "sauvegarde des bases {{ project }}", "hour": "3", "minute": "15",

@@ -340,7 +340,9 @@ class PipelineCanvas(QScrollArea):
         self.selectionChanged.emit(items[0].data(R_UID))
 
     def rebuild(self, project: Project, catalog: Catalog, severity: dict[str, str], selected: str | None) -> None:
+        from ..datainfo import infos
         self._updating = True
+        data = infos(project, catalog)
         for sid, col in self.columns.items():
             lst = col.list
             lst.clear()
@@ -353,13 +355,16 @@ class PipelineCanvas(QScrollArea):
                 item.setData(R_UID, b.uid)
                 item.setData(R_TOOL, b.tool)
                 item.setData(R_NAME, name)
-                item.setData(R_SUB, self._subtitle(t) if t else "Fiche introuvable")
+                info = data.get(b.tool)
+                sub = (f"{info.badge} · {info.db.url_var}" if info else self._subtitle(t) if t else "Fiche introuvable")
+                item.setData(R_SUB, sub)
                 item.setData(R_SEV, severity.get(b.uid, ""))
                 item.setData(R_KIND, t.kind if t else "tool")
                 item.setData(R_CURATED, bool(t and t.curated))
                 sev = severity.get(b.uid)
                 item.setData(Qt.ItemDataRole.AccessibleTextRole, f"{name}{', ' + sev if sev else ''}")
-                item.setToolTip(t.description if t else "")
+                item.setToolTip((f"{info.where}\n{info.connection}\n{info.secret}" if info else "")
+                                or (t.description if t else ""))
                 lst.addItem(item)
                 if b.uid == selected:
                     lst.setCurrentItem(item)

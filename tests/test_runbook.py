@@ -40,7 +40,7 @@ def test_mode_d_emploi_dans_l_ordre_et_annonce_dans_le_rapport():
     guide = f[GUIDE]
     assert sections(guide) == ["Valeurs à adapter", "État Terraform", "Connexion de la CI au cloud", "Premier apply",
                                "Cluster et plateforme", "Secrets de l'application", "External Secrets",
-                               "Variables CI", "Premier déploiement", "Entretien"]
+                               "Variables CI", "Premier déploiement", "Poste de développement", "Entretien"]
     assert "aws s3api create-bucket --bucket mon-projet-tfstate" in guide
     assert "tofu -chdir=infra/terraform apply plan.tfplan" in guide
     assert "aws secretsmanager get-secret-value --secret-id mon-app-staging/aws-rds" in guide

@@ -101,6 +101,8 @@ QListWidget#stageList::item:hover {{ background: transparent; border: none; }}
 QScrollArea#canvasScroll, QWidget#canvasInner {{ background: {p.background}; border: none; }}
 QPlainTextEdit#codePreview {{ font-family: "DejaVu Sans Mono", "Consolas", monospace; font-size: 12px; }}
 QPushButton {{ text-transform: none; }}
+QPushButton#viewsButton {{ padding-right: 22px; }}
+QPushButton#viewsButton::menu-indicator {{ subcontrol-origin: padding; subcontrol-position: right center; right: 6px; }}
 QToolBar {{ spacing: 6px; }}
 QToolBar QToolButton {{ text-transform: none; }}
 QTabBar::tab {{ text-transform: none; }}

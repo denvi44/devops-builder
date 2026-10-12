@@ -244,6 +244,22 @@ def main() -> int:
     win._focus_brick(p.bricks_for("postgresql")[0].uid)
     app.processEvents()
     win.grab().save(str(out / f"15-donnees{suffix}.png"))
+    # 16 : vue « Données » — CloudNativePG sauvegardé, MariaDB en StatefulSet signalée en production
+    from devops_builder.ui.data import DataDialog
+    p = Project(name="Catalogue produits", target="kubernetes", environments=env_preset("dev-staging-prod"))
+    p.app.image_name = "catalogue"
+    for t in ("gitlab", "gitlab-ci", "buildkit", "k3s", "helm", "cert-manager", "mongodb", "openbao",
+              "external-secrets"):
+        p.add(t, win.catalog[t].stage)
+    p.add("cloudnative-pg", "data", backup_destination="s3://catalogue-sauvegardes",
+          backup_endpoint="https://s3.fr-par.scw.cloud", url_format="jdbc", url_var="SPRING_DATASOURCE_URL")
+    win._load(p, None)
+    data = DataDialog(win.project, win.catalog, win.engine, win, apply_fix=lambda a: win.project)
+    data.show()
+    data.tree.setCurrentItem(data.tree.topLevelItem(2))
+    app.processEvents()
+    data.grab().save(str(out / f"16-vue-donnees{suffix}.png"))
+    data.close()
     print("captures écrites dans", out)
     return 0
 

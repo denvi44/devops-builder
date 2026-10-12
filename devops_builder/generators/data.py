@@ -169,6 +169,7 @@ def secrets_script(ir: IR) -> dict[str, str]:
             name = db.engine.password_env or db.password_var
             lines += [f'cat > "$dir/{db.id}.env" <<EOF', f"{name}={pw}", "EOF"]
             app_lines.append(f"{db.url_var}={db.url(db.id, pw)}")
+            app_lines += [f"{var}={part_value(db, key, db.id, pw)}" for var, key in db.parts()]
         else:
             app_lines.append(f"{db.url_var}=${db.url_ci_var}")
     lines += ['cat > "$dir/app.env" <<EOF', *app_lines, "EOF", 'echo "Secrets écrits dans $dir"', ""]
@@ -207,6 +208,119 @@ def backup_script(ir: IR) -> dict[str, str]:
                   f'echo "{db.tool.name} → $dest/{db.id}-$stamp.{ext}"']
     lines += ["", 'find "$dest" -type f -mtime +"$keep" -delete', ""]
     return {BACKUP_SCRIPT: "\n".join(lines)}
+
+
+DEV_DIR = "dev/db"
+DEV_PASSWORD = "dev"  # poste de développement seulement : ports liés à 127.0.0.1
+ADMINER_ENGINES = ("postgresql", "mariadb", "mysql")
+
+
+def dev_version(db: Database) -> str:
+    """Version locale proche de la production : celle de la brique, ou celle du moteur managé."""
+    if db.mode != "managed":
+        return db.version
+    raw = str(db.params.get("version") or "")
+    engine = str(db.params.get("engine") or "")
+    m = re.search(r"(\d+(?:[._]\d+)?)$", engine) if not raw else None
+    raw = raw or (m.group(1) if m else "")
+    raw = raw.replace("_", ".")
+    return raw if re.fullmatch(r"\d+(\.\d+)*", raw) else db.engine.default_version
+
+
+def dev_files(ir: IR) -> dict[str, str]:
+    """dev/db : les bases du projet pour le poste de développement, même moteur et même version."""
+    dbs = all_dbs(ir)
+    if not dbs:
+        return {}
+    services: dict[str, dict] = {}
+    env_lines = [f"# {HEADER}", "# Connexion de l'application lancée sur le poste aux bases de dev/db/compose.yaml :",
+                 f"#   docker compose -f {DEV_DIR}/compose.yaml up -d && set -a && . {DEV_DIR}/app.env && set +a"]
+    used_ports: set[int] = set()
+    for db in dbs:
+        e = db.engine
+        sid = e.id if e.id not in services else db.id
+        port = e.port
+        while port in used_ports:
+            port += 1
+        used_ports.add(port)
+        svc: dict = {"image": f"{e.image}:{dev_version(db)}", "restart": "unless-stopped",
+                     "ports": [f"127.0.0.1:{port}:{e.port}"]}
+        env: dict[str, str] = {}
+        if e.family in ("sql", "document"):
+            env[e.user_env] = db.user
+            env[e.db_env] = db.name
+            env.update(dict(e.extra_env))
+        if e.password_env:
+            env[e.password_env] = DEV_PASSWORD
+        if env:
+            svc["environment"] = env
+        if e.family == "key-value":
+            binary = "valkey-server" if sid == "valkey" else "redis-server"
+            svc["command"] = [binary, "--requirepass", DEV_PASSWORD]
+        svc["volumes"] = [f"{sid}-dev:{e.data_path(dev_version(db))}"]
+        if e.family in ("sql", "document"):
+            svc["volumes"].append(f"./init/{sid}:/docker-entrypoint-initdb.d:ro")
+        health = HEALTHCHECKS[e.id].replace(f"$${{{e.id.upper()}_PASSWORD}}", DEV_PASSWORD)
+        svc["healthcheck"] = {"test": ["CMD-SHELL", health], "interval": "5s", "timeout": "5s", "retries": 20}
+        services[sid] = svc
+        url = db.url("127.0.0.1", DEV_PASSWORD).replace(f"127.0.0.1:{e.port}", f"127.0.0.1:{port}", 1)
+        env_lines.append(f"{db.url_var}='{url}'")  # entre apostrophes : lu par le shell (& d'une URL JDBC)
+        for var, key in db.parts():
+            env_lines.append(f"{var}={str(port) if key == 'port' else part_value(db, key, '127.0.0.1', DEV_PASSWORD)}")
+    if any(d.engine.id in ADMINER_ENGINES for d in dbs):
+        services["adminer"] = {"image": "adminer:5", "profiles": ["outils"], "ports": ["127.0.0.1:8081:8080"],
+                               "depends_on": [s for s in services if s in ADMINER_ENGINES]}
+    volumes = {f"{sid}-dev": {} for sid in services if sid != "adminer"}
+    files = {f"{DEV_DIR}/compose.yaml": dump_yaml(
+        {"name": f"{ir.app}-dev", "services": services, "volumes": volumes},
+        f"{HEADER} Bases du poste de développement : docker compose -f {DEV_DIR}/compose.yaml up -d"),
+        f"{DEV_DIR}/app.env": "\n".join(env_lines) + "\n"}
+    for db in dbs:
+        if db.engine.family in ("sql", "document"):
+            ext = ".js" if db.engine.family == "document" else ".sql"
+            sid = db.engine.id if not any(f"{DEV_DIR}/init/{db.engine.id}/" in k for k in files) else db.id
+            files[f"{DEV_DIR}/init/{sid}/README.md"] = (
+                f"# Données de démonstration — {db.engine.label}\n\n"
+                f"Les fichiers `*{ext}` (et `*.sh`) de ce dossier sont joués dans l'ordre alphabétique à la création "
+                f"de la base locale, une seule fois. Pour les rejouer : `docker compose -f {DEV_DIR}/compose.yaml "
+                f"down -v`, puis `up -d`.\n")
+    return files
+
+
+RESTORE_SCRIPT = "scripts/db-restore.sh"
+RESTORES = {
+    "postgresql": "pg_restore -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" --clean --if-exists --no-owner --exit-on-error",
+    "mariadb": 'mariadb -u"$MARIADB_USER" -p"$MARIADB_PASSWORD" "$MARIADB_DATABASE"',
+    "mysql": 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"',
+    "mongodb": ('mongorestore --archive --gzip --drop -u "$MONGO_INITDB_ROOT_USERNAME" '
+                '-p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin'),
+}
+
+
+def restore_script(ir: IR) -> dict[str, str]:
+    """Restauration d'une sauvegarde de db-backup.sh ; destructive, donc confirmée par --oui."""
+    dbs = [d for d in compose_dbs(ir) if d.mode == "self-hosted" and d.id in RESTORES]
+    if not dbs:
+        return {}
+    lines = ["#!/bin/sh", f"# {HEADER}",
+             "# Restaure une sauvegarde de db-backup.sh dans la base du projet Compose ; la base est déduite du nom",
+             "# du fichier. Le contenu actuel de la base est remplacé :",
+             "#   db-restore.sh /opt/<projet> /var/backups/<projet>/<base>-<date>.<ext> --oui",
+             "set -eu", 'dir="${1:?dossier du projet Compose, ex. /opt/mon-app}"',
+             'file="${2:?fichier de sauvegarde}"', '[ -f "$file" ] || { echo "Fichier absent : $file" >&2; exit 1; }',
+             'project="$(basename "$dir")"',
+             'dc() { docker compose --project-directory "$dir" -p "$project" "$@"; }',
+             'case "$(basename "$file")" in']
+    for db in dbs:
+        lines.append(f"  {db.id}-*) service={db.id}; cmd='{RESTORES[db.id]}' ;;")
+    lines += ['  *) echo "Base inconnue pour $(basename "$file") (préfixe attendu : '
+              + ", ".join(f"{d.id}-" for d in dbs) + ')" >&2; exit 2 ;;', "esac",
+              'if [ "${3:-}" != "--oui" ]; then',
+              '  echo "La base $service de $project va être remplacée par $file : relancer avec --oui." >&2',
+              "  exit 1", "fi",
+              'dc exec -T "$service" sh -c "$cmd" < "$file"',
+              'echo "$service restaurée depuis $file"', ""]
+    return {RESTORE_SCRIPT: "\n".join(lines)}
 
 
 # ----------------------------------------------------------------- Kubernetes
@@ -250,10 +364,64 @@ def statefulset_docs(db: Database, name: str, image: str, storage: str, labels: 
     return [service, sts]
 
 
-def cnpg_cluster(db: Database, name: str, instances, storage: str, image: str) -> dict:
-    return {"apiVersion": "postgresql.cnpg.io/v1", "kind": "Cluster", "metadata": {"name": name},
-            "spec": {"instances": instances, "imageName": image, "storage": {"size": storage},
-                     "bootstrap": {"initdb": {"database": db.name, "owner": db.user}}}}
+BARMAN_PLUGIN = "barman-cloud.cloudnative-pg.io"
+
+
+def cnpg_cluster(db: Database, name: str, instances, storage: str, image: str, store: str | None = None) -> dict:
+    spec: dict = {"instances": instances, "imageName": image, "storage": {"size": storage},
+                  "bootstrap": {"initdb": {"database": db.name, "owner": db.user}}}
+    if store:  # archivage continu des WAL par le plugin Barman Cloud
+        spec["plugins"] = [{"name": BARMAN_PLUGIN, "isWALArchiver": True, "parameters": {"barmanObjectName": store}}]
+    return {"apiVersion": "postgresql.cnpg.io/v1", "kind": "Cluster", "metadata": {"name": name}, "spec": spec}
+
+
+BACKUP_SECRET = "{app}-backup-credentials"
+
+
+def backup_credentials(ir: IR, dest: str) -> dict:
+    """Identifiants de l'ObjectStore : identité de la pile (EKS, GKE) ou Secret à créer."""
+    cloud = cnpg_backup_cloud(ir) if not cnpg_params(ir).get("backup_destination") else None
+    secret = BACKUP_SECRET.format(app=ir.app)
+    if dest.startswith("s3://"):
+        if cloud == "aws":
+            return {"s3Credentials": {"inheritFromIAMRole": True}}
+        creds: dict = {"s3Credentials": {"accessKeyId": {"name": secret, "key": "ACCESS_KEY_ID"},
+                                         "secretAccessKey": {"name": secret, "key": "ACCESS_SECRET_KEY"}}}
+        endpoint = str(cnpg_params(ir).get("backup_endpoint") or "")
+        if endpoint:
+            creds["endpointURL"] = endpoint
+        return creds
+    if dest.startswith("gs://"):
+        if cloud == "gcp":
+            return {"googleCredentials": {"gkeEnvironment": True}}
+        return {"googleCredentials": {"applicationCredentials": {"name": secret, "key": "credentials.json"}}}
+    return {"azureCredentials": {"storageAccount": {"name": secret, "key": "AZURE_STORAGE_ACCOUNT"},
+                                 "storageKey": {"name": secret, "key": "AZURE_STORAGE_KEY"}}}
+
+
+def cnpg_params(ir: IR) -> dict:
+    db = next((d for d in kube_dbs(ir) if d.mode == "operator"), None)
+    return db.params if db else {}
+
+
+def backup_needs_secret(ir: IR) -> bool:
+    target = cnpg_backup(ir)
+    return bool(target) and not any(k in str(backup_credentials(ir, target[0])) for k in
+                                    ("inheritFromIAMRole", "gkeEnvironment"))
+
+
+def object_store(ir: IR, name: str, ns: str) -> dict:
+    dest = cnpg_backup(ir)[0]
+    return {"apiVersion": "barmancloud.cnpg.io/v1", "kind": "ObjectStore", "metadata": {"name": name},
+            "spec": {"retentionPolicy": "30d",
+                     "configuration": {"destinationPath": f"{dest}/{ns}", **backup_credentials(ir, dest),
+                                       "wal": {"compression": "gzip"}}}}
+
+
+def scheduled_backup(cluster: str) -> dict:
+    return {"apiVersion": "postgresql.cnpg.io/v1", "kind": "ScheduledBackup", "metadata": {"name": f"{cluster}-quotidien"},
+            "spec": {"schedule": "0 0 3 * * *", "backupOwnerReference": "self", "cluster": {"name": cluster},
+                     "method": "plugin", "pluginConfiguration": {"name": BARMAN_PLUGIN}}}
 
 
 def cnpg_image(db: Database) -> str:
@@ -262,9 +430,18 @@ def cnpg_image(db: Database) -> str:
 
 def secret_ref(db: Database, base: str) -> tuple[str, str]:
     """(nom du Secret, clé) qui porte l'URL de connexion de l'application."""
-    if db.mode == "operator":
-        return f"{base}-pg-app", "uri"
+    if db.mode == "operator":  # Secret « <cluster>-app » de CloudNativePG
+        return f"{base}-pg-app", "jdbc-uri" if db.fmt == "jdbc" else "uri"
     return f"{base}-{db.id}", "url"
+
+
+def part_value(db: Database, key: str, host: str, password: str) -> str:
+    """Valeur d'une variable séparée (format parts)."""
+    return {"host": host, "port": str(db.engine.port), "name": db.name, "user": db.user,
+            "password": password}[key]
+
+
+CNPG_KEYS = {"host": "host", "port": "port", "name": "dbname", "user": "user", "password": "password"}
 
 
 def app_env(dbs: list[Database], base: str) -> list[dict]:
@@ -272,11 +449,46 @@ def app_env(dbs: list[Database], base: str) -> list[dict]:
     for db in dbs:
         secret, key = secret_ref(db, base)
         env.append({"name": db.url_var, "valueFrom": {"secretKeyRef": {"name": secret, "key": key}}})
+        for var, part in db.parts():
+            if db.mode == "operator":
+                env.append({"name": var, "valueFrom": {"secretKeyRef": {"name": secret, "key": CNPG_KEYS[part]}}})
+            elif part == "password":
+                env.append({"name": var, "valueFrom": {"secretKeyRef": {"name": secret, "key": "password"}}})
+            else:
+                env.append({"name": var, "value": part_value(db, part, f"{base}-{db.id}", "")})
     return env
 
 
 def instances_for(kind: str) -> int:
     return 3 if kind == "production" else 1
+
+
+def cnpg_backup(ir: IR) -> tuple[str, str] | None:
+    """(destination, libellé) des sauvegardes CloudNativePG, ou None : rien de configuré."""
+    dbs = [d for d in kube_dbs(ir) if d.mode == "operator"]
+    if not dbs:
+        return None
+    dest = str(dbs[0].params.get("backup_destination") or "")
+    if not dest:
+        tool = cnpg_backup_cloud(ir)
+        if tool == "aws":
+            dest = f"s3://{ir.app}-db-backups"
+        elif tool == "gcp":
+            dest = f"gs://{ir.app}-db-backups"
+    if not dest:
+        return None
+    return dest.rstrip("/"), dest.rstrip("/")
+
+
+def cnpg_backup_cloud(ir: IR) -> str | None:
+    """Cloud dont la pile crée le bucket et l'identité des sauvegardes (EKS, GKE avec l'IaC)."""
+    from .iac import backend_tool  # noqa: F401 — la pile existe dès qu'un fournisseur est configuré
+    providers = {p.id for p in ir.providers}
+    if ir.has("eks") and "aws" in providers:
+        return "aws"
+    if ir.has("gke") and "gcp" in providers:
+        return "gcp"
+    return None
 
 
 def gitops(ir: IR) -> bool:
@@ -316,9 +528,13 @@ def helm_parts(ir: IR) -> tuple[dict, dict[str, str], list[dict], list[dict]]:
             kind = ir.envs[0].kind if not multi else "dev"
             values[k] = {"instances": instances_for(kind) if not multi else 1,
                          "storage": str(db.params.get("storage") or "10Gi"), "image": cnpg_image(db)}
+            store = f"{base}-backups" if cnpg_backup(ir) else None
             cluster = cnpg_cluster(db, f"{base}-pg", _raw("{{ " + ref + ".instances }}"),
-                                   "{{ " + ref + ".storage }}", "{{ " + ref + ".image }}")
-            templates[f"templates/{db.id}.yaml"] = _unraw(dump_yaml(cluster, None))
+                                   "{{ " + ref + ".storage }}", "{{ " + ref + ".image }}", store)
+            docs = [cluster]
+            if store:
+                docs += [object_store(ir, store, "{{ .Release.Namespace }}"), scheduled_backup(f"{base}-pg")]
+            templates[f"templates/{db.id}.yaml"] = _unraw(dump_yaml_docs(docs, None))
         else:
             values[k] = {"createSecret": create, "url": ""}
             name = f"{base}-{db.id}"
@@ -390,9 +606,11 @@ def kustomize_parts(ir: IR) -> tuple[dict[str, str], list[str], list[dict], list
             files[f"{db.id}.yaml"] = dump_yaml_docs(docs)
             resources.append(f"{db.id}.yaml")
         elif db.mode == "operator":
+            store = f"{app}-backups" if cnpg_backup(ir) else None
             cluster = cnpg_cluster(db, f"{app}-pg", instances_for(single_kind),
-                                   str(db.params.get("storage") or "10Gi"), cnpg_image(db))
-            files[f"{db.id}.yaml"] = dump_yaml(cluster)
+                                   str(db.params.get("storage") or "10Gi"), cnpg_image(db), store)
+            files[f"{db.id}.yaml"] = dump_yaml_docs([cluster, scheduled_backup(f"{app}-pg")]) if store \
+                else dump_yaml(cluster)
             resources.append(f"{db.id}.yaml")
         ir.cover(db.id)
     env = app_env(dbs, app)
@@ -407,6 +625,121 @@ def kustomize_external_secrets(ir: IR, env) -> str | None:
         return None
     docs = secrets.external_secrets(ir, kube_dbs(ir), lambda d: f"{ir.app}-{d.id}", ir.namespace(env), False)
     return dump_yaml_docs(docs) if docs else None
+
+
+def pod_identity_addons(ir: IR) -> list[str]:
+    """Agent EKS Pod Identity, une fois par cluster, dès qu'une identité de charge de travail s'en sert."""
+    from .iac import cluster_instances
+    from .secrets import eso_identity
+    if not ir.has("eks") or not (eso_identity(ir) == "aws-secrets-manager" or
+                                  (cnpg_backup(ir) and cnpg_backup_cloud(ir) == "aws" and
+                                   not cnpg_params(ir).get("backup_destination"))):
+        return []
+    return [f'''# --- EKS Pod Identity (identités de charge de travail)
+resource "aws_eks_addon" "pod_identity{sfx}" {{
+  cluster_name = module.eks{sfx}.cluster_name
+  addon_name   = "eks-pod-identity-agent"
+}}''' for sfx, _ in cluster_instances(ir, "eks")]
+
+
+def backup_terraform_blocks(ir: IR) -> tuple[list[str], list[str]]:
+    """Bucket des sauvegardes CloudNativePG et accès du compte de service de chaque Cluster."""
+    from .iac import cluster_instances
+    cloud = cnpg_backup_cloud(ir)
+    if not cnpg_backup(ir) or not cloud or cnpg_params(ir).get("backup_destination"):
+        return [], []
+    bucket = f"{ir.app}-db-backups"
+    namespaces = sorted({ir.namespace(e) for e in ir.envs})
+    sa = f"{ir.app}-pg"  # CloudNativePG crée un compte de service au nom du Cluster
+    title = "# --- Sauvegardes CloudNativePG (plugin Barman Cloud)"
+    if cloud == "aws":
+        blocks = [f'''{title}
+resource "aws_s3_bucket" "db_backups" {{
+  bucket = "{bucket}"
+}}
+
+resource "aws_s3_bucket_versioning" "db_backups" {{
+  bucket = aws_s3_bucket.db_backups.id
+  versioning_configuration {{
+    status = "Enabled"
+  }}
+}}
+
+resource "aws_s3_bucket_public_access_block" "db_backups" {{
+  bucket                  = aws_s3_bucket.db_backups.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}}
+
+resource "aws_iam_role" "db_backups" {{
+  name = "{ir.app}-db-backups"
+  assume_role_policy = jsonencode({{
+    Version = "2012-10-17"
+    Statement = [{{
+      Effect    = "Allow"
+      Principal = {{ Service = "pods.eks.amazonaws.com" }}
+      Action    = ["sts:AssumeRole", "sts:TagSession"]
+    }}]
+  }})
+}}
+
+resource "aws_iam_role_policy" "db_backups" {{
+  name = "sauvegardes"
+  role = aws_iam_role.db_backups.id
+  policy = jsonencode({{
+    Version = "2012-10-17"
+    Statement = [{{
+      Effect   = "Allow"
+      Action   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket", "s3:GetBucketLocation"]
+      Resource = [aws_s3_bucket.db_backups.arn, "${{aws_s3_bucket.db_backups.arn}}/*"]
+    }}]
+  }})
+}}''']
+        for sfx, _ in cluster_instances(ir, "eks"):
+            for ns in namespaces:
+                label = (sfx + "_" + ns.replace("-", "_")).lstrip("_")
+                blocks.append(f'''resource "aws_eks_pod_identity_association" "db_backups_{label}" {{
+  cluster_name    = module.eks{sfx}.cluster_name
+  namespace       = "{ns}"
+  service_account = "{sa}"
+  role_arn        = aws_iam_role.db_backups.arn
+}}''')
+        outputs = ['output "db_backups_bucket" {\n  value = aws_s3_bucket.db_backups.bucket\n}']
+    else:
+        region = ir.params("gcp").get("region", "europe-west9")
+        blocks = [f'''{title}
+data "google_project" "backups" {{
+  project_id = var.gcp_project_id
+}}
+
+resource "google_storage_bucket" "db_backups" {{
+  name                        = "{bucket}"
+  location                    = "{region}"
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+
+  versioning {{
+    enabled = true
+  }}
+}}''']
+        for ns in namespaces:
+            label = ns.replace("-", "_")
+            blocks.append(f'''resource "google_storage_bucket_iam_member" "db_backups_{label}" {{
+  bucket = google_storage_bucket.db_backups.name
+  role   = "roles/storage.objectAdmin"
+  member = "principal://iam.googleapis.com/projects/${{data.google_project.backups.number}}/locations/global/workloadIdentityPools/${{var.gcp_project_id}}.svc.id.goog/subject/ns/{ns}/sa/{sa}"
+}}''')
+        outputs = ['output "db_backups_bucket" {\n  value = google_storage_bucket.db_backups.name\n}']
+    return blocks, outputs
+
+
+def kustomize_object_store(ir: IR, env) -> str | None:
+    """ObjectStore des sauvegardes CloudNativePG d'un environnement (chemin propre à l'espace de noms)."""
+    if not cnpg_backup(ir):
+        return None
+    return dump_yaml(object_store(ir, f"{ir.app}-backups", ir.namespace(env)))
 
 
 def kustomize_patches(ir: IR, env) -> list[dict]:
@@ -691,6 +1024,8 @@ def notes(ir: IR) -> None:
     if not dbs:
         return
     from . import secrets
+    ir.notes.append(f"Poste de développement : `docker compose -f {DEV_DIR}/compose.yaml up -d` lance les bases du "
+                    f"projet (même version), `{DEV_DIR}/app.env` donne leurs variables de connexion.")
     self_hosted = [d for d in dbs if d.mode == "self-hosted"]
     origin = {"ci": "des variables CI", "sops": "des fichiers SOPS déchiffrés par la CI",
               "vault": "du coffre, lu par la CI"}[secrets.source(ir)]
@@ -703,9 +1038,13 @@ def notes(ir: IR) -> None:
             ir.notes.append(f"Sauvegardes : planifier `{BACKUP_SCRIPT}` sur chaque hôte (cron quotidien) et copier "
                             "les fichiers hors de la machine.")
     if any(d.mode == "operator" for d in dbs):
+        target = cnpg_backup(ir)
+        backup = (f"Sauvegardes : plugin Barman Cloud vers {target[0]}/<espace de noms> (archivage continu des WAL, "
+                  "sauvegarde quotidienne, rétention 30 jours)." if target else
+                  "Sauvegardes : renseigner « Destination des sauvegardes » dans la brique (plugin Barman Cloud), ou "
+                  "des instantanés de volumes.")
         ir.notes.append("CloudNativePG : l'opérateur est installé par platform/install.sh ; le Cluster crée le Secret "
-                        "« <cluster>-app » (clé uri) lu par l'application. Sauvegardes : configurer le plugin "
-                        "Barman Cloud vers un stockage objet, ou des instantanés de volumes.")
+                        f"« <cluster>-app » (clés uri, jdbc-uri, host, user, password) lu par l'application. {backup}")
     written = {d.id for d in secrets.tf_dbs(ir, compose_dbs(ir))}
     if any(d.mode == "managed" and d.id not in written for d in dbs):
         ir.notes.append("Bases managées : une instance par environnement ; après `apply`, composer l'URL de connexion "

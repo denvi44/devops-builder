@@ -1,0 +1,51 @@
+# Généré par DevOps Builder — à relire avant usage. Bases du poste de développement : docker compose -f dev/db/compose.yaml up -d
+name: boutique-dev
+services:
+  postgresql:
+    image: postgres:18
+    restart: unless-stopped
+    ports:
+    - 127.0.0.1:5432:5432
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_DB: app
+      POSTGRES_PASSWORD: dev
+    volumes:
+    - postgresql-dev:/var/lib/postgresql
+    - ./init/postgresql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  valkey:
+    image: valkey/valkey:8
+    restart: unless-stopped
+    ports:
+    - 127.0.0.1:6379:6379
+    command:
+    - valkey-server
+    - --requirepass
+    - dev
+    volumes:
+    - valkey-dev:/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - valkey-cli -a "dev" --no-auth-warning ping | grep -q PONG
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  adminer:
+    image: adminer:5
+    profiles:
+    - outils
+    ports:
+    - 127.0.0.1:8081:8080
+    depends_on:
+    - postgresql
+volumes:
+  postgresql-dev: {}
+  valkey-dev: {}

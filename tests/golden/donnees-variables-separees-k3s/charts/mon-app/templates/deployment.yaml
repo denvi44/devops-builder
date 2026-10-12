@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app.kubernetes.io/name: mon-app
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mon-app
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mon-app
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: mon-app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.targetPort }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          env:
+          - name: DB_URL
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Release.Name }}-mariadb'
+                key: url
+          - name: DB_HOST
+            value: '{{ .Release.Name }}-mariadb'
+          - name: DB_PORT
+            value: '3306'
+          - name: DB_NAME
+            value: app
+          - name: DB_USER
+            value: app
+          - name: DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Release.Name }}-mariadb'
+                key: password
+          - name: REDIS_URL
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Release.Name }}-valkey'
+                key: url

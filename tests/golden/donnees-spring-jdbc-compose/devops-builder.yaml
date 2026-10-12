@@ -1,0 +1,76 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: docker-host
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: java
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: gitlab
+    params: {}
+  build:
+  - uid: brique002
+    tool: gitlab-ci
+    params: {}
+  - uid: brique003
+    tool: buildkit
+    params: {}
+  - uid: brique004
+    tool: renovate
+    params: {}
+  test:
+  - uid: brique005
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: brique006
+    tool: gitleaks
+    params: {}
+  - uid: brique007
+    tool: trivy
+    params: {}
+  - uid: brique008
+    tool: cosign
+    params: {}
+  artifacts: []
+  infrastructure: []
+  data:
+  - uid: brique009
+    tool: postgresql
+    params:
+      url_var: SPRING_DATASOURCE_URL
+      url_format: jdbc
+  deploy:
+  - uid: brique010
+    tool: docker-compose
+    params: {}
+  platform:
+  - uid: brique011
+    tool: traefik
+    params: {}
+  observability:
+  - uid: brique012
+    tool: prometheus
+    params: {}
+  - uid: brique013
+    tool: grafana
+    params: {}

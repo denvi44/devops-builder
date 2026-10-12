@@ -84,6 +84,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
 - Google Secret Manager : la pile Terraform y écrit les secrets de connexion (Google Cloud SQL ; clé <espace de noms>-<brique>, l'URL de connexion seule, à monter dans le service) ; les valeurs passent par l'état, à garder dans un backend chiffré à accès restreint.
+- Poste de développement : `docker compose -f dev/db/compose.yaml up -d` lance les bases du projet (même version), `dev/db/app.env` donne leurs variables de connexion.
 - Connexion de l'application à la base sur un service serverless — Cloud Run : `gcloud run deploy --set-secrets DATABASE_URL=<secret>:latest` et, pour Cloud SQL, `--add-cloudsql-instances <projet>:<région>:<instance>`.
 - Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
 - `scripts/ci-variables.sh` déclare les 5 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
@@ -92,6 +93,9 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - `.gitlab-ci.yml`
 - `PIPELINE.md`
+- `dev/db/app.env`
+- `dev/db/compose.yaml`
+- `dev/db/init/postgresql/README.md`
 - `devops-builder.yaml`
 - `docs/mise-en-route.md`
 - `infra/terraform/.gitignore`

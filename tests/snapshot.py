@@ -162,6 +162,27 @@ def extra_cases(catalog) -> dict[str, Project]:
             vault.add(t, catalog[t].stage)
         vault.bricks_for("vault")[0].params = {"address": "https://vault.exemple.fr", "jwt_role": "boutique-deploy"}
         out["secrets-vault-ci-helm"] = vault
+    # 0.14 : connexion réglable, poste de développement, restauration, sauvegardes CloudNativePG
+    if "connections" in getattr(StarterAnswers, "__dataclass_fields__", {}):
+        def brick(p: Project, tool: str, **params) -> Project:
+            p.bricks_for(tool)[0].params.update(params)
+            return p
+        out["donnees-spring-jdbc-compose"] = brick(build_starter(StarterAnswers(
+            forge="gitlab", hosting="docker-host", envs="staging-prod", language="java", database="postgresql",
+            connections={"sql": {"url_var": "SPRING_DATASOURCE_URL", "url_format": "jdbc"}}), catalog),
+            "postgresql")
+        out["donnees-variables-separees-k3s"] = brick(build_starter(StarterAnswers(
+            forge="github", hosting="kubernetes", envs="staging-prod", database="mariadb", cache=True,
+            connections={"sql": {"url_var": "DB_URL", "url_format": "parts"}}), catalog), "mariadb")
+        s3 = build_starter(StarterAnswers(forge="gitlab", hosting="kubernetes", envs="dev-staging-prod",
+                                          database="postgresql"), catalog)
+        out["donnees-cnpg-sauvegarde-s3"] = brick(s3, "cloudnative-pg", backup_destination="s3://boutique-sauvegardes",
+                                                  backup_endpoint="https://s3.fr-par.scw.cloud", url_format="jdbc")
+        for cloud in ("aws", "gcp"):
+            p = build_starter(StarterAnswers(forge="gitlab", hosting="kubernetes-managed", cloud=cloud,
+                                             envs="staging-prod"), catalog)
+            p.add("cloudnative-pg", "data")
+            out[f"donnees-cnpg-sauvegarde-{cloud}"] = p
     return out
 
 

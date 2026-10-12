@@ -69,6 +69,7 @@ deploy-dev:
   - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_DEV" "mkdir -p /opt/boutique-dev/secrets && chmod 700 /opt/boutique-dev/secrets && tar -C /opt/boutique-dev/secrets -xf - && chmod 600 /opt/boutique-dev/secrets/*"
   - rm -rf .secrets
   - scp scripts/db-backup.sh "$DEPLOY_HOST_DEV:/opt/boutique-dev/db-backup.sh"
+  - scp scripts/db-restore.sh "$DEPLOY_HOST_DEV:/opt/boutique-dev/db-restore.sh"
   - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_DEV" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
   - ssh "$DEPLOY_HOST_DEV" "cd /opt/boutique-dev && IMAGE=$IMAGE docker compose -p boutique-dev pull && IMAGE=$IMAGE docker compose -p boutique-dev up -d"
   rules:
@@ -92,6 +93,7 @@ deploy-recette:
   - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_RECETTE" "mkdir -p /opt/boutique-recette/secrets && chmod 700 /opt/boutique-recette/secrets && tar -C /opt/boutique-recette/secrets -xf - && chmod 600 /opt/boutique-recette/secrets/*"
   - rm -rf .secrets
   - scp scripts/db-backup.sh "$DEPLOY_HOST_RECETTE:/opt/boutique-recette/db-backup.sh"
+  - scp scripts/db-restore.sh "$DEPLOY_HOST_RECETTE:/opt/boutique-recette/db-restore.sh"
   - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_RECETTE" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
   - ssh "$DEPLOY_HOST_RECETTE" "cd /opt/boutique-recette && IMAGE=$IMAGE docker compose -p boutique-recette pull && IMAGE=$IMAGE docker compose -p boutique-recette up -d"
   rules:
@@ -117,6 +119,7 @@ deploy-production:
   - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_PRODUCTION" "mkdir -p /opt/boutique/secrets && chmod 700 /opt/boutique/secrets && tar -C /opt/boutique/secrets -xf - && chmod 600 /opt/boutique/secrets/*"
   - rm -rf .secrets
   - scp scripts/db-backup.sh "$DEPLOY_HOST_PRODUCTION:/opt/boutique/db-backup.sh"
+  - scp scripts/db-restore.sh "$DEPLOY_HOST_PRODUCTION:/opt/boutique/db-restore.sh"
   - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_PRODUCTION" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
   - ssh "$DEPLOY_HOST_PRODUCTION" "cd /opt/boutique && IMAGE=$IMAGE docker compose -p boutique pull && IMAGE=$IMAGE docker compose -p boutique up -d"
   rules:

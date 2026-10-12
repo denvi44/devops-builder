@@ -804,6 +804,11 @@ def h_database_backup(rule: Rule, ctx: Context) -> list[Diagnostic]:
     for p in _kube_databases(ctx):
         if p.tool.id in ENGINES and ENGINES[p.tool.id].family == "key-value":
             continue  # cache : la persistance du volume suffit en général
+        if p.tool.id == "cloudnative-pg":
+            from .generators.data import cnpg_backup
+            from .ir import build_ir
+            if cnpg_backup(build_ir(ctx.project, ctx.catalog)):
+                continue  # plugin Barman Cloud vers le stockage objet
         actions = _add_actions(ctx, ["velero"], 1)
         out.append(_diag(rule, _fmt(rule.message, tool=p.tool.name, env=prod[0].display), [p.brick.uid], actions))
     return out
@@ -837,6 +842,39 @@ def h_local_state(rule: Rule, ctx: Context) -> list[Diagnostic]:
                 if prov.services.get("object-storage") in REMOTE_BACKENDS]
     return [_diag(rule, _fmt(rule.message, tool=stacks[0].tool.name), [p.brick.uid for p in stacks],
                   _add_actions(ctx, storages, 3))]
+
+
+@handler("connection_format")
+def h_connection_format(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    from .databases import databases
+    out = []
+    seen: dict[str, str] = {}
+    for db in databases(ctx.project, ctx.catalog):
+        uid = next((p.brick.uid for p in ctx.placed if p.tool.id == db.id), None)
+        if db.mode == "managed" and str(db.params.get("url_format") or "") == "parts":
+            out.append(_diag(rule, _fmt(rule.message, tool=db.tool.name,
+                                        detail="une base managée transmet une seule URL : les variables séparées "
+                                               "ne sont pas générées, l'application reçoit l'URL"),
+                             [uid] if uid else [], []))
+        if db.url_var in seen:
+            out.append(_diag(rule, _fmt(rule.message, tool=db.tool.name,
+                                        detail=f"la variable {db.url_var} est déjà celle de {seen[db.url_var]} : "
+                                               "l'une écraserait l'autre"), [uid] if uid else [], []))
+        seen.setdefault(db.url_var, db.tool.name)
+    return out
+
+
+@handler("backup_plugin")
+def h_backup_plugin(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    """Sauvegardes CloudNativePG générées : le plugin Barman Cloud demande cert-manager."""
+    from .generators.data import cnpg_backup
+    from .ir import build_ir
+    placed = [p for p in ctx.placed if p.tool.id == "cloudnative-pg"]
+    if not placed or ctx.has("cert-manager"):
+        return []
+    if not cnpg_backup(build_ir(ctx.project, ctx.catalog)):
+        return []
+    return [_diag(rule, rule.message, [placed[0].brick.uid], _add_actions(ctx, ["cert-manager"]))]
 
 
 @handler("vault_unreachable")

@@ -6,7 +6,7 @@ toutes les combinaisons de réponses donnent un pipeline sans erreur bloquante.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .catalog import Catalog
 from .generators.iac import REMOTE_BACKENDS
@@ -84,6 +84,7 @@ class StarterAnswers:
     cache: bool = False               # stockage clé-valeur Valkey (cache, sessions)
     migrations: str = ""              # commande de migration de schéma, détectée dans l'application
     secrets: str = "ci"               # source des secrets de l'application (SECRETS)
+    connections: dict = field(default_factory=dict)  # variable et format de connexion détectés, par famille
 
 
 def clouds_for(hosting: str, secnumcloud: bool) -> list[str]:
@@ -240,10 +241,11 @@ def build_starter(a: StarterAnswers, catalog: Catalog) -> Project:
 
     # Données
     if a.database in DATABASES and a.database != "none":
+        from .databases import ENGINES
         tool, params = database_brick(a.database, p, catalog)
-        add(tool, **params)
+        add(tool, **params, **a.connections.get(ENGINES[a.database].family, {}))
     if a.cache:
-        add("valkey")
+        add("valkey", **a.connections.get("key-value", {}))
     if a.migrations and (a.database != "none" or a.cache):
         add("db-migrations", command=a.migrations)
 
@@ -313,6 +315,8 @@ def answers_from_profile(profile, catalog: Catalog, base: StarterAnswers | None 
     if any(e in ("valkey", "redis") for e in profile.databases):
         a.cache = True
         taken.append("cache Valkey (client Redis dans les dépendances)")
+    if profile.connections:
+        a.connections = dict(profile.connections)
     if profile.migrations:
         a.migrations = profile.migrations
         taken.append(f"migrations « {profile.migrations} »")

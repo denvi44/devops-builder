@@ -1,0 +1,6 @@
+id: R47
+title: Sauvegardes CloudNativePG sans cert-manager
+family: donnees
+severity: avertissement
+type: backup_plugin
+message: "Les sauvegardes de CloudNativePG passent par le plugin Barman Cloud, qui demande cert-manager pour ses certificats : l'ajouter au pipeline, sinon platform/install.sh échouera à l'installer."

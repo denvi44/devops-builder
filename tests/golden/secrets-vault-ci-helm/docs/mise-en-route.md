@@ -61,6 +61,16 @@ kubectl -n boutique rollout status deployment/boutique
 kubectl -n boutique get pods
 ```
 
-## 6. Entretien
+## 6. Poste de développement
+
+Les mêmes bases qu'en production, en version identique, sur le poste (ports liés à 127.0.0.1, mot de passe `dev`). Les fichiers de `dev/db/init/<base>/` sont joués à la création :
+
+```bash
+docker compose -f dev/db/compose.yaml up -d --wait
+set -a && . dev/db/app.env && set +a   # variables de connexion pour l'application lancée sur le poste
+docker compose -f dev/db/compose.yaml --profile outils up -d adminer   # http://127.0.0.1:8081
+```
+
+## 7. Entretien
 
 - Rotation d'un mot de passe : nouvelle valeur par `scripts/secrets-seed.sh`, puis redéploiement.

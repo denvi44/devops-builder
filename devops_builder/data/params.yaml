@@ -362,6 +362,20 @@ _db_user: &db_user
   default: app
   pattern: '[a-z][a-z0-9_]{0,31}'
   pattern_hint: "minuscules, chiffres et _, commence par une lettre (« admin » et « root » sont réservés par certains services)"
+_db_url_var: &db_url_var
+  label: Variable lue par l'application
+  description: >-
+    Nom de la variable d'environnement qui porte la connexion ; vide : celle du moteur
+    (DATABASE_URL, MONGODB_URI, REDIS_URL). Spring Boot : SPRING_DATASOURCE_URL.
+  pattern: '[A-Z_][A-Z0-9_]*'
+  pattern_hint: "majuscules, chiffres et _, ex. DATABASE_URL"
+_db_url_format: &db_url_format
+  label: Format de connexion
+  description: >-
+    URL classique, URL JDBC (Java : Spring, Quarkus), ou URL et variables séparées
+    (<préfixe>_HOST, _PORT, _NAME, _USER, _PASSWORD) pour les cadres qui lisent chaque élément.
+  default: url
+  choices: [url, jdbc, parts]
 _db_storage: &db_storage
   label: Volume (Kubernetes)
   description: Taille du volume persistant sur Kubernetes.
@@ -380,6 +394,8 @@ postgresql:
   database: *db_name
   user: *db_user
   storage: *db_storage
+  url_var: *db_url_var
+  url_format: *db_url_format
 mariadb:
   version:
     label: Version
@@ -390,6 +406,8 @@ mariadb:
   database: *db_name
   user: *db_user
   storage: *db_storage
+  url_var: *db_url_var
+  url_format: *db_url_format
 mysql:
   version:
     label: Version
@@ -400,6 +418,8 @@ mysql:
   database: *db_name
   user: *db_user
   storage: *db_storage
+  url_var: *db_url_var
+  url_format: *db_url_format
 mongodb:
   version:
     label: Version
@@ -410,6 +430,7 @@ mongodb:
   database: *db_name
   user: *db_user
   storage: *db_storage
+  url_var: *db_url_var
 valkey:
   version:
     label: Version
@@ -420,6 +441,7 @@ valkey:
   storage:
     <<: *db_storage
     default: 1Gi
+  url_var: *db_url_var
 redis:
   version:
     label: Version
@@ -430,6 +452,7 @@ redis:
   storage:
     <<: *db_storage
     default: 1Gi
+  url_var: *db_url_var
 cloudnative-pg:
   version:
     label: Version de PostgreSQL
@@ -441,6 +464,21 @@ cloudnative-pg:
   database: *db_name
   user: *db_user
   storage: *db_storage
+  url_var: *db_url_var
+  url_format: *db_url_format
+  backup_destination:
+    label: Destination des sauvegardes
+    description: >-
+      Stockage objet des sauvegardes (plugin Barman Cloud) : s3://bucket, gs://bucket ou
+      https://compte.blob.core.windows.net/conteneur. Vide sur EKS et GKE : bucket créé par la pile ;
+      ailleurs : pas de sauvegarde générée.
+    pattern: '(s3|gs)://[a-z0-9][a-z0-9.-]{1,61}[a-z0-9](/[A-Za-z0-9._/-]*)?|https://[a-z0-9]{3,24}\.blob\.core\.windows\.net/[a-z0-9-]{3,63}(/[A-Za-z0-9._/-]*)?'
+    pattern_hint: "s3://bucket[/chemin], gs://bucket[/chemin] ou https://compte.blob.core.windows.net/conteneur"
+  backup_endpoint:
+    label: Point d'accès S3
+    description: Stockage compatible S3 hors AWS (Scaleway, OVHcloud, Outscale, MinIO), ex. https://s3.fr-par.scw.cloud.
+    pattern: 'https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?/?'
+    pattern_hint: "https://hôte[:port]"
 
 _managed_instance: &managed_instance
   per_env: true
@@ -472,6 +510,8 @@ aws-rds:
     default: 20
   database: *db_name
   user: *db_user
+  url_var: *db_url_var
+  url_format: *db_url_format
 cloud-sql:
   engine:
     label: Moteur
@@ -491,6 +531,8 @@ cloud-sql:
     pattern_hint: "gabarit Cloud SQL, ex. db-custom-1-3840"
   database: *db_name
   user: *db_user
+  url_var: *db_url_var
+  url_format: *db_url_format
 azure-database:
   engine:
     label: Moteur
@@ -514,6 +556,8 @@ azure-database:
     pattern_hint: "SKU du serveur flexible, ex. B_Standard_B1ms"
   database: *db_name
   user: *db_user
+  url_var: *db_url_var
+  url_format: *db_url_format
 scaleway-rdb:
   engine:
     label: Moteur
@@ -528,6 +572,8 @@ scaleway-rdb:
     pattern_hint: "type de nœud Scaleway, ex. DB-DEV-S"
   database: *db_name
   user: *db_user
+  url_var: *db_url_var
+  url_format: *db_url_format
 ovh-databases:
   engine:
     label: Moteur
@@ -558,6 +604,8 @@ ovh-databases:
     pattern_hint: "code de région OVHcloud en majuscules, ex. GRA"
   database: *db_name
   user: *db_user
+  url_var: *db_url_var
+  url_format: *db_url_format
 
 db-migrations:
   command:

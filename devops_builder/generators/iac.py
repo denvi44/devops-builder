@@ -332,6 +332,9 @@ def terraform(ir: IR) -> dict[str, str]:
     from . import secrets
     secret_blocks, secret_random = secrets.terraform_blocks(ir, data.compose_dbs(ir))
     eso_blocks, eso_outputs = secrets.eso_identity_blocks(ir)
+    backup_blocks, backup_outputs = data.backup_terraform_blocks(ir)
+    eso_blocks = data.pod_identity_addons(ir) + eso_blocks + backup_blocks
+    eso_outputs = eso_outputs + backup_outputs
     required = []
     for p in ir.providers:
         src, ver = PROVIDER_SOURCES.get(p.id, (p.terraform_provider, ">= 0"))

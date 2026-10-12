@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QPushButton,
     QScrollArea,
@@ -132,10 +133,12 @@ class MainWindow(QMainWindow):
         self.chips_area.setWidgetResizable(True)  # le contenu garde sa largeur ; l'excédent est rogné
         self.chips_area.setWidget(chips)
         bar.addWidget(self.chips_area, 1)
-        self.ports_btn = QPushButton("Ports")
-        self.ports_btn.setToolTip("Ports de l'application et des briques, par environnement (Ctrl+Maj+P)")
-        self.ports_btn.clicked.connect(self.show_ports)
-        bar.addWidget(self.ports_btn)
+        # Vues transverses du projet (ports, données) : un seul bouton, pour tenir sur un écran de portable
+        self.views_btn = QPushButton("Vues")
+        self.views_btn.setAccessibleName("Vues du projet : ports, données")
+        self.views_btn.setToolTip("Ports (Ctrl+Maj+P) et Données (Ctrl+Maj+D), par environnement")
+        self.views_btn.setObjectName("viewsButton")
+        bar.addWidget(self.views_btn)
         self.settings_btn = QPushButton()
         self.settings_btn.setToolTip("Paramètres du projet (F2)")
         self.settings_btn.setAccessibleName("Paramètres du projet")
@@ -217,6 +220,8 @@ class MainWindow(QMainWindow):
         self.a_settings = self._act("Paramètres du projet…", self.edit_settings, "F2", "mdi6.cog-outline")
         self.a_ports = self._act("Ports et exposition…", self.show_ports, "Ctrl+Shift+P", "mdi6.lan",
                                  "Ports de l'application et des briques, par environnement (Ctrl+Maj+P)")
+        self.a_data = self._act("Données…", self.show_data, "Ctrl+Shift+D", "mdi6.database-outline",
+                                "Bases du projet par environnement : mode, connexion, secret, sauvegarde (Ctrl+Maj+D)")
         self.a_application = self._act("Application…", self.edit_application, "Ctrl+Shift+A", "mdi6.application-cog-outline",
                                        "Dossier de l'application, analyse, langage et port (Ctrl+Maj+A)")
         self.a_validate = self._act("Valider…", self.validate, "Ctrl+Shift+V", "mdi6.check-decagram-outline",
@@ -281,6 +286,10 @@ class MainWindow(QMainWindow):
         p.addAction(self.a_generate)
         p.addAction(self.a_validate)
         p.addAction(self.a_ports)
+        p.addAction(self.a_data)
+        views = QMenu(self.views_btn)
+        views.addActions([self.a_ports, self.a_data])
+        self.views_btn.setMenu(views)
         c = mb.addMenu("&Catalogue")
         c.addActions([self.a_maintenance, self.a_new_fiche, self.a_catalog_folder])
         v = mb.addMenu("&Affichage")
@@ -302,7 +311,7 @@ class MainWindow(QMainWindow):
         pal = theme.current()
         self.generate_btn.setIcon(icon("mdi6.rocket-launch-outline", pal.primary))
         self.settings_btn.setIcon(icon("mdi6.cog-outline", pal.text))
-        self.ports_btn.setIcon(icon("mdi6.lan", pal.text))
+        self.views_btn.setIcon(icon("mdi6.view-dashboard-outline", pal.text))
         for sid, col in self.canvas.columns.items():
             col.findChild(QLabel).setPixmap(icon(STAGE_ICONS[sid], pal.primary).pixmap(20, 20))
 
@@ -607,6 +616,14 @@ class MainWindow(QMainWindow):
             self.edit_settings("environnements")
             return self.project
         PortsDialog(self.project, self.catalog, self, edit_environments=edit).exec()
+
+    def show_data(self) -> None:
+        from .data import DataDialog
+
+        def fix(action) -> Project:
+            self.apply_fix(action)
+            return self.project
+        DataDialog(self.project, self.catalog, self.engine, self, apply_fix=fix, focus_brick=self._focus_brick).exec()
 
     def _confirm_discard(self) -> bool:
         if self.undo_stack.isClean():

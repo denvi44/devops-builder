@@ -87,6 +87,7 @@ deploy-staging:
   - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_STAGING" "mkdir -p /opt/mon-app-staging/secrets && chmod 700 /opt/mon-app-staging/secrets && tar -C /opt/mon-app-staging/secrets -xf - && chmod 600 /opt/mon-app-staging/secrets/*"
   - rm -rf .secrets
   - scp scripts/db-backup.sh "$DEPLOY_HOST_STAGING:/opt/mon-app-staging/db-backup.sh"
+  - scp scripts/db-restore.sh "$DEPLOY_HOST_STAGING:/opt/mon-app-staging/db-restore.sh"
   - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_STAGING" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
   - ssh "$DEPLOY_HOST_STAGING" "cd /opt/mon-app-staging && IMAGE=$IMAGE docker compose -p mon-app-staging pull && IMAGE=$IMAGE docker compose -p mon-app-staging up -d"
   rules:
@@ -115,6 +116,7 @@ deploy-production:
   - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_PRODUCTION" "mkdir -p /opt/mon-app/secrets && chmod 700 /opt/mon-app/secrets && tar -C /opt/mon-app/secrets -xf - && chmod 600 /opt/mon-app/secrets/*"
   - rm -rf .secrets
   - scp scripts/db-backup.sh "$DEPLOY_HOST_PRODUCTION:/opt/mon-app/db-backup.sh"
+  - scp scripts/db-restore.sh "$DEPLOY_HOST_PRODUCTION:/opt/mon-app/db-restore.sh"
   - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_PRODUCTION" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
   - ssh "$DEPLOY_HOST_PRODUCTION" "cd /opt/mon-app && IMAGE=$IMAGE docker compose -p mon-app pull && IMAGE=$IMAGE docker compose -p mon-app up -d"
   rules:

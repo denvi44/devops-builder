@@ -114,6 +114,7 @@ COMPOSE_SERVICES: dict[str, dict] = {
 
 def install_script(ir: IR) -> dict[str, str]:
     from . import secrets
+    from .data import cnpg_backup
     from .extras import embedded_components
 
     embedded = embedded_components(ir)
@@ -155,6 +156,10 @@ def install_script(ir: IR) -> dict[str, str]:
         lines.append(f"helm upgrade --install {t} {c.chart} --namespace {c.namespace} --create-namespace{args}")
         if store_file:
             lines.append(f'kubectl apply -f "$(dirname "$0")/{secrets.STORE_FILE.split("/", 1)[1]}"')
+        if t == "cloudnative-pg" and cnpg_backup(ir):
+            lines.append("# Plugin Barman Cloud : sauvegardes et archivage des WAL (demande cert-manager)")
+            lines.append("helm upgrade --install plugin-barman-cloud cnpg/plugin-barman-cloud --namespace cnpg-system "
+                         "--wait")
         lines.append("")
     return {"platform/install.sh": "\n".join(lines)}
 

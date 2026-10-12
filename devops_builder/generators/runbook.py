@@ -409,7 +409,7 @@ def _upkeep(ir: IR, files: dict[str, str]) -> list[str]:
     if BACKUP_SCRIPT in files:
         planned = "planifiée par Ansible" if ir.has("ansible") else "à planifier sur l'hôte (cron)"
         items.append(f"Sauvegardes : `{BACKUP_SCRIPT}` {planned} ; copier les fichiers hors de la machine et "
-                     "tester une restauration.")
+                     "tester une restauration (section Sauvegardes).")
     if (sec.source(ir) != "ci" or sec.eso(ir)) and sec.values(ir, _dbs(ir)):
         by = " (ou par la pile)" if sec.tf_dbs(ir, _dbs(ir)) else ""
         items.append(f"Rotation d'un mot de passe : nouvelle valeur par `scripts/secrets-seed.sh`{by}, puis "
@@ -431,8 +431,60 @@ def _dbs(ir: IR):
     return compose_dbs(ir)
 
 
+def _backups(ir: IR, files: dict[str, str]) -> list[str]:
+    from .data import BACKUP_SECRET, RESTORE_SCRIPT, backup_needs_secret, cnpg_backup
+    out: list[str] = []
+    if RESTORE_SCRIPT in files:
+        ns = ir.namespace(ir.envs[0])
+        out += ["Sur l'hôte, une sauvegarde puis une restauration d'essai (la restauration remplace la base) :", "",
+                *_sh(f"sudo /opt/{ns}/db-backup.sh /opt/{ns} /var/backups/{ns}",
+                     f'last="$(sudo ls -t /var/backups/{ns} | head -n 1)"',
+                     f'sudo /opt/{ns}/db-restore.sh /opt/{ns} "/var/backups/{ns}/$last" --oui')]
+    target = cnpg_backup(ir)
+    if target:
+        secret = BACKUP_SECRET.format(app=ir.app)
+        if backup_needs_secret(ir):
+            dest = target[0]
+            if dest.startswith("s3://"):
+                lits = '--from-literal=ACCESS_KEY_ID="<clé>" --from-literal=ACCESS_SECRET_KEY="<secret>"'
+            elif dest.startswith("gs://"):
+                lits = "--from-file=credentials.json=<clé-du-compte-de-service>.json"
+            else:
+                lits = '--from-literal=AZURE_STORAGE_ACCOUNT="<compte>" --from-literal=AZURE_STORAGE_KEY="<clé>"'
+            out += [f"CloudNativePG sauvegarde vers {target[0]} (plugin Barman Cloud) avec les identifiants du Secret "
+                    f"`{secret}`, à créer dans chaque espace de noms :", "",
+                    *_sh(*[f"kubectl -n {ir.namespace(e)} create secret generic {secret} {lits}" for e in ir.envs])]
+        else:
+            out += [f"CloudNativePG sauvegarde vers {target[0]} : bucket et accès créés par la pile Terraform.", ""]
+        ns = ir.namespace(ir.envs[-1])
+        out += ["Vérifier l'archivage et la sauvegarde quotidienne, puis restaurer pour essai dans un autre Cluster "
+                "(`bootstrap.recovery`, voir la documentation du plugin) :", "",
+                *_sh(f"kubectl -n {ns} get cluster {ir.app}-pg -o jsonpath='{{.status.conditions}}'   # ContinuousArchiving",
+                     f"kubectl -n {ns} get scheduledbackup,backup")]
+    if not out:
+        return []
+    return ["## Sauvegardes", "", *out]
+
+
+def _dev(ir: IR, files: dict[str, str]) -> list[str]:
+    from ..databases import migration_command
+    from .data import DEV_DIR
+    if f"{DEV_DIR}/compose.yaml" not in files:
+        return []
+    lines = [f"docker compose -f {DEV_DIR}/compose.yaml up -d --wait",
+             f"set -a && . {DEV_DIR}/app.env && set +a   # variables de connexion pour l'application lancée sur le poste"]
+    command = migration_command(ir.project, ir.catalog)
+    if command:
+        lines.append(command)
+    if "adminer" in files[f"{DEV_DIR}/compose.yaml"]:
+        lines.append(f"docker compose -f {DEV_DIR}/compose.yaml --profile outils up -d adminer   # http://127.0.0.1:8081")
+    return ["## Poste de développement", "",
+            "Les mêmes bases qu'en production, en version identique, sur le poste (ports liés à 127.0.0.1, mot de "
+            f"passe `dev`). Les fichiers de `{DEV_DIR}/init/<base>/` sont joués à la création :", "", *_sh(*lines)]
+
+
 SECTIONS = (_state, _ci_cloud, _infra, _platform, _vault, _app_secrets, _eso, _hosts, _gitops, _ci_vars,
-            _first_deploy, _upkeep)
+            _first_deploy, _backups, _dev, _upkeep)
 
 
 def runbook(ir: IR, files: dict[str, str]) -> dict[str, str]:

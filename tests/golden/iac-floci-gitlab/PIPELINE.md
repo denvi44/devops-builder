@@ -89,6 +89,7 @@ Aucun.
 - Floci : `docker compose -f dev/floci/compose.yaml up -d` lance l'émulateur AWS sur le port 4566 ; `dev/floci/aws.env` y pointe les SDK et la CLI (identifiants factices test/test).
 - Floci tourne à côté des tests unitaires dans la CI : AWS_ENDPOINT_URL désigne l'émulateur.
 - `scripts/tf-floci.sh plan` joue la pile sur Floci, sans compte AWS (job CI non bloquant) ; `apply` crée puis détruit les ressources en local. Les services à conteneurs (EKS, RDS, Lambda) demandent le socket Docker, monté seulement par le script lancé en local.
+- Poste de développement : `docker compose -f dev/db/compose.yaml up -d` lance les bases du projet (même version), `dev/db/app.env` donne leurs variables de connexion.
 - Bases managées : une instance par environnement ; après `apply`, composer l'URL de connexion à partir des sorties Terraform (outputs.tf) et la déclarer en variable CI.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
 - `scripts/ci-variables.sh` déclare les 9 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
@@ -104,6 +105,9 @@ Aucun.
 - `charts/boutique/values-production.yaml`
 - `charts/boutique/values-staging.yaml`
 - `charts/boutique/values.yaml`
+- `dev/db/app.env`
+- `dev/db/compose.yaml`
+- `dev/db/init/postgresql/README.md`
 - `dev/floci/aws.env`
 - `dev/floci/compose.yaml`
 - `devops-builder.yaml`

@@ -90,6 +90,7 @@ Aucun.
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
 - Secrets dans OpenBao (moteur KV v2 « apps », clés <espace de noms>/<brique>) : `scripts/secrets-seed.sh <environnement>` les écrit. La CI s'y connecte par JWT (rôle « mon-app-ci » sur auth/jwt, émetteur GitLab ou GitHub, politique de lecture de apps/data/<espace de noms>/*) ou par VAULT_TOKEN.
+- Poste de développement : `docker compose -f dev/db/compose.yaml up -d` lance les bases du projet (même version), `dev/db/app.env` donne leurs variables de connexion.
 - PostgreSQL : service Compose non publié sur l'hôte (réseau interne), données dans un volume nommé ; `deploy/secrets.sh` écrit les mots de passe et l'URL de connexion lus par les conteneurs (env_file), à partir du coffre, lu par la CI.
 - Sauvegardes : planifier `scripts/db-backup.sh` sur chaque hôte (cron quotidien) et copier les fichiers hors de la machine.
 - Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
@@ -101,11 +102,15 @@ Aucun.
 - `PIPELINE.md`
 - `deploy/docker-compose.yml`
 - `deploy/secrets.sh`
+- `dev/db/app.env`
+- `dev/db/compose.yaml`
+- `dev/db/init/postgresql/README.md`
 - `devops-builder.yaml`
 - `docs/mise-en-route.md`
 - `renovate.json`
 - `scripts/ci-variables.sh`
 - `scripts/db-backup.sh`
+- `scripts/db-restore.sh`
 - `scripts/secrets-fetch.sh`
 - `scripts/secrets-seed.sh`
 - `scripts/vault-setup.sh`

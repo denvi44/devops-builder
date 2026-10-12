@@ -33,6 +33,11 @@
         src: ../scripts/db-backup.sh
         dest: '{{ app_dir }}/db-backup.sh'
         mode: '0750'
+    - name: Copier le script de restauration des bases
+      ansible.builtin.copy:
+        src: ../scripts/db-restore.sh
+        dest: '{{ app_dir }}/db-restore.sh'
+        mode: '0750'
     - name: Planifier la sauvegarde quotidienne des bases
       ansible.builtin.cron:
         name: sauvegarde des bases {{ project }}

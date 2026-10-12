@@ -14,6 +14,7 @@ Trois façons d'avoir une base, chacune avec son contrat de connexion :
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from .catalog import Catalog
@@ -66,6 +67,9 @@ ENGINES: dict[str, Engine] = {
     "redis": Engine("redis", "Redis", "key-value", 6379, "redis", "8", "REDIS_URL", "redis", "/data"),
 }
 SELF_HOSTED = tuple(ENGINES)
+URL_FORMATS = {"url": "URL (postgresql://, mysql://…)", "jdbc": "JDBC (jdbc:postgresql://…, Spring, Quarkus)",
+               "parts": "URL et variables séparées (HOST, PORT, NAME, USER, PASSWORD)"}
+JDBC_SCHEMES = {"postgresql": "postgresql", "mysql": "mysql", "mariadb": "mariadb"}
 OPERATORS = {"cloudnative-pg": "postgresql"}
 MANAGED = ("aws-rds", "cloud-sql", "azure-database", "scaleway-rdb", "ovh-databases")
 DATABASE_TOOLS = (*SELF_HOSTED, *OPERATORS, *MANAGED)
@@ -118,7 +122,30 @@ class Database:
 
     @property
     def url_var(self) -> str:
-        return self.alt_url_var or self.engine.url_var
+        """Variable lue par l'application : paramètre de la brique, sinon celle du moteur."""
+        return str(self.params.get("url_var") or "") or self.alt_url_var or self.engine.url_var
+
+    @property
+    def fmt(self) -> str:
+        """Format de connexion : url, jdbc ou parts (URL + variables séparées) ; relationnel seulement."""
+        value = str(self.params.get("url_format") or "url")
+        if self.engine.family != "sql" or value not in URL_FORMATS:
+            return "url"
+        if value == "parts" and self.mode == "managed":
+            return "url"  # R46 : l'URL d'une base managée vient d'une seule valeur
+        return value
+
+    @property
+    def parts_prefix(self) -> str:
+        return re.sub(r"_(URL|URI|DSN)$", "", self.url_var)
+
+    def parts(self) -> list[tuple[str, str]]:
+        """(variable, élément) des variables séparées : host, port, name, user, password."""
+        if self.fmt != "parts":
+            return []
+        pre = self.parts_prefix
+        return [(f"{pre}_{suffix}", key) for suffix, key in
+                (("HOST", "host"), ("PORT", "port"), ("NAME", "name"), ("USER", "user"), ("PASSWORD", "password"))]
 
     @property
     def password_var(self) -> str:
@@ -132,6 +159,9 @@ class Database:
 
     def url(self, host: str, password: str) -> str:
         e = self.engine
+        if self.fmt == "jdbc":
+            return (f"jdbc:{JDBC_SCHEMES.get(e.id, e.scheme)}://{host}:{e.port}/{self.name}"
+                    f"?user={self.user}&password={password}")
         if e.family == "key-value":
             return f"{e.scheme}://:{password}@{host}:{e.port}/0"
         return f"{e.scheme}://{self.user}:{password}@{host}:{e.port}/{self.name}{e.url_suffix}"
@@ -154,7 +184,7 @@ def databases(project: Project, catalog: Catalog) -> list[Database]:
             out.append(Database(tool, ENGINES[engine], "managed", params))
     used: set[str] = set()
     for db in out:
-        if db.url_var in used:
+        if db.url_var in used and not db.params.get("url_var"):
             db.alt_url_var = f"{db.id.upper().replace('-', '_')}_URL"
         used.add(db.url_var)
     return out

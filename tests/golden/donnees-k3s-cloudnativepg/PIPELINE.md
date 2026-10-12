@@ -98,7 +98,8 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
-- CloudNativePG : l'opérateur est installé par platform/install.sh ; le Cluster crée le Secret « <cluster>-app » (clé uri) lu par l'application. Sauvegardes : configurer le plugin Barman Cloud vers un stockage objet, ou des instantanés de volumes.
+- Poste de développement : `docker compose -f dev/db/compose.yaml up -d` lance les bases du projet (même version), `dev/db/app.env` donne leurs variables de connexion.
+- CloudNativePG : l'opérateur est installé par platform/install.sh ; le Cluster crée le Secret « <cluster>-app » (clés uri, jdbc-uri, host, user, password) lu par l'application. Sauvegardes : renseigner « Destination des sauvegardes » dans la brique (plugin Barman Cloud), ou des instantanés de volumes.
 - Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
 - `scripts/ci-variables.sh` déclare les 4 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
@@ -115,6 +116,9 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `charts/mon-app/values-production.yaml`
 - `charts/mon-app/values-staging.yaml`
 - `charts/mon-app/values.yaml`
+- `dev/db/app.env`
+- `dev/db/compose.yaml`
+- `dev/db/init/postgresql/README.md`
 - `devops-builder.yaml`
 - `docs/mise-en-route.md`
 - `infra/cluster/install-k3s.sh`

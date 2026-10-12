@@ -80,7 +80,16 @@ CASES = [
     ("R44", lambda: put(make("kubernetes-managed"), "gitlab", "gitlab-ci", "scaleway", "kapsule", "opentofu"),
      Severity.WARNING),
     ("R45", lambda: put(make("docker-host"), "docker-compose", "postgresql", "openbao"), Severity.WARNING),
+    ("R46", lambda: with_params(put(make("kubernetes-managed"), "aws", "eks", "helm", "aws-rds"), "aws-rds",
+                                url_format="parts"), Severity.WARNING),
+    ("R47", lambda: with_params(put(make("kubernetes"), "k3s", "helm", "cloudnative-pg"), "cloudnative-pg",
+                                backup_destination="s3://sauvegardes"), Severity.WARNING),
 ]
+
+
+def with_params(p: Project, tool_id: str, **params) -> Project:
+    p.bricks_for(tool_id)[0].params.update(params)
+    return p
 
 
 def _port_clash() -> Project:

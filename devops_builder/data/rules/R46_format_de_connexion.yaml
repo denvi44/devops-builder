@@ -1,0 +1,6 @@
+id: R46
+title: Connexion à la base incohérente
+family: donnees
+severity: avertissement
+type: connection_format
+message: "{tool} : {detail}."

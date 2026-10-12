@@ -1,0 +1,27 @@
+# Généré par DevOps Builder — à relire avant usage.
+replicaCount: 2
+image:
+  repository: ghcr.io/OWNER/mon-app
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+database:
+  mariadb:
+    image: mariadb:11.8
+    storage: 10Gi
+    createSecret: true
+    password: ''
+  valkey:
+    image: valkey/valkey:8
+    storage: 1Gi
+    createSecret: true
+    password: ''

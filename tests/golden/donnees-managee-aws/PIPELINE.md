@@ -95,6 +95,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
+- Poste de développement : `docker compose -f dev/db/compose.yaml up -d` lance les bases du projet (même version), `dev/db/app.env` donne leurs variables de connexion.
 - Bases managées : une instance par environnement ; après `apply`, composer l'URL de connexion à partir des sorties Terraform (outputs.tf) et la déclarer en variable CI.
 - Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
@@ -111,6 +112,9 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `charts/mon-app/values-production.yaml`
 - `charts/mon-app/values-staging.yaml`
 - `charts/mon-app/values.yaml`
+- `dev/db/app.env`
+- `dev/db/compose.yaml`
+- `dev/db/init/postgresql/README.md`
 - `devops-builder.yaml`
 - `docs/mise-en-route.md`
 - `infra/terraform/.gitignore`

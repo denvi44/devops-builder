@@ -1,0 +1,52 @@
+# Généré par DevOps Builder — à relire avant usage. Bases du poste de développement : docker compose -f dev/db/compose.yaml up -d
+name: mon-app-dev
+services:
+  mariadb:
+    image: mariadb:11.8
+    restart: unless-stopped
+    ports:
+    - 127.0.0.1:3306:3306
+    environment:
+      MARIADB_USER: app
+      MARIADB_DATABASE: app
+      MARIADB_RANDOM_ROOT_PASSWORD: '1'
+      MARIADB_PASSWORD: dev
+    volumes:
+    - mariadb-dev:/var/lib/mysql
+    - ./init/mariadb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - healthcheck.sh --connect --innodb_initialized
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  valkey:
+    image: valkey/valkey:8
+    restart: unless-stopped
+    ports:
+    - 127.0.0.1:6379:6379
+    command:
+    - valkey-server
+    - --requirepass
+    - dev
+    volumes:
+    - valkey-dev:/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - valkey-cli -a "dev" --no-auth-warning ping | grep -q PONG
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  adminer:
+    image: adminer:5
+    profiles:
+    - outils
+    ports:
+    - 127.0.0.1:8081:8080
+    depends_on:
+    - mariadb
+volumes:
+  mariadb-dev: {}
+  valkey-dev: {}

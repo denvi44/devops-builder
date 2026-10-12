@@ -81,6 +81,7 @@ deploy-dev:
   - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_DEV" "mkdir -p /opt/mon-app-dev/secrets && chmod 700 /opt/mon-app-dev/secrets && tar -C /opt/mon-app-dev/secrets -xf - && chmod 600 /opt/mon-app-dev/secrets/*"
   - rm -rf .secrets
   - scp scripts/db-backup.sh "$DEPLOY_HOST_DEV:/opt/mon-app-dev/db-backup.sh"
+  - scp scripts/db-restore.sh "$DEPLOY_HOST_DEV:/opt/mon-app-dev/db-restore.sh"
   - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_DEV" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
   - ssh "$DEPLOY_HOST_DEV" "cd /opt/mon-app-dev && IMAGE=$IMAGE docker compose -p mon-app-dev pull && IMAGE=$IMAGE docker compose -p mon-app-dev up -d"
   rules:
@@ -103,6 +104,7 @@ deploy-recette:
   - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_RECETTE" "mkdir -p /opt/mon-app-recette/secrets && chmod 700 /opt/mon-app-recette/secrets && tar -C /opt/mon-app-recette/secrets -xf - && chmod 600 /opt/mon-app-recette/secrets/*"
   - rm -rf .secrets
   - scp scripts/db-backup.sh "$DEPLOY_HOST_RECETTE:/opt/mon-app-recette/db-backup.sh"
+  - scp scripts/db-restore.sh "$DEPLOY_HOST_RECETTE:/opt/mon-app-recette/db-restore.sh"
   - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_RECETTE" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
   - ssh "$DEPLOY_HOST_RECETTE" "cd /opt/mon-app-recette && IMAGE=$IMAGE docker compose -p mon-app-recette pull && IMAGE=$IMAGE docker compose -p mon-app-recette up -d"
   rules:
@@ -127,6 +129,7 @@ deploy-production:
   - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_PRODUCTION" "mkdir -p /opt/mon-app/secrets && chmod 700 /opt/mon-app/secrets && tar -C /opt/mon-app/secrets -xf - && chmod 600 /opt/mon-app/secrets/*"
   - rm -rf .secrets
   - scp scripts/db-backup.sh "$DEPLOY_HOST_PRODUCTION:/opt/mon-app/db-backup.sh"
+  - scp scripts/db-restore.sh "$DEPLOY_HOST_PRODUCTION:/opt/mon-app/db-restore.sh"
   - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_PRODUCTION" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
   - ssh "$DEPLOY_HOST_PRODUCTION" "cd /opt/mon-app && IMAGE=$IMAGE docker compose -p mon-app pull && IMAGE=$IMAGE docker compose -p mon-app up -d"
   rules:

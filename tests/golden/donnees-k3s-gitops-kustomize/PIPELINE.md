@@ -96,6 +96,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
 - Bases de données avec GitOps : la CI ne touche pas au cluster ; créer dans chaque espace de noms le Secret « mon-app-mongodb » (clés password et url), « mon-app-valkey » (clés password et url), par External Secrets ou SOPS.
+- Poste de développement : `docker compose -f dev/db/compose.yaml up -d` lance les bases du projet (même version), `dev/db/app.env` donne leurs variables de connexion.
 - MongoDB : l'application se connecte avec le compte administrateur initial ; créer un compte dédié aux droits limités avant la production.
 - Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (overlay Kustomize) : utile avant la première mise en production.
@@ -113,6 +114,9 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `deploy/kustomize/base/valkey.yaml`
 - `deploy/kustomize/overlays/production/kustomization.yaml`
 - `deploy/kustomize/overlays/staging/kustomization.yaml`
+- `dev/db/app.env`
+- `dev/db/compose.yaml`
+- `dev/db/init/mongodb/README.md`
 - `devops-builder.yaml`
 - `docs/mise-en-route.md`
 - `infra/cluster/install-k3s.sh`

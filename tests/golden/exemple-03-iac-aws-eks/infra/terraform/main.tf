@@ -83,6 +83,18 @@ resource "aws_secretsmanager_secret" "app" {
   name = "commandes"
 }
 
+# --- EKS Pod Identity (identités de charge de travail)
+resource "aws_eks_addon" "pod_identity_staging" {
+  cluster_name = module.eks_staging.cluster_name
+  addon_name   = "eks-pod-identity-agent"
+}
+
+# --- EKS Pod Identity (identités de charge de travail)
+resource "aws_eks_addon" "pod_identity_production" {
+  cluster_name = module.eks_production.cluster_name
+  addon_name   = "eks-pod-identity-agent"
+}
+
 # --- External Secrets : lecture du coffre par le contrôleur (EKS Pod Identity)
 resource "aws_iam_role" "external_secrets" {
   name = "commandes-external-secrets"
@@ -109,21 +121,11 @@ resource "aws_iam_role_policy" "external_secrets" {
   })
 }
 
-resource "aws_eks_addon" "pod_identity_staging" {
-  cluster_name = module.eks_staging.cluster_name
-  addon_name   = "eks-pod-identity-agent"
-}
-
 resource "aws_eks_pod_identity_association" "external_secrets_staging" {
   cluster_name    = module.eks_staging.cluster_name
   namespace       = "external-secrets"
   service_account = "external-secrets"
   role_arn        = aws_iam_role.external_secrets.arn
-}
-
-resource "aws_eks_addon" "pod_identity_production" {
-  cluster_name = module.eks_production.cluster_name
-  addon_name   = "eks-pod-identity-agent"
 }
 
 resource "aws_eks_pod_identity_association" "external_secrets_production" {

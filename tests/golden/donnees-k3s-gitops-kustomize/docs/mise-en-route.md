@@ -55,6 +55,15 @@ kubectl -n mon-app rollout status deployment/mon-app
 kubectl -n mon-app get pods
 ```
 
-## 6. Entretien
+## 6. Poste de développement
+
+Les mêmes bases qu'en production, en version identique, sur le poste (ports liés à 127.0.0.1, mot de passe `dev`). Les fichiers de `dev/db/init/<base>/` sont joués à la création :
+
+```bash
+docker compose -f dev/db/compose.yaml up -d --wait
+set -a && . dev/db/app.env && set +a   # variables de connexion pour l'application lancée sur le poste
+```
+
+## 7. Entretien
 
 - Renovate : job planifié (quotidien) avec l'image renovate/renovate et `RENOVATE_TOKEN`.

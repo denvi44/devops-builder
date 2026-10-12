@@ -472,7 +472,8 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
                f'tar -C .secrets -cf - . | ssh "${host}" "mkdir -p /opt/{ns}/secrets && chmod 700 /opt/{ns}/secrets '
                f'&& tar -C /opt/{ns}/secrets -xf - && chmod 600 /opt/{ns}/secrets/*"',
                "rm -rf .secrets"] if secrets else []),
-            *([f'scp {dbgen.BACKUP_SCRIPT} "${host}:/opt/{ns}/db-backup.sh"'] if dbgen.backup_script(ir) else []),
+            *([f'scp {dbgen.BACKUP_SCRIPT} "${host}:/opt/{ns}/db-backup.sh"',
+               f'scp {dbgen.RESTORE_SCRIPT} "${host}:/opt/{ns}/db-restore.sh"'] if dbgen.backup_script(ir) else []),
             *login,
             f'ssh "${host}" "cd /opt/{ns} && IMAGE=$IMAGE docker compose -p {ns} pull && IMAGE=$IMAGE docker compose -p {ns} up -d"'],
             tool="docker-compose", cloud=tf_clouds, id_tokens=sec.gitlab_id_tokens(ir) if secrets else {})

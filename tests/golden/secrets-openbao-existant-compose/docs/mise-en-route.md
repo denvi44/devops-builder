@@ -72,8 +72,28 @@ Pousser sur la branche principale : chaque environnement se déploie dans l'ordr
 ssh "<hôte>" "cd /opt/mon-app && docker compose -p mon-app ps"
 ```
 
-## 6. Entretien
+## 6. Sauvegardes
 
-- Sauvegardes : `scripts/db-backup.sh` à planifier sur l'hôte (cron) ; copier les fichiers hors de la machine et tester une restauration.
+Sur l'hôte, une sauvegarde puis une restauration d'essai (la restauration remplace la base) :
+
+```bash
+sudo /opt/mon-app-staging/db-backup.sh /opt/mon-app-staging /var/backups/mon-app-staging
+last="$(sudo ls -t /var/backups/mon-app-staging | head -n 1)"
+sudo /opt/mon-app-staging/db-restore.sh /opt/mon-app-staging "/var/backups/mon-app-staging/$last" --oui
+```
+
+## 7. Poste de développement
+
+Les mêmes bases qu'en production, en version identique, sur le poste (ports liés à 127.0.0.1, mot de passe `dev`). Les fichiers de `dev/db/init/<base>/` sont joués à la création :
+
+```bash
+docker compose -f dev/db/compose.yaml up -d --wait
+set -a && . dev/db/app.env && set +a   # variables de connexion pour l'application lancée sur le poste
+docker compose -f dev/db/compose.yaml --profile outils up -d adminer   # http://127.0.0.1:8081
+```
+
+## 8. Entretien
+
+- Sauvegardes : `scripts/db-backup.sh` à planifier sur l'hôte (cron) ; copier les fichiers hors de la machine et tester une restauration (section Sauvegardes).
 - Rotation d'un mot de passe : nouvelle valeur par `scripts/secrets-seed.sh`, puis redéploiement.
 - Renovate : job planifié (quotidien) avec l'image renovate/renovate et `RENOVATE_TOKEN`.

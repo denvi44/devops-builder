@@ -33,45 +33,21 @@ def _ports_section(ir: IR) -> list[str]:
     return out
 
 
-MODES = {"self-hosted": "autogérée", "operator": "opérateur Kubernetes", "managed": "service managé"}
-
-
 def _data_section(ir: IR) -> list[str]:
     from ..databases import databases, migration_command
-    from .data import BACKUP_SCRIPT, DUMPS, gitops, secret_name
-    from .secrets import origin
+    from ..datainfo import MODES, describe
     dbs = databases(ir.project, ir.catalog)
     if not dbs:
         return []
-    kube = ir.project.target in ("kubernetes", "kubernetes-managed") or ir.cluster is not None
     out = ["## Données", "",
            "L'application lit l'URL de connexion complète dans la variable indiquée ; le mot de passe ne figure "
            "dans aucun fichier du dépôt.", "",
            "| Base | Mode | Où | Variable de l'application | Mot de passe / URL | Sauvegarde |",
            "| --- | --- | --- | --- | --- | --- |"]
     for db in dbs:
-        if db.mode == "managed":
-            where = f"{db.tool.name}, une instance par environnement (Terraform)"
-            secret = f"variable CI `{db.url_ci_var}" + ("_<ENV>`" if ir.multi_env else "`")
-            backup = "service du fournisseur (rétention configurée)"
-        elif db.mode == "operator":
-            where = "Cluster CloudNativePG dans l'espace de noms de l'application"
-            secret = f"Secret `{secret_name(ir, db)}` créé par l'opérateur"
-            backup = "plugin Barman Cloud ou instantanés de volumes, à configurer"
-        else:
-            if kube and not ir.has("docker-compose"):
-                where = "StatefulSet dans l'espace de noms de l'application"
-                backup = "Velero ou instantanés de volumes" if ir.has("velero") else "à prévoir (Velero, instantanés)"
-            else:
-                where = "service Compose, volume nommé, réseau interne"
-                backup = f"`{BACKUP_SCRIPT}` à planifier" if db.id in DUMPS else "persistance AOF du volume"
-            secret = f"variable CI `{db.password_var}" + ("_<ENV>`" if ir.multi_env else "`")
-            if kube and gitops(ir):
-                secret = f"Secret `{secret_name(ir, db)}` (GitOps : External Secrets ou SOPS)"
-        if db.mode != "operator":
-            secret = origin(ir, db, kube) or secret
+        info = describe(ir, db)
         out.append(f"| {db.tool.name} {db.version if db.mode == 'self-hosted' else ''}".rstrip()
-                   + f" | {MODES[db.mode]} | {where} | `{db.url_var}` | {secret} | {backup} |")
+                   + f" | {MODES[db.mode]} | {info.where} | {info.connection} | {info.secret} | {info.backup} |")
     command = migration_command(ir.project, ir.catalog)
     if command:
         out += ["", f"Migrations : `{command}`, exécutée avec l'image de l'application avant chaque démarrage "

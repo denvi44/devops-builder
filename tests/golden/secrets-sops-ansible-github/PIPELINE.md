@@ -94,6 +94,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
 - Ansible : préparer chaque hôte une fois avec `ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook -i ansible/inventories/staging.ini ansible/site.yml` (Docker depuis son dépôt officiel, Debian, Ubuntu, RHEL et dérivées) ; le compte SSH doit avoir sudo sans mot de passe.
 - Secrets par SOPS : renseigner la clé publique age dans la brique SOPS (.sops.yaml), puis `scripts/secrets-seed.sh <environnement>` chiffre les valeurs dans deploy/secrets/<environnement>.enc.env, à committer. La CI les déchiffre avec SOPS_AGE_KEY.
+- Poste de développement : `docker compose -f dev/db/compose.yaml up -d` lance les bases du projet (même version), `dev/db/app.env` donne leurs variables de connexion.
 - PostgreSQL, Valkey : service Compose non publié sur l'hôte (réseau interne), données dans un volume nommé ; `deploy/secrets.sh` écrit les mots de passe et l'URL de connexion lus par les conteneurs (env_file), à partir des fichiers SOPS déchiffrés par la CI.
 - Sauvegardes : planifier `scripts/db-backup.sh` sur chaque hôte (cron quotidien) et copier les fichiers hors de la machine.
 - `scripts/ci-variables.sh` déclare les 3 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
@@ -112,9 +113,13 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `ansible/site.yml`
 - `deploy/docker-compose.yml`
 - `deploy/secrets.sh`
+- `dev/db/app.env`
+- `dev/db/compose.yaml`
+- `dev/db/init/postgresql/README.md`
 - `devops-builder.yaml`
 - `docs/mise-en-route.md`
 - `scripts/ci-variables.sh`
 - `scripts/db-backup.sh`
+- `scripts/db-restore.sh`
 - `scripts/secrets-fetch.sh`
 - `scripts/secrets-seed.sh`

@@ -581,12 +581,7 @@ resource "aws_iam_role_policy" "external_secrets" {{
   }})
 }}''']
         for sfx, _ in clusters:
-            blocks.append(f'''resource "aws_eks_addon" "pod_identity{sfx}" {{
-  cluster_name = module.eks{sfx}.cluster_name
-  addon_name   = "eks-pod-identity-agent"
-}}
-
-resource "aws_eks_pod_identity_association" "external_secrets{sfx}" {{
+            blocks.append(f'''resource "aws_eks_pod_identity_association" "external_secrets{sfx}" {{
   cluster_name    = module.eks{sfx}.cluster_name
   namespace       = "{ns}"
   service_account = "{sa}"

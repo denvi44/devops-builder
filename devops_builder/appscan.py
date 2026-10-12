@@ -81,6 +81,8 @@ class AppProfile:
     aws_sdk: bool = False                                 # l'application appelle des API AWS
     aws_emulator: str | None = None                      # émulateur déjà utilisé : floci ou localstack
     migrations: str | None = None                        # commande de migration de schéma
+    # variable et format de connexion lus par l'application, par famille (sql, document, key-value)
+    connections: dict[str, dict] = field(default_factory=dict)
     evidence: list[str] = field(default_factory=list)
 
     @property
@@ -344,7 +346,55 @@ def _databases(root: Path, p: AppProfile, files: list[Path], top: dict[str, Path
         p.databases.append(engine)
         p.evidence.append(f"Base {labels[engine]} : {proof}")
     _migrations(root, p, files, top, deps, prisma)
+    _connections(root, p, files)
     _aws(p, deps, _read(compose) if compose else "")
+
+
+ENV_READS = re.compile(
+    r"""(?:os\.environ\.get|os\.environ|os\.getenv|getenv|os\.Getenv|GetEnvironmentVariable|System\.getenv|"""
+    r"""env(?:\.\w+)?|config)\s*[\(\[]\s*["']([A-Z][A-Z0-9_]{2,})["']"""
+    r"""|process\.env\.([A-Z][A-Z0-9_]{2,})|process\.env\[["']([A-Z][A-Z0-9_]{2,})["']\]"""
+    r"""|\$\{([A-Z][A-Z0-9_]{2,})(?::[^}]*)?\}""")
+SQL_PREFIX = r"(?:[A-Z0-9]+_)*(?:DATABASE|DB|POSTGRES(?:QL)?|PG|MYSQL|MARIADB|SQL)"
+FAMILY_URL = {
+    "sql": re.compile(rf"^{SQL_PREFIX}(?:_[A-Z0-9]+)*_(?:URL|URI|DSN)$"),
+    "document": re.compile(r"^(?:[A-Z0-9]+_)*MONGO(?:DB)?(?:_[A-Z0-9]+)*_(?:URL|URI)$"),
+    "key-value": re.compile(r"^(?:[A-Z0-9]+_)*(?:REDIS|VALKEY|CACHE)(?:_[A-Z0-9]+)*_(?:URL|URI)$"),
+}
+CODE_SUFFIXES = (".py", ".js", ".mjs", ".cjs", ".ts", ".go", ".java", ".kt", ".cs", ".rb", ".php", ".properties",
+                 ".yml", ".yaml", ".toml", ".env", ".example")
+
+
+def _connections(root: Path, p: AppProfile, files: list[Path]) -> None:
+    """Variable (et format) dans laquelle l'application lit la connexion à chaque base."""
+    from .databases import ENGINES
+    families = {ENGINES[e].family for e in p.databases if e in ENGINES}
+    if not families:
+        return
+    names: dict[str, int] = {}
+    for f in files:
+        if not f.name.endswith(CODE_SUFFIXES) or any(part in SKIP_DIRS for part in f.parts):
+            continue
+        for m in ENV_READS.finditer(_read(f, 100_000)):
+            name = next(g for g in m.groups() if g)
+            names[name] = names.get(name, 0) + 1
+    java = p.framework in ("spring-boot", "quarkus")
+    if "sql" in families and java:
+        default = "SPRING_DATASOURCE_URL" if p.framework == "spring-boot" else "QUARKUS_DATASOURCE_JDBC_URL"
+        var = next((n for n in names if FAMILY_URL["sql"].match(n)), default)
+        p.connections["sql"] = {"url_var": var, "url_format": "jdbc"}
+        p.evidence.append(f"Connexion JDBC dans {var} ({'Spring Boot' if p.framework == 'spring-boot' else 'Quarkus'})")
+    for family in sorted(families - ({"sql"} if java else set())):
+        found = sorted((n for n in names if FAMILY_URL[family].match(n)), key=lambda n: (-names[n], len(n)))
+        if found:
+            p.connections[family] = {"url_var": found[0]}
+            p.evidence.append(f"Connexion lue dans {found[0]}")
+        elif family == "sql":
+            prefix = next((pre for pre in ("DATABASE", "DB", "POSTGRES", "PG", "MYSQL")
+                           if f"{pre}_HOST" in names and (f"{pre}_PASSWORD" in names or f"{pre}_PASS" in names)), None)
+            if prefix:
+                p.connections["sql"] = {"url_var": f"{prefix}_URL", "url_format": "parts"}
+                p.evidence.append(f"Connexion lue en variables séparées {prefix}_HOST, {prefix}_PASSWORD…")
 
 
 def _aws(p: AppProfile, deps: str, compose: str) -> None:
@@ -464,8 +514,9 @@ def proposed_params(profile: AppProfile, tool_id: str, project, catalog) -> dict
     from .starter import database_brick
     if tool_id == "db-migrations" and profile.migrations:
         return {"command": profile.migrations}
+    from .databases import ENGINES
     for engine in profile.databases:
         tid, params = database_brick(engine, project, catalog)
         if tid == tool_id:
-            return params
+            return {**params, **profile.connections.get(ENGINES[engine].family, {})}
     return {}

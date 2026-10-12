@@ -149,6 +149,12 @@ resource "aws_secretsmanager_secret_version" "secret_valkey_production" {
   secret_string = jsonencode({ password = random_password.secret_valkey_production.result })
 }
 
+# --- EKS Pod Identity (identités de charge de travail)
+resource "aws_eks_addon" "pod_identity" {
+  cluster_name = module.eks.cluster_name
+  addon_name   = "eks-pod-identity-agent"
+}
+
 # --- External Secrets : lecture du coffre par le contrôleur (EKS Pod Identity)
 resource "aws_iam_role" "external_secrets" {
   name = "mon-app-external-secrets"
@@ -173,11 +179,6 @@ resource "aws_iam_role_policy" "external_secrets" {
       Resource = ["arn:aws:secretsmanager:*:*:secret:mon-app/*", "arn:aws:secretsmanager:*:*:secret:mon-app-staging/*"]
     }]
   })
-}
-
-resource "aws_eks_addon" "pod_identity" {
-  cluster_name = module.eks.cluster_name
-  addon_name   = "eks-pod-identity-agent"
 }
 
 resource "aws_eks_pod_identity_association" "external_secrets" {

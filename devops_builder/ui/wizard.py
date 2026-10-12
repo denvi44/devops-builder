@@ -309,6 +309,7 @@ class StarterWizard(QWizard):
             a.dockerfile, a.k8s_deploy = detected.dockerfile, detected.k8s_deploy
             a.dependency_tool, a.source = detected.dependency_tool, detected.source
             a.migrations = detected.migrations
+            a.connections = detected.connections
         return a
 
     def _collect(self) -> StarterAnswers:
