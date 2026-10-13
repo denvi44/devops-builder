@@ -8,3 +8,6 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # les contraintes « >= » de pyproject.toml ne sont relevées que si une version en sort ;
+    # relever les minimums à chaque sortie restreindrait inutilement les installations
+    versioning-strategy: increase-if-necessary
