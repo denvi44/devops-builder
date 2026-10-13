@@ -39,13 +39,13 @@ dependencies = [
 [project.optional-dependencies]
 validate = [
     "check-jsonschema>=0.28",
-    "actionlint-py>=1.7",
+    "actionlint-py>=1.7.12.25",
     "shellcheck-py>=0.10",
 ]
 dev = [
     "pytest>=8",
     "check-jsonschema>=0.28",
-    "actionlint-py>=1.7",
+    "actionlint-py>=1.7.12.25",
     "shellcheck-py>=0.10",
     "ruff>=0.5",
 ]
