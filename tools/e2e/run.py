@@ -303,6 +303,12 @@ echo "réponse : ${{body:0:300}}"; exit 1
              admin + "tofu plan -detailed-exitcode -input=false", cwd=out / "infra" / "keycloak", env=tf_env,
              evidence=True),
         Step("Revendication « groups » d'un membre du groupe admins", groups, evidence=True),
+        Step("Diagnostic de Keycloak",
+             f"kubectl --context {ctx} -n keycloak get keycloak keycloak -o jsonpath='{{.status}}'; echo\n"
+             f"kubectl --context {ctx} -n keycloak get pods,pvc -o wide\n"
+             f"kubectl --context {ctx} -n keycloak logs statefulset/keycloak --tail=25 || true\n"
+             f"kubectl --context {ctx} -n keycloak logs deployment/keycloak-operator --tail=15 || true\n"
+             f"kubectl --context {ctx} -n keycloak describe pod -l app=keycloak | tail -n 25 || true", always=True),
         *end,
     ]
 
@@ -380,15 +386,22 @@ def run_step(step: Step, timeout: int = 900) -> Result:
     return Result(step, ok, time.monotonic() - start, output)
 
 
+def _escape(text: str, prop: bool = False) -> str:
+    text = text.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+    return text.replace(":", "%3A").replace(",", "%2C") if prop else text
+
+
 def annotations(scenario: Scenario, results: list[Result]) -> list[str]:
-    """Commandes d'annotation GitHub : la preuve de chaque étape marquée, lisible sur la page du passage."""
+    """Commandes d'annotation GitHub : la preuve de chaque étape marquée et, après un échec, la sortie des
+    étapes de diagnostic ; lisibles sur la page du passage et par l'API."""
+    failed = any(not r.ok for r in results)
     out = []
     for r in results:
-        if r.step.evidence or not r.ok:
-            text = " ".join(r.output.strip().splitlines()[-6:])[:900] or "(sans sortie)"
-            text = text.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+        if r.step.evidence or not r.ok or (failed and r.step.always):
+            lines = r.output.strip().splitlines()
+            text = "\n".join(lines[-40:] if (failed and r.step.always) else lines[-6:])[:3500] or "(sans sortie)"
             level = "notice" if r.ok else "error"
-            out.append(f"::{level} title={scenario.name} — {r.step.name}::{text}")
+            out.append(f"::{level} title={_escape(f'{scenario.name} — {r.step.name}', prop=True)}::{_escape(text)}")
     return out
 
 
