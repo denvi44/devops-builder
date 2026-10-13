@@ -17,6 +17,8 @@ mineure peut changer les fichiers générés ; chaque changement voulu est relu 
   sans écart, revendication `groups` vérifiée (`kind-identite-keycloak`). Preuves publiées en annotations.
 
 ### Corrigé
+- PySide6 limité aux 6.11 pour toutes les versions de Python : la 6.12.0 provoque aussi des erreurs de
+  segmentation intermittentes sous Python 3.12 (vu sur la CI), pas seulement le plantage de sortie sous 3.11.
 - Keycloak sur Kubernetes ne démarrait pas, deux défauts trouvés par les tests de bout en bout :
   `platform/install.sh` n'installait pas les CRD `keycloakoidcclients` et `keycloaksamlclients` de
   l'opérateur 26.8, qui ne devenait jamais disponible ; et l'image officielle, désignée dans la ressource
