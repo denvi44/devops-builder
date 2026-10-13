@@ -50,6 +50,7 @@ class Step:
     env: dict[str, str] = field(default_factory=dict)
     retries: int = 1                     # tentatives (attente d'un service)
     always: bool = False                 # nettoyage : exécutée même après un échec
+    evidence: bool = False               # sa sortie prouve le résultat : publiée en annotation GitHub
 
 
 @dataclass
@@ -112,7 +113,7 @@ exit 1
         Step("Image de l'application de démonstration", ["docker", "build", "-t", image, str(APP_DIR)]),
         Step("scripts/test-kind.sh : cluster, chart ou overlay, rollout, réponse HTTP",
              ["bash", "scripts/test-kind.sh", env.id], cwd=out, env={"IMAGE": image, "KEEP_CLUSTER": "1"}),
-        Step("Connexion authentifiée aux bases depuis le pod (/db)", check_db, cwd=out),
+        Step("Connexion authentifiée aux bases depuis le pod (/db)", check_db, cwd=out, evidence=True),
         Step("État du cluster", f"kubectl --context {ctx} get pods -A -o wide", always=True),
         Step("Suppression du cluster", ["kind", "delete", "cluster", "--name", cluster], always=True),
     ]
@@ -140,7 +141,8 @@ def _compose_steps(out: Path, ir) -> list[Step]:
         Step("deploy/secrets.sh : fichiers de secrets", ["sh", "secrets.sh", "secrets"], cwd=host, env=env),
         Step("docker compose up (santé des services attendue)", f"{dc} up -d --wait --wait-timeout 180",
              cwd=host, env=env),
-        Step("Connexion authentifiée aux bases depuis l'application (/db)", probe, retries=10, env=env),
+        Step("Connexion authentifiée aux bases depuis l'application (/db)", probe, retries=10, env=env,
+             evidence=True),
         Step("Donnée témoin écrite", sql("create table temoin(v text); insert into temoin values ('avant');"),
              env=env),
         Step("scripts/db-backup.sh", ["sh", str(out / "scripts" / "db-backup.sh"), str(host), str(backups)], env=env),
@@ -150,7 +152,8 @@ def _compose_steps(out: Path, ir) -> list[Step]:
         Step("scripts/db-restore.sh --oui",
              f"sh {out}/scripts/db-restore.sh {host} \"$(ls {backups}/postgresql-*.dump | head -n 1)\" --oui", env=env),
         Step("Donnée témoin revenue à l'état sauvegardé",
-             f"v=$({sql('select v from temoin;')}\n)\necho \"valeur : $v\"\ntest \"$v\" = avant", env=env),
+             f"v=$({sql('select v from temoin;')}\n)\necho \"valeur : $v\"\ntest \"$v\" = avant", env=env,
+             evidence=True),
         Step("Journaux des services", f"{dc} ps -a; {dc} logs --tail=30", always=True, env=env),
         Step("Arrêt et suppression des volumes", f"{dc} down -v --remove-orphans", always=True, env=env),
     ]
@@ -201,6 +204,18 @@ def run_step(step: Step, timeout: int = 900) -> Result:
         if attempt + 1 < step.retries:
             time.sleep(6)
     return Result(step, ok, time.monotonic() - start, output)
+
+
+def annotations(scenario: Scenario, results: list[Result]) -> list[str]:
+    """Commandes d'annotation GitHub : la preuve de chaque étape marquée, lisible sur la page du passage."""
+    out = []
+    for r in results:
+        if r.step.evidence or not r.ok:
+            text = " ".join(r.output.strip().splitlines()[-6:])[:900] or "(sans sortie)"
+            text = text.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+            level = "notice" if r.ok else "error"
+            out.append(f"::{level} title={scenario.name} — {r.step.name}::{text}")
+    return out
 
 
 def report(scenario: Scenario, results: list[Result], missing: list[str]) -> str:
@@ -255,6 +270,8 @@ def main(argv: list[str] | None = None) -> int:
                 failed = True
         text = report(scenario, results, missing)
         print(text)
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            print("\n".join(annotations(scenario, results)))
         summary = os.environ.get("GITHUB_STEP_SUMMARY")
         if summary:
             with open(summary, "a", encoding="utf-8") as fh:
