@@ -290,9 +290,18 @@ echo "réponse : ${{body:0:300}}"; exit 1
 """
     return [
         *start,
-        Step("Keycloak prêt (opérateur, base dédiée, 2 instances)",
-             f"kubectl --context {ctx} -n keycloak wait keycloak/keycloak --for=condition=Ready --timeout=900s\n"
-             f"kubectl --context {ctx} -n keycloak get keycloak keycloak -o jsonpath='{{.status.conditions}}'"),
+        Step("Keycloak prêt (opérateur, base dédiée, 2 instances)", f"""
+for _ in $(seq 1 90); do
+  if kubectl --context {ctx} -n keycloak wait keycloak/keycloak --for=condition=Ready --timeout=5s >/dev/null 2>&1; then
+    kubectl --context {ctx} -n keycloak get keycloak keycloak -o jsonpath='{{.status.conditions}}'; exit 0
+  fi
+  r=$(kubectl --context {ctx} -n keycloak get pod keycloak-0 -o jsonpath='{{.status.containerStatuses[0].restartCount}}' \\
+      2>/dev/null || echo 0)
+  if [ "${{r:-0}}" -ge 4 ]; then echo "keycloak-0 a redémarré $r fois : arrêt de l'attente"; exit 1; fi
+  sleep 5
+done
+exit 1
+"""),
         Step("Redirection vers Traefik (HTTPS)", _port_forward(ctx, "traefik", "svc/traefik", 8443, 443, work)),
         Step("Découverte OpenID par l'Ingress et Traefik", discovery, evidence=True),
         Step("Redirection vers Keycloak (administration)",
@@ -306,9 +315,11 @@ echo "réponse : ${{body:0:300}}"; exit 1
         Step("Diagnostic de Keycloak",
              f"kubectl --context {ctx} -n keycloak get keycloak keycloak -o jsonpath='{{.status}}'; echo\n"
              f"kubectl --context {ctx} -n keycloak get pods,pvc -o wide\n"
-             f"kubectl --context {ctx} -n keycloak logs statefulset/keycloak --tail=25 || true\n"
-             f"kubectl --context {ctx} -n keycloak logs deployment/keycloak-operator --tail=15 || true\n"
-             f"kubectl --context {ctx} -n keycloak describe pod -l app=keycloak | tail -n 25 || true", always=True),
+             f"kubectl --context {ctx} -n keycloak get pod keycloak-0 -o jsonpath='{{.status.containerStatuses[0].lastState}}'; echo\n"
+             f"kubectl --context {ctx} -n keycloak logs deployment/keycloak-operator --tail=8 || true\n"
+             f"echo '--- journal de keycloak-0 (instance précédente)'\n"
+             f"kubectl --context {ctx} -n keycloak logs keycloak-0 --previous --tail=30 "
+             f"|| kubectl --context {ctx} -n keycloak logs keycloak-0 --tail=30 || true", always=True),
         *end,
     ]
 
