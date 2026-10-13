@@ -12,6 +12,15 @@ mineure peut changer les fichiers générés ; chaque changement voulu est relu 
   dans kind, overlays Kustomize avec PostgreSQL et Valkey dans kind, hôte Docker avec Compose, sauvegarde
   puis restauration. Une application de démonstration (`tools/e2e/app`) ne répond 200 sur `/db` que si
   chaque base accepte une connexion authentifiée avec les secrets transmis par le pipeline.
+- Second palier : OpenBao initialisé et configuré par les scripts générés puis lu par External Secrets
+  (`kind-coffre-openbao`) ; Keycloak par son opérateur derrière Traefik, realm appliqué par OpenTofu puis relu
+  sans écart, revendication `groups` vérifiée (`kind-identite-keycloak`). Preuves publiées en annotations.
+
+### Corrigé
+- Keycloak sur Kubernetes ne démarrait pas, deux défauts trouvés par les tests de bout en bout :
+  `platform/install.sh` n'installait pas les CRD `keycloakoidcclients` et `keycloaksamlclients` de
+  l'opérateur 26.8, qui ne devenait jamais disponible ; et l'image officielle, désignée dans la ressource
+  `Keycloak`, était lancée avec `--optimized` et s'arrêtait en boucle (`startOptimized: false` ajouté).
 
 ## 0.16.1 — 2026-10-12
 

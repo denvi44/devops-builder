@@ -263,7 +263,7 @@ def _identity_steps(out: Path, ir) -> list[Step]:
              "-o jsonpath='{.data.username}' | base64 -d)\"\n"
              f"export KEYCLOAK_PASSWORD=\"$(kubectl --context {ctx} -n keycloak get secret keycloak-initial-admin "
              "-o jsonpath='{.data.password}' | base64 -d)\"\n")
-    tf_env = {"TF_VAR_keycloak_url": "http://127.0.0.1:8180", "TF_IN_AUTOMATION": "1"}
+    tf_env = {"TF_VAR_keycloak_url": "http://127.0.0.1:8180", "TF_IN_AUTOMATION": "1", "TF_CLI_ARGS": "-no-color"}
     groups = admin + f"""
 kc=http://127.0.0.1:8180
 tok=$(curl -fsS -d client_id=admin-cli -d grant_type=password --data-urlencode "username=$KEYCLOAK_USER" \
