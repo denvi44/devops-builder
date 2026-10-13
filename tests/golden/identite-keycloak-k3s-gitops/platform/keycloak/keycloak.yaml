@@ -85,6 +85,7 @@ metadata:
 spec:
   instances: 2
   image: quay.io/keycloak/keycloak:26.8
+  startOptimized: false
   db:
     vendor: postgres
     host: keycloak-db

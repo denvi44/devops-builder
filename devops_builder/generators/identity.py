@@ -302,6 +302,9 @@ def kube_files(ir: IR) -> dict[str, str]:
         spec: dict = {
             "instances": prod,
             "image": f"{KEYCLOAK_IMAGE}:{params(ir).get('version') or '26.8'}",
+            # Image officielle, non préconstruite : sans ce réglage l'opérateur la croit « optimisée », la lance
+            # avec --optimized et elle s'arrête au premier démarrage (trouvé par kind-identite-keycloak).
+            "startOptimized": False,
             "db": {"vendor": "postgres", "host": db_host, "database": "keycloak",
                    "usernameSecret": {"name": secret, "key": "username"},
                    "passwordSecret": {"name": secret, "key": "password"}},
