@@ -539,10 +539,10 @@ def _zabbix(ir: IR) -> list[str]:
         return []
     api = f"{zabbix.web_url(ir)}/api_jsonrpc.php"
     login = ('tok="$(curl -fsS -H \'Content-Type: application/json-rpc\' -d \'{"jsonrpc":"2.0","method":"user.login",'
-             '"params":{"username":"Admin","password":"zabbix"},"id":1}\' "$ZBX" | jq -r .result)"')
+             '"params":{"username":"Admin","password":"zabbix"},"id":1}\' "$ZBX" | jq -er "$ok")"')
     change = ('curl -fsS -H \'Content-Type: application/json-rpc\' -H "Authorization: Bearer $tok" -d "{\\"jsonrpc\\":'
               '\\"2.0\\",\\"method\\":\\"user.update\\",\\"params\\":{\\"userid\\":\\"1\\",\\"current_passwd\\":'
-              '\\"zabbix\\",\\"passwd\\":\\"$ZABBIX_ADMIN_PASSWORD\\"},\\"id\\":2}" "$ZBX" | jq -e .result')
+              '\\"zabbix\\",\\"passwd\\":\\"$ZABBIX_ADMIN_PASSWORD\\"},\\"id\\":2}" "$ZBX" | jq -e "$ok"')
     check = ('curl -fsS -H \'Content-Type: application/json-rpc\' -H "Authorization: Bearer $tok" -d \'{"jsonrpc":"2.0",'
              '"method":"host.get","params":{"output":["host","active_available"],"selectInterfaces":["available"],'
              '"filter":{"host":["Zabbix server"]}},"id":3}\' "$ZBX" | jq -c \'.result[0]\'')
@@ -553,6 +553,7 @@ def _zabbix(ir: IR) -> list[str]:
             "schéma de sa base au premier démarrage (une à deux minutes). Le compte **Admin / zabbix** est connu de "
             "tous : le changer aussitôt, ici par l'API (ou dans l'interface, Utilisateurs → Admin) :", "",
             *_sh(f'ZBX="{api}"',
+                 "ok='.result // error(.error | tostring)'   # réponse de l'API, ou son message d'erreur",
                  'ZABBIX_ADMIN_PASSWORD="$(openssl rand -hex 16)"; echo "$ZABBIX_ADMIN_PASSWORD"   # à ranger',
                  login, change),
             "Vérifier que l'agent fourni répond : l'hôte « Zabbix server » (le serveur lui-même) doit être disponible "

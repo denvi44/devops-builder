@@ -398,6 +398,12 @@ printf '%s' "$old" | jq -e '.error' >/dev/null && echo "ancien mot de passe refu
         Step("Interface Zabbix par Traefik en HTTPS",
              f"for _ in $(seq 1 30); do curl -fsS -o /dev/null -w '%{{http_code}}\\n' https://{web}/ && exit 0; "
              "sleep 5; done; exit 1", env=cenv, evidence=True),
+        # le serveur crée le schéma de sa base au premier démarrage : la connexion Admin n'aboutit qu'ensuite
+        Step("Serveur prêt : connexion Admin acceptée par l'API (schéma créé)",
+             "for _ in $(seq 1 60); do curl -fsS -H 'Content-Type: application/json-rpc' -d "
+             "'{\"jsonrpc\":\"2.0\",\"method\":\"user.login\",\"params\":{\"username\":\"Admin\","
+             "\"password\":\"zabbix\"},\"id\":1}' \"$ZBX\" | jq -e .result >/dev/null && exit 0; sleep 5; done; exit 1",
+             env=cenv),
         Step("Mode d'emploi joué tel quel : mot de passe Admin changé, agent disponible", guide,
              env=cenv, evidence=True),
         *end,
