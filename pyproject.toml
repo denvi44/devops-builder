@@ -43,7 +43,7 @@ validate = [
     "shellcheck-py>=0.10",
 ]
 dev = [
-    "pytest>=8",
+    "pytest>=9.1.1",
     "check-jsonschema>=0.28",
     "actionlint-py>=1.7",
     "shellcheck-py>=0.10",
