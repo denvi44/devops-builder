@@ -36,6 +36,7 @@ from devops_builder.catalog import build_catalog  # noqa: E402
 from devops_builder.generators import generate  # noqa: E402
 from devops_builder.model import Project, env_preset  # noqa: E402
 from devops_builder.rules import RuleEngine  # noqa: E402
+from devops_builder.starter import StarterAnswers, build_starter  # noqa: E402
 
 APP_DIR = HERE / "app"
 APP = "boutique"
@@ -159,6 +160,169 @@ def _compose_steps(out: Path, ir) -> list[Step]:
     ]
 
 
+def _starter(params: dict[str, dict] | None = None, **answers) -> Callable[[], Project]:
+    """Projet construit par l'assistant, comme le ferait un utilisateur : cluster autogéré, un environnement.
+    params : réglages de briques saisis ensuite dans le panneau Propriétés, par identifiant d'outil."""
+    base = dict(hosting="kubernetes", forge="github", envs="prod", gitops=False, observability="none",
+                security=False, quality=False, image_name=APP, port=8000)
+
+    def build() -> Project:
+        project = build_starter(StarterAnswers(**{**base, **answers}), _catalog())
+        project.name = "Boutique e2e"
+        for _, brick in project.all_bricks():
+            brick.params.update((params or {}).get(brick.tool, {}))
+        return project
+    return build
+
+
+def _port_forward(ctx: str, ns: str, target: str, local: int, remote: int, work: Path) -> str:
+    """Redirection de port qui survit à l'étape (sortie détachée), arrêtée par l'étape de nettoyage."""
+    name = target.replace("/", "-")
+    return f"""
+nohup kubectl --context {ctx} -n {ns} port-forward {target} {local}:{remote} >{work}/pf-{name}.log 2>&1 &
+echo $! >{work}/pf-{name}.pid
+for _ in $(seq 1 30); do
+  (exec 3<>/dev/tcp/127.0.0.1/{local}) 2>/dev/null && exit 0
+  sleep 1
+done
+cat {work}/pf-{name}.log; exit 1
+"""
+
+
+def _kind_common(ir, work: Path) -> tuple[str, str, list[Step], list[Step]]:
+    cluster = f"{ir.app}-test"[:40]
+    ctx = f"kind-{cluster}"
+    start = [
+        Step("Cluster kind", ["kind", "create", "cluster", "--name", cluster, "--wait", "180s"]),
+        Step("platform/install.sh (contexte du cluster de test)",
+             f"kubectl config use-context {ctx}\nbash platform/install.sh", cwd=work / "projet"),
+    ]
+    end = [
+        Step("Diagnostic du cluster",
+             f"kubectl --context {ctx} get pods -A -o wide; kubectl --context {ctx} get events -A "
+             f"--sort-by=.lastTimestamp | tail -n 40", always=True),
+        Step("Arrêt des redirections de port", f"for f in {work}/pf-*.pid; do [ -f \"$f\" ] && kill \"$(cat \"$f\")\" "
+             "2>/dev/null; done; true", always=True),
+        Step("Suppression du cluster", ["kind", "delete", "cluster", "--name", cluster], always=True),
+    ]
+    return cluster, ctx, start, end
+
+
+# ------------------------------------------------------------------ coffre : OpenBao + External Secrets
+def _vault_steps(out: Path, ir) -> list[Step]:
+    work = out.parent
+    cluster, ctx, start, end = _kind_common(ir, work)
+    ns = ir.namespace(ir.envs[0])
+    image = f"devops-builder.local/{ir.app}:e2e"
+    bao = f"kubectl --context {ctx} -n openbao exec openbao-0 --"
+    vault_env = {"VAULT_ADDR": "http://127.0.0.1:8200"}
+    token = f"export VAULT_TOKEN=\"$(jq -r .root_token {work}/bao-init.json)\"\n"
+    chart = f"charts/{ir.app}"
+    return [
+        Step("Image de l'application de démonstration", ["docker", "build", "-t", image, str(APP_DIR)]),
+        *start,
+        Step("OpenBao démarré (scellé, en attente d'initialisation)",
+             f"kubectl --context {ctx} -n openbao wait pod/openbao-0 --for=jsonpath='{{.status.phase}}'=Running "
+             "--timeout=300s"),
+        # Mode d'emploi : 5 clés, seuil 3, saisies à la main ; le test se contente d'une clé.
+        Step("Initialisation et descellement (mode d'emploi, une seule clé pour le test)",
+             f"{bao} bao operator init -key-shares=1 -key-threshold=1 -format=json >{work}/bao-init.json\n"
+             f"{bao} bao operator unseal \"$(jq -r '.unseal_keys_b64[0]' {work}/bao-init.json)\" >/dev/null\n"
+             f"{bao} bao status"),
+        Step("Redirection vers OpenBao", _port_forward(ctx, "openbao", "svc/openbao", 8200, 8200, work)),
+        Step("scripts/vault-setup.sh", token + "bash scripts/vault-setup.sh", cwd=out, env=vault_env),
+        Step("scripts/secrets-seed.sh", token + f"VALKEY_PASSWORD=\"$(openssl rand -hex 16)\" "
+             f"bash scripts/secrets-seed.sh {ir.envs[0].id}", cwd=out, env=vault_env),
+        Step("Chart de l'application (secrets par External Secrets, pas createSecret)",
+             f"kind load docker-image {image} --name {cluster}\n"
+             f"kubectl --context {ctx} create namespace {ns} --dry-run=client -o yaml | kubectl --context {ctx} apply -f -\n"
+             f"helm --kube-context {ctx} upgrade --install {ir.app} {chart} -n {ns} -f {chart}/values.yaml "
+             f"$([ -f {chart}/values-{ir.envs[0].id}.yaml ] && echo -f {chart}/values-{ir.envs[0].id}.yaml) "
+             f"--set image.repository={image.rsplit(':', 1)[0]} --set image.tag=e2e --set image.pullPolicy=IfNotPresent "
+             "--set replicaCount=1 --set database.postgresql.instances=1", cwd=out),
+        Step("ExternalSecret synchronisé depuis OpenBao",
+             f"kubectl --context {ctx} -n {ns} wait externalsecret/{ir.app}-valkey --for=condition=Ready "
+             f"--timeout=240s\nkubectl --context {ctx} -n {ns} get externalsecret {ir.app}-valkey "
+             "-o jsonpath='{.status.conditions[0].message}'", evidence=True),
+        Step("Application démarrée", f"kubectl --context {ctx} -n {ns} rollout status deployment/{ir.app} --timeout=420s"),
+        Step("Connexion authentifiée aux bases depuis le pod (/db)", _check_db(ctx, ns, ir.app), evidence=True),
+        Step("État du coffre et des secrets",
+             f"kubectl --context {ctx} -n {ns} describe externalsecret; kubectl --context {ctx} get clustersecretstore "
+             "-o wide", always=True),
+        *end,
+    ]
+
+
+# ------------------------------------------------------------------ identité : Keycloak derrière Traefik
+def _identity_steps(out: Path, ir) -> list[Step]:
+    work = out.parent
+    cluster, ctx, start, end = _kind_common(ir, work)
+    host = "auth.boutique.test"
+    realm = APP
+    admin = (f"export KEYCLOAK_USER=\"$(kubectl --context {ctx} -n keycloak get secret keycloak-initial-admin "
+             "-o jsonpath='{.data.username}' | base64 -d)\"\n"
+             f"export KEYCLOAK_PASSWORD=\"$(kubectl --context {ctx} -n keycloak get secret keycloak-initial-admin "
+             "-o jsonpath='{.data.password}' | base64 -d)\"\n")
+    tf_env = {"TF_VAR_keycloak_url": "http://127.0.0.1:8180", "TF_IN_AUTOMATION": "1"}
+    groups = admin + f"""
+kc=http://127.0.0.1:8180
+tok=$(curl -fsS -d client_id=admin-cli -d grant_type=password --data-urlencode "username=$KEYCLOAK_USER" \
+  --data-urlencode "password=$KEYCLOAK_PASSWORD" $kc/realms/master/protocol/openid-connect/token | jq -r .access_token)
+api() {{ curl -fsS -H "Authorization: Bearer $tok" -H 'Content-Type: application/json' "$@"; }}
+api -X POST -d '{{"username":"alice","enabled":true,"email":"alice@boutique.test","firstName":"Alice","lastName":"Test"}}' \
+  $kc/admin/realms/{realm}/users
+uid=$(api "$kc/admin/realms/{realm}/users?username=alice&exact=true" | jq -r '.[0].id')
+gid=$(api "$kc/admin/realms/{realm}/groups?search=admins&exact=true" | jq -r '.[0].id')
+api -X PUT $kc/admin/realms/{realm}/users/$uid/groups/$gid
+cid=$(api "$kc/admin/realms/{realm}/clients?clientId={ir.app}" | jq -r '.[0].id')
+claims=$(api "$kc/admin/realms/{realm}/clients/$cid/evaluate-scopes/generate-example-access-token?userId=$uid&scope=openid")
+echo "$claims" | jq -c '{{iss, groups}}'
+echo "$claims" | jq -e '.groups | index("admins")' >/dev/null
+"""
+    discovery = f"""
+for _ in $(seq 1 60); do
+  body=$(curl -sk --resolve {host}:8443:127.0.0.1 https://{host}:8443/realms/master/.well-known/openid-configuration || true)
+  iss=$(printf '%s' "$body" | jq -r .issuer 2>/dev/null || true)
+  [ "$iss" = "https://{host}/realms/master" ] && {{ echo "émetteur : $iss"; exit 0; }}
+  sleep 5
+done
+echo "réponse : ${{body:0:300}}"; exit 1
+"""
+    return [
+        *start,
+        Step("Keycloak prêt (opérateur, base dédiée, 2 instances)",
+             f"kubectl --context {ctx} -n keycloak wait keycloak/keycloak --for=condition=Ready --timeout=900s\n"
+             f"kubectl --context {ctx} -n keycloak get keycloak keycloak -o jsonpath='{{.status.conditions}}'"),
+        Step("Redirection vers Traefik (HTTPS)", _port_forward(ctx, "traefik", "svc/traefik", 8443, 443, work)),
+        Step("Découverte OpenID par l'Ingress et Traefik", discovery, evidence=True),
+        Step("Redirection vers Keycloak (administration)",
+             _port_forward(ctx, "keycloak", "svc/keycloak-service", 8180, 8080, work)),
+        Step("infra/keycloak : tofu init et apply", admin + "tofu init -input=false\ntofu apply -auto-approve -input=false",
+             cwd=out / "infra" / "keycloak", env=tf_env),
+        Step("infra/keycloak : relu sans écart (plan -detailed-exitcode)",
+             admin + "tofu plan -detailed-exitcode -input=false", cwd=out / "infra" / "keycloak", env=tf_env,
+             evidence=True),
+        Step("Revendication « groups » d'un membre du groupe admins", groups, evidence=True),
+        *end,
+    ]
+
+
+def _check_db(ctx: str, ns: str, app: str) -> str:
+    return f"""
+kubectl --context {ctx} -n {ns} port-forward service/{app} 18081:80 >/tmp/pf-db.log 2>&1 &
+pf=$!
+trap 'kill $pf 2>/dev/null || true' EXIT
+for _ in $(seq 1 30); do
+  code=$(curl -s -o /tmp/db.json -w '%{{http_code}}' http://127.0.0.1:18081/db || true)
+  [ "$code" = 200 ] && {{ cat /tmp/db.json; exit 0; }}
+  sleep 2
+done
+echo "réponse $code :"; cat /tmp/db.json 2>/dev/null || true
+kubectl --context {ctx} -n {ns} logs deployment/{app} --tail=40 || true
+exit 1
+"""
+
+
 SCENARIOS = {s.name: s for s in [
     Scenario("kind-helm-cnpg", "k3s + chart Helm + PostgreSQL par CloudNativePG, dans kind",
              lambda: _project("kubernetes", *GH, "k3s", "helm", "cloudnative-pg"),
@@ -171,6 +335,16 @@ SCENARIOS = {s.name: s for s in [
              lambda: _project("docker-host", "gitlab", "gitlab-ci", "buildkit", "docker-compose", "traefik",
                               "postgresql", "valkey"),
              _compose_steps, ("docker",)),
+    Scenario("kind-coffre-openbao", "OpenBao initialisé et configuré par les scripts générés, External Secrets, "
+             "Valkey lu dans le coffre, PostgreSQL par CloudNativePG",
+             _starter(secrets="openbao", database="postgresql", cache=True),
+             _vault_steps, ("docker", "kind", "kubectl", "helm", "curl", "jq", "openssl")),
+    Scenario("kind-identite-keycloak", "Keycloak par son opérateur derrière Traefik, realm appliqué par OpenTofu, "
+             "revendication groups",
+             _starter(identity="keycloak", params={"keycloak": {"hostname": "auth.boutique.test",
+                                                                 "tools_domain": "boutique.test",
+                                                                 "app_url": "https://boutique.test"}}),
+             _identity_steps, ("docker", "kind", "kubectl", "helm", "curl", "jq", "tofu")),
 ]}
 
 

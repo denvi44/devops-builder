@@ -30,6 +30,8 @@ jobs:
           - kind-helm-cnpg
           - kind-kustomize-postgresql
           - compose-postgresql
+          - kind-coffre-openbao
+          - kind-identite-keycloak
     env:
       SCENARIO: ${{ matrix.scenario }}
     steps:
@@ -48,6 +50,10 @@ jobs:
         run: |
           go install sigs.k8s.io/kind@v0.33.0
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        if: contains(matrix.scenario, 'identite')
+        with:
+          tofu_wrapper: false
       - name: Versions des outils
         run: |
           docker version --format '{{.Server.Version}}'
