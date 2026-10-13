@@ -17,6 +17,9 @@ IDPS = ("keycloak", "dex")
 KEYCLOAK_IMAGE = "quay.io/keycloak/keycloak"
 KEYCLOAK_OPERATOR = "26.8.0"  # keycloak-k8s-resources : CRD et opérateur
 KC_RESOURCES = f"https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/{KEYCLOAK_OPERATOR}/kubernetes"
+# Toutes les CRD de la version : l'opérateur surveille chacune et ne démarre pas s'il en manque une
+# (les clients OIDC et SAML sont arrivés en 26.8 ; vérifié par le scénario kind-identite-keycloak).
+KC_CRDS = ("keycloaks", "keycloakrealmimports", "keycloakoidcclients", "keycloaksamlclients")
 DEX_IMAGE = "ghcr.io/dexidp/dex:v2.46.0"
 KEYCLOAK_PROVIDER = ("keycloak/keycloak", "~> 5.10")
 KC_DIR = "infra/keycloak"
@@ -339,10 +342,9 @@ def install_lines(ir: IR) -> list[str]:
     return ["# Keycloak — opérateur officiel, puis l'instance et sa base",
             "kubectl create namespace keycloak --dry-run=client -o yaml | kubectl apply -f -",
             *db_secret,
-            f"kubectl apply -f {KC_RESOURCES}/keycloaks.k8s.keycloak.org-v1.yml",
-            f"kubectl apply -f {KC_RESOURCES}/keycloakrealmimports.k8s.keycloak.org-v1.yml",
+            *(f"kubectl apply -f {KC_RESOURCES}/{crd}.k8s.keycloak.org-v1.yml" for crd in KC_CRDS),
             f"kubectl -n keycloak apply -f {KC_RESOURCES}/kubernetes.yml",
-            "kubectl -n keycloak rollout status deployment/keycloak-operator --timeout=180s",
+            "kubectl -n keycloak rollout status deployment/keycloak-operator --timeout=300s",
             f'kubectl apply -f "$(dirname "$0")/{KC_FILE.split("/", 1)[1]}"', ""]
 
 

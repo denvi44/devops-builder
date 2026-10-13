@@ -82,7 +82,9 @@ def test_keycloak_operateur_base_cloudnativepg_et_ingress():
     install = f["platform/install.sh"]
     order = [install.index(x) for x in ("cnpg/cloudnative-pg", "keycloak-operator", "argo/argo-cd", "grafana/grafana")]
     assert order == sorted(order)  # base, puis Keycloak, puis les outils qui s'y branchent
-    assert "/26.8.0/kubernetes/keycloaks.k8s.keycloak.org-v1.yml" in install
+    # toutes les CRD de la 26.8, sinon l'opérateur ne démarre pas (trouvé par le scénario kind-identite-keycloak)
+    for crd in ("keycloaks", "keycloakrealmimports", "keycloakoidcclients", "keycloaksamlclients"):
+        assert f"/26.8.0/kubernetes/{crd}.k8s.keycloak.org-v1.yml" in install
     argo = yaml.safe_load(f["platform/values/argo-cd.yaml"])
     oidc = yaml.safe_load(argo["configs"]["cm"]["oidc.config"])
     assert oidc["issuer"] == "https://auth.boutique.fr/realms/shop" and oidc["clientID"] == "argo-cd"

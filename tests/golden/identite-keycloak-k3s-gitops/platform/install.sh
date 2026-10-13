@@ -19,8 +19,10 @@ if ! kubectl -n keycloak get secret keycloak-db >/dev/null 2>&1; then  # mot de 
 fi
 kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.8.0/kubernetes/keycloaks.k8s.keycloak.org-v1.yml
 kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.8.0/kubernetes/keycloakrealmimports.k8s.keycloak.org-v1.yml
+kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.8.0/kubernetes/keycloakoidcclients.k8s.keycloak.org-v1.yml
+kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.8.0/kubernetes/keycloaksamlclients.k8s.keycloak.org-v1.yml
 kubectl -n keycloak apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.8.0/kubernetes/kubernetes.yml
-kubectl -n keycloak rollout status deployment/keycloak-operator --timeout=180s
+kubectl -n keycloak rollout status deployment/keycloak-operator --timeout=300s
 kubectl apply -f "$(dirname "$0")/keycloak/keycloak.yaml"
 
 # cert-manager
