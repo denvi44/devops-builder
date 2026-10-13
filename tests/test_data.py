@@ -99,7 +99,8 @@ def test_compose_base_interne_avec_volume_sante_et_migrations():
     assert app["depends_on"]["migrate"] == {"condition": "service_completed_successfully"}
     assert app["depends_on"]["postgresql"] == {"condition": "service_healthy"}
     assert migrate["image"] == app["image"] and migrate["command"] == ["sh", "-c", "alembic upgrade head"]
-    assert set(doc["volumes"]) == {"postgresql-data", "valkey-data"}
+    # traefik-letsencrypt : certificats de Traefik (HTTPS réel depuis la 0.17)
+    assert set(doc["volumes"]) == {"postgresql-data", "valkey-data", "traefik-letsencrypt"}
     assert "&id" not in f["deploy/docker-compose.yml"]
     assert "$${VALKEY_PASSWORD}" in doc["services"]["valkey"]["command"][2]
 
