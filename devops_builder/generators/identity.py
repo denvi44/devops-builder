@@ -58,6 +58,7 @@ class ComposeSecret:
     key: str        # nom de la variable dans le conteneur
     description: str
     optional: bool = False  # vide au premier déploiement (connu une fois le realm appliqué)
+    tool: str = ""          # brique propriétaire (rangement dans le coffre) ; vide : le fournisseur d'identité
 
 
 def idp(ir: IR) -> str | None:
@@ -162,7 +163,9 @@ def grafana_secret(ir: IR) -> list[ComposeSecret]:
 
 
 def all_compose_secrets(ir: IR) -> list[ComposeSecret]:
-    return compose_secrets(ir) + grafana_secret(ir)
+    """Secrets de tous les services de plateforme sur l'hôte Docker : identité, Grafana, Zabbix."""
+    from . import zabbix
+    return compose_secrets(ir) + grafana_secret(ir) + zabbix.compose_secrets(ir)
 
 
 # ------------------------------------------------------------------ Compose

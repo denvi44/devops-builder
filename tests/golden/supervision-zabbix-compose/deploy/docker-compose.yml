@@ -1,0 +1,127 @@
+# Généré par DevOps Builder — à relire avant usage.
+name: mon-app
+services:
+  mon-app:
+    image: ${IMAGE:-$CI_REGISTRY_IMAGE:latest}
+    restart: unless-stopped
+    environment:
+      PORT: '8000'
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.mon-app.rule=Host(`mon-app.example.com`)
+    - traefik.http.routers.mon-app.entrypoints=websecure
+    - traefik.http.services.mon-app.loadbalancer.server.port=8000
+    env_file:
+    - secrets/app.env
+    depends_on:
+      postgresql:
+        condition: service_healthy
+  postgresql:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_DB: app
+    env_file:
+    - secrets/postgresql.env
+    volumes:
+    - postgresql-data:/var/lib/postgresql
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+  traefik:
+    image: traefik:v3.1
+    command:
+    - --providers.docker=true
+    - --providers.docker.exposedbydefault=false
+    - --entrypoints.web.address=:80
+    - --entrypoints.web.http.redirections.entrypoint.to=websecure
+    - --entrypoints.web.http.redirections.entrypoint.scheme=https
+    - --entrypoints.websecure.address=:443
+    - --entrypoints.websecure.http.tls=true
+    - --entrypoints.websecure.http.tls.certresolver=letsencrypt
+    - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+    - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+    ports:
+    - 80:80
+    - 443:443
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    - traefik-letsencrypt:/letsencrypt
+  zabbix-server:
+    image: zabbix/zabbix-server-pgsql:alpine-7.4-latest
+    restart: unless-stopped
+    environment:
+      DB_SERVER_HOST: zabbix-db
+      POSTGRES_USER: zabbix
+      POSTGRES_DB: zabbix
+    env_file:
+    - secrets/zabbix.env
+    depends_on:
+      zabbix-db:
+        condition: service_healthy
+  zabbix-web:
+    image: zabbix/zabbix-web-nginx-pgsql:alpine-7.4-latest
+    restart: unless-stopped
+    environment:
+      DB_SERVER_HOST: zabbix-db
+      POSTGRES_USER: zabbix
+      POSTGRES_DB: zabbix
+      ZBX_SERVER_HOST: zabbix-server
+      PHP_TZ: Europe/Paris
+    env_file:
+    - secrets/zabbix.env
+    depends_on:
+      zabbix-db:
+        condition: service_healthy
+      zabbix-server:
+        condition: service_started
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - wget -q -O /dev/null http://localhost:8080/ || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.zabbix.rule=Host(`zabbix.boutique.fr`)
+    - traefik.http.routers.zabbix.entrypoints=websecure
+    - traefik.http.services.zabbix.loadbalancer.server.port=8080
+  zabbix-agent:
+    image: zabbix/zabbix-agent2:alpine-7.4-latest
+    restart: unless-stopped
+    environment:
+      ZBX_HOSTNAME: Zabbix server
+      ZBX_SERVER_HOST: 127.0.0.1
+    network_mode: service:zabbix-server
+    depends_on:
+      zabbix-server:
+        condition: service_started
+  zabbix-db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: zabbix
+      POSTGRES_DB: zabbix
+    env_file:
+    - secrets/zabbix.env
+    volumes:
+    - zabbix-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+volumes:
+  postgresql-data: {}
+  traefik-letsencrypt: {}
+  zabbix-db-data: {}

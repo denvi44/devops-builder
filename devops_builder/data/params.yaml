@@ -370,6 +370,35 @@ keycloak:
     pattern_hint: "version, ex. 26.8"
   tools_domain: *tools_domain
   app_url: *app_url
+traefik:
+  acme_email:
+    label: Contact Let's Encrypt
+    description: >-
+      Adresse du compte ACME (facultative) ; sur un hôte Docker, Traefik obtient seul le certificat de chaque nom
+      d'hôte servi (challenge TLS sur le port 443, qui doit être joignable depuis Internet).
+    example: ops@example.com
+    pattern: '[^@\s]+@[^@\s]+\.[^@\s]+'
+    pattern_hint: "adresse électronique"
+
+zabbix:
+  hostname:
+    label: Adresse publique
+    description: Nom d'hôte de l'interface web, servi en HTTPS par Traefik ; sans Traefik, port 8080 publié.
+    example: zabbix.example.com
+    pattern: '[a-z0-9]([a-z0-9.-]*[a-z0-9])?'
+    pattern_hint: "nom d'hôte sans schéma, ex. zabbix.example.com"
+  version:
+    label: Version
+    description: Version des images officielles (zabbix/zabbix-server-pgsql:alpine-<version>-latest).
+    default: "7.4"
+    suggestions: ["7.4", "7.0"]
+    pattern: '[0-9]\.[0-9]+'
+    pattern_hint: "version majeure.mineure, ex. 7.4"
+  timezone:
+    label: Fuseau horaire
+    description: Fuseau de l'interface web (PHP_TZ).
+    default: Europe/Paris
+
 dex:
   hostname: *idp_host
   connector:

@@ -49,6 +49,8 @@ def compose(ir: IR) -> dict[str, str]:
     services.update(data.compose_parts(ir, service, service["image"]))
     services.update(compose_platform_services(ir))
     services.update(identity.compose_services(ir))
+    from . import zabbix
+    services.update(zabbix.compose_services(ir))
     if "grafana" in services and identity.grafana_compose_env(ir):
         grafana = dict(services["grafana"])
         grafana["environment"] = {**grafana.get("environment", {}), **identity.grafana_compose_env(ir)}

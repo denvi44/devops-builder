@@ -533,8 +533,38 @@ def _dev(ir: IR, files: dict[str, str]) -> list[str]:
             f"passe `dev`). Les fichiers de `{DEV_DIR}/init/<base>/` sont joués à la création :", "", *_sh(*lines)]
 
 
+def _zabbix(ir: IR) -> list[str]:
+    from . import zabbix
+    if not zabbix.enabled(ir):
+        return []
+    api = f"{zabbix.web_url(ir)}/api_jsonrpc.php"
+    login = ('tok="$(curl -fsS -H \'Content-Type: application/json-rpc\' -d \'{"jsonrpc":"2.0","method":"user.login",'
+             '"params":{"username":"Admin","password":"zabbix"},"id":1}\' "$ZBX" | jq -r .result)"')
+    change = ('curl -fsS -H \'Content-Type: application/json-rpc\' -H "Authorization: Bearer $tok" -d "{\\"jsonrpc\\":'
+              '\\"2.0\\",\\"method\\":\\"user.update\\",\\"params\\":{\\"userid\\":\\"1\\",\\"current_passwd\\":'
+              '\\"zabbix\\",\\"passwd\\":\\"$ZABBIX_ADMIN_PASSWORD\\"},\\"id\\":2}" "$ZBX" | jq -e .result')
+    check = ('curl -fsS -H \'Content-Type: application/json-rpc\' -H "Authorization: Bearer $tok" -d \'{"jsonrpc":"2.0",'
+             '"method":"host.get","params":{"output":["host","active_available"],"selectInterfaces":["available"],'
+             '"filter":{"host":["Zabbix server"]}},"id":3}\' "$ZBX" | jq -c \'.result[0]\'')
+    relogin = login.replace('\\"password\\":\\"zabbix\\"', '').replace(
+        '"password":"zabbix"}', '"password":"\'"$ZABBIX_ADMIN_PASSWORD"\'"}')
+    return ["## Zabbix", "",
+            f"L'interface répond sur {zabbix.web_url(ir)} une fois le premier déploiement fait ; le serveur crée le "
+            "schéma de sa base au premier démarrage (une à deux minutes). Le compte **Admin / zabbix** est connu de "
+            "tous : le changer aussitôt, ici par l'API (ou dans l'interface, Utilisateurs → Admin) :", "",
+            *_sh(f'ZBX="{api}"',
+                 'ZABBIX_ADMIN_PASSWORD="$(openssl rand -hex 16)"; echo "$ZABBIX_ADMIN_PASSWORD"   # à ranger',
+                 login, change),
+            "Vérifier que l'agent fourni répond : l'hôte « Zabbix server » (le serveur lui-même) doit être disponible "
+            "(`available` = 1 sur l'interface, `active_available` = 1) :", "",
+            *_sh(relogin, check),
+            "Les autres machines se supervisent avec un agent 2 chacune (paquet `zabbix-agent2` du dépôt officiel, "
+            "https://www.zabbix.com/download), `Server=` pointant vers cet hôte Docker, puis un hôte déclaré dans "
+            "l'interface.", ""]
+
+
 SECTIONS = (_state, _ci_cloud, _infra, _platform, _identity, _vault, _app_secrets, _eso, _hosts, _gitops, _ci_vars,
-            _first_deploy, _backups, _dev, _upkeep)
+            _first_deploy, _zabbix, _backups, _dev, _upkeep)
 
 
 def runbook(ir: IR, files: dict[str, str]) -> dict[str, str]:

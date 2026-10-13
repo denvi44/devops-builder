@@ -72,12 +72,22 @@ FIRST = ["cilium", "calico", "cert-manager", "istio", "linkerd", "cloudnative-pg
 
 # Services Compose pour une cible hôte Docker / VM.
 COMPOSE_SERVICES: dict[str, dict] = {
+    # HTTPS pour de vrai : TLS sur l'entrée websecure (donc sur chaque route qui la vise), certificat Let's Encrypt
+    # par challenge TLS sur le port 443, redirection du port 80. Sans DNS public, Traefik sert son certificat
+    # par défaut (auto-signé). Trouvé par les tests de bout en bout : avant, le port 443 répondait en HTTP clair.
     "traefik": {
         "image": "traefik:v3.1",
         "command": ["--providers.docker=true", "--providers.docker.exposedbydefault=false",
-                    "--entrypoints.web.address=:80", "--entrypoints.websecure.address=:443"],
+                    "--entrypoints.web.address=:80",
+                    "--entrypoints.web.http.redirections.entrypoint.to=websecure",
+                    "--entrypoints.web.http.redirections.entrypoint.scheme=https",
+                    "--entrypoints.websecure.address=:443",
+                    "--entrypoints.websecure.http.tls=true",
+                    "--entrypoints.websecure.http.tls.certresolver=letsencrypt",
+                    "--certificatesresolvers.letsencrypt.acme.tlschallenge=true",
+                    "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"],
         "ports": ["80:80", "443:443"],
-        "volumes": ["/var/run/docker.sock:/var/run/docker.sock:ro"],
+        "volumes": ["/var/run/docker.sock:/var/run/docker.sock:ro", "traefik-letsencrypt:/letsencrypt"],
     },
     "prometheus": {"image": "prom/prometheus:latest", "ports": ["9090:9090"],
                    "volumes": ["prometheus-data:/prometheus"]},
@@ -222,6 +232,11 @@ def external_vault(ir: IR, tool_id: str) -> bool:
 
 def compose_platform_services(ir: IR) -> dict[str, dict]:
     services = {t: COMPOSE_SERVICES[t] for t in COMPOSE_SERVICES if ir.has(t) and not external_vault(ir, t)}
+    # seulement une adresse saisie : la valeur d'exemple (example.com) ferait refuser le compte par Let's Encrypt
+    email = next((str(b.params.get("acme_email") or "") for b in ir.project.bricks_for("traefik")), "")
+    if email and "traefik" in services:  # adresse de contact du compte Let's Encrypt (facultative)
+        services["traefik"] = {**services["traefik"], "command": [
+            *services["traefik"]["command"], f"--certificatesresolvers.letsencrypt.acme.email={email}"]}
     for t in ("vault", "openbao"):
         if external_vault(ir, t):
             ir.cover(t)  # coffre existant : lu par la CI (scripts/secrets-fetch.sh)

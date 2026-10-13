@@ -114,8 +114,6 @@
 - id: zabbix
   name: Zabbix
   stage: observability
-  support: manual
-  support_note: "Installation et agents à poser à la main."
   roles: [metrics]
   description: Supervision d'infrastructure classique (agents, SNMP).
   license: AGPL-3.0

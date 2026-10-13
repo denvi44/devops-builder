@@ -1,0 +1,113 @@
+# Généré par DevOps Builder — à relire avant usage.
+name: Pipeline Mon projet
+'on':
+  push:
+    branches:
+    - main
+  pull_request: {}
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+env:
+  TAG: ${{ github.sha }}
+  IMAGE: ghcr.io/${{ github.repository_owner }}/mon-app:${{ github.sha }}
+  SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+  SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  SSH_KNOWN_HOSTS: ${{ vars.SSH_KNOWN_HOSTS }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+jobs:
+  unit-tests:
+    name: Tests unitaires
+    runs-on: ubuntu-latest
+    container: python:3.12-slim
+    steps:
+    - uses: actions/checkout@v4
+    - name: Tests unitaires
+      run: |
+        pip install -r requirements.txt
+        pytest -q
+  build-image:
+    name: Build et publication de l'image (BuildKit (docker buildx))
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    steps:
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v3
+    - name: Build et publication de l'image (BuildKit (docker buildx))
+      run: |
+        echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+        docker buildx build --tag "$IMAGE" --push .
+  gitleaks:
+    name: Recherche de secrets
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - build-image
+    container: zricethezav/gitleaks:latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Recherche de secrets
+      run: |
+        gitleaks detect --source . --verbose
+  trivy:
+    name: Scan de vulnérabilités Trivy
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - build-image
+    container: aquasec/trivy:latest
+    env:
+      TRIVY_USERNAME: ${{ github.actor }}
+      TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+    - uses: actions/checkout@v4
+    - name: Scan de vulnérabilités Trivy
+      run: |
+        trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+  cosign:
+    name: Signature de l'image (Cosign)
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - build-image
+    - gitleaks
+    - trivy
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - uses: actions/checkout@v4
+    - uses: sigstore/cosign-installer@v3
+    - name: Signature de l'image (Cosign)
+      run: |
+        echo "$GITHUB_TOKEN" | cosign login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+        cosign sign --yes "$IMAGE"
+  deploy:
+    name: Déploiement Ansible + Compose
+    runs-on: ubuntu-latest
+    needs:
+    - unit-tests
+    - build-image
+    - gitleaks
+    - trivy
+    - cosign
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    env:
+      ANSIBLE_CONFIG: ansible/ansible.cfg
+    steps:
+    - uses: actions/checkout@v4
+    - name: Déploiement Ansible + Compose
+      run: |
+        pip install --no-cache-dir "ansible-core>=2.21,<2.22" || pipx install "ansible-core>=2.21,<2.22"
+        ansible-galaxy collection install -r ansible/requirements.yml
+        mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+        if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+        mkdir -p "$HOME/.local/bin" && export PATH="$HOME/.local/bin:$PATH"
+        curl -fsSLo "$HOME/.local/bin/sops" "https://github.com/getsops/sops/releases/download/v3.11.0/sops-v3.11.0.linux.amd64"
+        chmod +x "$HOME/.local/bin/sops"
+        SECRETS_ENV="$(bash scripts/secrets-fetch.sh production)"
+        eval "$SECRETS_ENV"
+        sh deploy/secrets.sh .secrets
+        export DEPLOY_REGISTRY="ghcr.io" DEPLOY_REGISTRY_USER="$GITHUB_ACTOR" DEPLOY_REGISTRY_PASSWORD="$GITHUB_TOKEN"
+        ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app" -e "deploy_env=production"

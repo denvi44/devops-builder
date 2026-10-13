@@ -30,6 +30,8 @@ jobs:
           - kind-helm-cnpg
           - kind-kustomize-postgresql
           - compose-postgresql
+          - compose-zabbix
+          - compose-identite-keycloak
           - kind-coffre-openbao
           - kind-identite-keycloak
     env:

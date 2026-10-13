@@ -4,9 +4,9 @@ Fichier produit par `python -m devops_builder.support` ; un test vérifie qu'il 
 
 ## Niveaux
 
-- **Pris en charge** (139) : les fichiers sont générés et passent l'outil de référence dans les tests (linter, schéma, `tofu validate`, ShellCheck) ; aucune limite connue n'empêche le premier déploiement en suivant `docs/mise-en-route.md`.
+- **Pris en charge** (140) : les fichiers sont générés et passent l'outil de référence dans les tests (linter, schéma, `tofu validate`, ShellCheck) ; aucune limite connue n'empêche le premier déploiement en suivant `docs/mise-en-route.md`.
 - **Expérimental** (8) : les fichiers sont générés, mais une limite connue demande une intervention ou n'a pas été vérifiée ; la règle R50 la rappelle dans le projet.
-- **À configurer à la main** (11) : aucun générateur ne produit de fichier ; la brique sert aux règles et à la documentation, elle est listée dans « À configurer à la main » de `PIPELINE.md` (règle R31).
+- **À configurer à la main** (10) : aucun générateur ne produit de fichier ; la brique sert aux règles et à la documentation, elle est listée dans « À configurer à la main » de `PIPELINE.md` (règle R31).
 
 Une entrée du CNCF Landscape sans fiche, ou une fiche personnelle, est toujours à configurer à la main.
 
@@ -37,7 +37,6 @@ Une entrée du CNCF Landscape sans fiche, ou une fiche personnelle, est toujours
 | AWS App Mesh | Plateforme | Service arrêté par AWS, sans générateur. |
 | Knative | Plateforme | Installation et services Knative à écrire à la main. |
 | Thanos | Observabilité | Installation à écrire à la main, à côté de Prometheus. |
-| Zabbix | Observabilité | Installation et agents à poser à la main. |
 
 ## Pris en charge
 
@@ -50,4 +49,4 @@ Une entrée du CNCF Landscape sans fiche, ou une fiche personnelle, est toujours
 - **Données** : Amazon RDS, Azure Database (serveur flexible), CloudNativePG, Google Cloud SQL, MariaDB, Migrations de schéma, MongoDB, MySQL, OVHcloud Public Cloud Databases, PostgreSQL, Redis, Scaleway Managed Database, Valkey
 - **Déploiement** : Amazon ECS (Fargate), Argo CD, Argo Events, Argo Rollouts, Docker Compose, Flux, Google Cloud Run, Helm, Kustomize
 - **Plateforme** : AWS Secrets Manager, Azure Key Vault, Calico, cert-manager, Cilium, Envoy Gateway, External Secrets Operator, Falco, Flannel, Google Secret Manager, ingress-nginx, Istio, KEDA, Keycloak, Kyverno, Linkerd, Longhorn, OPA Gatekeeper, OpenBao, Rook (Ceph), SOPS, Traefik, Vault, Velero
-- **Observabilité** : Amazon CloudWatch, Azure Monitor, Fluent Bit, Fluentd, Google Cloud Monitoring et Logging, Grafana, Grafana Loki, Grafana Tempo, Jaeger, OpenCost, OpenSearch, OpenTelemetry Collector, Prometheus
+- **Observabilité** : Amazon CloudWatch, Azure Monitor, Fluent Bit, Fluentd, Google Cloud Monitoring et Logging, Grafana, Grafana Loki, Grafana Tempo, Jaeger, OpenCost, OpenSearch, OpenTelemetry Collector, Prometheus, Zabbix

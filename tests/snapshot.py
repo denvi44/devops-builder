@@ -198,6 +198,15 @@ def extra_cases(catalog) -> dict[str, Project]:
         dex = build_starter(StarterAnswers(forge="gitlab", hosting="kubernetes-managed", cloud="gcp",
                                            envs="staging-prod", identity="dex", k8s_deploy="kustomize"), catalog)
         out["identite-dex-gke"] = brick(dex, "dex", hostname="dex.boutique.fr", org="boutique")
+        # 0.17 : Zabbix sur hôte Docker (Traefik, variables CI) et sur VM (Ansible, SOPS)
+        zbx = build_starter(StarterAnswers(forge="gitlab", hosting="docker-host", envs="staging-prod",
+                                           database="postgresql", observability="none"), catalog)
+        zbx.add("zabbix", "observability", hostname="zabbix.boutique.fr")
+        out["supervision-zabbix-compose"] = zbx
+        zvm = build_starter(StarterAnswers(forge="github", hosting="vm", envs="prod", observability="none",
+                                           secrets="sops"), catalog)
+        zvm.add("zabbix", "observability")
+        out["supervision-zabbix-vm-sops"] = zvm
         out["identite-dex-compose-github"] = brick(build_starter(StarterAnswers(
             forge="github", hosting="vm", envs="staging-prod", identity="dex"), catalog), "dex",
             hostname="dex.boutique.fr")

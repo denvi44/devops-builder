@@ -88,10 +88,10 @@ def values(ir: IR, dbs: list[Database]) -> list[tuple[str, str, str]]:
         elif db.mode == "managed":
             out.append((db.url_ci_var, db.id, "url"))
     seen = {v for v, _, _ in out}
-    for cs in all_compose_secrets(ir):  # services de plateforme sur l'hôte Docker (fournisseur d'identité)
+    for cs in all_compose_secrets(ir):  # services de plateforme sur l'hôte Docker (identité, Zabbix)
         if cs.var not in seen:
             seen.add(cs.var)
-            out.append((cs.var, idp(ir) or "plateforme", cs.var.lower()))
+            out.append((cs.var, cs.tool or idp(ir) or "plateforme", cs.var.lower()))
     return out
 
 

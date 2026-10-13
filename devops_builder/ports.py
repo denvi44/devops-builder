@@ -68,6 +68,10 @@ def env_offset(project: Project, env: Environment) -> int:
     return PORT_OFFSET_STEP * ordered.index(env)
 
 
+# Services Compose générés hors de COMPOSE_SERVICES (generators/identity.py, generators/zabbix.py)
+WEB_SERVICES = (("keycloak", 8080, "interface et OIDC"), ("dex", 5556, "OIDC"), ("zabbix", 8080, "interface web"))
+
+
 def compose_publishes(project: Project) -> bool:
     return project.target in ("docker-host", "vm") and any(b.tool == "docker-compose" for _, b in project.all_bricks())
 
@@ -137,6 +141,19 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
                 for host, container in _compose_ports(COMPOSE_SERVICES[tid].get("ports", [])):
                     add(tid, tool.name if tool else tid, container, host + offset,
                         ports.get(tid, {}).get(container, ""), "publié sur l'hôte Docker")
+            # services écrits par leur propre générateur (identité, Zabbix) : derrière Traefik, sinon publiés
+            for tid, container, usage in WEB_SERVICES:
+                if tid not in present:
+                    continue
+                tool = catalog.get(tid)
+                if "traefik" in present:
+                    hostname = next((b.params.get("hostname") for _, b in project.all_bricks()
+                                     if b.tool == tid and b.params.get("hostname")), None)
+                    add(tid, tool.name if tool else tid, container, None, usage,
+                        "via Traefik" + (f", hôte {hostname}" if hostname else ""))
+                else:
+                    add(tid, tool.name if tool else tid, container, container + offset, usage,
+                        "publié sur l'hôte Docker")
             add_databases(False)
         elif project.target in KUBERNETES_TARGETS or any(
                 (t := catalog.get(tid)) and "kubernetes-cluster" in t.roles for tid in present):

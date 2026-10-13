@@ -77,12 +77,19 @@ services:
     - --providers.docker=true
     - --providers.docker.exposedbydefault=false
     - --entrypoints.web.address=:80
+    - --entrypoints.web.http.redirections.entrypoint.to=websecure
+    - --entrypoints.web.http.redirections.entrypoint.scheme=https
     - --entrypoints.websecure.address=:443
+    - --entrypoints.websecure.http.tls=true
+    - --entrypoints.websecure.http.tls.certresolver=letsencrypt
+    - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+    - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
     ports:
     - ${PORT_TRAEFIK_80:-80}:80
     - ${PORT_TRAEFIK_443:-443}:443
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock:ro
+    - traefik-letsencrypt:/letsencrypt
   prometheus:
     image: prom/prometheus:latest
     ports:
@@ -99,4 +106,5 @@ volumes:
   grafana-data: {}
   postgresql-data: {}
   prometheus-data: {}
+  traefik-letsencrypt: {}
   valkey-data: {}

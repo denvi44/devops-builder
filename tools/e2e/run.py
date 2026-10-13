@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import secrets
 import shutil
 import subprocess
@@ -81,6 +82,13 @@ def _project(target: str, *tools: str, envs: str = "prod", **params) -> Project:
 
 
 _CAT = None
+
+
+def _with(project: Project, **params: dict) -> Project:
+    """Réglages saisis dans le panneau Propriétés, par identifiant d'outil."""
+    for _, brick in project.all_bricks():
+        brick.params.update(params.get(brick.tool.replace("-", "_"), {}))
+    return project
 
 
 def _catalog():
@@ -324,6 +332,125 @@ exit 1
     ]
 
 
+# ------------------------------------------------------------------ hôte Docker : services de plateforme
+def runbook_blocks(out: Path, title: str) -> list[str]:
+    """Blocs ```bash de la section « ## N. <titre> » du mode d'emploi généré, dans l'ordre."""
+    text = (out / "docs" / "mise-en-route.md").read_text(encoding="utf-8")
+    section = re.split(r"^## \d+\. ", text, flags=re.M)
+    body = next((part for part in section if part.startswith(title)), "")
+    return re.findall(r"```bash\n(.*?)```", body, flags=re.S)
+
+
+def _compose_host(out: Path, ir, env: dict[str, str]) -> tuple[Path, str, list[Step], list[Step]]:
+    """Fichiers posés comme sur l'hôte, secrets, démarrage ; puis journaux et arrêt (toujours)."""
+    host = out.parent / "opt" / ir.app
+    image = f"devops-builder.local/{ir.app}:e2e"
+    dc = f"docker compose --project-directory {host} -p {ir.app}"
+    curlrc = out.parent / "curl"
+    start = [
+        Step("Image de l'application de démonstration", ["docker", "build", "-t", image, str(APP_DIR)]),
+        Step("Fichiers posés comme sur l'hôte (/opt/<application>)",
+             f"mkdir -p {host} && cp -R {out}/deploy/. {host}/ && ls {host}"),
+        Step("deploy/secrets.sh : fichiers de secrets", ["sh", "secrets.sh", "secrets"], cwd=host, env=env),
+        Step("docker compose up (santé des services attendue)", f"{dc} up -d --wait --wait-timeout 300",
+             cwd=host, env={**env, "IMAGE": image}),
+    ]
+    end = [
+        Step("Journaux des services", f"{dc} ps -a; {dc} logs --tail=25", always=True, env={**env, "IMAGE": image}),
+        Step("Arrêt et suppression des volumes", f"{dc} down -v --remove-orphans", always=True,
+             env={**env, "IMAGE": image}),
+    ]
+    curlrc.mkdir(parents=True, exist_ok=True)
+    return host, str(curlrc), start, end
+
+
+def _curl_env(curlrc: str, *hosts: str) -> dict[str, str]:
+    """Pas de DNS ni de certificat public sur la machine de test : curl est dirigé vers Traefik (127.0.0.1:443)
+    et accepte son certificat par défaut. Les commandes du mode d'emploi s'exécutent sans modification."""
+    lines = ["insecure", *(f'resolve = "{h}:443:127.0.0.1"' for h in hosts)]
+    Path(curlrc, ".curlrc").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return {"CURL_HOME": curlrc}
+
+
+def _zabbix_steps(out: Path, ir) -> list[Step]:
+    from devops_builder.generators import zabbix
+    env = {"ZABBIX_DB_PASSWORD": secrets.token_hex(12)}
+    host, curlrc, start, end = _compose_host(out, ir, env)
+    web = zabbix.host(ir)
+    cenv = {**_curl_env(curlrc, web), "ZBX": f"https://{web}/api_jsonrpc.php"}
+    blocks = runbook_blocks(out, "Zabbix")
+    change, check = (blocks + ["false", "false"])[:2]
+    # le mot de passe choisi par le premier bloc est réutilisé par le second : même shell
+    guide = f"""
+{change}
+for _ in $(seq 1 30); do
+  host="$({check})" || true
+  echo "$host"
+  printf '%s' "$host" | jq -e '.interfaces[0].available == "1"' >/dev/null && break
+  sleep 10
+done
+printf '%s' "$host" | jq -e '.interfaces[0].available == "1"' >/dev/null
+old=$(curl -fsS -H 'Content-Type: application/json-rpc' -d '{{"jsonrpc":"2.0","method":"user.login","params":{{"username":"Admin","password":"zabbix"}},"id":9}}' "$ZBX")
+printf '%s' "$old" | jq -e '.error' >/dev/null && echo "ancien mot de passe refusé"
+"""
+    return [
+        *start,
+        Step("Interface Zabbix par Traefik en HTTPS",
+             f"for _ in $(seq 1 30); do curl -fsS -o /dev/null -w '%{{http_code}}\\n' https://{web}/ && exit 0; "
+             "sleep 5; done; exit 1", env=cenv, evidence=True),
+        Step("Mode d'emploi joué tel quel : mot de passe Admin changé, agent disponible", guide,
+             env=cenv, evidence=True),
+        *end,
+    ]
+
+
+def _keycloak_compose_steps(out: Path, ir) -> list[Step]:
+    from devops_builder.generators import identity
+    env = {"KEYCLOAK_DB_PASSWORD": secrets.token_hex(12), "KEYCLOAK_ADMIN_PASSWORD": secrets.token_hex(12)}
+    host, curlrc, start, end = _compose_host(out, ir, env)
+    auth = identity.host(ir)
+    cenv = _curl_env(curlrc, auth)
+    realm = identity.realm(ir)
+    kc_ip = (f"$(docker inspect -f '{{{{range .NetworkSettings.Networks}}}}{{{{.IPAddress}}}}{{{{end}}}}' "
+             f"$(docker compose --project-directory {host} -p {ir.app} ps -q keycloak))")
+    tf = {"TF_IN_AUTOMATION": "1", "TF_CLI_ARGS": "-no-color", "KEYCLOAK_USER": "admin-temporaire",
+          "KEYCLOAK_PASSWORD": env["KEYCLOAK_ADMIN_PASSWORD"]}
+    url = f'export TF_VAR_keycloak_url="http://{kc_ip}:8080"\n'
+    groups = f"""
+kc="http://{kc_ip}:8080"
+tok=$(curl -fsS -d client_id=admin-cli -d grant_type=password -d username=admin-temporaire \
+  --data-urlencode "password=$KEYCLOAK_PASSWORD" $kc/realms/master/protocol/openid-connect/token | jq -r .access_token)
+api() {{ curl -fsS -H "Authorization: Bearer $tok" -H 'Content-Type: application/json' "$@"; }}
+api -X POST -d '{{"username":"alice","enabled":true,"email":"alice@boutique.test","firstName":"Alice","lastName":"Test"}}' \
+  $kc/admin/realms/{realm}/users
+uid=$(api "$kc/admin/realms/{realm}/users?username=alice&exact=true" | jq -r '.[0].id')
+gid=$(api "$kc/admin/realms/{realm}/groups?search={identity.ADMINS}&exact=true" | jq -r '.[0].id')
+api -X PUT $kc/admin/realms/{realm}/users/$uid/groups/$gid
+cid=$(api "$kc/admin/realms/{realm}/clients?clientId={ir.app}" | jq -r '.[0].id')
+claims=$(api "$kc/admin/realms/{realm}/clients/$cid/evaluate-scopes/generate-example-access-token?userId=$uid&scope=openid")
+echo "$claims" | jq -c '{{iss, groups}}'
+echo "$claims" | jq -e '.groups | index("{identity.ADMINS}")' >/dev/null
+"""
+    discovery = f"""
+for _ in $(seq 1 60); do
+  iss=$(curl -fsS https://{auth}/realms/master/.well-known/openid-configuration 2>/dev/null | jq -r .issuer || true)
+  [ "$iss" = "https://{auth}/realms/master" ] && {{ echo "émetteur : $iss"; exit 0; }}
+  sleep 5
+done
+exit 1
+"""
+    return [
+        *start,
+        Step("Découverte OpenID par Traefik en HTTPS", discovery, env=cenv, evidence=True),
+        Step("infra/keycloak : tofu init et apply", url + "tofu init -input=false\ntofu apply -auto-approve -input=false",
+             cwd=out / "infra" / "keycloak", env=tf),
+        Step("infra/keycloak : relu sans écart (plan -detailed-exitcode)",
+             url + "tofu plan -detailed-exitcode -input=false", cwd=out / "infra" / "keycloak", env=tf, evidence=True),
+        Step("Revendication « groups » d'un membre du groupe admins", groups, env=tf, evidence=True),
+        *end,
+    ]
+
+
 def _check_db(ctx: str, ns: str, app: str) -> str:
     return f"""
 kubectl --context {ctx} -n {ns} port-forward service/{app} 18081:80 >/tmp/pf-db.log 2>&1 &
@@ -352,6 +479,18 @@ SCENARIOS = {s.name: s for s in [
              lambda: _project("docker-host", "gitlab", "gitlab-ci", "buildkit", "docker-compose", "traefik",
                               "postgresql", "valkey"),
              _compose_steps, ("docker",)),
+    Scenario("compose-zabbix", "Hôte Docker : Zabbix derrière Traefik en HTTPS, mode d'emploi joué tel quel "
+             "(mot de passe Admin, agent disponible)",
+             lambda: _with(_project("docker-host", "gitlab", "gitlab-ci", "buildkit", "docker-compose", "traefik",
+                                    "zabbix"), zabbix={"hostname": "zabbix.boutique.test"}),
+             _zabbix_steps, ("docker", "curl", "jq")),
+    Scenario("compose-identite-keycloak", "Hôte Docker : Keycloak et sa base derrière Traefik en HTTPS, realm "
+             "appliqué par OpenTofu, revendication groups",
+             lambda: _with(_project("docker-host", "gitlab", "gitlab-ci", "buildkit", "docker-compose", "traefik",
+                                    "keycloak"), keycloak={"hostname": "auth.boutique.test",
+                                                           "tools_domain": "boutique.test",
+                                                           "app_url": "https://boutique.test"}),
+             _keycloak_compose_steps, ("docker", "curl", "jq", "tofu")),
     Scenario("kind-coffre-openbao", "OpenBao initialisé et configuré par les scripts générés, External Secrets, "
              "Valkey lu dans le coffre, PostgreSQL par CloudNativePG",
              _starter(secrets="openbao", database="postgresql", cache=True),

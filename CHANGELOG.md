@@ -16,7 +16,17 @@ mineure peut changer les fichiers générés ; chaque changement voulu est relu 
   (`kind-coffre-openbao`) ; Keycloak par son opérateur derrière Traefik, realm appliqué par OpenTofu puis relu
   sans écart, revendication `groups` vérifiée (`kind-identite-keycloak`). Preuves publiées en annotations.
 
+### Ajouté (suite)
+- Zabbix pris en charge sur hôte Docker et VM : images officielles 7.4 (serveur, interface web, agent 2) et base
+  PostgreSQL dédiée, mot de passe par le circuit habituel (variables CI, SOPS ou coffre), interface derrière
+  Traefik, section du mode d'emploi (mot de passe Admin à changer par l'API, agent vérifié). Keycloak, Dex et
+  Zabbix apparaissent dans la vue Ports, et R39 signale leur conflit sur 8080 sans Traefik.
+
 ### Corrigé
+- **Traefik sur hôte Docker ne faisait pas de HTTPS** : aucune configuration TLS, le port 443 répondait en HTTP
+  clair. TLS sur l'entrée websecure, certificat Let's Encrypt (challenge TLS), redirection du port 80, volume
+  des certificats ; adresse ACME facultative (paramètre « Contact Let's Encrypt »). Trouvé en préparant les
+  tests de bout en bout de l'hôte Docker.
 - Validation installée par pipx : les outils ajoutés à l'environnement de l'application
   (`pipx inject devops-builder shellcheck-py`) sont trouvés, alors qu'ils restaient « absents » ; le conseil
   d'installation propose `pipx inject` sous pipx ; un contrôle sans outil liste les fichiers générés qui le

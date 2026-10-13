@@ -20,12 +20,14 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
 | Préproduction | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
 | Préproduction | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
+| Préproduction | Keycloak | — | 8080 | interface et OIDC | via Traefik, hôte auth.boutique.fr |
 | Préproduction | PostgreSQL | — | 5432 | PostgreSQL | réseau interne Compose (hôte « postgresql »), non publié |
 | Production | mon-app | — | 8000 | application | via Traefik, hôte mon-app.example.com |
 | Production | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Production | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
 | Production | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
 | Production | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
+| Production | Keycloak | — | 8080 | interface et OIDC | via Traefik, hôte auth.boutique.fr |
 | Production | PostgreSQL | — | 5432 | PostgreSQL | réseau interne Compose (hôte « postgresql »), non publié |
 
 ## Données
