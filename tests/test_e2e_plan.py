@@ -25,7 +25,8 @@ def test_scenario_genere_et_planifie(name, capsys, tmp_path):
     out = tmp_path / "projet"
     assert (out / "devops-builder.yaml").exists()
     if name.startswith("kind-"):
-        assert (out / "scripts" / "test-kind.sh").exists() and "test-kind.sh" in plan
+        assert "kind delete cluster" in plan              # le cluster jetable est toujours supprimé
+        assert "test-kind.sh" in plan or "platform/install.sh" in plan
     else:
         assert {"secrets.sh", "docker-compose.yml"} <= {p.name for p in (out / "deploy").iterdir()}
         assert "db-backup.sh" in plan and "db-restore.sh" in plan
