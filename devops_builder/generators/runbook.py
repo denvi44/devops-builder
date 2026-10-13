@@ -557,7 +557,7 @@ def _zabbix(ir: IR) -> list[str]:
                  'ZABBIX_ADMIN_PASSWORD="$(openssl rand -hex 16)"; echo "$ZABBIX_ADMIN_PASSWORD"   # à ranger',
                  login, change),
             "Vérifier que l'agent fourni répond : l'hôte « Zabbix server » (le serveur lui-même) doit être disponible "
-            "(`available` = 1 sur l'interface, `active_available` = 1) :", "",
+            "(`available` = 1 sur son interface ; ses contrôles par défaut sont passifs, `active_available` reste à 0) :", "",
             *_sh(relogin, check),
             "Les autres machines se supervisent avec un agent 2 chacune (paquet `zabbix-agent2` du dépôt officiel, "
             "https://www.zabbix.com/download), `Server=` pointant vers cet hôte Docker, puis un hôte déclaré dans "
