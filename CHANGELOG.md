@@ -4,6 +4,15 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## Non publié — lot 0.17 en cours
+
+### Ajouté
+- Tests de bout en bout (`tools/e2e/run.py`, workflow « Bout en bout ») : les fichiers générés exécutés pour
+  de vrai sur les machines de GitHub Actions. Trois scénarios pour commencer : chart Helm avec CloudNativePG
+  dans kind, overlays Kustomize avec PostgreSQL et Valkey dans kind, hôte Docker avec Compose, sauvegarde
+  puis restauration. Une application de démonstration (`tools/e2e/app`) ne répond 200 sur `/db` que si
+  chaque base accepte une connexion authentifiée avec les secrets transmis par le pipeline.
+
 ## 0.16.1 — 2026-10-12
 
 Préparation de l'ouverture du dépôt ; aucun changement des fichiers générés.
