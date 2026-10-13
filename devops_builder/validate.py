@@ -100,9 +100,28 @@ class Check:
                 if shutil.which("docker") and subprocess.run(["docker", "compose", "version"], capture_output=True).returncode == 0:
                     return ["docker", "compose"]
                 continue
-            if path := shutil.which(tool):
+            if path := _which(tool):
                 return [path]
         return None
+
+
+def under_pipx() -> bool:
+    """Application installée par pipx : ses outils Python s'ajoutent par « pipx inject », pas par pip."""
+    return "pipx" in Path(sys.prefix).parts
+
+
+def install_hint(hint: str) -> str:
+    """Conseil d'installation adapté : « pip install x » devient « pipx inject devops-builder x » sous pipx."""
+    if under_pipx():
+        return re.sub(r"\bpip install ", "pipx inject devops-builder ", hint)
+    return hint
+
+
+def _which(tool: str) -> str | None:
+    """Outil sur le PATH, ou à côté de l'interpréteur : avec pipx, `pipx inject devops-builder shellcheck-py`
+    installe l'outil dans l'environnement de l'application, que le PATH ne contient pas."""
+    search = os.pathsep.join(filter(None, [os.environ.get("PATH", ""), str(Path(sys.executable).parent)]))
+    return shutil.which(tool, path=search)
 
 
 # --------------------------------------------------------------- sélections
@@ -228,7 +247,7 @@ def _run_kubeconform(r: Runner, selected: list[str], cmd: list[str]) -> tuple[bo
 
 def _kubeconform_stdin(r: Runner, manifest: str, label: str) -> tuple[bool, str]:
     """Valide un rendu (Kustomize, Helm) si kubeconform est installé."""
-    kc = shutil.which("kubeconform")
+    kc = _which("kubeconform")
     if not kc:
         return True, f"{label} : rendu correct (kubeconform absent, schémas non vérifiés)."
     code, out = r.run([*_kubeconform_args([kc]), "-"], stdin=manifest)

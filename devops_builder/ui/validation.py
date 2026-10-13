@@ -121,9 +121,12 @@ class ValidationDialog(QDialog):
             item.setToolTip(2, "\n".join(files))
             self._paint(item, status)
             if not available:
+                hint = validate.install_hint(check.hint)
                 self.results[check.id] = validate.CheckResult(
-                    check.id, check.label, validate.MISSING, files, hint=check.hint,
-                    output=f"Outil introuvable : {' ou '.join(check.tools)}.\nInstallation : {check.hint}")
+                    check.id, check.label, validate.MISSING, files, hint=hint,
+                    output=f"Outil introuvable : {' ou '.join(check.tools)}.\nInstallation : {hint}\n\n"
+                           "Fichiers générés qui demandent ce contrôle (ils viennent des briques du pipeline) :\n"
+                           + "\n".join(f"  {f}" for f in files))
             self.tree.addTopLevelItem(item)
             self.items[check.id] = item
         missing = sum(1 for r in self.results.values() if r.status == validate.MISSING)

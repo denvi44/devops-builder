@@ -461,3 +461,29 @@ def test_github_azure_statique_utilise_le_secret_declare():
     result = generate(p, CATALOG)
     wf = result.files[".github/workflows/pipeline.yml"]
     assert "AZURE_CREDENTIALS" not in wf and "secrets.AZURE_CLIENT_SECRET" in wf
+
+
+def test_outil_installe_dans_l_environnement_de_l_application(tmp_path, monkeypatch):
+    """Installation par pipx : `pipx inject devops-builder shellcheck-py` met l'outil à côté de l'interpréteur,
+    hors du PATH ; la validation doit le trouver quand même."""
+    from devops_builder import validate
+
+    venv_bin = tmp_path / "venv" / "bin"
+    venv_bin.mkdir(parents=True)
+    tool = venv_bin / "shellcheck"
+    tool.write_text("#!/bin/sh\nexit 0\n")
+    tool.chmod(0o755)
+    monkeypatch.setattr(validate.sys, "executable", str(venv_bin / "python"))
+    monkeypatch.setenv("PATH", str(tmp_path / "vide"))
+    check = next(c for c in validate.CHECKS if c.id == "shellcheck")
+    assert check.command() == [str(tool)]
+
+
+def test_conseil_d_installation_sous_pipx(monkeypatch):
+    from devops_builder import validate
+
+    monkeypatch.setattr(validate.sys, "prefix", "/Users/v/.local/pipx/venvs/devops-builder")
+    assert validate.install_hint("pip install shellcheck-py") == "pipx inject devops-builder shellcheck-py"
+    assert validate.install_hint("https://opentofu.org/docs/intro/install/").startswith("https://")
+    monkeypatch.setattr(validate.sys, "prefix", "/usr")
+    assert validate.install_hint("pip install shellcheck-py") == "pip install shellcheck-py"
