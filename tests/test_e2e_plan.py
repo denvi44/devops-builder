@@ -60,3 +60,10 @@ def test_blocs_du_mode_d_emploi_zabbix(tmp_path):
     assert e2e.main(["compose-zabbix", "--plan", "--keep", str(tmp_path)]) == 0
     blocks = e2e.runbook_blocks(tmp_path / "projet", "Zabbix")
     assert len(blocks) == 2 and "user.update" in blocks[0] and "host.get" in blocks[1]
+
+
+def test_sops_du_workflow_identique_a_celui_de_la_ci_generee():
+    from devops_builder.generators.secrets import SOPS_SHA256, SOPS_VERSION
+    text = (ROOT / ".github" / "workflows" / "e2e.yml").read_text(encoding="utf-8")
+    assert f"v{SOPS_VERSION}/sops-v{SOPS_VERSION}.linux.amd64" in text
+    assert SOPS_SHA256 in text
