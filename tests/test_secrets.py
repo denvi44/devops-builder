@@ -339,3 +339,12 @@ def test_assistant_refuse_les_combinaisons_sans_sens():
     assert validate(StarterAnswers(hosting="kubernetes-managed", cloud="scaleway", secrets="cloud"))
     assert validate(StarterAnswers(hosting="serverless", cloud="gcp", secrets="sops"))
     assert "sops" not in build_starter(StarterAnswers(), CATALOG).tool_ids()  # défaut : variables CI
+
+
+def test_binaire_sops_verifie_avant_execution():
+    """Le binaire téléchargé manipule la clé age : son empreinte publiée est vérifiée avant chmod +x."""
+    from devops_builder.generators.secrets import SOPS_INSTALL, SOPS_SHA256
+
+    lines = "\n".join(SOPS_INSTALL)
+    assert len(SOPS_SHA256) == 64 and f'echo "{SOPS_SHA256}  $HOME/.local/bin/sops" | sha256sum -c -' in lines
+    assert lines.index("sha256sum -c") < lines.index("chmod +x")

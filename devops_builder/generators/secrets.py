@@ -25,6 +25,8 @@ VAULTS = ("vault", "openbao")
 CLOUD_STORES = {"aws-secrets-manager": "aws", "gcp-secret-manager": "gcp", "azure-key-vault": "azure"}
 STORES = (*VAULTS, *CLOUD_STORES)
 SOPS_VERSION = "3.11.0"
+# Empreinte du binaire publié (sops-v3.11.0.checksums.txt), vérifiée avant exécution : il manipule la clé age.
+SOPS_SHA256 = "775f1384d55decfad228e7196a3f683791914f92a473f78fc47700531c29dfef"
 FETCH_SCRIPT = "scripts/secrets-fetch.sh"
 SEED_SCRIPT = "scripts/secrets-seed.sh"
 VAULT_SETUP = "scripts/vault-setup.sh"
@@ -34,6 +36,7 @@ SOPS_INSTALL = [  # dans $HOME : conteneur root comme machine du runner
     'mkdir -p "$HOME/.local/bin" && export PATH="$HOME/.local/bin:$PATH"',
     f'curl -fsSLo "$HOME/.local/bin/sops" "https://github.com/getsops/sops/releases/download/v{SOPS_VERSION}/'
     f'sops-v{SOPS_VERSION}.linux.amd64"',
+    f'echo "{SOPS_SHA256}  $HOME/.local/bin/sops" | sha256sum -c -',
     'chmod +x "$HOME/.local/bin/sops"',
 ]
 

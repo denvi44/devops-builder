@@ -31,6 +31,7 @@ jobs:
           - kind-kustomize-postgresql
           - compose-postgresql
           - compose-zabbix
+          - compose-sops
           - compose-identite-keycloak
           - kind-coffre-openbao
           - kind-identite-keycloak
@@ -56,6 +57,9 @@ jobs:
         if: contains(matrix.scenario, 'identite')
         with:
           tofu_wrapper: false
+      - name: age (SOPS)
+        if: contains(matrix.scenario, 'sops')
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends age
       - name: Versions des outils
         run: |
           docker version --format '{{.Server.Version}}'

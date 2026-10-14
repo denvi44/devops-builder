@@ -11,7 +11,8 @@ project="$(basename "$dir")"
 dc() { docker compose --project-directory "$dir" -p "$project" "$@"; }
 case "$(basename "$file")" in
   postgresql-*) service=postgresql; cmd='pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner --exit-on-error' ;;
-  *) echo "Base inconnue pour $(basename "$file") (préfixe attendu : postgresql-)" >&2; exit 2 ;;
+  zabbix-db-*) service=zabbix-db; cmd='pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner --exit-on-error' ;;
+  *) echo "Base inconnue pour $(basename "$file") (préfixe attendu : postgresql-, zabbix-db-)" >&2; exit 2 ;;
 esac
 if [ "${3:-}" != "--oui" ]; then
   echo "La base $service de $project va être remplacée par $file : relancer avec --oui." >&2

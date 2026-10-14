@@ -30,8 +30,10 @@ def test_scenario_genere_et_planifie(name, capsys, tmp_path):
     else:
         assert {"secrets.sh", "docker-compose.yml"} <= {p.name for p in (out / "deploy").iterdir()}
         assert "docker compose" in plan and "down -v" in plan       # volumes supprimés après le test
-        if (out / "scripts" / "db-backup.sh").exists():
+        if name in ("compose-postgresql", "compose-zabbix"):     # scénarios qui vérifient la sauvegarde
             assert "db-backup.sh" in plan and "db-restore.sh" in plan
+        if name == "compose-sops":
+            assert "secrets-seed.sh" in plan and "ci-secrets.sh" in plan and "age-keygen" in plan
 
 
 def test_le_workflow_lance_chaque_scenario():

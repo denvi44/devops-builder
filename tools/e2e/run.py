@@ -406,6 +406,13 @@ printf '%s' "$old" | jq -e '.error' >/dev/null && echo "ancien mot de passe refu
              env=cenv),
         Step("Mode d'emploi joué tel quel : mot de passe Admin changé, agent disponible", guide,
              env=cenv, evidence=True),
+        Step("scripts/db-backup.sh : base de Zabbix sauvegardée",
+             f"sh {out}/scripts/db-backup.sh {host} {out.parent}/sauvegardes\nls -l {out.parent}/sauvegardes/zabbix-db-*.dump",
+             env=env, evidence=True),
+        Step("scripts/db-restore.sh --oui : base de Zabbix restaurée, serveur toujours joignable",
+             f"sh {out}/scripts/db-restore.sh {host} \"$(ls {out.parent}/sauvegardes/zabbix-db-*.dump | head -n 1)\" --oui\n"
+             "curl -fsS -H 'Content-Type: application/json-rpc' -d '{\"jsonrpc\":\"2.0\",\"method\":\"apiinfo.version\","
+             "\"params\":{},\"id\":1}' \"$ZBX\" | jq -e .result", env={**env, **cenv}, evidence=True),
         *end,
     ]
 
@@ -457,6 +464,55 @@ exit 1
     ]
 
 
+def _sops_steps(out: Path, ir) -> list[Step]:
+    """SOPS comme le mode d'emploi : clé age, clé publique dans la brique et projet régénéré, valeurs chiffrées par
+    secrets-seed.sh ; puis les lignes mêmes de la CI générée (sops vérifié, déchiffrement, deploy/secrets.sh)."""
+    work = out.parent
+    host = work / "opt" / ir.app
+    image = f"devops-builder.local/{ir.app}:e2e"
+    dc = f"docker compose --project-directory {host} -p {ir.app}"
+    env_id = ir.envs[0].id
+    key = work / "age" / "keys.txt"
+    ci_file = next((f for f in (".gitlab-ci.yml",) if (out / f).exists()), None)
+    ci_glob = ci_file or ".github/workflows/*.yml"
+    # lignes de la CI qui installent sops et chargent les secrets, extraites du fichier généré
+    extract = (f"grep -h -E 'local/bin|sops|secrets-fetch.sh|SECRETS_ENV|deploy/secrets.sh' {ci_glob} "
+               "| grep -v -E 'ansible|ssh |scp ' | sed -E 's/^ *(- )?//' | awk '!seen[$0]++' > ci-secrets.sh\n"
+               "cat ci-secrets.sh")
+    probe = (f"{dc} exec -T {ir.app} python -c \"import sys,urllib.request as u;"
+             "r=u.urlopen('http://127.0.0.1:8000/db',timeout=10);print(r.read().decode());"
+             "sys.exit(0 if r.status==200 else 1)\"")
+    return [
+        Step("Image de l'application de démonstration", ["docker", "build", "-t", image, str(APP_DIR)]),
+        Step("Clé age du projet (mode d'emploi)", f"mkdir -p {key.parent}\nage-keygen -o {key}\nage-keygen -y {key}"),
+        Step("Clé publique dans la brique SOPS, projet régénéré par la ligne de commande",
+             f"pub=$(age-keygen -y {key})\n"
+             f"python3 - \"$pub\" <<'PY'\nimport sys, yaml\np = yaml.safe_load(open('devops-builder.yaml'))\n"
+             "for bricks in p['stages'].values():\n    for b in bricks:\n        if b['tool'] == 'sops':\n"
+             "            b.setdefault('params', {})['age_recipients'] = sys.argv[1]\n"
+             "yaml.safe_dump(p, open('devops-builder.yaml', 'w'), sort_keys=False, allow_unicode=True)\nPY\n"
+             f"{sys.executable} -m devops_builder generate devops-builder.yaml -o . --overwrite\n"
+             "grep \"$pub\" .sops.yaml", cwd=out, env={"PYTHONPATH": str(ROOT)}),
+        Step("scripts/secrets-seed.sh : valeurs chiffrées dans le dépôt",
+             f"export SOPS_AGE_KEY_FILE={key}\n"
+             f"POSTGRESQL_PASSWORD=$(openssl rand -hex 12) VALKEY_PASSWORD=$(openssl rand -hex 12) "
+             f"bash scripts/secrets-seed.sh {env_id}\n"
+             f"grep -q 'ENC\\[AES256_GCM' deploy/secrets/{env_id}.enc.env && echo 'fichier chiffré' && "
+             f"! grep -q -E '^(POSTGRESQL|VALKEY)_PASSWORD=[0-9a-f]+$' deploy/secrets/{env_id}.enc.env", cwd=out,
+             evidence=True),
+        Step("Lignes de la CI générée : sops vérifié, secrets déchiffrés, deploy/secrets.sh",
+             f"{extract}\nexport SOPS_AGE_KEY=\"$(grep AGE-SECRET-KEY {key})\"\nbash -euo pipefail ci-secrets.sh\n"
+             "ls .secrets", cwd=out, evidence=True),
+        Step("Fichiers posés comme sur l'hôte, secrets compris",
+             f"mkdir -p {host}/secrets && cp -R {out}/deploy/. {host}/ && cp {out}/.secrets/* {host}/secrets/"),
+        Step("docker compose up (santé des services attendue)", f"{dc} up -d --wait --wait-timeout 300",
+             cwd=host, env={"IMAGE": image}),
+        Step("Connexion authentifiée aux bases depuis l'application (/db)", probe, retries=10, evidence=True),
+        Step("Journaux des services", f"{dc} ps -a; {dc} logs --tail=25", always=True, env={"IMAGE": image}),
+        Step("Arrêt et suppression des volumes", f"{dc} down -v --remove-orphans", always=True, env={"IMAGE": image}),
+    ]
+
+
 def _check_db(ctx: str, ns: str, app: str) -> str:
     return f"""
 kubectl --context {ctx} -n {ns} port-forward service/{app} 18081:80 >/tmp/pf-db.log 2>&1 &
@@ -490,6 +546,10 @@ SCENARIOS = {s.name: s for s in [
              lambda: _with(_project("docker-host", "gitlab", "gitlab-ci", "buildkit", "docker-compose", "traefik",
                                     "zabbix"), zabbix={"hostname": "zabbix.boutique.test"}),
              _zabbix_steps, ("docker", "curl", "jq")),
+    Scenario("compose-sops", "Hôte Docker : secrets chiffrés par SOPS et age comme le mode d'emploi, déchiffrés par "
+             "les lignes de la CI générée, bases jointes par l'application",
+             _starter(hosting="docker-host", forge="github", database="postgresql", cache=True, secrets="sops"),
+             _sops_steps, ("docker", "age-keygen", "openssl", "curl")),
     Scenario("compose-identite-keycloak", "Hôte Docker : Keycloak et sa base derrière Traefik en HTTPS, realm "
              "appliqué par OpenTofu, revendication groups",
              lambda: _with(_project("docker-host", "gitlab", "gitlab-ci", "buildkit", "docker-compose", "traefik",

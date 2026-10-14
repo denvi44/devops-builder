@@ -225,8 +225,20 @@ DUMPS = {
 }
 
 
+def backup_targets(ir: IR) -> list[tuple[str, str, str]]:
+    """(service Compose, nom affiché, moteur) des bases à sauvegarder sur l'hôte : celles de l'application, puis
+    celles des services de plateforme (Keycloak, Zabbix), qui portent comptes et configuration."""
+    out = [(d.id, d.tool.name, d.id) for d in compose_dbs(ir) if d.mode == "self-hosted" and d.id in DUMPS]
+    from . import identity, zabbix
+    if identity.idp(ir) == "keycloak" and identity.compose_target(ir):
+        out.append(("keycloak-db", "Keycloak", "postgresql"))
+    if zabbix.enabled(ir):
+        out.append(("zabbix-db", "Zabbix", "postgresql"))
+    return out
+
+
 def backup_script(ir: IR) -> dict[str, str]:
-    dbs = [d for d in compose_dbs(ir) if d.mode == "self-hosted" and d.id in DUMPS]
+    dbs = backup_targets(ir)
     if not dbs:
         return {}
     lines = ["#!/bin/sh", f"# {HEADER}",
@@ -237,11 +249,11 @@ def backup_script(ir: IR) -> dict[str, str]:
              'project="$(basename "$dir")"', 'dest="${2:-/var/backups/$project}"', 'keep="${KEEP_DAYS:-7}"',
              'stamp="$(date +%Y%m%d-%H%M%S)"', "umask 077", 'mkdir -p "$dest"',
              'dc() { docker compose --project-directory "$dir" -p "$project" "$@"; }', ""]
-    for db in dbs:
-        cmd, ext = DUMPS[db.id]
-        lines += [f"# {db.tool.name}",
-                  f"dc exec -T {db.id} sh -c '{cmd}' > \"$dest/{db.id}-$stamp.{ext}\"",
-                  f'echo "{db.tool.name} → $dest/{db.id}-$stamp.{ext}"']
+    for service, label, engine in dbs:
+        cmd, ext = DUMPS[engine]
+        lines += [f"# {label}",
+                  f"dc exec -T {service} sh -c '{cmd}' > \"$dest/{service}-$stamp.{ext}\"",
+                  f'echo "{label} → $dest/{service}-$stamp.{ext}"']
     lines += ["", 'find "$dest" -type f -mtime +"$keep" -delete', ""]
     return {BACKUP_SCRIPT: "\n".join(lines)}
 
@@ -335,7 +347,7 @@ RESTORES = {
 
 def restore_script(ir: IR) -> dict[str, str]:
     """Restauration d'une sauvegarde de db-backup.sh ; destructive, donc confirmée par --oui."""
-    dbs = [d for d in compose_dbs(ir) if d.mode == "self-hosted" and d.id in RESTORES]
+    dbs = [t for t in backup_targets(ir) if t[2] in RESTORES]
     if not dbs:
         return {}
     lines = ["#!/bin/sh", f"# {HEADER}",
@@ -347,10 +359,10 @@ def restore_script(ir: IR) -> dict[str, str]:
              'project="$(basename "$dir")"',
              'dc() { docker compose --project-directory "$dir" -p "$project" "$@"; }',
              'case "$(basename "$file")" in']
-    for db in dbs:
-        lines.append(f"  {db.id}-*) service={db.id}; cmd='{RESTORES[db.id]}' ;;")
+    for service, _label, engine in dbs:
+        lines.append(f"  {service}-*) service={service}; cmd='{RESTORES[engine]}' ;;")
     lines += ['  *) echo "Base inconnue pour $(basename "$file") (préfixe attendu : '
-              + ", ".join(f"{d.id}-" for d in dbs) + ')" >&2; exit 2 ;;', "esac",
+              + ", ".join(f"{t[0]}-" for t in dbs) + ')" >&2; exit 2 ;;', "esac",
               'if [ "${3:-}" != "--oui" ]; then',
               '  echo "La base $service de $project va être remplacée par $file : relancer avec --oui." >&2',
               "  exit 1", "fi",

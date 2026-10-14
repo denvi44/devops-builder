@@ -27,7 +27,14 @@ mineure peut changer les fichiers générés ; chaque changement voulu est relu 
   vie). Leurs entrées du CNCF Landscape mènent à la fiche. Règle R51 : Drone CI, repris par Harness, avec
   remplacement par Woodpecker.
 
+- Bases de Zabbix et de Keycloak sur l'hôte Docker sauvegardées et restaurées par `db-backup.sh` et
+  `db-restore.sh`, comme celles de l'application.
+- Scénarios de bout en bout `compose-sops` (clé age, brique, `secrets-seed.sh`, puis les lignes mêmes de la CI
+  générée) et sauvegarde-restauration de Zabbix.
+
 ### Corrigé
+- **Binaire sops non vérifié** : la CI générée téléchargeait sops et l'exécutait, clé age en mémoire, sans
+  contrôle ; son empreinte publiée est maintenant vérifiée (`sha256sum -c`) avant exécution.
 - **Traefik sur hôte Docker ne faisait pas de HTTPS** : aucune configuration TLS, le port 443 répondait en HTTP
   clair. TLS sur l'entrée websecure, certificat Let's Encrypt (challenge TLS), redirection du port 80, volume
   des certificats ; adresse ACME facultative (paramètre « Contact Let's Encrypt »). Trouvé en préparant les

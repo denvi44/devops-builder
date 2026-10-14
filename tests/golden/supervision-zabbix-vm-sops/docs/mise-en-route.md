@@ -82,6 +82,17 @@ curl -fsS -H 'Content-Type: application/json-rpc' -H "Authorization: Bearer $tok
 
 Les autres machines se supervisent avec un agent 2 chacune (paquet `zabbix-agent2` du dépôt officiel, https://www.zabbix.com/download), `Server=` pointant vers cet hôte Docker, puis un hôte déclaré dans l'interface.
 
-## 6. Entretien
+## 6. Sauvegardes
 
+Sur l'hôte, une sauvegarde puis une restauration d'essai (la restauration remplace la base) :
+
+```bash
+sudo /opt/mon-app/db-backup.sh /opt/mon-app /var/backups/mon-app
+last="$(sudo ls -t /var/backups/mon-app | head -n 1)"
+sudo /opt/mon-app/db-restore.sh /opt/mon-app "/var/backups/mon-app/$last" --oui
+```
+
+## 7. Entretien
+
+- Sauvegardes : `scripts/db-backup.sh` planifiée par Ansible ; copier les fichiers hors de la machine et tester une restauration (section Sauvegardes).
 - Rotation d'un mot de passe : nouvelle valeur par `scripts/secrets-seed.sh`, puis redéploiement.

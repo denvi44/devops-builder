@@ -88,5 +88,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `devops-builder.yaml`
 - `docs/mise-en-route.md`
 - `scripts/ci-variables.sh`
+- `scripts/db-backup.sh`
+- `scripts/db-restore.sh`
 - `scripts/secrets-fetch.sh`
 - `scripts/secrets-seed.sh`

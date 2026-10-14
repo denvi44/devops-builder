@@ -16,5 +16,8 @@ dc() { docker compose --project-directory "$dir" -p "$project" "$@"; }
 # PostgreSQL
 dc exec -T postgresql sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$dest/postgresql-$stamp.dump"
 echo "PostgreSQL → $dest/postgresql-$stamp.dump"
+# Keycloak
+dc exec -T keycloak-db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$dest/keycloak-db-$stamp.dump"
+echo "Keycloak → $dest/keycloak-db-$stamp.dump"
 
 find "$dest" -type f -mtime +"$keep" -delete

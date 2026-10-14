@@ -16,5 +16,8 @@ dc() { docker compose --project-directory "$dir" -p "$project" "$@"; }
 # PostgreSQL
 dc exec -T postgresql sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$dest/postgresql-$stamp.dump"
 echo "PostgreSQL → $dest/postgresql-$stamp.dump"
+# Zabbix
+dc exec -T zabbix-db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$dest/zabbix-db-$stamp.dump"
+echo "Zabbix → $dest/zabbix-db-$stamp.dump"
 
 find "$dest" -type f -mtime +"$keep" -delete

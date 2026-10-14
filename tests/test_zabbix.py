@@ -82,3 +82,12 @@ def test_traefik_https_reel_sur_l_hote_docker():
     assert not any("acme.email" in c for c in cmd)            # jamais l'adresse d'exemple
     with_mail = compose(gen(project("docker-host", *COMPOSE, traefik={"acme_email": "ops@boutique.fr"})).files)
     assert "--certificatesresolvers.letsencrypt.acme.email=ops@boutique.fr" in with_mail["services"]["traefik"]["command"]
+
+
+def test_bases_de_plateforme_sauvegardees():
+    """Zabbix et Keycloak portent configuration et comptes : leurs bases passent par db-backup.sh et db-restore.sh."""
+    f = gen(project("docker-host", *COMPOSE, "zabbix", "keycloak")).files
+    backup, restore = f["scripts/db-backup.sh"], f["scripts/db-restore.sh"]
+    for service in ("zabbix-db", "keycloak-db"):
+        assert f"dc exec -T {service} sh -c 'pg_dump" in backup
+        assert f"  {service}-*) service={service};" in restore
