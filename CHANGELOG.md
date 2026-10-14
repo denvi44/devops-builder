@@ -53,6 +53,8 @@ mineure peut changer les fichiers générés ; chaque changement voulu est relu 
   (`pipx inject devops-builder shellcheck-py`) sont trouvés, alors qu'ils restaient « absents » ; le conseil
   d'installation propose `pipx inject` sous pipx ; un contrôle sans outil liste les fichiers générés qui le
   demandent (signalé lors du premier essai sur macOS).
+- Python 3.15 refusé à l'installation avec un message clair (`requires-python`), au lieu d'un échec de PySide6,
+  dont les versions 6.11 ne vont pas au-delà de Python 3.14 (vu lors de l'installation sur macOS).
 - PySide6 limité aux 6.11 pour toutes les versions de Python : la 6.12.0 provoque aussi des erreurs de
   segmentation intermittentes sous Python 3.12 (vu sur la CI), pas seulement le plantage de sortie sous 3.11.
 - Keycloak sur Kubernetes ne démarrait pas, deux défauts trouvés par les tests de bout en bout :

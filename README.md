@@ -71,7 +71,7 @@ Application de bureau Python, en Material Design, pour composer un pipeline DevO
 
 ## Installation
 
-Il faut Python 3.11 ou plus récent. PySide6 est limité aux versions 6.11 : la 6.12.0 a un défaut de comptage de références qui fait planter l'interpréteur (à la sortie sous Python 3.11, de façon intermittente sous 3.12).
+Il faut Python 3.11 à 3.14 (PySide6 6.11 ne s'installe pas sous Python 3.15 ; sous macOS, `pipx install --python python3.13 …` choisit la version). PySide6 est limité aux versions 6.11 : la 6.12.0 a un défaut de comptage de références qui fait planter l'interpréteur (à la sortie sous Python 3.11, de façon intermittente sous 3.12).
 
 ```bash
 python -m venv .venv
