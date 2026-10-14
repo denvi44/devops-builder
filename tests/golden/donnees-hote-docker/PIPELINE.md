@@ -49,6 +49,18 @@ L'application lit l'URL de connexion complète dans la variable indiquée ; le m
 
 Migrations : `alembic upgrade head`, exécutée avec l'image de l'application avant chaque démarrage (service Compose « migrate » ou initContainer).
 
+## Dimensionnement
+
+Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
+
+Services : mon-app (512 Mio, estimé), postgresql (512 Mio, estimé), valkey (256 Mio, estimé), traefik (128 Mio, estimé), prometheus (1024 Mio, estimé), grafana (512 Mio).
+
+| Machines | Environnements | Besoin | Type retenu | Verdict |
+| --- | --- | --- | --- | --- |
+| `dev` | dev | 2 vCPU, 4,1 Gio | hôte existant | prévoir au moins 2 vCPU et 4,1 Gio |
+| `recette` | recette | 2 vCPU, 4,1 Gio | hôte existant | prévoir au moins 2 vCPU et 4,1 Gio |
+| `production` | production | 2 vCPU, 4,1 Gio | hôte existant | prévoir au moins 2 vCPU et 4,1 Gio |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

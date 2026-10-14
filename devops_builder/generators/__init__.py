@@ -121,6 +121,6 @@ def generate(project: Project, catalog: Catalog, engine: RuleEngine | None = Non
     if blocking and not allow_blocking:
         raise BlockingDiagnostics(blocking)
     files, ir = render(project, catalog)
-    files.update(report.report(ir, diagnostics, list(files) + ["PIPELINE.md", "devops-builder.yaml"]))
+    files.update(report.report(ir, diagnostics, list(files) + ["PIPELINE.md", "devops-builder.yaml"], files))
     files["devops-builder.yaml"] = project.to_yaml()
     return GenerationResult(files=files, ir=ir, diagnostics=diagnostics)

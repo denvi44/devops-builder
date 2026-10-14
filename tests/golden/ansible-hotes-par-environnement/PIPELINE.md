@@ -22,6 +22,17 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Production | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Production | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
 
+## Dimensionnement
+
+Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
+
+Services : site (512 Mio, estimé), traefik (128 Mio, estimé).
+
+| Machines | Environnements | Besoin | Type retenu | Verdict |
+| --- | --- | --- | --- | --- |
+| `staging` | staging | 1 vCPU, 1,3 Gio | hôte existant | prévoir au moins 1 vCPU et 1,3 Gio |
+| `production` | production | 1 vCPU, 1,3 Gio | hôte existant | prévoir au moins 1 vCPU et 1,3 Gio |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

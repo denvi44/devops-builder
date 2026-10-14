@@ -34,6 +34,17 @@ Hôte partagé `hors-production` : Développement (+0), Recette (+10000). Les po
 | Production | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
 | Production | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
 
+## Dimensionnement
+
+Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
+
+Services : mon-app (512 Mio, estimé), traefik (128 Mio, estimé), prometheus (1024 Mio, estimé), grafana (512 Mio).
+
+| Machines | Environnements | Besoin | Type retenu | Verdict |
+| --- | --- | --- | --- | --- |
+| `hors-production` | dev, recette | 2 vCPU, 5,8 Gio | `t3.small` (2 vCPU, 2 Gio) | insuffisant : t3.large proposé |
+| `production` | production | 1 vCPU, 3,2 Gio | `t3.small` (2 vCPU, 2 Gio) | insuffisant : t3.medium proposé |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |
@@ -87,6 +98,8 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 ## Diagnostics restants
 
 - **Avertissement** (R34) — Amazon S3 : « Bucket de l'état Terraform » non renseigné : la valeur d'exemple « mon-projet-tfstate » sera écrite dans les fichiers.
+- **Avertissement** (R52) — Amazon EC2 : t3.small (2 vCPU, 2 Gio) pour Développement, Recette, alors que les services de l'hôte demandent environ 2 vCPU, 5,8 Gio.
+- **Avertissement** (R52) — Amazon EC2 : t3.small (2 vCPU, 2 Gio) pour Production, alors que les services de l'hôte demandent environ 1 vCPU, 3,2 Gio.
 
 ## Notes
 

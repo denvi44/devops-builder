@@ -28,6 +28,17 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Production | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
 | Production | Dex | — | 5556 | OIDC | via Traefik, hôte dex.boutique.fr |
 
+## Dimensionnement
+
+Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
+
+Services : mon-app (512 Mio, estimé), traefik (128 Mio, estimé), prometheus (1024 Mio, estimé), grafana (512 Mio), dex (64 Mio, estimé).
+
+| Machines | Environnements | Besoin | Type retenu | Verdict |
+| --- | --- | --- | --- | --- |
+| `staging` | staging | 1 vCPU, 3,2 Gio | hôte existant | prévoir au moins 1 vCPU et 3,2 Gio |
+| `production` | production | 1 vCPU, 3,2 Gio | hôte existant | prévoir au moins 1 vCPU et 3,2 Gio |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

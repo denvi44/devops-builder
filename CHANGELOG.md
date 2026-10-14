@@ -39,6 +39,14 @@ mineure peut changer les fichiers générés ; chaque changement voulu est relu 
   bout en bout `compose-zap` : le job extrait du workflow généré analyse l'application derrière Traefik, en root
   comme sur GitHub Actions et sous l'utilisateur de l'image comme sur GitLab CI.
 
+- **Dimensionnement des machines** : besoin de chaque hôte Docker calculé à partir des services du fichier
+  Compose généré (application, bases, Traefik, Keycloak, Zabbix, SonarQube, Prometheus, Grafana…), multiplié par
+  les environnements qu'il porte ; section « Dimensionnement » de `PIPELINE.md` ; pour les machines créées par
+  Terraform, type retenu comparé au besoin et plus petit type suffisant proposé sur chacun des six clouds.
+  Règle R52 (machine sous-dimensionnée) avec correction en un clic, par environnement quand les machines
+  diffèrent. Valeurs par service dans `data/sizing.yaml`, sourcées quand une documentation les donne (Keycloak,
+  Grafana, SonarQube), estimées sinon.
+
 ### Corrigé
 - Étapes non bloquantes (Checkov, KICS, Snyk, Infracost, Floci) : Tekton, AWS CodeBuild et Google Cloud Build
   arrêtaient le pipeline à leur échec ; elles sont maintenant tolérées (`onError: continue`, `allowFailure`,

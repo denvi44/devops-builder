@@ -39,6 +39,17 @@ L'application lit l'URL de connexion complète dans la variable indiquée ; le m
 | PostgreSQL 18 | autogérée | service Compose, volume nommé, réseau interne | `DATABASE_URL` | `deploy/secrets/<env>.enc.env` (SOPS) | `scripts/db-backup.sh` à planifier |
 | Valkey 8 | autogérée | service Compose, volume nommé, réseau interne | `REDIS_URL` | `deploy/secrets/<env>.enc.env` (SOPS) | persistance AOF du volume |
 
+## Dimensionnement
+
+Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
+
+Services : mon-app (512 Mio, estimé), postgresql (512 Mio, estimé), valkey (256 Mio, estimé), traefik (128 Mio, estimé), prometheus (1024 Mio, estimé), grafana (512 Mio).
+
+| Machines | Environnements | Besoin | Type retenu | Verdict |
+| --- | --- | --- | --- | --- |
+| `staging` | staging | 2 vCPU, 4,1 Gio | hôte existant | prévoir au moins 2 vCPU et 4,1 Gio |
+| `production` | production | 2 vCPU, 4,1 Gio | hôte existant | prévoir au moins 2 vCPU et 4,1 Gio |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

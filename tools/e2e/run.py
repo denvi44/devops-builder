@@ -163,6 +163,8 @@ def _compose_steps(out: Path, ir) -> list[Step]:
         Step("Donnée témoin revenue à l'état sauvegardé",
              f"v=$({sql('select v from temoin;')}\n)\necho \"valeur : $v\"\ntest \"$v\" = avant", env=env,
              evidence=True),
+        Step("Consommation mesurée (docker stats), à comparer à data/sizing.yaml",
+             "docker stats --no-stream --format '{{.Name}} {{.MemUsage}} {{.CPUPerc}}'", always=True, evidence=True),
         Step("Journaux des services", f"{dc} ps -a; {dc} logs --tail=30", always=True, env=env),
         Step("Arrêt et suppression des volumes", f"{dc} down -v --remove-orphans", always=True, env=env),
     ]
@@ -356,6 +358,8 @@ def _compose_host(out: Path, ir, env: dict[str, str]) -> tuple[Path, str, list[S
              cwd=host, env={**env, "IMAGE": image}),
     ]
     end = [
+        Step("Consommation mesurée (docker stats), à comparer à data/sizing.yaml",
+             "docker stats --no-stream --format '{{.Name}} {{.MemUsage}} {{.CPUPerc}}'", always=True, evidence=True),
         Step("Journaux des services", f"{dc} ps -a; {dc} logs --tail=25", always=True, env={**env, "IMAGE": image}),
         Step("Arrêt et suppression des volumes", f"{dc} down -v --remove-orphans", always=True,
              env={**env, "IMAGE": image}),

@@ -34,6 +34,17 @@ Hôte partagé `hors-production` : Développement (+0), Recette (+10000). Les po
 | Production | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
 | Production | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
 
+## Dimensionnement
+
+Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
+
+Services : mon-app (512 Mio, estimé), traefik (128 Mio, estimé), prometheus (1024 Mio, estimé), grafana (512 Mio).
+
+| Machines | Environnements | Besoin | Type retenu | Verdict |
+| --- | --- | --- | --- | --- |
+| `hors-production` | dev, recette | 2 vCPU, 5,8 Gio | `b3-8` (2 vCPU, 8 Gio) | suffisant |
+| `production` | production | 1 vCPU, 3,2 Gio | `b3-8` (2 vCPU, 8 Gio) | suffisant |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

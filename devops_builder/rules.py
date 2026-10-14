@@ -110,6 +110,21 @@ class Context:
         t = self.catalog.get(tool_id)
         return t.name if t else tool_id
 
+    def rendered(self):
+        """Fichiers et IR du projet, produits une fois par évaluation ; None si le projet ne se génère pas."""
+        if not hasattr(self, "_rendered"):
+            from .generators import render  # import tardif : les générateurs dépendent des règles
+            try:
+                self._rendered = render(self.project, self.catalog)
+            except Exception:  # un projet bancal ne doit pas faire tomber l'évaluation
+                self._rendered = None
+        return self._rendered
+
+
+def _num(value: float) -> str:
+    """Nombre à la française : 2,5 et non 2.5."""
+    return f"{value:g}".replace(".", ",")
+
 
 def _fmt(template: str, **values: Any) -> str:
     try:
@@ -569,12 +584,10 @@ def h_target_cluster(rule: Rule, ctx: Context) -> list[Diagnostic]:
 
 @handler("no_generator")
 def h_no_generator(rule: Rule, ctx: Context) -> list[Diagnostic]:
-    from .generators import render  # import tardif : les générateurs dépendent des règles
-
-    try:
-        unsupported = render(ctx.project, ctx.catalog)[1].unsupported
-    except Exception:  # un projet bancal ne doit pas faire tomber l'évaluation
+    rendered = ctx.rendered()
+    if rendered is None:
         return []
+    unsupported = rendered[1].unsupported
     out = []
     for tool in unsupported:
         if not tool.curated:
@@ -797,6 +810,38 @@ def h_port_conflict(rule: Rule, ctx: Context) -> list[Diagnostic]:
     return out
 
 
+@handler("sizing")
+def h_sizing(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    from .sizing import host_needs
+    rendered = ctx.rendered()
+    if rendered is None:
+        return []
+    files, ir = rendered
+    needs = host_needs(ir, files)
+    out = []
+    for need in needs:
+        if not need.undersized:
+            continue
+        tool = need.tool
+        uids = [b.uid for b in ctx.project.bricks_for(tool)]
+        envs = [ctx.project.env(e) for e in need.envs]
+        where = ", ".join(e.display for e in envs if e is not None)
+        message = _fmt(rule.message, tool=ctx.name(tool), type=need.chosen_type, where=where,
+                       have=f"{_num(need.chosen.vcpu)} vCPU, {_num(need.chosen.memory)} Gio",
+                       need=f"{need.vcpu} vCPU, {_num(need.gib)} Gio")
+        actions: list[Action] = []
+        better = need.suggestion
+        if better is not None:
+            label = f"Passer à {better.type} ({_num(better.vcpu)} vCPU, {_num(better.memory)} Gio)"
+            if len(needs) == 1 and not need.from_override:
+                actions.append(Action("set_param", label, {"uid": uids[0], "key": "instance_type", "value": better.type}))
+            else:  # ce groupe seulement : surcharge de ses environnements
+                actions.append(Action("set_override", label, {"envs": need.envs, "tool": tool, "key": "instance_type",
+                                                              "value": better.type}))
+        out.append(_diag(rule, message, uids, actions))
+    return out
+
+
 def _kube_databases(ctx: Context) -> list[Placed]:
     """Bases autogérées ou opérateur qui tournent dans un cluster (pas de Compose pour les porter)."""
     from .databases import ENGINES, OPERATORS
@@ -958,6 +1003,15 @@ def apply_action(project: Project, action: Action, catalog: Catalog) -> None:
             if action.op == "rename_param" and value is not None:
                 params[args["new"]] = value
             found[2].params = params
+    elif action.op == "set_param":
+        found = project.find(args["uid"])
+        if found:
+            found[2].params = {**found[2].params, args["key"]: args["value"]}
+    elif action.op == "set_override":
+        for env_id in args["envs"]:
+            env = project.env(env_id)
+            if env is not None:
+                env.overrides[args["tool"]] = {**env.overrides.get(args["tool"], {}), args["key"]: args["value"]}
     elif action.op in ("rename_override", "remove_override"):
         env = project.env(args["env"])
         if env is not None:

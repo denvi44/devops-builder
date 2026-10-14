@@ -87,6 +87,7 @@ CASES = [
     ("R49", lambda: put(make("docker-host"), "docker-compose", "keycloak"), Severity.WARNING),
     ("R50", lambda: put(make(), "woodpecker"), Severity.INFO),
     ("R51", lambda: put(make(), "gitea", "drone"), Severity.WARNING),
+    ("R52", lambda: _undersized(), Severity.WARNING),
     ("R47", lambda: with_params(put(make("kubernetes"), "k3s", "helm", "cloudnative-pg"), "cloudnative-pg",
                                 backup_destination="s3://sauvegardes"), Severity.WARNING),
 ]
@@ -95,6 +96,11 @@ CASES = [
 def with_params(p: Project, tool_id: str, **params) -> Project:
     p.bricks_for(tool_id)[0].params.update(params)
     return p
+
+
+def _undersized() -> Project:
+    from devops_builder.starter import StarterAnswers, build_starter
+    return build_starter(StarterAnswers(forge="github", hosting="docker-host", cloud="aws", envs="prod"), CATALOG)
 
 
 def _port_clash() -> Project:

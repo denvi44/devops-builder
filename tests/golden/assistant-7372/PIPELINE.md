@@ -19,6 +19,16 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
 | SonarQube | 9002 | 9000 | interface web | publié sur l'hôte Docker |
 
+## Dimensionnement
+
+Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
+
+Services : mon-app (512 Mio, estimé), traefik (128 Mio, estimé), sonarqube (2048 Mio).
+
+| Environnements | Besoin | Type retenu | Verdict |
+| --- | --- | --- | --- |
+| production | 2 vCPU, 3,8 Gio | hôte existant | prévoir au moins 2 vCPU et 3,8 Gio |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

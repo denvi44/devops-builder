@@ -20,6 +20,18 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction | mon-app | 8000 | 8000 | application | publié sur l'hôte Docker |
 | Production | mon-app | 8000 | 8000 | application | publié sur l'hôte Docker |
 
+## Dimensionnement
+
+Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
+
+Services : mon-app (512 Mio, estimé).
+
+| Machines | Environnements | Besoin | Type retenu | Verdict |
+| --- | --- | --- | --- | --- |
+| `dev` | dev | 1 vCPU, 1,1 Gio | hôte existant | prévoir au moins 1 vCPU et 1,1 Gio |
+| `staging` | staging | 1 vCPU, 1,1 Gio | hôte existant | prévoir au moins 1 vCPU et 1,1 Gio |
+| `production` | production | 1 vCPU, 1,1 Gio | hôte existant | prévoir au moins 1 vCPU et 1,1 Gio |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

@@ -32,6 +32,18 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Production | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
 | Production | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
 
+## Dimensionnement
+
+Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
+
+Services : mon-app (512 Mio, estimé), traefik (128 Mio, estimé), prometheus (1024 Mio, estimé), grafana (512 Mio).
+
+| Machines | Environnements | Besoin | Type retenu | Verdict |
+| --- | --- | --- | --- | --- |
+| `dev` | dev | 1 vCPU, 3,2 Gio | hôte existant | prévoir au moins 1 vCPU et 3,2 Gio |
+| `recette` | recette | 1 vCPU, 3,2 Gio | hôte existant | prévoir au moins 1 vCPU et 3,2 Gio |
+| `production` | production | 1 vCPU, 3,2 Gio | hôte existant | prévoir au moins 1 vCPU et 3,2 Gio |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

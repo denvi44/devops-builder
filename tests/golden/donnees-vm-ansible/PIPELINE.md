@@ -29,6 +29,16 @@ L'application lit l'URL de connexion complète dans la variable indiquée ; le m
 | --- | --- | --- | --- | --- | --- |
 | MariaDB 11.8 | autogérée | service Compose, volume nommé, réseau interne | `DATABASE_URL` | variable CI `MARIADB_PASSWORD` | `scripts/db-backup.sh` à planifier |
 
+## Dimensionnement
+
+Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
+
+Services : mon-app (512 Mio, estimé), mariadb (512 Mio, estimé), traefik (128 Mio, estimé), prometheus (1024 Mio, estimé), grafana (512 Mio).
+
+| Environnements | Besoin | Type retenu | Verdict |
+| --- | --- | --- | --- |
+| production | 2 vCPU, 3,8 Gio | hôte existant | prévoir au moins 2 vCPU et 3,8 Gio |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

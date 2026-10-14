@@ -34,6 +34,17 @@ L'application lit l'URL de connexion complète dans la variable indiquée ; le m
 | --- | --- | --- | --- | --- | --- |
 | PostgreSQL 18 | autogérée | service Compose, volume nommé, réseau interne | `DATABASE_URL` | variable CI `POSTGRESQL_PASSWORD_<ENV>` | `scripts/db-backup.sh` à planifier |
 
+## Dimensionnement
+
+Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
+
+Services : mon-app (512 Mio, estimé), postgresql (512 Mio, estimé), traefik (128 Mio, estimé), zabbix-server (512 Mio, estimé), zabbix-web (256 Mio, estimé), zabbix-agent (64 Mio, estimé), zabbix-db (512 Mio, estimé).
+
+| Machines | Environnements | Besoin | Type retenu | Verdict |
+| --- | --- | --- | --- | --- |
+| `staging` | staging | 2 vCPU, 3,5 Gio | hôte existant | prévoir au moins 2 vCPU et 3,5 Gio |
+| `production` | production | 2 vCPU, 3,5 Gio | hôte existant | prévoir au moins 2 vCPU et 3,5 Gio |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

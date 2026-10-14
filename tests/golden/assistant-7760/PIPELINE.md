@@ -35,6 +35,18 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Production | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
 | Production | SonarQube | 9002 | 9000 | interface web | publié sur l'hôte Docker |
 
+## Dimensionnement
+
+Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
+
+Services : mon-app (512 Mio, estimé), traefik (128 Mio, estimé), prometheus (1024 Mio, estimé), grafana (512 Mio), sonarqube (2048 Mio).
+
+| Machines | Environnements | Besoin | Type retenu | Verdict |
+| --- | --- | --- | --- | --- |
+| `dev` | dev | 2 vCPU, 5,7 Gio | hôte existant | prévoir au moins 2 vCPU et 5,7 Gio |
+| `staging` | staging | 2 vCPU, 5,7 Gio | hôte existant | prévoir au moins 2 vCPU et 5,7 Gio |
+| `production` | production | 2 vCPU, 5,7 Gio | hôte existant | prévoir au moins 2 vCPU et 5,7 Gio |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

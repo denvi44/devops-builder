@@ -1,1 +1,3 @@
 avertissement R34 Amazon S3 : « Bucket de l'état Terraform » non renseigné : la valeur d'exemple « mon-projet-tfstate » sera écrite dans les fichiers.
+avertissement R52 Amazon EC2 : t3.small (2 vCPU, 2 Gio) pour Production, alors que les services de l'hôte demandent environ 1 vCPU, 3,2 Gio.
+avertissement R52 Amazon EC2 : t3.small (2 vCPU, 2 Gio) pour Préproduction, alors que les services de l'hôte demandent environ 1 vCPU, 3,2 Gio.

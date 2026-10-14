@@ -19,6 +19,16 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
 | Zabbix | — | 8080 | interface web | via Traefik |
 
+## Dimensionnement
+
+Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
+
+Services : mon-app (512 Mio, estimé), traefik (128 Mio, estimé), zabbix-server (512 Mio, estimé), zabbix-web (256 Mio, estimé), zabbix-agent (64 Mio, estimé), zabbix-db (512 Mio, estimé).
+
+| Environnements | Besoin | Type retenu | Verdict |
+| --- | --- | --- | --- |
+| production | 2 vCPU, 2,9 Gio | hôte existant | prévoir au moins 2 vCPU et 2,9 Gio |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

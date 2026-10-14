@@ -19,6 +19,16 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Gitea | 3001 | 3000 | interface web | publié sur l'hôte Docker |
 | Gitea | 2222 | 22 | SSH Git | publié sur l'hôte Docker |
 
+## Dimensionnement
+
+Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
+
+Services : mon-app (512 Mio, estimé), zot (256 Mio, estimé), gitea (1024 Mio, estimé).
+
+| Environnements | Besoin | Type retenu | Verdict |
+| --- | --- | --- | --- |
+| production | 1 vCPU, 2,7 Gio | hôte existant | prévoir au moins 1 vCPU et 2,7 Gio |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

@@ -1,1 +1,2 @@
 avertissement R34 Azure Blob Storage : « Compte de stockage » non renseigné : la valeur d'exemple « monprojettfstate » sera écrite dans les fichiers.
+avertissement R52 Azure Virtual Machines : Standard_B2s (2 vCPU, 4 Gio) pour Développement, Recette, alors que les services de l'hôte demandent environ 2 vCPU, 5,8 Gio.

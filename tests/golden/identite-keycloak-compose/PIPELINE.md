@@ -38,6 +38,17 @@ L'application lit l'URL de connexion complète dans la variable indiquée ; le m
 | --- | --- | --- | --- | --- | --- |
 | PostgreSQL 18 | autogérée | service Compose, volume nommé, réseau interne | `DATABASE_URL` | OpenBao, `secret/<espace de noms>/postgresql` | `scripts/db-backup.sh` à planifier |
 
+## Dimensionnement
+
+Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
+
+Services : mon-app (512 Mio, estimé), postgresql (512 Mio, estimé), traefik (128 Mio, estimé), prometheus (1024 Mio, estimé), grafana (512 Mio), keycloak (1250 Mio), keycloak-db (512 Mio, estimé).
+
+| Machines | Environnements | Besoin | Type retenu | Verdict |
+| --- | --- | --- | --- | --- |
+| `staging` | staging | 2 vCPU, 5,9 Gio | hôte existant | prévoir au moins 2 vCPU et 5,9 Gio |
+| `production` | production | 2 vCPU, 5,9 Gio | hôte existant | prévoir au moins 2 vCPU et 5,9 Gio |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |

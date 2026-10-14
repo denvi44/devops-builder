@@ -1,0 +1,120 @@
+# Dimensionnement des hôtes Docker et des machines créées par Terraform.
+# Besoin d'un service : processeur en millièmes de vCPU (consommation moyenne, les pointes passent par la marge et le
+# crédit des machines à performances variables), mémoire en Mio, sous une charge modeste
+# (petite équipe, quelques centaines d'utilisateurs). Les valeurs tirées d'une documentation la citent ;
+# les autres sont des estimations prudentes, marquées comme telles dans le rapport.
+# Besoin d'un hôte = (somme des services × marge) × environnements portés + système et Docker.
+
+margin: 1.25                  # marge sur la somme des services (pointes, croissance)
+system: {cpu: 250, memory: 512}   # système d'exploitation, démon Docker, agents
+app: {cpu: 200, memory: 512}      # application du projet, faute de mieux
+unknown: {cpu: 100, memory: 256}  # image absente du tableau
+
+# Préfixe de l'image (sans étiquette) → besoin. Le préfixe le plus long l'emporte.
+services:
+  traefik: {cpu: 50, memory: 128}
+  postgres: {cpu: 100, memory: 512}
+  mariadb: {cpu: 100, memory: 512}
+  mysql: {cpu: 100, memory: 512}
+  mongo: {cpu: 100, memory: 1024}
+  valkey/valkey: {cpu: 50, memory: 256}
+  redis: {cpu: 50, memory: 256}
+  quay.io/keycloak/keycloak:
+    cpu: 250
+    memory: 1250
+    source: "https://www.keycloak.org/high-availability/single-cluster/concepts-memory-and-cpu-sizing"
+  ghcr.io/dexidp/dex: {cpu: 25, memory: 64}
+  grafana/grafana:
+    cpu: 100
+    memory: 512
+    source: "https://grafana.com/docs/grafana/latest/setup-grafana/installation/"
+  grafana/loki: {cpu: 100, memory: 512}
+  prom/prometheus: {cpu: 200, memory: 1024}
+  sonarqube:
+    cpu: 400
+    memory: 2048
+    source: "https://docs.sonarsource.com/sonarqube-server/10.4/requirements/prerequisites-and-overview"
+  gitea/gitea: {cpu: 200, memory: 1024}
+  ghcr.io/project-zot/zot: {cpu: 50, memory: 256}
+  zabbix/zabbix-server: {cpu: 150, memory: 512}
+  zabbix/zabbix-web: {cpu: 100, memory: 256}
+  zabbix/zabbix-agent: {cpu: 25, memory: 64}
+  openbao/openbao: {cpu: 100, memory: 256}
+  hashicorp/vault: {cpu: 100, memory: 256}
+
+# Types proposés par fournisseur, du plus petit au plus grand : [type, vCPU, mémoire en Gio].
+# Familles généralistes x86 (les images des briques sont publiées pour amd64).
+instances:
+  aws-ec2:
+    - [t3.micro, 2, 1]
+    - [t3.small, 2, 2]
+    - [t3.medium, 2, 4]
+    - [t3.large, 2, 8]
+    - [t3.xlarge, 4, 16]
+    - [t3.2xlarge, 8, 32]
+  gce:
+    - [e2-small, 2, 2]
+    - [e2-medium, 2, 4]
+    - [e2-standard-2, 2, 8]
+    - [e2-standard-4, 4, 16]
+    - [e2-standard-8, 8, 32]
+  azure-vm:
+    - [Standard_B1ms, 1, 2]
+    - [Standard_B2s, 2, 4]
+    - [Standard_B2ms, 2, 8]
+    - [Standard_B4ms, 4, 16]
+    - [Standard_B8ms, 8, 32]
+  scaleway-instance:
+    - [PLAY2-PICO, 1, 2]
+    - [PLAY2-NANO, 2, 4]
+    - [PLAY2-MICRO, 4, 8]
+    - [PRO2-XS, 4, 16]
+    - [PRO2-S, 8, 32]
+  ovh-instance:
+    - [d2-2, 1, 2]
+    - [d2-4, 2, 4]
+    - [b3-8, 2, 8]
+    - [b3-16, 4, 16]
+    - [b3-32, 8, 32]
+  outscale-vm:
+    - [tinav6.c1r2p2, 1, 2]
+    - [tinav6.c2r4p2, 2, 4]
+    - [tinav6.c2r8p2, 2, 8]
+    - [tinav6.c4r16p2, 4, 16]
+    - [tinav6.c8r32p2, 8, 32]
+
+# Autres types connus (saisis à la main) : capacité seulement, pour le contrôle.
+known:
+  aws-ec2:
+    t3.nano: [2, 0.5]
+    t4g.micro: [2, 1]
+    t4g.small: [2, 2]
+    t4g.medium: [2, 4]
+    t4g.large: [2, 8]
+    m7i.large: [2, 8]
+    m7i.xlarge: [4, 16]
+  gce:
+    e2-micro: [2, 1]
+    e2-standard-8: [8, 32]
+    n2-standard-2: [2, 8]
+    n2-standard-4: [4, 16]
+  azure-vm:
+    Standard_B1s: [1, 1]
+    Standard_B2s_v2: [2, 8]
+    Standard_D2s_v5: [2, 8]
+    Standard_D4s_v5: [4, 16]
+  scaleway-instance:
+    STARDUST1-S: [1, 1]
+    DEV1-S: [2, 2]
+    DEV1-M: [3, 4]
+    DEV1-L: [4, 8]
+    PRO2-XXS: [2, 8]
+    PRO2-M: [16, 64]
+    POP2-2C-8G: [2, 8]
+    POP2-4C-16G: [4, 16]
+  ovh-instance:
+    d2-8: [4, 8]
+    c3-4: [2, 4]
+    c3-8: [4, 8]
+    c3-16: [8, 16]
+    b3-64: [16, 64]

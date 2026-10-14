@@ -57,7 +57,43 @@ def _data_section(ir: IR) -> list[str]:
     return out
 
 
-def report(ir: IR, diagnostics: list[Diagnostic], files: list[str]) -> dict[str, str]:
+def _num(value: float) -> str:
+    return f"{value:g}".replace(".", ",")
+
+
+def _sizing_section(ir: IR, contents: dict[str, str]) -> list[str]:
+    from ..sizing import host_needs, table
+    needs = host_needs(ir, contents)
+    if not needs:
+        return []
+    multi = len(needs) > 1 or len(needs[0].envs) > 1
+    out = ["## Dimensionnement", "",
+           "Besoin estimé à partir des services Compose de l'hôte (marge de "
+           f"{round((table()['margin'] - 1) * 100)} %), pour chaque environnement porté, plus le système et Docker. "
+           "Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.", ""]
+    services = ", ".join(f"{s.name} ({s.memory} Mio{'' if s.sourced else ', estimé'})" for s in needs[0].services)
+    out += [f"Services : {services}.", ""]
+    head = ("| Machines " if multi else "") + "| Environnements | Besoin | Type retenu | Verdict |"
+    out += [head, "|" + " --- |" * (5 if multi else 4)]
+    for n in needs:
+        if n.tool is None:
+            chosen, verdict = "hôte existant", f"prévoir au moins {n.vcpu} vCPU et {_num(n.gib)} Gio"
+        elif n.chosen is None:
+            chosen, verdict = f"`{n.chosen_type}`", "capacité inconnue : à vérifier"
+        else:
+            chosen = f"`{n.chosen.type}` ({_num(n.chosen.vcpu)} vCPU, {_num(n.chosen.memory)} Gio)"
+            better = n.suggestion
+            verdict = ("suffisant" if not n.undersized else
+                       f"insuffisant : {better.type} proposé" if better else "insuffisant : aucun type du tableau ne suffit")
+        row = (f"| `{n.key}` " if multi else "") + (f"| {', '.join(n.envs)} | {n.vcpu} vCPU, {_num(n.gib)} Gio | {chosen} "
+                                                    f"| {verdict} |")
+        out.append(row)
+    out.append("")
+    return out
+
+
+def report(ir: IR, diagnostics: list[Diagnostic], files: list[str],
+           contents: dict[str, str] | None = None) -> dict[str, str]:
     p = ir.project
     out = [f"# {p.name} — pipeline généré", "",
            f"Généré par DevOps Builder le {date.today().isoformat()}. "
@@ -77,6 +113,7 @@ def report(ir: IR, diagnostics: list[Diagnostic], files: list[str]) -> dict[str,
     out.append("")
     out += _ports_section(ir)
     out += _data_section(ir)
+    out += _sizing_section(ir, contents or {})
     out += ["## Briques", "", "| Étape | Brique | Licence | Fiche |", "| --- | --- | --- | --- |"]
     for stage, b in p.all_bricks():
         t = ir.catalog.get(b.tool)

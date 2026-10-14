@@ -1,0 +1,6 @@
+id: R52
+title: Machine sous-dimensionnée
+family: environnements
+severity: avertissement
+type: sizing
+message: "{tool} : {type} ({have}) pour {where}, alors que les services de l'hôte demandent environ {need}."

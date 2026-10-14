@@ -22,6 +22,16 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Grafana Loki | 3100 | 3100 | API HTTP (ingestion et requêtes) | publié sur l'hôte Docker |
 | SonarQube | 9002 | 9000 | interface web | publié sur l'hôte Docker |
 
+## Dimensionnement
+
+Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
+
+Services : site-web (512 Mio, estimé), traefik (128 Mio, estimé), prometheus (1024 Mio, estimé), grafana (512 Mio), loki (512 Mio, estimé), sonarqube (2048 Mio).
+
+| Environnements | Besoin | Type retenu | Verdict |
+| --- | --- | --- | --- |
+| production | 2 vCPU, 6,3 Gio | hôte existant | prévoir au moins 2 vCPU et 6,3 Gio |
+
 ## Briques
 
 | Étape | Brique | Licence | Fiche |
