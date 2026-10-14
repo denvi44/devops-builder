@@ -48,6 +48,8 @@ def gitlab_ci(ir: IR) -> dict[str, str]:
     steps = _ordered(ir)
 
     def stage_of(st: Step) -> str:
+        if st.tool == "zap":
+            return "dast"  # entre le déploiement analysé et le suivant
         return f"deploy-{st.environment}" if st.environment and ir.multi_env else st.stage
 
     used: list[str] = []
@@ -94,6 +96,8 @@ def gitlab_ci(ir: IR) -> dict[str, str]:
             job["needs"] = st.needs
         if st.artifacts:
             job["artifacts"] = {"paths": st.artifacts, "expire_in": "1 week"}
+            if st.always_artifacts:
+                job["artifacts"]["when"] = "always"
         doc[st.id] = job
     _note_gates(ir, "le job attend un déclenchement manuel dans GitLab ; protéger l'environnement "
                     "(Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.")
@@ -175,7 +179,8 @@ def github_actions(ir: IR, path: str = ".github/workflows/pipeline.yml") -> dict
     }
     previous: dict[str, list[str]] = {}
     for st in steps:
-        host = bool(st.cloud or st.docker or st.stage in ("infra", "deploy") or st.tool in HOST_SETUP)
+        host = bool(st.cloud or st.docker or st.stage == "infra" or (st.stage == "deploy" and st.environment)
+                    or st.tool in HOST_SETUP)
         job: dict = {"name": st.name, "runs-on": "ubuntu-latest"}
         needs = [j for stage in STAGE_ORDER[: STAGE_ORDER.index(st.stage)] for j in previous.get(stage, [])]
         needs += [n for n in st.needs if n not in needs]
@@ -188,7 +193,8 @@ def github_actions(ir: IR, path: str = ".github/workflows/pipeline.yml") -> dict
         elif st.manual:
             job["environment"] = "production"
         if not host:
-            job["container"] = st.image
+            # une image non root ne peut pas écrire dans le dépôt extrait par actions/checkout
+            job["container"] = {"image": st.image, "options": f"--user {st.user}"} if st.user else st.image
         if st.allow_failure:
             job["continue-on-error"] = True
         if st.lock:
@@ -223,7 +229,10 @@ def github_actions(ir: IR, path: str = ".github/workflows/pipeline.yml") -> dict
         gsteps.append({"name": st.name, "run": "\n".join(script) + "\n"})
         if st.artifacts:
             name = "iac-plan" if st.id == "iac-plan" else st.id
-            gsteps.append({"uses": "actions/upload-artifact@v4", "with": {"name": name, "path": "\n".join(st.artifacts)}})
+            upload: dict = {"uses": "actions/upload-artifact@v4", "with": {"name": name, "path": "\n".join(st.artifacts)}}
+            if st.always_artifacts:
+                upload = {"if": "always()", **upload}
+            gsteps.append(upload)
         job["steps"] = gsteps
         doc["jobs"][st.id] = job
         previous.setdefault(st.stage, []).append(st.id)
@@ -365,6 +374,8 @@ def _tekton_pipeline(ir: IR, steps: list[Step], name: str) -> str:
             },
             "params": [{"name": "tag", "value": "$(params.tag)"}],
         }
+        if st.allow_failure:
+            task["taskSpec"]["steps"][0]["onError"] = "continue"  # étape non bloquante
         if prev:
             task["runAfter"] = [prev]
         tasks.append(task)
@@ -427,6 +438,9 @@ def azure_pipelines(ir: IR) -> dict[str, str]:
             job["steps"] = [_az_script(ir, st)]
             if st.allow_failure:
                 job["continueOnError"] = True
+            if stage == "deploy":  # analyse entre deux déploiements : son propre stage, à sa place
+                stages_out.append({"stage": st.id.replace("-", "_"), "displayName": st.name, "jobs": [job]})
+                continue
             jobs.append(job)
         if jobs:
             stages_out.append({"stage": stage, "jobs": jobs})
@@ -444,7 +458,8 @@ def azure_pipelines(ir: IR) -> dict[str, str]:
 # ---------------------------------------------------------------- AWS CodeBuild
 def _docker_run(st: Step, lines: list[str]) -> str:
     inner = " && ".join(lines)
-    return (f"docker run --rm -v \"$PWD\":/src -w /src --entrypoint sh "
+    user = f"--user {st.user} " if st.user else ""
+    return (f"docker run --rm {user}-v \"$PWD\":/src -w /src --entrypoint sh "
             f"-e TAG -e IMAGE {st.image} -c {shlex.quote(inner)}")
 
 
@@ -464,10 +479,11 @@ def _buildspec(ir: IR, steps: list[Step]) -> str:
     for st in steps:
         commands.append(f'echo "--- {st.name}"')
         script = full_script(ir, st, None)
+        tolerated = f' || echo "Étape non bloquante en échec : {st.name}"'
         if st.docker or "aws" in st.cloud:
-            commands += script
+            commands += ["(" + " && ".join(script) + ")" + tolerated] if st.allow_failure else script
         else:
-            commands.append(_docker_run(st, script))
+            commands.append(_docker_run(st, script) + (tolerated if st.allow_failure else ""))
     doc = {"version": 0.2, "phases": {"build": {"commands": commands}},
            "artifacts": {"files": ["**/*"], "discard-paths": "no"}}
     note = HEADER + " Activer le mode privilégié du projet CodeBuild (Docker)."
@@ -493,6 +509,8 @@ def _cloudbuild(ir: IR, steps_in: list[Step]) -> str:
         image = "gcr.io/cloud-builders/docker" if st.docker else st.image
         steps.append({"id": st.id, "name": image, "entrypoint": "sh",
                       "args": ["-c", "\n".join(script).replace("$", "$$").replace("$$SHORT_SHA", "$SHORT_SHA")]})
+        if st.allow_failure:
+            steps[-1]["allowFailure"] = True
     doc = {"steps": steps, "options": {"logging": "CLOUD_LOGGING_ONLY"}}
     note = HEADER + " Les secrets se déclarent via availableSecrets (Secret Manager)."
     return dump_yaml(doc, note)

@@ -205,8 +205,6 @@
   name: ZAP (OWASP)
   stage: security
   extra_stages: [test]
-  support: manual
-  support_note: "Générateur prévu pour la 1.0 : scan de la préproduction après chaque déploiement, rapport dans la CI."
   roles: [dast]
   description: Analyse dynamique (DAST) d'une application déployée ; scan de base, complet ou d'API.
   license: Apache-2.0

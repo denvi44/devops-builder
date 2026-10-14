@@ -48,6 +48,8 @@ class Step:
     services: list[Service] = field(default_factory=list)  # conteneurs annexes (Floci…)
     lock: str = ""  # groupe d'exclusion : deux jobs du même groupe ne tournent jamais ensemble
     id_tokens: dict[str, dict] = field(default_factory=dict)  # jetons OIDC GitLab propres au job (coffre)
+    user: str = ""  # utilisateur du conteneur du job, quand l'image n'est pas lancée en root
+    always_artifacts: bool = False  # artefacts publiés même en échec (rapports d'analyse)
 
 
 @dataclass
@@ -693,6 +695,10 @@ def _add_steps(ir: IR) -> None:
                 step.needs = [previous]
         previous = step.id
         s.append(step)
+
+    # Analyse dynamique : après le déploiement de l'environnement analysé
+    from .generators import dast
+    dast.add_step(ir)
 
     # Authentification cloud : variables attendues
     clouds = sorted({c for st in s for c in st.cloud})

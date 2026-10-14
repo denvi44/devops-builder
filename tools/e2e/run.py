@@ -513,6 +513,59 @@ def _sops_steps(out: Path, ir) -> list[Step]:
     ]
 
 
+def _zap_steps(out: Path, ir) -> list[Step]:
+    """Le job ZAP de la CI générée, extrait du workflow et lancé comme ses deux familles de runners : GitHub
+    Actions (conteneur en root, option du job) et GitLab CI (utilisateur de l'image, dépôt inscriptible par tous)."""
+    import yaml as _yaml
+
+    from devops_builder.generators import dast
+    host, curlrc, start, end = _compose_host(out, ir, {})
+    start = [s for s in start if "secrets.sh" not in s.name]   # application sans base : aucun secret
+    url = dast.target_url(ir)
+    web = url.split("://", 1)[1].split("/", 1)[0]
+    wf = _yaml.safe_load((out / ".github" / "workflows" / "pipeline.yml").read_text(encoding="utf-8"))
+    job = next(j for j in wf["jobs"].values() if "zap" in str(j.get("container", "")))
+    image = job["container"]["image"]
+    user = job["container"]["options"].split()[-1]
+    run = next(s["run"] for s in job["steps"] if "run" in s)
+    (out.parent / "zap-job.sh").write_text(run, encoding="utf-8")
+    fail_ids = ",".join(rid for rid, _ in dast.FAIL_RULES)
+    check = f"""
+python3 - "$code" <<'PY'
+import json, sys
+code = int(sys.argv[1])
+report = json.load(open("zap-report.json"))
+alerts = {{(a["pluginid"], a["name"]) for s in report["site"] for a in s["alerts"]}}
+for pid, name in sorted(alerts):
+    print(f"{{pid}} {{name}}")
+fail = {{pid for pid, _ in alerts}} & set("{fail_ids}".split(","))
+expected = 1 if fail else 0
+print(f"code {{code}}, règles FAIL déclenchées : {{sorted(fail) or 'aucune'}}")
+sys.exit(0 if code == expected else 1)
+PY
+"""
+
+    def zap_run(label: str, slug: str, run_as: str, writable: bool) -> Step:
+        d = out.parent / f"zap-{slug}"
+        prep = f"chmod -R a+rwX {d}" if writable else ":"
+        return Step(f"Job ZAP de la CI générée, {label} (utilisateur {run_as})",
+                    f"rm -rf {d} && mkdir -p {d} && cp -R {out}/.zap {d}/ && cp {out.parent}/zap-job.sh {d}/\n{prep}\n"
+                    f"code=0\ndocker run --rm --network host --add-host {web}:127.0.0.1 --user {run_as} "
+                    f"-v {d}:/depot -w /depot -e ZAP_TARGET_URL={url} {image} bash zap-job.sh || code=$?\n"
+                    f"echo \"code de sortie du job : $code\"\ncd {d} && ls -l zap-report.html zap-report.json\n{check}",
+                    evidence=True)
+    return [
+        *start,
+        Step("Application par Traefik en HTTPS", f"for _ in $(seq 1 30); do curl -fsS {url}/ && exit 0; sleep 3; done; "
+             "exit 1", env=_curl_env(curlrc, web)),
+        Step("Image ZAP de la CI générée", ["docker", "pull", image]),
+        zap_run("GitHub Actions", "github", user, False),
+        # GitLab CI : utilisateur de l'image (zap), dépôt extrait avec un umask 0000
+        zap_run("GitLab CI", "gitlab", "zap", True),
+        *end,
+    ]
+
+
 def _check_db(ctx: str, ns: str, app: str) -> str:
     return f"""
 kubectl --context {ctx} -n {ns} port-forward service/{app} 18081:80 >/tmp/pf-db.log 2>&1 &
@@ -550,6 +603,10 @@ SCENARIOS = {s.name: s for s in [
              "les lignes de la CI générée, bases jointes par l'application",
              _starter(hosting="docker-host", forge="github", database="postgresql", cache=True, secrets="sops"),
              _sops_steps, ("docker", "age-keygen", "openssl", "curl")),
+    Scenario("compose-zap", "Hôte Docker : application derrière Traefik analysée par le job ZAP de la CI générée, "
+             "rapport et règles FAIL de .zap/rules.tsv vérifiés",
+             lambda: _project("docker-host", *GH, "docker-compose", "traefik", "zap"),
+             _zap_steps, ("docker", "curl", "python3")),
     Scenario("compose-identite-keycloak", "Hôte Docker : Keycloak et sa base derrière Traefik en HTTPS, realm "
              "appliqué par OpenTofu, revendication groups",
              lambda: _with(_project("docker-host", "gitlab", "gitlab-ci", "buildkit", "docker-compose", "traefik",

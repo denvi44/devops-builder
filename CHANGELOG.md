@@ -31,8 +31,18 @@ mineure peut changer les fichiers générés ; chaque changement voulu est relu 
   `db-restore.sh`, comme celles de l'application.
 - Scénarios de bout en bout `compose-sops` (clé age, brique, `secrets-seed.sh`, puis les lignes mêmes de la CI
   générée) et sauvegarde-restauration de Zabbix.
+- **ZAP pris en charge (DAST)** : un job après le déploiement de l'environnement analysé (par défaut le dernier
+  avant la production), avant le déploiement suivant, dans chaque CI générée. Scan de base (passif), complet
+  ou d'API (OpenAPI) ; image officielle à version fixe (2.17.0) ; adresse analysée réglable par environnement ;
+  `.zap/rules.tsv` généré (règles d'en-têtes et de cookies à FAIL) ; rapport HTML et JSON publié même en échec ;
+  non bloquant par défaut, paramètre « Bloquant ». Section « Analyse dynamique » du mode d'emploi. Scénario de
+  bout en bout `compose-zap` : le job extrait du workflow généré analyse l'application derrière Traefik, en root
+  comme sur GitHub Actions et sous l'utilisateur de l'image comme sur GitLab CI.
 
 ### Corrigé
+- Étapes non bloquantes (Checkov, KICS, Snyk, Infracost, Floci) : Tekton, AWS CodeBuild et Google Cloud Build
+  arrêtaient le pipeline à leur échec ; elles sont maintenant tolérées (`onError: continue`, `allowFailure`,
+  échec signalé dans le journal de CodeBuild).
 - **Binaire sops non vérifié** : la CI générée téléchargeait sops et l'exécutait, clé age en mémoire, sans
   contrôle ; son empreinte publiée est maintenant vérifiée (`sha256sum -c`) avant exécution.
 - **Traefik sur hôte Docker ne faisait pas de HTTPS** : aucune configuration TLS, le port 443 répondait en HTTP

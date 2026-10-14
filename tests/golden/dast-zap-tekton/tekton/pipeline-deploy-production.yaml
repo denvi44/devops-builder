@@ -1,0 +1,45 @@
+# Généré par DevOps Builder — à relire avant usage. Le clone du dépôt (tâche git-clone du Hub) et les secrets sont à brancher sur l'espace « source ».
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: mon-app-deploy-production
+spec:
+  params:
+  - name: tag
+    type: string
+    description: Tag de l'image (commit)
+  workspaces:
+  - name: source
+  tasks:
+  - name: deploy-production
+    workspaces:
+    - name: source
+      workspace: source
+    taskSpec:
+      workspaces:
+      - name: source
+      steps:
+      - name: deploy-production
+        image: mcr.microsoft.com/azure-cli:latest
+        workingDir: $(workspaces.source.path)
+        env:
+        - name: TAG
+          value: $(params.tag)
+        - name: IMAGE
+          value: monappregistry.azurecr.io/mon-app:$(params.tag)
+        script: |
+          #!/bin/sh
+          set -e
+          export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+          export ARM_CLIENT_SECRET="$AZURE_CLIENT_SECRET"
+          if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" >/dev/null; fi
+          az aks install-cli
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          az aks get-credentials --name mon-cluster --resource-group rg-mon-app
+          helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-production.yaml --namespace mon-app --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait
+      params:
+      - name: tag
+        type: string
+    params:
+    - name: tag
+      value: $(params.tag)

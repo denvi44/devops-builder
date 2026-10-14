@@ -1,0 +1,202 @@
+# Généré par DevOps Builder — à relire avant usage. Pour Azure, préférer une connexion de service à fédération d'identité (tâche AzureCLI@2).
+trigger:
+- main
+variables:
+  TAG: $(Build.SourceVersion)
+  IMAGE: monappregistry.azurecr.io/mon-app:$(Build.SourceVersion)
+stages:
+- stage: test
+  jobs:
+  - job: unit_tests
+    displayName: Tests unitaires
+    pool:
+      vmImage: ubuntu-latest
+    container: python:3.12-slim
+    steps:
+    - script: |
+        pip install -r requirements.txt
+        pytest -q
+      displayName: Tests unitaires
+      env:
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+- stage: build
+  jobs:
+  - job: build_image
+    displayName: Build et publication de l'image (BuildKit (docker buildx))
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: |
+        export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+        export ARM_CLIENT_SECRET="$AZURE_CLIENT_SECRET"
+        if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" >/dev/null; fi
+        echo "$REGISTRY_PASSWORD" | docker login "monappregistry.azurecr.io" -u "$REGISTRY_USER" --password-stdin
+        docker buildx build --tag "$IMAGE" --push .
+      displayName: Build et publication de l'image (BuildKit (docker buildx))
+      env:
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+- stage: security
+  jobs:
+  - job: gitleaks
+    displayName: Recherche de secrets
+    pool:
+      vmImage: ubuntu-latest
+    container: zricethezav/gitleaks:latest
+    steps:
+    - script: |
+        gitleaks detect --source . --verbose
+      displayName: Recherche de secrets
+      env:
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+  - job: trivy
+    displayName: Scan de vulnérabilités Trivy
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: |
+        export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+        export ARM_CLIENT_SECRET="$AZURE_CLIENT_SECRET"
+        if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" >/dev/null; fi
+        trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+      displayName: Scan de vulnérabilités Trivy
+      env:
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+- stage: publish
+  jobs:
+  - job: cosign
+    displayName: Signature de l'image (Cosign)
+    pool:
+      vmImage: ubuntu-latest
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    steps:
+    - script: |
+        export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+        export ARM_CLIENT_SECRET="$AZURE_CLIENT_SECRET"
+        if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" >/dev/null; fi
+        apk add --no-cache cosign
+        echo "$REGISTRY_PASSWORD" | cosign login "monappregistry.azurecr.io" -u "$REGISTRY_USER" --password-stdin
+        cosign sign --yes "$IMAGE"
+      displayName: Signature de l'image (Cosign)
+      env:
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+- stage: infra
+  jobs:
+  - job: iac_plan
+    displayName: Plan OpenTofu
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: |
+        export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+        export ARM_CLIENT_SECRET="$AZURE_CLIENT_SECRET"
+        if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" >/dev/null; fi
+        apk add --no-cache curl unzip
+        curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+        unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+        cd infra/terraform
+        tofu fmt -check -recursive
+        tofu init -input=false
+        tofu validate
+        tofu plan -input=false -lock-timeout=5m -out=plan.tfplan
+      displayName: Plan OpenTofu
+      env:
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+  - job: iac_apply
+    displayName: Application OpenTofu
+    pool:
+      vmImage: ubuntu-latest
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    steps:
+    - script: |
+        export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+        export ARM_CLIENT_SECRET="$AZURE_CLIENT_SECRET"
+        if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" >/dev/null; fi
+        apk add --no-cache curl unzip
+        curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+        unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+        cd infra/terraform
+        tofu init -input=false
+        tofu apply -input=false -lock-timeout=5m plan.tfplan
+      displayName: Application OpenTofu
+      env:
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+- stage: deploy_staging
+  displayName: Déploiement — Préproduction
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: deploy_staging
+    displayName: Déploiement Helm — Préproduction
+    environment: staging
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+          - script: |
+              export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+              export ARM_CLIENT_SECRET="$AZURE_CLIENT_SECRET"
+              if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" >/dev/null; fi
+              az aks install-cli
+              curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+              az aks get-credentials --name mon-cluster --resource-group rg-mon-app
+              helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-staging.yaml --namespace mon-app-staging --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait
+            displayName: Déploiement Helm — Préproduction
+            env:
+              REGISTRY_USER: $(REGISTRY_USER)
+              REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+- stage: dast_staging
+  displayName: Analyse dynamique ZAP (scan d'API) — Préproduction
+  jobs:
+  - job: dast_staging
+    displayName: Analyse dynamique ZAP (scan d'API) — Préproduction
+    pool:
+      vmImage: ubuntu-latest
+    container: ghcr.io/zaproxy/zaproxy:2.17.0
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    steps:
+    - script: |
+        mkdir -p /zap/wrk && cp .zap/rules.tsv /zap/wrk/rules.tsv
+        code=0; zap-api-scan.py -t "$ZAP_TARGET_URL" -f openapi -c rules.tsv -r zap-report.html -J zap-report.json -I || code=$?
+        cp /zap/wrk/zap-report.html /zap/wrk/zap-report.json . || true
+        if [ "$code" -eq 3 ]; then echo "ZAP n'a pas pu analyser $ZAP_TARGET_URL (adresse injoignable depuis la CI ?)" >&2; fi
+        exit "$code"
+      displayName: Analyse dynamique ZAP (scan d'API) — Préproduction
+      env:
+        REGISTRY_USER: $(REGISTRY_USER)
+        REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+    continueOnError: true
+- stage: deploy_production
+  displayName: Déploiement — Production
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: deploy_production
+    displayName: Déploiement Helm — Production
+    environment: production
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+          - script: |
+              export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+              export ARM_CLIENT_SECRET="$AZURE_CLIENT_SECRET"
+              if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" >/dev/null; fi
+              az aks install-cli
+              curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+              az aks get-credentials --name mon-cluster --resource-group rg-mon-app
+              helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-production.yaml --namespace mon-app --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait
+            displayName: Déploiement Helm — Production
+            env:
+              REGISTRY_USER: $(REGISTRY_USER)
+              REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)

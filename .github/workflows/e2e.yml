@@ -32,6 +32,7 @@ jobs:
           - compose-postgresql
           - compose-zabbix
           - compose-sops
+          - compose-zap
           - compose-identite-keycloak
           - kind-coffre-openbao
           - kind-identite-keycloak

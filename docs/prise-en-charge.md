@@ -4,9 +4,9 @@ Fichier produit par `python -m devops_builder.support` ; un test vérifie qu'il 
 
 ## Niveaux
 
-- **Pris en charge** (140) : les fichiers sont générés et passent l'outil de référence dans les tests (linter, schéma, `tofu validate`, ShellCheck) ; aucune limite connue n'empêche le premier déploiement en suivant `docs/mise-en-route.md`.
+- **Pris en charge** (141) : les fichiers sont générés et passent l'outil de référence dans les tests (linter, schéma, `tofu validate`, ShellCheck) ; aucune limite connue n'empêche le premier déploiement en suivant `docs/mise-en-route.md`.
 - **Expérimental** (8) : les fichiers sont générés, mais une limite connue demande une intervention ou n'a pas été vérifiée ; la règle R50 la rappelle dans le projet.
-- **À configurer à la main** (19) : aucun générateur ne produit de fichier ; la brique sert aux règles et à la documentation, elle est listée dans « À configurer à la main » de `PIPELINE.md` (règle R31).
+- **À configurer à la main** (18) : aucun générateur ne produit de fichier ; la brique sert aux règles et à la documentation, elle est listée dans « À configurer à la main » de `PIPELINE.md` (règle R31).
 
 Une entrée du CNCF Landscape sans fiche, ou une fiche personnelle, est toujours à configurer à la main.
 
@@ -34,7 +34,6 @@ Une entrée du CNCF Landscape sans fiche, ou une fiche personnelle, est toujours
 | ansible-lint | Tests & qualité | Aucune étape de CI générée ; les playbooks générés passent ansible-lint dans les tests de l'application. |
 | SonarQube Cloud | Tests & qualité | Analyse à brancher à la main dans la CI. |
 | Burp Suite DAST | Sécurité | Commercial, non testable dans la CI publique du projet ; ZAP est l'alternative libre. |
-| ZAP (OWASP) | Sécurité | Générateur prévu pour la 1.0 : scan de la préproduction après chaque déploiement, rapport dans la CI. |
 | AWS CloudFormation | Infrastructure | L'infrastructure générée est écrite en Terraform ou OpenTofu. |
 | Azure Bicep | Infrastructure | L'infrastructure générée est écrite en Terraform ou OpenTofu. |
 | Chef Infra | Infrastructure | Pas de générateur : Ansible est pris en charge pour configurer les machines. |
@@ -52,7 +51,7 @@ Une entrée du CNCF Landscape sans fiche, ou une fiche personnelle, est toujours
 - **Source** : AWS CodeCommit, Azure Repos, Bitbucket Cloud, Gitea, GitHub, GitLab
 - **Build** : Argo Workflows, Azure Pipelines, Buildah, BuildKit (docker buildx), Cloud Native Buildpacks, Dependabot, Gitea Actions, GitHub Actions, GitLab CI, Jenkins, Kaniko, Renovate
 - **Tests & qualité** : Chaos Mesh, Infracost, LitmusChaos, Semgrep CE, SonarQube, Tests unitaires, TFLint
-- **Sécurité** : Checkov, Cosign, Gitleaks, Grype, KICS, Kubescape, Snyk, Syft, Trivy
+- **Sécurité** : Checkov, Cosign, Gitleaks, Grype, KICS, Kubescape, Snyk, Syft, Trivy, ZAP (OWASP)
 - **Artefacts** : Amazon ECR, Azure Container Registry, Distribution (registry), GitHub Container Registry, Google Artifact Registry, Google Container Registry, Harbor, JFrog Artifactory, Nexus Repository, OVHcloud Managed Private Registry, Scaleway Container Registry, zot
 - **Infrastructure** : Amazon EC2, Amazon EKS, Amazon S3, Amazon Web Services, Ansible, Azure Blob Storage, Azure Kubernetes Service, Azure Virtual Machines, Crossplane, Google Cloud, Google Cloud Storage, Google Compute Engine, Google Kubernetes Engine, k3s, kind, kubeadm, MicroK8s, Microsoft Azure, minikube, MinIO, OpenTofu, Outscale, Outscale Object Storage (OOS), Outscale VM, OVHcloud, OVHcloud Managed Kubernetes, OVHcloud Object Storage, OVHcloud Public Cloud Instances, Pulumi, Scaleway, Scaleway Instances, Scaleway Kapsule, Scaleway Object Storage, Terraform
 - **Données** : Amazon RDS, Azure Database (serveur flexible), CloudNativePG, Google Cloud SQL, MariaDB, Migrations de schéma, MongoDB, MySQL, OVHcloud Public Cloud Databases, PostgreSQL, Redis, Scaleway Managed Database, Valkey

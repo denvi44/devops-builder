@@ -28,10 +28,14 @@ def test_scenario_genere_et_planifie(name, capsys, tmp_path):
         assert "kind delete cluster" in plan              # le cluster jetable est toujours supprimé
         assert "test-kind.sh" in plan or "platform/install.sh" in plan
     else:
-        assert {"secrets.sh", "docker-compose.yml"} <= {p.name for p in (out / "deploy").iterdir()}
+        assert "docker-compose.yml" in {p.name for p in (out / "deploy").iterdir()}
+        if "secrets.sh" in plan:
+            assert (out / "deploy" / "secrets.sh").exists()
         assert "docker compose" in plan and "down -v" in plan       # volumes supprimés après le test
         if name in ("compose-postgresql", "compose-zabbix"):     # scénarios qui vérifient la sauvegarde
             assert "db-backup.sh" in plan and "db-restore.sh" in plan
+        if name == "compose-zap":   # le job de la CI générée, sous les deux utilisateurs de conteneur
+            assert "(utilisateur root)" in plan and "(utilisateur zap)" in plan
         if name == "compose-sops":
             assert "secrets-seed.sh" in plan and "ci-secrets.sh" in plan and "age-keygen" in plan
 

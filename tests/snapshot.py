@@ -207,6 +207,20 @@ def extra_cases(catalog) -> dict[str, Project]:
                                            secrets="sops"), catalog)
         zvm.add("zabbix", "observability")
         out["supervision-zabbix-vm-sops"] = zvm
+        # 1.0 : ZAP après le déploiement de l'environnement analysé, dans chaque famille de CI
+        zg = build_starter(StarterAnswers(forge="gitlab", hosting="docker-host", envs="staging-prod"), catalog)
+        zg.add("zap", "security", target_url="https://recette.boutique.fr")
+        out["dast-zap-gitlab-compose"] = zg
+        zh = build_starter(StarterAnswers(forge="github", hosting="kubernetes", envs="dev-staging-prod"), catalog)
+        zh.add("zap", "security", scan="full", blocking=True, environment="dev")
+        next(e for e in zh.environments if e.id == "dev").overrides["zap"] = {"target_url": "https://dev.boutique.fr"}
+        out["dast-zap-github-k8s-bloquant"] = zh
+        for ci_id in ("tekton", "azure-pipelines", "google-cloud-build"):
+            zc = build_starter(StarterAnswers(forge="github", ci=ci_id, hosting="kubernetes-managed",
+                                              cloud="gcp" if ci_id == "google-cloud-build" else "azure",
+                                              envs="staging-prod"), catalog)
+            zc.add("zap", "security", scan="api", target_url="https://api-recette.boutique.fr/openapi.json")
+            out[f"dast-zap-{ci_id}"] = zc
         out["identite-dex-compose-github"] = brick(build_starter(StarterAnswers(
             forge="github", hosting="vm", envs="staging-prod", identity="dex"), catalog), "dex",
             hostname="dex.boutique.fr")

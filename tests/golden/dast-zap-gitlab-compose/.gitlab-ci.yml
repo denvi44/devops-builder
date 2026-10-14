@@ -1,0 +1,129 @@
+# Généré par DevOps Builder — à relire avant usage.
+stages:
+- test
+- build
+- security
+- publish
+- deploy-staging
+- dast
+- deploy-production
+variables:
+  TAG: $CI_COMMIT_SHORT_SHA
+  IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+  ZAP_TARGET_URL: https://recette.boutique.fr
+unit-tests:
+  stage: test
+  image:
+    name: python:3.12-slim
+    entrypoint:
+    - ''
+  script:
+  - pip install -r requirements.txt
+  - pytest -q
+build-image:
+  stage: build
+  image:
+    name: docker:27
+    entrypoint:
+    - ''
+  services:
+  - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: /certs
+  script:
+  - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  - docker buildx build --tag "$IMAGE" --push .
+gitleaks:
+  stage: security
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint:
+    - ''
+  script:
+  - gitleaks detect --source . --verbose
+trivy:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint:
+    - ''
+  variables:
+    TRIVY_USERNAME: $CI_REGISTRY_USER
+    TRIVY_PASSWORD: $CI_REGISTRY_PASSWORD
+  script:
+  - trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+cosign:
+  stage: publish
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  script:
+  - apk add --no-cache cosign
+  - echo "$CI_REGISTRY_PASSWORD" | cosign login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  - cosign sign --yes "$IMAGE"
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+deploy-staging:
+  stage: deploy-staging
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  environment:
+    name: staging
+  script:
+  - apk add --no-cache openssh-client
+  - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+  - ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_STAGING" "mkdir -p /opt/mon-app-staging"
+  - scp deploy/docker-compose.yml "$DEPLOY_HOST_STAGING:/opt/mon-app-staging/docker-compose.yml"
+  - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_STAGING" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
+  - ssh "$DEPLOY_HOST_STAGING" "cd /opt/mon-app-staging && IMAGE=$IMAGE docker compose -p mon-app-staging pull && IMAGE=$IMAGE docker compose -p mon-app-staging up -d"
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+dast-staging:
+  stage: dast
+  image:
+    name: ghcr.io/zaproxy/zaproxy:2.17.0
+    entrypoint:
+    - ''
+  script:
+  - mkdir -p /zap/wrk && cp .zap/rules.tsv /zap/wrk/rules.tsv
+  - code=0; zap-baseline.py -t "$ZAP_TARGET_URL" -c rules.tsv -r zap-report.html -J zap-report.json -I || code=$?
+  - cp /zap/wrk/zap-report.html /zap/wrk/zap-report.json . || true
+  - if [ "$code" -eq 3 ]; then echo "ZAP n'a pas pu analyser $ZAP_TARGET_URL (adresse injoignable depuis la CI ?)" >&2; fi
+  - exit "$code"
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  allow_failure: true
+  needs:
+  - deploy-staging
+  artifacts:
+    paths:
+    - zap-report.html
+    - zap-report.json
+    expire_in: 1 week
+    when: always
+deploy-production:
+  stage: deploy-production
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  environment:
+    name: production
+  script:
+  - apk add --no-cache openssh-client
+  - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+  - ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_PRODUCTION" "mkdir -p /opt/mon-app"
+  - scp deploy/docker-compose.yml "$DEPLOY_HOST_PRODUCTION:/opt/mon-app/docker-compose.yml"
+  - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_PRODUCTION" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
+  - ssh "$DEPLOY_HOST_PRODUCTION" "cd /opt/mon-app && IMAGE=$IMAGE docker compose -p mon-app pull && IMAGE=$IMAGE docker compose -p mon-app up -d"
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - deploy-staging
+  - dast-staging

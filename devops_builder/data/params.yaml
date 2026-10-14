@@ -399,6 +399,34 @@ zabbix:
     description: Fuseau de l'interface web (PHP_TZ).
     default: Europe/Paris
 
+zap:
+  environment:
+    label: Environnement analysé
+    description: Identifiant de l'environnement dont le déploiement est suivi du scan ; par défaut le dernier avant la production.
+    suggestions: [staging, recette, dev]
+    pattern: '[a-z0-9-]+'
+    pattern_hint: "identifiant d'environnement, ex. staging"
+  target_url:
+    label: Adresse analysée
+    description: URL de l'application déployée (ou de sa définition OpenAPI pour un scan d'API), joignable depuis la CI ; surchargeable par environnement. Par défaut, le nom d'hôte de l'application.
+    pattern: 'https?://[^\s]+'
+    pattern_hint: "https://hôte[:port][/chemin]"
+  scan:
+    label: Type de scan
+    description: "baseline : passif, sans attaque, quelques minutes ; full : actif (attaque l'application, préproduction uniquement) ; api : définition OpenAPI."
+    default: baseline
+    choices: [baseline, full, api]
+  blocking:
+    label: Bloquant
+    type: bool
+    description: Une règle FAIL de .zap/rules.tsv arrête le pipeline (sinon le job est signalé en échec sans bloquer).
+    default: false
+  version:
+    label: Version de ZAP
+    description: Étiquette de l'image ghcr.io/zaproxy/zaproxy ; une version fixe rend les analyses comparables.
+    default: "2.17.0"
+    suggestions: ["2.17.0", stable]
+
 dex:
   hostname: *idp_host
   connector:

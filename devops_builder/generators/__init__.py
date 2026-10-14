@@ -87,6 +87,9 @@ def render(project: Project, catalog: Catalog) -> tuple[dict[str, str], IR]:
     data.notes(ir)
     from . import zabbix
     zabbix.notes(ir)
+    from . import dast
+    files.update(dast.files(ir))
+    dast.notes(ir)
     files.update(extras.renovate(ir))
     files.update(extras.dependabot(ir))
     files.update(extras.clusters(ir))

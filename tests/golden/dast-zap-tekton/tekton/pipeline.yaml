@@ -1,0 +1,306 @@
+# Généré par DevOps Builder — à relire avant usage. Le clone du dépôt (tâche git-clone du Hub) et les secrets sont à brancher sur l'espace « source ».
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: mon-app-pipeline
+spec:
+  params:
+  - name: tag
+    type: string
+    description: Tag de l'image (commit)
+  workspaces:
+  - name: source
+  tasks:
+  - name: unit-tests
+    workspaces:
+    - name: source
+      workspace: source
+    taskSpec:
+      workspaces:
+      - name: source
+      steps:
+      - name: unit-tests
+        image: python:3.12-slim
+        workingDir: $(workspaces.source.path)
+        env:
+        - name: TAG
+          value: $(params.tag)
+        - name: IMAGE
+          value: monappregistry.azurecr.io/mon-app:$(params.tag)
+        script: |
+          #!/bin/sh
+          set -e
+          pip install -r requirements.txt
+          pytest -q
+      params:
+      - name: tag
+        type: string
+    params:
+    - name: tag
+      value: $(params.tag)
+  - name: build-image
+    workspaces:
+    - name: source
+      workspace: source
+    taskSpec:
+      workspaces:
+      - name: source
+      steps:
+      - name: build-image
+        image: quay.io/buildah/stable:latest
+        workingDir: $(workspaces.source.path)
+        env:
+        - name: TAG
+          value: $(params.tag)
+        - name: IMAGE
+          value: monappregistry.azurecr.io/mon-app:$(params.tag)
+        script: |
+          #!/bin/sh
+          set -e
+          export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+          export ARM_CLIENT_SECRET="$AZURE_CLIENT_SECRET"
+          if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" >/dev/null; fi
+          echo "$REGISTRY_PASSWORD" | buildah login "monappregistry.azurecr.io" -u "$REGISTRY_USER" --password-stdin
+          buildah build --tag "$IMAGE" .
+          buildah push "$IMAGE"
+      params:
+      - name: tag
+        type: string
+    params:
+    - name: tag
+      value: $(params.tag)
+    runAfter:
+    - unit-tests
+  - name: gitleaks
+    workspaces:
+    - name: source
+      workspace: source
+    taskSpec:
+      workspaces:
+      - name: source
+      steps:
+      - name: gitleaks
+        image: zricethezav/gitleaks:latest
+        workingDir: $(workspaces.source.path)
+        env:
+        - name: TAG
+          value: $(params.tag)
+        - name: IMAGE
+          value: monappregistry.azurecr.io/mon-app:$(params.tag)
+        script: |
+          #!/bin/sh
+          set -e
+          gitleaks detect --source . --verbose
+      params:
+      - name: tag
+        type: string
+    params:
+    - name: tag
+      value: $(params.tag)
+    runAfter:
+    - build-image
+  - name: trivy
+    workspaces:
+    - name: source
+      workspace: source
+    taskSpec:
+      workspaces:
+      - name: source
+      steps:
+      - name: trivy
+        image: aquasec/trivy:latest
+        workingDir: $(workspaces.source.path)
+        env:
+        - name: TAG
+          value: $(params.tag)
+        - name: IMAGE
+          value: monappregistry.azurecr.io/mon-app:$(params.tag)
+        script: |
+          #!/bin/sh
+          set -e
+          export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+          export ARM_CLIENT_SECRET="$AZURE_CLIENT_SECRET"
+          if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" >/dev/null; fi
+          trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+      params:
+      - name: tag
+        type: string
+    params:
+    - name: tag
+      value: $(params.tag)
+    runAfter:
+    - gitleaks
+  - name: cosign
+    workspaces:
+    - name: source
+      workspace: source
+    taskSpec:
+      workspaces:
+      - name: source
+      steps:
+      - name: cosign
+        image: alpine:3.20
+        workingDir: $(workspaces.source.path)
+        env:
+        - name: TAG
+          value: $(params.tag)
+        - name: IMAGE
+          value: monappregistry.azurecr.io/mon-app:$(params.tag)
+        script: |
+          #!/bin/sh
+          set -e
+          export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+          export ARM_CLIENT_SECRET="$AZURE_CLIENT_SECRET"
+          if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" >/dev/null; fi
+          apk add --no-cache cosign
+          echo "$REGISTRY_PASSWORD" | cosign login "monappregistry.azurecr.io" -u "$REGISTRY_USER" --password-stdin
+          cosign sign --yes "$IMAGE"
+      params:
+      - name: tag
+        type: string
+    params:
+    - name: tag
+      value: $(params.tag)
+    runAfter:
+    - trivy
+  - name: iac-plan
+    workspaces:
+    - name: source
+      workspace: source
+    taskSpec:
+      workspaces:
+      - name: source
+      steps:
+      - name: iac-plan
+        image: alpine:3.20
+        workingDir: $(workspaces.source.path)
+        env:
+        - name: TAG
+          value: $(params.tag)
+        - name: IMAGE
+          value: monappregistry.azurecr.io/mon-app:$(params.tag)
+        script: |
+          #!/bin/sh
+          set -e
+          export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+          export ARM_CLIENT_SECRET="$AZURE_CLIENT_SECRET"
+          if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" >/dev/null; fi
+          apk add --no-cache curl unzip
+          curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+          unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+          cd infra/terraform
+          tofu fmt -check -recursive
+          tofu init -input=false
+          tofu validate
+          tofu plan -input=false -lock-timeout=5m -out=plan.tfplan
+      params:
+      - name: tag
+        type: string
+    params:
+    - name: tag
+      value: $(params.tag)
+    runAfter:
+    - cosign
+  - name: iac-apply
+    workspaces:
+    - name: source
+      workspace: source
+    taskSpec:
+      workspaces:
+      - name: source
+      steps:
+      - name: iac-apply
+        image: alpine:3.20
+        workingDir: $(workspaces.source.path)
+        env:
+        - name: TAG
+          value: $(params.tag)
+        - name: IMAGE
+          value: monappregistry.azurecr.io/mon-app:$(params.tag)
+        script: |
+          #!/bin/sh
+          set -e
+          export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+          export ARM_CLIENT_SECRET="$AZURE_CLIENT_SECRET"
+          if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" >/dev/null; fi
+          apk add --no-cache curl unzip
+          curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+          unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+          cd infra/terraform
+          tofu init -input=false
+          tofu apply -input=false -lock-timeout=5m plan.tfplan
+      params:
+      - name: tag
+        type: string
+    params:
+    - name: tag
+      value: $(params.tag)
+    runAfter:
+    - iac-plan
+  - name: deploy-staging
+    workspaces:
+    - name: source
+      workspace: source
+    taskSpec:
+      workspaces:
+      - name: source
+      steps:
+      - name: deploy-staging
+        image: mcr.microsoft.com/azure-cli:latest
+        workingDir: $(workspaces.source.path)
+        env:
+        - name: TAG
+          value: $(params.tag)
+        - name: IMAGE
+          value: monappregistry.azurecr.io/mon-app:$(params.tag)
+        script: |
+          #!/bin/sh
+          set -e
+          export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+          export ARM_CLIENT_SECRET="$AZURE_CLIENT_SECRET"
+          if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" >/dev/null; fi
+          az aks install-cli
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          az aks get-credentials --name mon-cluster --resource-group rg-mon-app
+          helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-staging.yaml --namespace mon-app-staging --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait
+      params:
+      - name: tag
+        type: string
+    params:
+    - name: tag
+      value: $(params.tag)
+    runAfter:
+    - iac-apply
+  - name: dast-staging
+    workspaces:
+    - name: source
+      workspace: source
+    taskSpec:
+      workspaces:
+      - name: source
+      steps:
+      - name: dast-staging
+        image: ghcr.io/zaproxy/zaproxy:2.17.0
+        workingDir: $(workspaces.source.path)
+        env:
+        - name: TAG
+          value: $(params.tag)
+        - name: IMAGE
+          value: monappregistry.azurecr.io/mon-app:$(params.tag)
+        script: |
+          #!/bin/sh
+          set -e
+          mkdir -p /zap/wrk && cp .zap/rules.tsv /zap/wrk/rules.tsv
+          code=0; zap-api-scan.py -t "$ZAP_TARGET_URL" -f openapi -c rules.tsv -r zap-report.html -J zap-report.json -I || code=$?
+          cp /zap/wrk/zap-report.html /zap/wrk/zap-report.json . || true
+          if [ "$code" -eq 3 ]; then echo "ZAP n'a pas pu analyser $ZAP_TARGET_URL (adresse injoignable depuis la CI ?)" >&2; fi
+          exit "$code"
+        onError: continue
+      params:
+      - name: tag
+        type: string
+    params:
+    - name: tag
+      value: $(params.tag)
+    runAfter:
+    - deploy-staging

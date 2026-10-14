@@ -1,0 +1,10 @@
+# Généré par DevOps Builder — à relire avant usage.
+# Règles de ZAP : identifiant<TAB>action<TAB>(intitulé). Actions : IGNORE, INFO, WARN, FAIL, OUTOFSCOPE.
+# Une règle absente reste à WARN (signalée, sans échec). FAIL fait échouer le job ; le pipeline continue (brique non bloquante).
+# Liste complète des règles : https://www.zaproxy.org/docs/alerts/
+# Faux positif : passer la règle à IGNORE ici, avec la raison en commentaire.
+10010	FAIL	(Cookie sans l'attribut HttpOnly)
+10011	FAIL	(Cookie sans l'attribut Secure)
+10054	FAIL	(Cookie sans l'attribut SameSite)
+10020	FAIL	(En-tête anti-clickjacking absent (X-Frame-Options ou CSP frame-ancestors))
+10021	FAIL	(En-tête X-Content-Type-Options absent)

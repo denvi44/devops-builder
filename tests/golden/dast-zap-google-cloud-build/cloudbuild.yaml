@@ -1,0 +1,126 @@
+# Généré par DevOps Builder — à relire avant usage. Les secrets se déclarent via availableSecrets (Secret Manager).
+steps:
+- id: unit-tests
+  name: python:3.12-slim
+  entrypoint: sh
+  args:
+  - -c
+  - |-
+    export TAG="$SHORT_SHA"
+    export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$SHORT_SHA"
+    pip install -r requirements.txt
+    pytest -q
+- id: build-image
+  name: gcr.io/cloud-builders/docker
+  entrypoint: sh
+  args:
+  - -c
+  - |-
+    export TAG="$SHORT_SHA"
+    export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$SHORT_SHA"
+    echo "$$GCP_SA_KEY" > /tmp/gcp-key.json
+    export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+    if command -v gcloud >/dev/null; then gcloud auth activate-service-account --key-file /tmp/gcp-key.json; fi
+    echo "$$REGISTRY_PASSWORD" | docker login "europe-west9-docker.pkg.dev" -u "$$REGISTRY_USER" --password-stdin
+    docker buildx build --tag "$$IMAGE" --push .
+- id: gitleaks
+  name: zricethezav/gitleaks:latest
+  entrypoint: sh
+  args:
+  - -c
+  - |-
+    export TAG="$SHORT_SHA"
+    export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$SHORT_SHA"
+    gitleaks detect --source . --verbose
+- id: trivy
+  name: aquasec/trivy:latest
+  entrypoint: sh
+  args:
+  - -c
+  - |-
+    export TAG="$SHORT_SHA"
+    export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$SHORT_SHA"
+    echo "$$GCP_SA_KEY" > /tmp/gcp-key.json
+    export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+    if command -v gcloud >/dev/null; then gcloud auth activate-service-account --key-file /tmp/gcp-key.json; fi
+    trivy image --exit-code 1 --severity HIGH,CRITICAL "$$IMAGE"
+- id: cosign
+  name: alpine:3.20
+  entrypoint: sh
+  args:
+  - -c
+  - |-
+    export TAG="$SHORT_SHA"
+    export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$SHORT_SHA"
+    echo "$$GCP_SA_KEY" > /tmp/gcp-key.json
+    export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+    if command -v gcloud >/dev/null; then gcloud auth activate-service-account --key-file /tmp/gcp-key.json; fi
+    apk add --no-cache cosign
+    echo "$$REGISTRY_PASSWORD" | cosign login "europe-west9-docker.pkg.dev" -u "$$REGISTRY_USER" --password-stdin
+    cosign sign --yes "$$IMAGE"
+- id: iac-plan
+  name: alpine:3.20
+  entrypoint: sh
+  args:
+  - -c
+  - |-
+    export TAG="$SHORT_SHA"
+    export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$SHORT_SHA"
+    echo "$$GCP_SA_KEY" > /tmp/gcp-key.json
+    export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+    if command -v gcloud >/dev/null; then gcloud auth activate-service-account --key-file /tmp/gcp-key.json; fi
+    apk add --no-cache curl unzip
+    curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+    unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+    cd infra/terraform
+    tofu fmt -check -recursive
+    tofu init -input=false
+    tofu validate
+    tofu plan -input=false -lock-timeout=5m -out=plan.tfplan
+- id: iac-apply
+  name: alpine:3.20
+  entrypoint: sh
+  args:
+  - -c
+  - |-
+    export TAG="$SHORT_SHA"
+    export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$SHORT_SHA"
+    echo "$$GCP_SA_KEY" > /tmp/gcp-key.json
+    export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+    if command -v gcloud >/dev/null; then gcloud auth activate-service-account --key-file /tmp/gcp-key.json; fi
+    apk add --no-cache curl unzip
+    curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+    unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+    cd infra/terraform
+    tofu init -input=false
+    tofu apply -input=false -lock-timeout=5m plan.tfplan
+- id: deploy-staging
+  name: google/cloud-sdk:latest
+  entrypoint: sh
+  args:
+  - -c
+  - |-
+    export TAG="$SHORT_SHA"
+    export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$SHORT_SHA"
+    echo "$$GCP_SA_KEY" > /tmp/gcp-key.json
+    export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+    if command -v gcloud >/dev/null; then gcloud auth activate-service-account --key-file /tmp/gcp-key.json; fi
+    curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+    gcloud container clusters get-credentials mon-cluster --region europe-west9 --project mon-projet
+    helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-staging.yaml --namespace mon-app-staging --create-namespace --set image.repository="$${IMAGE%:*}" --set image.tag="$$TAG" --wait
+- id: dast-staging
+  name: ghcr.io/zaproxy/zaproxy:2.17.0
+  entrypoint: sh
+  args:
+  - -c
+  - |-
+    export TAG="$SHORT_SHA"
+    export IMAGE="europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$SHORT_SHA"
+    mkdir -p /zap/wrk && cp .zap/rules.tsv /zap/wrk/rules.tsv
+    code=0; zap-api-scan.py -t "$$ZAP_TARGET_URL" -f openapi -c rules.tsv -r zap-report.html -J zap-report.json -I || code=$$?
+    cp /zap/wrk/zap-report.html /zap/wrk/zap-report.json . || true
+    if [ "$$code" -eq 3 ]; then echo "ZAP n'a pas pu analyser $$ZAP_TARGET_URL (adresse injoignable depuis la CI ?)" >&2; fi
+    exit "$$code"
+  allowFailure: true
+options:
+  logging: CLOUD_LOGGING_ONLY

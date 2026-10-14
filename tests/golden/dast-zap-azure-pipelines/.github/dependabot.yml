@@ -1,0 +1,15 @@
+# Généré par DevOps Builder — à relire avant usage.
+version: 2
+updates:
+- package-ecosystem: pip
+  directory: /
+  schedule:
+    interval: weekly
+- package-ecosystem: docker
+  directory: /
+  schedule:
+    interval: weekly
+- package-ecosystem: terraform
+  directory: /infra/terraform
+  schedule:
+    interval: weekly

@@ -564,8 +564,29 @@ def _zabbix(ir: IR) -> list[str]:
             "l'interface.", ""]
 
 
+
+def _dast(ir: IR) -> list[str]:
+    from . import dast
+    if not dast.enabled(ir):
+        return []
+    url = dast.target_url(ir)
+    image = f"{dast.IMAGE}:{dast.params(ir).get('version') or dast.DEFAULT_VERSION}"
+    script = dast.SCRIPTS[dast.mode(ir)] + (" -f openapi" if dast.mode(ir) == "api" else "")
+    return ["## Analyse dynamique (ZAP)", "",
+            "Le job ZAP analyse l'application juste après son déploiement : l'adresse `ZAP_TARGET_URL` doit répondre "
+            "depuis les machines de la CI (une préproduction réservée au réseau interne demande un runner dans ce "
+            "réseau). Vérifier, puis lancer la même analyse depuis le poste pour voir le rapport avant le pipeline "
+            "(le dossier `.zap` doit être inscriptible par l'utilisateur de l'image) :", "",
+            *_sh(f"curl -fsS -o /dev/null -w '%{{http_code}}\\n' \"{url}\"   # 200 (ou 30x) attendu",
+                 "chmod a+w .zap",
+                 f'docker run --rm -v "$PWD/.zap:/zap/wrk:rw" {image} {script} -t "{url}" -c rules.tsv '
+                 "-r zap-report.html -I; echo \"code $?\"   # 0 : rien de bloquant, 1 : règle FAIL, 3 : erreur"),
+            f"Rapport : `.zap/zap-report.html` (à ne pas committer) ; dans la CI, artefact du job. Une alerte sans "
+            f"objet se passe à `IGNORE` dans `{dast.RULES_FILE}`, avec la raison en commentaire ; une alerte à corriger "
+            "sans attendre passe à `FAIL`.", ""]
+
 SECTIONS = (_state, _ci_cloud, _infra, _platform, _identity, _vault, _app_secrets, _eso, _hosts, _gitops, _ci_vars,
-            _first_deploy, _zabbix, _backups, _dev, _upkeep)
+            _first_deploy, _zabbix, _dast, _backups, _dev, _upkeep)
 
 
 def runbook(ir: IR, files: dict[str, str]) -> dict[str, str]:
