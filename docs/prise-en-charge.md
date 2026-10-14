@@ -6,7 +6,7 @@ Fichier produit par `python -m devops_builder.support` ; un test vérifie qu'il 
 
 - **Pris en charge** (140) : les fichiers sont générés et passent l'outil de référence dans les tests (linter, schéma, `tofu validate`, ShellCheck) ; aucune limite connue n'empêche le premier déploiement en suivant `docs/mise-en-route.md`.
 - **Expérimental** (8) : les fichiers sont générés, mais une limite connue demande une intervention ou n'a pas été vérifiée ; la règle R50 la rappelle dans le projet.
-- **À configurer à la main** (10) : aucun générateur ne produit de fichier ; la brique sert aux règles et à la documentation, elle est listée dans « À configurer à la main » de `PIPELINE.md` (règle R31).
+- **À configurer à la main** (19) : aucun générateur ne produit de fichier ; la brique sert aux règles et à la documentation, elle est listée dans « À configurer à la main » de `PIPELINE.md` (règle R31).
 
 Une entrée du CNCF Landscape sans fiche, ou une fiche personnelle, est toujours à configurer à la main.
 
@@ -28,14 +28,23 @@ Une entrée du CNCF Landscape sans fiche, ou une fiche personnelle, est toujours
 | Brique | Étape | Raison |
 | --- | --- | --- |
 | Secure Source Manager | Source | Dépôt à créer à la main ; aucune CI générée ne s'y branche. |
+| CircleCI | Build | Générateur de CI prévu en 1.2 ; en attendant, la CI de la forge (GitLab CI, GitHub Actions) est prise en charge. |
+| Drone CI | Build | Pas de générateur : Woodpecker, son fork communautaire, est pris en charge. |
 | Packer | Build | Modèle d'image à écrire à la main. |
 | ansible-lint | Tests & qualité | Aucune étape de CI générée ; les playbooks générés passent ansible-lint dans les tests de l'application. |
 | SonarQube Cloud | Tests & qualité | Analyse à brancher à la main dans la CI. |
+| Burp Suite DAST | Sécurité | Commercial, non testable dans la CI publique du projet ; ZAP est l'alternative libre. |
+| ZAP (OWASP) | Sécurité | Générateur prévu pour la 1.0 : scan de la préproduction après chaque déploiement, rapport dans la CI. |
 | AWS CloudFormation | Infrastructure | L'infrastructure générée est écrite en Terraform ou OpenTofu. |
 | Azure Bicep | Infrastructure | L'infrastructure générée est écrite en Terraform ou OpenTofu. |
+| Chef Infra | Infrastructure | Pas de générateur : Ansible est pris en charge pour configurer les machines. |
 | Outscale Kubernetes as a Service (OKS) | Infrastructure | Aucune ressource Terraform générée ; la prise en charge d'OKS par le provider outscale/outscale reste à vérifier. |
+| Puppet | Infrastructure | Pas de générateur : Ansible est pris en charge pour configurer les machines. |
 | AWS App Mesh | Plateforme | Service arrêté par AWS, sans générateur. |
 | Knative | Plateforme | Installation et services Knative à écrire à la main. |
+| Elasticsearch | Observabilité | Services Compose prévus en 1.1 ; OpenSearch est pris en charge. |
+| Kibana | Observabilité | Prévu en 1.1 avec Elasticsearch ; Grafana est pris en charge pour les tableaux de bord. |
+| Logstash | Observabilité | Prévu en 1.1 avec Elasticsearch ; Fluent Bit est pris en charge pour la collecte. |
 | Thanos | Observabilité | Installation à écrire à la main, à côté de Prometheus. |
 
 ## Pris en charge

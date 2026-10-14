@@ -155,3 +155,40 @@
   provider: azure
   landscape_name: Azure Monitor
   verified: "2026-10-08"
+
+- id: elasticsearch
+  name: Elasticsearch
+  stage: observability
+  support: manual
+  support_note: "Services Compose prévus en 1.1 ; OpenSearch est pris en charge."
+  roles: [logs, search]
+  description: Moteur de recherche et d'analyse des journaux. Triple licence AGPL-3.0, SSPL ou Elastic License depuis 2024.
+  license: AGPL-3.0
+  repo: https://github.com/elastic/elasticsearch
+  hosting: [docker-host, vm, kubernetes]
+  provides: [log-storage]
+  verified: "2026-10-14"
+
+- id: kibana
+  name: Kibana
+  stage: observability
+  support: manual
+  support_note: "Prévu en 1.1 avec Elasticsearch ; Grafana est pris en charge pour les tableaux de bord."
+  roles: [dashboards]
+  description: Interface d'exploration et de tableaux de bord d'Elasticsearch. Même triple licence qu'Elasticsearch.
+  license: AGPL-3.0
+  repo: https://github.com/elastic/kibana
+  hosting: [docker-host, vm, kubernetes]
+  verified: "2026-10-14"
+
+- id: logstash
+  name: Logstash
+  stage: observability
+  support: manual
+  support_note: "Prévu en 1.1 avec Elasticsearch ; Fluent Bit est pris en charge pour la collecte."
+  roles: [log-shipper]
+  description: Collecte et transformation des journaux vers Elasticsearch. Cœur sous Apache 2.0 (distribution -oss), x-pack sous Elastic License.
+  license: Apache-2.0
+  hosting: [docker-host, vm, kubernetes]
+  landscape_name: Logstash
+  verified: "2026-10-14"

@@ -200,3 +200,29 @@
   license: Apache-2.0
   hosting: [ci, cli, kubernetes]
   verified: "2026-10-08"
+
+- id: zap
+  name: ZAP (OWASP)
+  stage: security
+  extra_stages: [test]
+  support: manual
+  support_note: "Générateur prévu pour la 1.0 : scan de la préproduction après chaque déploiement, rapport dans la CI."
+  roles: [dast]
+  description: Analyse dynamique (DAST) d'une application déployée ; scan de base, complet ou d'API.
+  license: Apache-2.0
+  repo: https://github.com/zaproxy/zaproxy
+  hosting: [ci, docker-host]
+  verified: "2026-10-14"
+
+- id: burp-suite
+  name: Burp Suite DAST
+  stage: security
+  extra_stages: [test]
+  support: manual
+  support_note: "Commercial, non testable dans la CI publique du projet ; ZAP est l'alternative libre."
+  roles: [dast]
+  description: Analyse dynamique (DAST) de PortSwigger, lancée depuis la CI par son pilote ; licence payante.
+  license: proprietary
+  hosting: [saas, ci]
+  alternatives: [zap]
+  verified: "2026-10-14"

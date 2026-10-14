@@ -1,0 +1,8 @@
+id: R51
+title: Drone CI repris par Harness
+family: cycle-de-vie
+severity: avertissement
+type: lifecycle
+params:
+  tool: drone
+message: "{tool} : {note}"

@@ -20,7 +20,10 @@ cloud ; Dex exécuté. Seules les cibles qui passent restent « pris en charge �
 ## 0.18 — Fermer les limites qui piègent
 
 Moindre privilège des rôles de CI créés par le mode d'emploi, verrou d'état Terraform pour Scaleway, OVHcloud
-et Outscale, connexion OIDC de Harbor et SonarQube, job Renovate hors GitHub.
+et Outscale, connexion OIDC de Harbor et SonarQube, job Renovate hors GitHub. Deux ajouts décidés le 14 octobre
+parce qu'ils changent la qualité d'un pipeline : **ZAP** (DAST, scan de la préproduction après chaque
+déploiement) et l'**aide au dimensionnement des machines** (besoin calculé à partir des briques posées sur
+l'hôte, type d'instance proposé pour chaque cloud).
 
 ## 0.19 — Ouverture du dépôt et distribution
 
@@ -33,6 +36,14 @@ provenance.
 Audit RGAA de l'application (lecteurs d'écran NVDA et Orca, clavier seul, contrastes des deux thèmes) et
 corrections ; guide utilisateur publié avec tutoriels ; messages d'erreur relus ; performances sur un gros
 projet.
+
+## Après la 1.0
+
+- 1.1 : pile Elastic sur hôte Docker (Elasticsearch, Kibana, Logstash), comme Zabbix ; schéma d'architecture
+  en 2D exporté (SVG, PNG) depuis l'interface et la ligne de commande.
+- 1.2 : CircleCI ; schéma isométrique (vue en relief des environnements, hôtes et services).
+- Puppet, Chef, Burp Suite et Drone restent des fiches sans générateur : Ansible, ZAP et Woodpecker couvrent
+  leur usage.
 
 ## 1.0
 

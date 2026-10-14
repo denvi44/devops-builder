@@ -22,6 +22,11 @@ mineure peut changer les fichiers générés ; chaque changement voulu est relu 
   Traefik, section du mode d'emploi (mot de passe Admin à changer par l'API, agent vérifié). Keycloak, Dex et
   Zabbix apparaissent dans la vue Ports, et R39 signale leur conflit sur 8080 sans Traefik.
 
+- Fiches Puppet, Chef Infra, Elasticsearch, Kibana, Logstash, ZAP, Burp Suite DAST, CircleCI et Drone CI, au niveau
+  « à configurer à la main » : dans la palette et contrôlées par les règles (rôle déjà tenu, licence, cycle de
+  vie). Leurs entrées du CNCF Landscape mènent à la fiche. Règle R51 : Drone CI, repris par Harness, avec
+  remplacement par Woodpecker.
+
 ### Corrigé
 - **Traefik sur hôte Docker ne faisait pas de HTTPS** : aucune configuration TLS, le port 443 répondait en HTTP
   clair. TLS sur l'entrée websecure, certificat Let's Encrypt (challenge TLS), redirection du port 80, volume

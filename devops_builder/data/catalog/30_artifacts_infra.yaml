@@ -552,3 +552,33 @@
   hosting: [docker-host, vm, kubernetes]
   provides: [object-storage]
   verified: "2026-10-08"
+
+- id: puppet
+  name: Puppet
+  stage: infrastructure
+  extra_stages: [deploy]
+  support: manual
+  support_note: "Pas de générateur : Ansible est pris en charge pour configurer les machines."
+  roles: [config-mgmt]
+  description: Gestion de configuration déclarative par agent. Perforce ne publie plus librement ses paquets ; OpenVox en est le fork communautaire.
+  license: Apache-2.0
+  hosting: [vm, ci, cli]
+  landscape_name: Puppet
+  provides: [config-mgmt]
+  alternatives: [ansible]
+  verified: "2026-10-14"
+
+- id: chef
+  name: Chef Infra
+  stage: infrastructure
+  extra_stages: [deploy]
+  support: manual
+  support_note: "Pas de générateur : Ansible est pris en charge pour configurer les machines."
+  roles: [config-mgmt]
+  description: Gestion de configuration par agent (recettes Ruby). Code sous Apache 2.0, binaires officiels soumis à la licence de Progress.
+  license: Apache-2.0
+  hosting: [vm, ci, cli]
+  landscape_name: Chef Infra
+  provides: [config-mgmt]
+  alternatives: [ansible]
+  verified: "2026-10-14"

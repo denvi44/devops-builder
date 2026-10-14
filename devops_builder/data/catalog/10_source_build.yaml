@@ -303,3 +303,34 @@
   forges: [github]
   requires: [git-server]
   verified: "2026-10-08"
+
+- id: circleci
+  name: CircleCI
+  stage: build
+  support: manual
+  support_note: "Générateur de CI prévu en 1.2 ; en attendant, la CI de la forge (GitLab CI, GitHub Actions) est prise en charge."
+  roles: [ci]
+  description: CI en SaaS (ou serveur autohébergé), avec jobs d'approbation ; GitHub, GitLab et Bitbucket.
+  license: proprietary
+  hosting: [saas]
+  forges: [github, gitlab, bitbucket]
+  landscape_name: CircleCI
+  requires: [git-server]
+  verified: "2026-10-14"
+
+- id: drone
+  name: Drone CI
+  stage: build
+  support: manual
+  support_note: "Pas de générateur : Woodpecker, son fork communautaire, est pris en charge."
+  roles: [ci]
+  description: CI à base de conteneurs, ancêtre de Woodpecker.
+  license: Apache-2.0
+  hosting: [docker-host, vm, kubernetes]
+  forges: [github, gitlab, gitea, bitbucket]
+  requires: [git-server]
+  lifecycle: maintenance-ended
+  lifecycle_note: "Le dépôt harness/drone est devenu Harness Open Source ; Woodpecker poursuit Drone en communauté."
+  replacements: [woodpecker]
+  repo: https://github.com/harness/drone
+  verified: "2026-10-14"
