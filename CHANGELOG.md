@@ -44,6 +44,8 @@ trouvés par le nouveau scénario `kind-plateforme`.
 - Elasticsearch de SonarQube sur hôte Docker sans `vm.max_map_count` à régler ; dimensionnement de SonarQube porté à
   2,5 Gio (mesuré à 2,4 Gio au repos).
 - Mode d'emploi : les outils branchés sur la connexion unique ne citent plus Vault ou Argo CD absents du projet.
+- Mode d'emploi Argo CD : attente de la première synchronisation portée à dix minutes (un passage de bout en bout a
+  dépassé cinq minutes).
 
 ## 0.17.0 — 2026-10-15 — Vérification sur une vraie infrastructure
 
