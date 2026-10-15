@@ -95,6 +95,8 @@ tofu -chdir=infra/terraform apply plan.tfplan
 tofu -chdir=infra/terraform output
 ```
 
+EKS donne l'administration du cluster à l'identité qui applique la pile : celle du poste au premier apply, puis le rôle d'infrastructure de la CI. Pour garder l'accès, déclarer son rôle IAM dans `cluster_admin_arns` (terraform.tfvars) ; le rôle de déploiement de la CI y entre par `ci_deploy_role_arn`.
+
 ## 4. Cluster et plateforme
 
 Avec le kubeconfig du cluster, une fois :

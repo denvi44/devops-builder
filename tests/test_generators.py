@@ -224,7 +224,10 @@ def test_parametres_renseignes_ecrits_dans_la_ci(tmp_path):
     assert wf["env"]["IMAGE"].startswith("210987654321.dkr.ecr.eu-west-1.amazonaws.com/")
     auth = [st for job in wf["jobs"].values() for st in job["steps"]
             if st.get("uses", "").startswith("aws-actions/configure-aws-credentials")]
-    assert auth and all(st["with"]["role-to-assume"] == "arn:aws:iam::210987654321:role/ci" for st in auth)
+    # rôle de déploiement saisi ; les jobs d'infrastructure prennent le leur (variable AWS_INFRA_ROLE_ARN)
+    roles = {st["with"]["role-to-assume"] for st in auth}
+    assert auth and roles <= {"arn:aws:iam::210987654321:role/ci", "${{ vars.AWS_INFRA_ROLE_ARN }}"}
+    assert "arn:aws:iam::210987654321:role/ci" in roles
     g = project("kubernetes-managed", "gitlab", "gitlab-ci", "buildkit", "aws", "ecr", "eks", "opentofu", "s3", "helm")
     g.bricks_for("aws")[0].params = {"role_arn": "arn:aws:iam::210987654321:role/ci"}
     ci = yaml.safe_load(generate(g, CATALOG).files[".gitlab-ci.yml"])

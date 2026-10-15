@@ -242,6 +242,11 @@ def _infra(ir: IR, files: dict[str, str]) -> list[str]:
     c = f"{cmd} -chdir=infra/terraform"
     lines += [f"{c} init", f"{c} plan -out=plan.tfplan", f"{c} apply plan.tfplan", f"{c} output"]
     out += _sh(*lines)
+    if ir.has("eks"):
+        out += ["EKS donne l'administration du cluster à l'identité qui applique la pile : celle du poste au premier "
+                "apply, puis le rôle d'infrastructure de la CI. Pour garder l'accès, déclarer son rôle IAM dans "
+                "`cluster_admin_arns` (terraform.tfvars) ; le rôle de déploiement de la CI y entre par "
+                "`ci_deploy_role_arn`.", ""]
     return out
 
 

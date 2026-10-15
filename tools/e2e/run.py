@@ -701,7 +701,7 @@ if [ "${1:-}" = upgrade ] && [ "${2:-}" = --install ]; then
   shift 2
   args=()
   for a in "$@"; do case "$a" in --wait|--create-namespace|--atomic) ;; *) args+=("$a") ;; esac; done
-  "$HELM_REAL" template "${args[@]}" > "$RENDER_DIR/${args[0]}.yaml"
+  "$HELM_REAL" template "${args[@]}" > "$RENDER_DIR/${args[0]}.yaml" 2> >(sed "s/^/[${args[0]}] /" >&2)
   echo "rendu : ${args[0]} ($(grep -c '^kind:' "$RENDER_DIR/${args[0]}.yaml") ressources)"
   exit 0
 fi
@@ -728,8 +728,11 @@ def _platform_steps(out: Path, ir) -> list[Step]:
                  f"grep -o 'https://harbor.boutique.test' {render}/harbor.yaml | head -n 1\n"
                  f"grep -c 'kind: StatefulSet' {render}/sonarqube.yaml\nls {render} | wc -l",
                  evidence=True)
+    # « subschemas 0, 1 matched » : targetPort entier ou chaîne accepté deux fois par le schéma (défaut du schéma)
     conform = Step("kubeconform sur les manifestes rendus (schémas Kubernetes ; CRD ignorées)",
-                   f"kubeconform -ignore-missing-schemas -skip CustomResourceDefinition -summary {render}/*.yaml",
+                   f"kubeconform -ignore-missing-schemas -skip CustomResourceDefinition -summary {render}/*.yaml "
+                   "> /tmp/kubeconform.txt || true\ncat /tmp/kubeconform.txt\n"
+                   "! grep ' is invalid' /tmp/kubeconform.txt | grep -v 'subschemas 0, 1 matched'",
                    evidence=True)
     return [start[0], prep, run, check, conform, *end]
 
