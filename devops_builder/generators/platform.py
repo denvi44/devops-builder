@@ -109,7 +109,9 @@ COMPOSE_SERVICES: dict[str, dict] = {
     "distribution": {"image": "registry:2", "ports": ["5000:5000"], "volumes": ["registry-data:/var/lib/registry"]},
     "gitea": {"image": "gitea/gitea:latest", "ports": ["3001:3000", "2222:22"], "volumes": ["gitea-data:/data"]},
     "jenkins": {"image": "jenkins/jenkins:lts", "ports": ["8080:8080"], "volumes": ["jenkins-home:/var/jenkins_home"]},
-    "sonarqube": {"image": "sonarqube:community", "ports": ["9002:9000"], "volumes": ["sonarqube-data:/opt/sonarqube/data"]},
+    # mmap désactivé pour l'Elasticsearch embarqué : pas de vm.max_map_count à régler sur l'hôte
+    "sonarqube": {"image": "sonarqube:community", "ports": ["9002:9000"], "volumes": ["sonarqube-data:/opt/sonarqube/data"],
+                  "environment": {"SONAR_SEARCH_JAVAADDITIONALOPTS": "-Dnode.store.allow_mmap=false"}},
     # Vrai serveur (stockage intégré Raft), non publié sur l'hôte : à initialiser puis desceller (PIPELINE.md)
     "vault": {"image": "hashicorp/vault:latest", "command": ["server"],
               "environment": {"VAULT_ADDR": "http://127.0.0.1:8200"},
@@ -167,6 +169,12 @@ def install_script(ir: IR) -> dict[str, str]:
         if t == "linkerd":
             lines.append("helm upgrade --install linkerd-crds linkerd-edge/linkerd-crds --namespace linkerd --create-namespace")
         args = f" {c.args}" if c.args else ""
+        if t == "sonarqube":  # le chart exige l'édition et un code de sonde (sinon il refuse de s'installer)
+            lines += ["kubectl create namespace sonarqube --dry-run=client -o yaml | kubectl apply -f -",
+                      "kubectl -n sonarqube get secret sonarqube-monitoring >/dev/null 2>&1 || kubectl -n sonarqube "
+                      'create secret generic sonarqube-monitoring --from-literal=passcode="$(openssl rand -hex 16)"']
+            args += (" --set community.enabled=true --set monitoringPasscodeSecretName=sonarqube-monitoring"
+                     " --set monitoringPasscodeSecretKey=passcode")
         pre_idp, idp_args = identity.chart_args(ir, t)
         lines += pre_idp
         args += idp_args

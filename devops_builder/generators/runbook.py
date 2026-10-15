@@ -505,11 +505,56 @@ def _identity(ir: IR, files: dict[str, str]) -> list[str]:
                 f"Vérifier : `curl -fsS {identity.issuer(ir)}/.well-known/openid-configuration | jq -r .issuer`.", ""]
     wired = [ir.catalog[c.tool].name for c in identity.clients(ir)]
     if wired:
-        out += [f"Outils branchés : {', '.join(wired)}. Vault / OpenBao : relancer `scripts/vault-setup.sh` avec "
-                "`OIDC_CLIENT_SECRET` pour la connexion des personnes ; Argo CD et Grafana : `platform/install.sh` "
-                "reprend leurs secrets. Harbor et SonarQube : renseigner l'émetteur et le client dans leur "
-                "administration.", ""]
+        how = (["Vault / OpenBao : relancer `scripts/vault-setup.sh` avec `OIDC_CLIENT_SECRET` pour la connexion des "
+                "personnes"] if ir.has("vault") or ir.has("openbao") else [])
+        charts = [ir.catalog[t].name for t in ("argo-cd", "grafana", "harbor") if ir.has(t)]
+        if identity.kube_target(ir) and charts:
+            names = charts[0] if len(charts) == 1 else ", ".join(charts[:-1]) + " et " + charts[-1]
+            how.append(f"{names} : relancer `platform/install.sh`, qui reprend leurs secrets"
+                       + (f" (Harbor passe en connexion OIDC, groupe « {identity.admin_group(ir)} » administrateur)"
+                          if ir.has("harbor") else ""))
+        elif ir.has("grafana"):
+            how.append("Grafana : " + ("servi par Traefik à son adresse publique, " if ir.has("traefik") else "")
+                       + "secret par `deploy/secrets.sh`")
+        out += [f"Outils branchés : {', '.join(wired)}." + (" " + " ; ".join(how) + "." if how else ""), ""]
+    if ir.has("sonarqube") and tool == "dex":
+        out += ["SonarQube Community ne parle ni OIDC ni à Dex : brancher son authentification GitHub ou GitLab "
+                "intégrée (Administration › Authentification), avec une application OAuth de la forge.", ""]
     return out
+
+
+def _sonarqube(ir: IR) -> list[str]:
+    """SonarQube relié à Keycloak en SAML : réglages par l'API, groupe admins administrateur."""
+    from . import identity
+    client = next((c for c in identity.clients(ir) if c.tool == "sonarqube"), None)
+    if client is None:
+        return []
+    url = identity.tool_url(ir, client)
+    idp_url = identity.issuer(ir)
+    settings = [("sonar.core.serverBaseURL", '"$SONAR"'), ("sonar.auth.saml.applicationId", client.client_id),
+                ("sonar.auth.saml.providerName", "Keycloak"), ("sonar.auth.saml.providerId", '"$IDP"'),
+                ("sonar.auth.saml.loginUrl", '"$IDP/protocol/saml"'), ("sonar.auth.saml.certificate.secured", '"$cert"'),
+                ("sonar.auth.saml.user.login", "login"), ("sonar.auth.saml.user.name", "name"),
+                ("sonar.auth.saml.user.email", "email"), ("sonar.auth.saml.group.name", "groups"),
+                ("sonar.auth.saml.enabled", "true")]
+    return ["## SonarQube", "",
+            "SonarQube démarre avec le compte **admin / admin**, à changer aussitôt ; il se relie ensuite à Keycloak "
+            f"en SAML (client « {client.client_id} » du realm), et le groupe « {identity.ADMINS} » reçoit "
+            "l'administration :", "",
+            *_sh(f'SONAR="{url}"', f'IDP="{idp_url}"',
+                 'SONAR_ADMIN_PASSWORD="S$(openssl rand -hex 12)!a1"; echo "$SONAR_ADMIN_PASSWORD"   # à ranger',
+                 'curl -fsS -u admin:admin -X POST "$SONAR/api/users/change_password" -d login=admin '
+                 '-d previousPassword=admin --data-urlencode "password=$SONAR_ADMIN_PASSWORD"',
+                 "# certificat de signature du realm, lu dans ses métadonnées SAML",
+                 'cert="$(curl -fsS "$IDP/protocol/saml/descriptor" | grep -o \'<ds:X509Certificate>[^<]*\' '
+                 "| head -n 1 | cut -d '>' -f 2)\"",
+                 'sonar() { curl -fsS -u "admin:$SONAR_ADMIN_PASSWORD" -X POST "$SONAR/api/$1" "${@:2}"; }',
+                 *[f'sonar settings/set -d key={k} --data-urlencode "value={v.strip(chr(34))}"' if v.startswith('"')
+                   else f"sonar settings/set -d key={k} -d value={v}" for k, v in settings],
+                 f"sonar user_groups/create -d name={identity.ADMINS} >/dev/null",
+                 f"sonar permissions/add_group -d groupName={identity.ADMINS} -d permission=admin",
+                 'curl -fsS -o /dev/null -w "%{redirect_url}\\n" "$SONAR/sessions/init/saml?return_to=/"   '
+                 "# adresse de connexion de Keycloak attendue")]
 
 
 def _backups(ir: IR, files: dict[str, str]) -> list[str]:
@@ -617,7 +662,7 @@ def _dast(ir: IR) -> list[str]:
             "sans attendre passe à `FAIL`.", ""]
 
 SECTIONS = (_state, _ci_cloud, _infra, _platform, _identity, _vault, _app_secrets, _eso, _hosts, _gitops, _ci_vars,
-            _first_deploy, _zabbix, _dast, _backups, _dev, _upkeep)
+            _first_deploy, _sonarqube, _zabbix, _dast, _backups, _dev, _upkeep)
 
 
 def runbook(ir: IR, files: dict[str, str]) -> dict[str, str]:

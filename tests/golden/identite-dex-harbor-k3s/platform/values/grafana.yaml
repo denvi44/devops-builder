@@ -1,0 +1,16 @@
+# Généré par DevOps Builder — à relire avant usage. Grafana : connexion par Dex.
+grafana.ini:
+  server:
+    root_url: https://grafana.boutique.fr
+  auth.generic_oauth:
+    enabled: true
+    name: Dex
+    client_id: grafana
+    client_secret: $__env{GRAFANA_OIDC_SECRET}
+    scopes: openid profile email groups
+    auth_url: https://dex.boutique.fr/auth
+    token_url: https://dex.boutique.fr/token
+    api_url: https://dex.boutique.fr/userinfo
+    use_pkce: true
+    role_attribute_path: contains(groups[*], 'admins') && 'Admin' || 'Viewer'
+envFromSecret: grafana-oidc

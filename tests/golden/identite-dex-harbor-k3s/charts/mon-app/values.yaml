@@ -1,0 +1,16 @@
+# Généré par DevOps Builder — à relire avant usage.
+replicaCount: 2
+image:
+  repository: harbor.boutique.fr/mon-app/mon-app
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi

@@ -70,7 +70,7 @@ kubectl -n dex create secret generic dex-secrets --from-literal=DEX_CONNECTOR_ID
 
 Vérifier : `curl -fsS https://dex.boutique.fr/.well-known/openid-configuration | jq -r .issuer`.
 
-Outils branchés : Grafana. Vault / OpenBao : relancer `scripts/vault-setup.sh` avec `OIDC_CLIENT_SECRET` pour la connexion des personnes ; Argo CD et Grafana : `platform/install.sh` reprend leurs secrets. Harbor et SonarQube : renseigner l'émetteur et le client dans leur administration.
+Outils branchés : Grafana. Grafana : relancer `platform/install.sh`, qui reprend leurs secrets.
 
 ## 6. Variables CI
 

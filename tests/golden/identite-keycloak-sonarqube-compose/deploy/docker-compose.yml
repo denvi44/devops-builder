@@ -1,0 +1,125 @@
+# Généré par DevOps Builder — à relire avant usage.
+name: mon-app
+services:
+  mon-app:
+    image: ${IMAGE:-$CI_REGISTRY_IMAGE:latest}
+    restart: unless-stopped
+    environment:
+      PORT: '8000'
+      OIDC_ISSUER_URL: https://auth.boutique.fr/realms/mon-app
+      OIDC_CLIENT_ID: mon-app
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.mon-app.rule=Host(`mon-app.example.com`)
+    - traefik.http.routers.mon-app.entrypoints=websecure
+    - traefik.http.services.mon-app.loadbalancer.server.port=8000
+  traefik:
+    image: traefik:v3.1
+    command:
+    - --providers.docker=true
+    - --providers.docker.exposedbydefault=false
+    - --entrypoints.web.address=:80
+    - --entrypoints.web.http.redirections.entrypoint.to=websecure
+    - --entrypoints.web.http.redirections.entrypoint.scheme=https
+    - --entrypoints.websecure.address=:443
+    - --entrypoints.websecure.http.tls=true
+    - --entrypoints.websecure.http.tls.certresolver=letsencrypt
+    - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+    - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+    ports:
+    - 80:80
+    - 443:443
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    - traefik-letsencrypt:/letsencrypt
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+    - 9090:9090
+    volumes:
+    - prometheus-data:/prometheus
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+    - 3000:3000
+    volumes:
+    - grafana-data:/var/lib/grafana
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.grafana.rule=Host(`grafana.boutique.fr`)
+    - traefik.http.routers.grafana.entrypoints=websecure
+    - traefik.http.services.grafana.loadbalancer.server.port=3000
+    environment:
+      GF_SERVER_ROOT_URL: https://grafana.boutique.fr
+      GF_AUTH_GENERIC_OAUTH_ENABLED: 'true'
+      GF_AUTH_GENERIC_OAUTH_NAME: Keycloak
+      GF_AUTH_GENERIC_OAUTH_CLIENT_ID: grafana
+      GF_AUTH_GENERIC_OAUTH_SCOPES: openid profile email groups
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: https://auth.boutique.fr/realms/mon-app/protocol/openid-connect/auth
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: https://auth.boutique.fr/realms/mon-app/protocol/openid-connect/token
+      GF_AUTH_GENERIC_OAUTH_API_URL: https://auth.boutique.fr/realms/mon-app/protocol/openid-connect/userinfo
+      GF_AUTH_GENERIC_OAUTH_USE_PKCE: 'true'
+      GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH: contains(groups[*], 'admins') && 'Admin' || 'Viewer'
+    env_file:
+    - secrets/grafana.env
+  sonarqube:
+    image: sonarqube:community
+    ports:
+    - 9002:9000
+    volumes:
+    - sonarqube-data:/opt/sonarqube/data
+    environment:
+      SONAR_SEARCH_JAVAADDITIONALOPTS: -Dnode.store.allow_mmap=false
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.sonarqube.rule=Host(`sonarqube.boutique.fr`)
+    - traefik.http.routers.sonarqube.entrypoints=websecure
+    - traefik.http.services.sonarqube.loadbalancer.server.port=9000
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8
+    restart: unless-stopped
+    command:
+    - start
+    environment:
+      KC_DB: postgres
+      KC_DB_URL_HOST: keycloak-db
+      KC_DB_URL_DATABASE: keycloak
+      KC_DB_USERNAME: keycloak
+      KC_HOSTNAME: https://auth.boutique.fr
+      KC_HTTP_ENABLED: 'true'
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: 'true'
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin-temporaire
+    env_file:
+    - secrets/keycloak.env
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.keycloak.rule=Host(`auth.boutique.fr`)
+    - traefik.http.routers.keycloak.entrypoints=websecure
+    - traefik.http.services.keycloak.loadbalancer.server.port=8080
+  keycloak-db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_DB: keycloak
+    env_file:
+    - secrets/keycloak-db.env
+    volumes:
+    - keycloak-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+volumes:
+  grafana-data: {}
+  keycloak-db-data: {}
+  prometheus-data: {}
+  sonarqube-data: {}
+  traefik-letsencrypt: {}

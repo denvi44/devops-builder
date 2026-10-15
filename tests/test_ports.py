@@ -49,7 +49,8 @@ def test_chaine_complete_generee(hosting):
     ci = yaml.safe_load(result.files[".gitlab-ci.yml"])
     deploys = [k for k in ci if k.startswith("deploy-")]
     assert deploys == ["deploy-sandbox", "deploy-dev", "deploy-recette", "deploy-staging", "deploy-production"]
-    assert ci["deploy-production"]["rules"][0]["when"] == "manual"
+    # première règle : exclusion du pipeline de Renovate ; puis le déclenchement manuel
+    assert {"if": "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH", "when": "manual"} in ci["deploy-production"]["rules"]
     if hosting != "docker-host":
         values = result.files.get("charts/mon-app/values-recette.yaml") or \
             result.files["deploy/kustomize/overlays/recette/kustomization.yaml"]

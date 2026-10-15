@@ -221,6 +221,20 @@ def extra_cases(catalog) -> dict[str, Project]:
                                               envs="staging-prod"), catalog)
             zc.add("zap", "security", scan="api", target_url="https://api-recette.boutique.fr/openapi.json")
             out[f"dast-zap-{ci_id}"] = zc
+        # 0.18 : SonarQube relié à Keycloak en SAML (hôte Docker), Harbor en OIDC avec Dex (Kubernetes)
+        sq = build_starter(StarterAnswers(forge="gitlab", hosting="docker-host", envs="prod", identity="keycloak"),
+                           catalog)
+        sq.add("sonarqube", "test")
+        sq.add("grafana", "observability")
+        out["identite-keycloak-sonarqube-compose"] = brick(sq, "keycloak", hostname="auth.boutique.fr",
+                                                            tools_domain="boutique.fr")
+        hb = build_starter(StarterAnswers(forge="github", hosting="kubernetes", envs="staging-prod", identity="dex"),
+                           catalog)
+        for b in list(hb.bricks_for("ghcr")):
+            hb.remove(b.uid)
+        hb.add("harbor", "artifacts", url="harbor.boutique.fr")
+        hb.add("sonarqube", "test")
+        out["identite-dex-harbor-k3s"] = brick(hb, "dex", hostname="dex.boutique.fr", tools_domain="boutique.fr")
         out["identite-dex-compose-github"] = brick(build_starter(StarterAnswers(
             forge="github", hosting="vm", envs="staging-prod", identity="dex"), catalog), "dex",
             hostname="dex.boutique.fr")

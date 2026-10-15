@@ -465,7 +465,36 @@ exit 1
         Step("infra/keycloak : relu sans écart (plan -detailed-exitcode)",
              url + "tofu plan -detailed-exitcode -input=false", cwd=out / "infra" / "keycloak", env=tf, evidence=True),
         Step("Revendication « groups » d'un membre du groupe admins", groups, env=tf, evidence=True),
+        *_sonarqube_steps(out, ir, curlrc),
         *end,
+    ]
+
+
+def _sonarqube_steps(out: Path, ir, curlrc: str) -> list[Step]:
+    """SonarQube relié à Keycloak en SAML par le mode d'emploi joué tel quel, puis une connexion suivie jusqu'à la
+    page de Keycloak : le realm doit reconnaître la demande SAML du client sonarqube."""
+    from devops_builder.generators import identity
+    client = next((c for c in identity.clients(ir) if c.tool == "sonarqube"), None)
+    if client is None:
+        return []
+    sonar = identity.tool_url(ir, client)
+    cenv = _curl_env(curlrc, identity.host(ir), sonar.split("://", 1)[1])
+    block = "\n".join(runbook_blocks(out, "SonarQube")) or "false"
+    ready = (f"for _ in $(seq 1 90); do s=$(curl -fsS {sonar}/api/system/status 2>/dev/null | jq -r .status || true); "
+             '[ "$s" = UP ] && { echo "SonarQube : $s"; exit 0; }; sleep 5; done; exit 1')
+    login = f"""
+{block} | tee /tmp/saml-redirect.txt
+loc=$(tail -n 1 /tmp/saml-redirect.txt)
+echo "redirection : ${{loc%%\\?*}}"
+case "$loc" in {identity.issuer(ir)}/protocol/saml?SAMLRequest=*) ;; *) echo "redirection inattendue"; exit 1 ;; esac
+code=$(curl -sS -o /tmp/kc-login.html -w '%{{http_code}}' "$loc")
+echo "page de Keycloak : HTTP $code"
+grep -o 'id="kc-form-login"' /tmp/kc-login.html
+"""
+    return [
+        Step("SonarQube démarré, derrière Traefik en HTTPS", ready, env=cenv),
+        Step("Mode d'emploi SonarQube joué tel quel (mot de passe, SAML, groupe admins) ; connexion jusqu'à la page "
+             "de Keycloak", login, env=cenv, evidence=True),
     ]
 
 
@@ -657,6 +686,52 @@ echo "--- demandes de fusion ouvertes par Renovate :"
     ]
 
 
+PLATFORM_TOOLS = ("k3s", "helm", "traefik", "cert-manager", "dex", "harbor", "sonarqube", "prometheus", "grafana",
+                  "loki", "tempo", "argo-cd", "argo-rollouts", "kyverno", "falco", "keda", "opencost", "jaeger",
+                  "fluent-bit", "otel-collector", "cloudnative-pg", "kubescape", "gitea", "jenkins", "crossplane",
+                  "openbao", "external-secrets", "zot", "longhorn", "litmus", "chaos-mesh", "opensearch")
+
+HELM_TEMPLATE = r"""#!/usr/bin/env bash
+# « helm upgrade --install » rendu par « helm template » : chaque chart, avec les options du script généré, passe
+# ses propres contrôles (valeurs obligatoires, schéma) sans être installé ; les autres commandes passent telles quelles.
+set -euo pipefail
+if [ "${1:-}" = upgrade ] && [ "${2:-}" = --install ]; then
+  shift 2
+  args=()
+  for a in "$@"; do case "$a" in --wait|--create-namespace|--atomic) ;; *) args+=("$a") ;; esac; done
+  "$HELM_REAL" template "${args[@]}" > "$RENDER_DIR/${args[0]}.yaml"
+  echo "rendu : ${args[0]} ($(grep -c '^kind:' "$RENDER_DIR/${args[0]}.yaml") ressources)"
+  exit 0
+fi
+exec "$HELM_REAL" "$@"
+"""
+
+
+def _platform_steps(out: Path, ir) -> list[Step]:
+    """platform/install.sh d'un projet qui pose presque tous les charts de plateforme : chaque « helm upgrade »
+    rendu par « helm template » avec ses options (valeurs exigées par le chart, OIDC de Harbor), dans un vrai
+    cluster pour les commandes kubectl du script ; manifestes rendus passés à kubeconform."""
+    work = out.parent
+    cluster, ctx, start, end = _kind_common(ir, work)
+    wrapper = work / "bin" / "helm"
+    render = work / "rendu"
+    prep = Step("Enveloppe helm → helm template", f"mkdir -p {wrapper.parent} {render}\n"
+                f"cat > {wrapper} <<'SH'\n{HELM_TEMPLATE}SH\nchmod +x {wrapper}\ncommand -v helm")
+    run = Step("platform/install.sh, charts rendus avec les options générées",
+               f"export HELM_REAL=\"$(command -v helm)\" RENDER_DIR={render} PATH={wrapper.parent}:$PATH\n"
+               f"export HARBOR_OIDC_SECRET=e2e-secret\nkubectl config use-context {ctx}\nbash platform/install.sh",
+               cwd=out, evidence=True)
+    check = Step("Réglages OIDC de Harbor et charts exigeants (SonarQube) dans le rendu",
+                 f"grep -l CONFIG_OVERWRITE_JSON {render}/harbor.yaml\n"
+                 f"grep -o 'https://harbor.boutique.test' {render}/harbor.yaml | head -n 1\n"
+                 f"grep -c 'kind: StatefulSet' {render}/sonarqube.yaml\nls {render} | wc -l",
+                 evidence=True)
+    conform = Step("kubeconform sur les manifestes rendus (schémas Kubernetes ; CRD ignorées)",
+                   f"kubeconform -ignore-missing-schemas -skip CustomResourceDefinition -summary {render}/*.yaml",
+                   evidence=True)
+    return [start[0], prep, run, check, conform, *end]
+
+
 def _sops_steps(out: Path, ir) -> list[Step]:
     """SOPS comme le mode d'emploi : clé age, clé publique dans la brique et projet régénéré, valeurs chiffrées par
     secrets-seed.sh ; puis les lignes mêmes de la CI générée (sops vérifié, déchiffrement, deploy/secrets.sh)."""
@@ -813,7 +888,7 @@ SCENARIOS = {s.name: s for s in [
     Scenario("compose-identite-keycloak", "Hôte Docker : Keycloak et sa base derrière Traefik en HTTPS, realm "
              "appliqué par OpenTofu, revendication groups",
              lambda: _with(_project("docker-host", "gitlab", "gitlab-ci", "buildkit", "docker-compose", "traefik",
-                                    "keycloak"), keycloak={"hostname": "auth.boutique.test",
+                                    "keycloak", "sonarqube"), keycloak={"hostname": "auth.boutique.test",
                                                            "tools_domain": "boutique.test",
                                                            "app_url": "https://boutique.test"}),
              _keycloak_compose_steps, ("docker", "curl", "jq", "tofu")),
@@ -822,6 +897,12 @@ SCENARIOS = {s.name: s for s in [
              _starter(gitops=True, forge="gitlab",
                       params={"argo-cd": {"repo_url": "http://gitea:3000/e2e/gitops.git"}}),
              _argocd_steps, ("docker", "kind", "kubectl", "helm", "curl", "jq", "git")),
+    Scenario("kind-plateforme", "platform/install.sh d'un projet à trente charts : chacun rendu avec les options "
+             "générées (helm template), kubectl contre un vrai cluster, kubeconform",
+             lambda: _project("kubernetes", *GH, *PLATFORM_TOOLS,
+                              dex={"hostname": "dex.boutique.test", "tools_domain": "boutique.test",
+                                   "app_url": "https://boutique.test"}),
+             _platform_steps, ("docker", "kind", "kubectl", "helm", "kubeconform")),
     Scenario("kind-coffre-openbao", "OpenBao initialisé et configuré par les scripts générés, External Secrets, "
              "Valkey lu dans le coffre, PostgreSQL par CloudNativePG",
              _starter(secrets="openbao", database="postgresql", cache=True),

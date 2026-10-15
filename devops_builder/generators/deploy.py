@@ -51,6 +51,9 @@ def compose(ir: IR) -> dict[str, str]:
     services.update(identity.compose_services(ir))
     from . import zabbix
     services.update(zabbix.compose_services(ir))
+    for tid, labels in identity.compose_routes(ir).items():
+        if tid in services:
+            services[tid] = {**services[tid], "labels": labels}
     if "grafana" in services and identity.grafana_compose_env(ir):
         grafana = dict(services["grafana"])
         grafana["environment"] = {**grafana.get("environment", {}), **identity.grafana_compose_env(ir)}

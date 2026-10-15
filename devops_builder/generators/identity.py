@@ -36,15 +36,18 @@ class ToolClient:
     sub: str                 # sous-domaine attendu (https://<sub>.<domaine>)
     redirects: tuple[str, ...]  # chemins de retour sous l'adresse de l'outil
     var: str                 # variable de la pile Terraform qui porte l'adresse
+    saml: bool = False       # client SAML (SonarQube Community ne parle pas OIDC) : Keycloak seulement
+    port: int = 0            # port web du conteneur, routé par Traefik sur hôte Docker
 
 
 TOOL_CLIENTS = (
     ToolClient("vault", "vault", "vault", ("/ui/vault/auth/oidc/oidc/callback",), "vault_url"),
     ToolClient("openbao", "openbao", "openbao", ("/ui/vault/auth/oidc/oidc/callback",), "openbao_url"),
     ToolClient("argo-cd", "argo-cd", "argocd", ("/auth/callback",), "argocd_url"),
-    ToolClient("grafana", "grafana", "grafana", ("/login/generic_oauth",), "grafana_url"),
+    ToolClient("grafana", "grafana", "grafana", ("/login/generic_oauth",), "grafana_url", port=3000),
     ToolClient("harbor", "harbor", "harbor", ("/c/oidc/callback",), "harbor_url"),
-    ToolClient("sonarqube", "sonarqube", "sonarqube", ("/oauth2/callback/oidc",), "sonarqube_url"),
+    ToolClient("sonarqube", "sonarqube", "sonarqube", ("/oauth2/callback/saml",), "sonarqube_url", saml=True,
+               port=9000),
 )
 CLI_CALLBACK = "http://localhost:8250/oidc/callback"  # connexion « vault login -method=oidc » depuis le poste
 
@@ -103,8 +106,29 @@ def app_url(ir: IR) -> str:
 
 
 def clients(ir: IR) -> list[ToolClient]:
-    """Outils du pipeline branchés sur la connexion unique."""
-    return [c for c in TOOL_CLIENTS if ir.has(c.tool)]
+    """Outils du pipeline branchés sur la connexion unique (Dex ne parle pas SAML : SonarQube passe alors par
+    l'authentification GitHub ou GitLab qu'il intègre)."""
+    return [c for c in TOOL_CLIENTS if ir.has(c.tool) and (idp(ir) == "keycloak" or not c.saml)]
+
+
+def oidc_clients(ir: IR) -> list[ToolClient]:
+    return [c for c in clients(ir) if not c.saml]
+
+
+def compose_routes(ir: IR) -> dict[str, list[str]]:
+    """Libellés Traefik des outils branchés sur la connexion unique, sur hôte Docker : leur adresse publique
+    (https://<outil>.<domaine>) est celle que connaît le fournisseur d'identité."""
+    if not idp(ir) or not compose_target(ir) or not ir.has("traefik"):
+        return {}
+    out = {}
+    for c in clients(ir):
+        if c.port:
+            name = c.client_id
+            out[c.tool] = ["traefik.enable=true",
+                           f"traefik.http.routers.{name}.rule=Host(`{tool_url(ir, c).split('://', 1)[1]}`)",
+                           f"traefik.http.routers.{name}.entrypoints=websecure",
+                           f"traefik.http.services.{name}.loadbalancer.server.port={c.port}"]
+    return out
 
 
 def tool_url(ir: IR, c: ToolClient) -> str:
@@ -402,6 +426,29 @@ def chart_args(ir: IR, tool_id: str) -> tuple[list[str], str]:
     if tool_id == "argo-cd" and ir.has("argo-cd"):
         lines = _secret_lines("ARGO_CD_OIDC_SECRET", out, "argo_cd_client_secret", "argo-cd")
         return lines, values + ' --set-string "configs.secret.extra.oidc\\.clientSecret=$ARGO_CD_OIDC_SECRET"'
+    if tool_id == "harbor" and ir.has("harbor"):
+        url = tool_url(ir, next(c for c in TOOL_CLIENTS if c.tool == "harbor"))
+        host_ = url.split("://", 1)[1]
+        name = "Keycloak" if idp(ir) == "keycloak" else "Dex"
+        settings = ('{"auth_mode":"oidc_auth","oidc_name":"' + name + '","oidc_endpoint":"' + str(issuer(ir)) +
+                    '","oidc_client_id":"harbor","oidc_client_secret":"%s","oidc_scope":"openid,profile,email,groups,'
+                    'offline_access","oidc_groups_claim":"groups","oidc_admin_group":"' + admin_group(ir) +
+                    '","oidc_user_claim":"preferred_username","oidc_auto_onboard":"true","oidc_verify_cert":"true"}')
+        lines = _secret_lines("HARBOR_OIDC_SECRET", out, "harbor_client_secret", "harbor")
+        # réglages OIDC lus par Harbor à chaque démarrage (CONFIG_OVERWRITE_JSON) ; seulement avec le secret du client
+        lines += ["HARBOR_OIDC_ARGS=()",
+                  'if [ -n "${HARBOR_OIDC_SECRET:-}" ]; then',
+                  '  HARBOR_SETTINGS="$(mktemp)"',
+                  "  printf '" + settings + "' \"$HARBOR_OIDC_SECRET\" > \"$HARBOR_SETTINGS\"",
+                  '  HARBOR_OIDC_ARGS=(--set-file core.configureUserSettings="$HARBOR_SETTINGS")',
+                  "fi"]
+        cls = " --set expose.ingress.className=traefik" if ir.has("traefik") else ""
+        return lines, (f" --set externalURL={url} --set expose.ingress.hosts.core={host_}{cls}"
+                       ' "${HARBOR_OIDC_ARGS[@]}"')
+    if tool_id == "sonarqube" and ir.has("sonarqube") and idp(ir) == "keycloak":
+        url = tool_url(ir, next(c for c in TOOL_CLIENTS if c.tool == "sonarqube"))
+        cls = " --set ingress.ingressClassName=traefik" if ir.has("traefik") else ""
+        return [], f" --set ingress.enabled=true --set 'ingress.hosts[0].name={url.split('://', 1)[1]}'{cls}"
     if tool_id == "grafana" and ir.has("grafana"):
         lines = _secret_lines("GRAFANA_OIDC_SECRET", out, "grafana_client_secret", "grafana")
         lines += ["kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -",
@@ -462,7 +509,9 @@ def terraform_stack(ir: IR) -> dict[str, str]:
                 ("valid_post_logout_redirect_uris", '["${var.app_url}/*"]'), ("web_origins", "[var.app_url]")]),
             _default_scopes("app")]
     outputs = [f"# {HEADER}", f'output "issuer" {{\n  value = "{issuer(ir)}"\n}}']
-    for c in clients(ir):
+    for c in [c for c in clients(ir) if c.saml]:
+        main += _saml_client(ir, c)
+    for c in oidc_clients(ir):
         label = c.client_id.replace("-", "_")
         redirects = ", ".join([f'"${{var.{c.var}}}{r}"' for r in c.redirects]
                               + ([f'"{CLI_CALLBACK}"'] if c.tool in ("vault", "openbao") else []))
@@ -476,6 +525,33 @@ def terraform_stack(ir: IR) -> dict[str, str]:
     return {f"{KC_DIR}/versions.tf": versions, f"{KC_DIR}/main.tf": "\n\n".join(main) + "\n",
             f"{KC_DIR}/variables.tf": "\n\n".join(variables) + "\n", f"{KC_DIR}/outputs.tf": "\n\n".join(outputs) + "\n",
             f"{KC_DIR}/.gitignore": ".terraform/\n*.tfstate\n*.tfstate.*\n*.tfplan\n"}
+
+
+SAML_ATTRIBUTES = (("login", "username"), ("name", "firstName"), ("email", "email"))
+
+
+def _saml_client(ir: IR, c: ToolClient) -> list[str]:
+    """Client SAML (SonarQube) : assertions signées, identifiant, nom, adresse et groupes en attributs."""
+    label = c.client_id.replace("-", "_")
+    out = [f"# {ir.catalog[c.tool].name} : SAML (son édition Community ne parle pas OIDC)\n" + _block(
+        "keycloak_saml_client", label, [
+            ("realm_id", "keycloak_realm.main.id"), ("client_id", f'"{c.client_id}"'),
+            ("name", f'"{ir.catalog[c.tool].name}"'), ("sign_documents", "true"), ("sign_assertions", "true"),
+            ("client_signature_required", "false"), ("name_id_format", '"username"'),
+            ("valid_redirect_uris", f'["${{var.{c.var}}}{c.redirects[0]}"]'), ("base_url", f"var.{c.var}")])]
+    for attr, prop in SAML_ATTRIBUTES:
+        out.append(_block("keycloak_saml_user_property_protocol_mapper", f"{label}_{attr}", [
+            ("realm_id", "keycloak_realm.main.id"), ("client_id", f"keycloak_saml_client.{label}.id"),
+            ("name", f'"{attr}"'), ("user_property", f'"{prop}"'), ("saml_attribute_name", f'"{attr}"'),
+            ("saml_attribute_name_format", '"Basic"')]))
+    groups = _block("keycloak_generic_protocol_mapper", f"{label}_groups", [
+        ("realm_id", "keycloak_realm.main.id"), ("client_id", f"keycloak_saml_client.{label}.id"),
+        ("name", '"groups"'), ("protocol", '"saml"'), ("protocol_mapper", '"saml-group-membership-mapper"')])
+    # attribut sur plusieurs lignes : « tofu fmt » ne l'aligne pas sur les précédents
+    out.append(groups.removesuffix("}") + '  config = {\n    "attribute.name"       = "groups"\n'
+               '    "attribute.nameformat" = "Basic"\n    "full.path"            = "false"\n'
+               '    "single"               = "true"\n  }\n}')
+    return out
 
 
 def _block(kind: str, name: str, rows: list[tuple[str, str]]) -> str:

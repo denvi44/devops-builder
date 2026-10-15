@@ -44,6 +44,11 @@ services:
     - 3000:3000
     volumes:
     - grafana-data:/var/lib/grafana
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.grafana.rule=Host(`grafana.example.com`)
+    - traefik.http.routers.grafana.entrypoints=websecure
+    - traefik.http.services.grafana.loadbalancer.server.port=3000
     environment:
       GF_SERVER_ROOT_URL: https://grafana.example.com
       GF_AUTH_GENERIC_OAUTH_ENABLED: 'true'

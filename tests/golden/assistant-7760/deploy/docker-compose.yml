@@ -48,6 +48,8 @@ services:
     - 9002:9000
     volumes:
     - sonarqube-data:/opt/sonarqube/data
+    environment:
+      SONAR_SEARCH_JAVAADDITIONALOPTS: -Dnode.store.allow_mmap=false
 volumes:
   grafana-data: {}
   prometheus-data: {}
