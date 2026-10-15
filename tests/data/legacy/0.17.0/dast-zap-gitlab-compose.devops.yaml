@@ -1,0 +1,74 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: docker-host
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: 61e1ea81
+    tool: gitlab
+    params: {}
+  build:
+  - uid: 0c8d3693
+    tool: gitlab-ci
+    params: {}
+  - uid: 0526e524
+    tool: buildkit
+    params: {}
+  - uid: 6777f53c
+    tool: renovate
+    params: {}
+  test:
+  - uid: cc86b036
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: d4c1ad53
+    tool: gitleaks
+    params: {}
+  - uid: f1315383
+    tool: trivy
+    params: {}
+  - uid: f40d9dbe
+    tool: cosign
+    params: {}
+  - uid: 49fc4b44
+    tool: zap
+    params:
+      target_url: https://recette.boutique.fr
+  artifacts: []
+  infrastructure: []
+  deploy:
+  - uid: 783597cb
+    tool: docker-compose
+    params: {}
+  platform:
+  - uid: 0df17c08
+    tool: traefik
+    params: {}
+  observability:
+  - uid: 35dba1f0
+    tool: prometheus
+    params: {}
+  - uid: b8e05c1f
+    tool: grafana
+    params: {}

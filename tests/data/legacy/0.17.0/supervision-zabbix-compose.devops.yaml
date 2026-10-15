@@ -1,0 +1,72 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: docker-host
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: 6f798848
+    tool: gitlab
+    params: {}
+  build:
+  - uid: bc27703e
+    tool: gitlab-ci
+    params: {}
+  - uid: 485337df
+    tool: buildkit
+    params: {}
+  - uid: 0f7b6816
+    tool: renovate
+    params: {}
+  test:
+  - uid: 2387494a
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: 4f425939
+    tool: gitleaks
+    params: {}
+  - uid: e6829961
+    tool: trivy
+    params: {}
+  - uid: 7b23d787
+    tool: cosign
+    params: {}
+  artifacts: []
+  infrastructure: []
+  data:
+  - uid: 8463abc5
+    tool: postgresql
+    params: {}
+  deploy:
+  - uid: cf37b867
+    tool: docker-compose
+    params: {}
+  platform:
+  - uid: f801832f
+    tool: traefik
+    params: {}
+  observability:
+  - uid: 22ef4e15
+    tool: zabbix
+    params:
+      hostname: zabbix.boutique.fr

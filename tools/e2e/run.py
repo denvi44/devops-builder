@@ -632,6 +632,9 @@ echo "dépôt privé e2e/gitops créé"
         Step("Argo CD applique le nouveau commit (lecture du dépôt demandée)", deployed("e2e-2"), evidence=True),
         Step("Pipeline relancé sur la même image : rien à pousser, pas d'échec", ci_job("e2e-2"), evidence=True),
         Step("Historique du dépôt GitOps", log, evidence=True),
+        Step("État de l'application Argo CD", f"kubectl --context {ctx} -n argocd get application {ns} "
+             "-o jsonpath='{.status.sync.status} {.status.health.status}{\"\\n\"}{.status.conditions}{\"\\n\"}"
+             "{.status.operationState.message}{\"\\n\"}' || true", always=True, evidence=True),
         *end[:-1],
         Step("Arrêt de Gitea", "docker rm -f gitea-e2e", always=True),
         end[-1],

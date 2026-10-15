@@ -1,0 +1,80 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: vm
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: 4266febd
+    tool: github
+    params: {}
+  build:
+  - uid: a6da9a77
+    tool: github-actions
+    params: {}
+  - uid: c77d01b4
+    tool: buildkit
+    params: {}
+  - uid: e14cad39
+    tool: dependabot
+    params: {}
+  test:
+  - uid: fbef022a
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: 740b04b2
+    tool: gitleaks
+    params: {}
+  - uid: 7fe7efdb
+    tool: trivy
+    params: {}
+  - uid: '76998167'
+    tool: cosign
+    params: {}
+  artifacts:
+  - uid: b6d852c7
+    tool: ghcr
+    params: {}
+  infrastructure:
+  - uid: 0c01e8b8
+    tool: ansible
+    params: {}
+  deploy:
+  - uid: 16c1f4ab
+    tool: docker-compose
+    params: {}
+  platform:
+  - uid: 05e3c837
+    tool: traefik
+    params: {}
+  - uid: 955595a5
+    tool: dex
+    params:
+      hostname: dex.boutique.fr
+  observability:
+  - uid: f1f159ad
+    tool: prometheus
+    params: {}
+  - uid: '13556259'
+    tool: grafana
+    params: {}

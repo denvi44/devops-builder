@@ -20,10 +20,12 @@ défauts trouvés et corrigés (voir CHANGELOG). ZAP et l'aide au dimensionnemen
 Reste pour une 0.17.x : `apply` puis `destroy` sur au moins un cloud (compte de test à fournir), et Dex
 exécuté sur Kubernetes.
 
-## 0.18 — Fermer les limites qui piègent
+## 0.18 — Fermer les limites qui piègent (publiée le 15 octobre)
 
-Moindre privilège des rôles de CI créés par le mode d'emploi, verrou d'état Terraform pour Scaleway, OVHcloud
-et Outscale, connexion OIDC de Harbor et SonarQube, job Renovate hors GitHub.
+Deux identités de CI par cloud (infrastructure aux droits étendus, déploiement limité), verrou d'état Terraform
+sur Scaleway et OVHcloud, connexion unique de Harbor (OIDC) et SonarQube (SAML avec Keycloak), Renovate planifié
+dans GitLab CI et Gitea Actions. Le scénario `kind-plateforme` rend vingt-huit charts avec les options générées.
+Reste : éprouver les droits réduits de la CI sur un vrai compte cloud.
 
 ## 0.19 — Distribution
 

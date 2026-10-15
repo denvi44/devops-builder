@@ -1,0 +1,93 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: kubernetes
+environments:
+- id: dev
+  label: ''
+  kind: dev
+  approval: false
+  cluster: null
+  overrides:
+    zap:
+      target_url: https://dev.boutique.fr
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: c748c350
+    tool: github
+    params: {}
+  build:
+  - uid: bde11903
+    tool: github-actions
+    params: {}
+  - uid: fb0432bd
+    tool: buildkit
+    params: {}
+  - uid: 984cbd0e
+    tool: dependabot
+    params: {}
+  test:
+  - uid: 32caab14
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: ee7094d5
+    tool: gitleaks
+    params: {}
+  - uid: 994fd438
+    tool: trivy
+    params: {}
+  - uid: 6fad6df1
+    tool: cosign
+    params: {}
+  - uid: 97e41567
+    tool: zap
+    params:
+      scan: full
+      blocking: true
+      environment: dev
+  artifacts:
+  - uid: 2ab1ea85
+    tool: ghcr
+    params: {}
+  infrastructure:
+  - uid: 3542b9d6
+    tool: k3s
+    params: {}
+  deploy:
+  - uid: 9d649d1c
+    tool: helm
+    params: {}
+  platform:
+  - uid: a4bcae8d
+    tool: traefik
+    params: {}
+  - uid: 088d4e06
+    tool: cert-manager
+    params: {}
+  observability:
+  - uid: ad8eb9ee
+    tool: prometheus
+    params: {}
+  - uid: 00fdf657
+    tool: grafana
+    params: {}

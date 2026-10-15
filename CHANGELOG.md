@@ -4,7 +4,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
-## Non publié — lot 0.18 en cours
+## 0.18.0 — 2026-10-15 — Fermer les limites qui piègent
+
+Droits de la CI séparés, verrou d'état sur les clouds européens, connexion unique de Harbor et SonarQube,
+Renovate hors GitHub ; trois charts qui ne s'installaient pas (SonarQube, Loki) ou dépréciés (Grafana, Tempo),
+trouvés par le nouveau scénario `kind-plateforme`.
 
 ### Ajouté
 - **Deux identités de CI par cloud** (AWS, Google Cloud, Azure, connexion OIDC) : les jobs d'infrastructure (plan,

@@ -1,0 +1,93 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: vm
+environments:
+- id: dev
+  label: ''
+  kind: dev
+  approval: false
+  cluster: null
+  host: hors-production
+  overrides: {}
+- id: recette
+  label: ''
+  kind: recette
+  approval: false
+  cluster: null
+  host: hors-production
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: 8778a004
+    tool: gitlab
+    params: {}
+  build:
+  - uid: '66698533'
+    tool: gitlab-ci
+    params: {}
+  - uid: 1757fd89
+    tool: buildkit
+    params: {}
+  - uid: bb4d2ed4
+    tool: renovate
+    params: {}
+  test:
+  - uid: 058ff2a0
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: 8f54f78f
+    tool: gitleaks
+    params: {}
+  - uid: 84d240e0
+    tool: trivy
+    params: {}
+  - uid: e2497e6c
+    tool: cosign
+    params: {}
+  artifacts: []
+  infrastructure:
+  - uid: 4fe5f076
+    tool: aws
+    params: {}
+  - uid: 880cb4ec
+    tool: ansible
+    params: {}
+  - uid: 4ce30cff
+    tool: aws-ec2
+    params: {}
+  - uid: ebb52ba7
+    tool: opentofu
+    params: {}
+  - uid: 41f146d9
+    tool: s3
+    params: {}
+  deploy:
+  - uid: 85bcdc52
+    tool: docker-compose
+    params: {}
+  platform:
+  - uid: fc17296a
+    tool: traefik
+    params: {}
+  observability:
+  - uid: 18ce37a9
+    tool: prometheus
+    params: {}
+  - uid: 9a97259e
+    tool: grafana
+    params: {}
