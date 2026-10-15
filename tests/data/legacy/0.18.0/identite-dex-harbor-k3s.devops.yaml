@@ -1,0 +1,88 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: kubernetes
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: 2d18940e
+    tool: github
+    params: {}
+  build:
+  - uid: 15c9ff5a
+    tool: github-actions
+    params: {}
+  - uid: b8be089a
+    tool: buildkit
+    params: {}
+  - uid: 22d42fe0
+    tool: dependabot
+    params: {}
+  test:
+  - uid: 4b12ed3c
+    tool: unit-tests
+    params: {}
+  - uid: d3577675
+    tool: sonarqube
+    params: {}
+  security:
+  - uid: 7218bbc8
+    tool: gitleaks
+    params: {}
+  - uid: 54878e70
+    tool: trivy
+    params: {}
+  - uid: 507e2d96
+    tool: cosign
+    params: {}
+  artifacts:
+  - uid: 193ba2df
+    tool: harbor
+    params:
+      url: harbor.boutique.fr
+  infrastructure:
+  - uid: 86f1df8e
+    tool: k3s
+    params: {}
+  deploy:
+  - uid: 777ee9c0
+    tool: helm
+    params: {}
+  platform:
+  - uid: 27a71833
+    tool: traefik
+    params: {}
+  - uid: c54d78aa
+    tool: cert-manager
+    params: {}
+  - uid: 1a441d88
+    tool: dex
+    params:
+      hostname: dex.boutique.fr
+      tools_domain: boutique.fr
+  observability:
+  - uid: 43c5b9b0
+    tool: prometheus
+    params: {}
+  - uid: f58906f4
+    tool: grafana
+    params: {}

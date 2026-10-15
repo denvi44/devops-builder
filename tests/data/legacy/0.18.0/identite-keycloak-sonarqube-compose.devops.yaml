@@ -1,0 +1,75 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: docker-host
+environments:
+- id: production
+  label: ''
+  kind: production
+  approval: false
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: e59a8f97
+    tool: gitlab
+    params: {}
+  build:
+  - uid: 7ef3417b
+    tool: gitlab-ci
+    params: {}
+  - uid: 0c18a313
+    tool: buildkit
+    params: {}
+  - uid: db68d53c
+    tool: renovate
+    params: {}
+  test:
+  - uid: 498c59df
+    tool: unit-tests
+    params: {}
+  - uid: 54cdc6ed
+    tool: sonarqube
+    params: {}
+  security:
+  - uid: 5f5ad06c
+    tool: gitleaks
+    params: {}
+  - uid: 2156c77a
+    tool: trivy
+    params: {}
+  - uid: d2c72349
+    tool: cosign
+    params: {}
+  artifacts: []
+  infrastructure: []
+  deploy:
+  - uid: dc558ed7
+    tool: docker-compose
+    params: {}
+  platform:
+  - uid: 535e0c8b
+    tool: traefik
+    params: {}
+  - uid: 4b378120
+    tool: keycloak
+    params:
+      hostname: auth.boutique.fr
+      tools_domain: boutique.fr
+  observability:
+  - uid: e4997307
+    tool: prometheus
+    params: {}
+  - uid: fd49ca26
+    tool: grafana
+    params: {}
+  - uid: f0796945
+    tool: grafana
+    params: {}

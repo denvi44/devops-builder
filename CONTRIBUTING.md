@@ -79,6 +79,21 @@ l'outil de référence (schéma, linter, `tofu validate`, ShellCheck) dans les t
 - Accessibilité : chaque contrôle de l'interface a un nom accessible, et l'information ne passe jamais par la
   couleur seule.
 
+## Publier une version
+
+Aucune étiquette ne se crée à la main :
+
+1. Sur `main`, la version est à jour dans `pyproject.toml` et `devops_builder/__init__.py`, et `CHANGELOG.md` a sa
+   section `## X.Y.Z — date — titre` (elle devient les notes de la publication).
+2. Actions → **Publication** → Run workflow, sur `main`, avec la version `X.Y.Z`.
+3. Le workflow vérifie la version, le journal et que l'étiquette est libre, relance les tests, construit le paquet
+   et les exécutables (Linux, Windows, macOS), les éprouve, les atteste, publie sur PyPI, puis crée l'étiquette
+   `vX.Y.Z` et la publication GitHub avec les fichiers et `SHA256SUMS`.
+
+La publication sur PyPI est « de confiance » : PyPI reconnaît le dépôt `denvi44/devops-builder`, le workflow
+`publication.yml` et l'environnement GitHub `pypi` ; aucun mot de passe ni jeton n'est stocké. Poussé sur une
+autre branche qui touche `packaging/` ou le workflow, celui-ci ne fait qu'un essai, sans rien publier.
+
 ## Licence des contributions
 
 Le projet est sous licence Apache 2.0. Comme le prévoit sa section 5, une contribution proposée au projet est

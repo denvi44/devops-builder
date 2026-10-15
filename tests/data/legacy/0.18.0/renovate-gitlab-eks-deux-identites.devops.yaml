@@ -1,0 +1,88 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: kubernetes-managed
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: fb23076b
+    tool: gitlab
+    params: {}
+  build:
+  - uid: 4aa38a31
+    tool: gitlab-ci
+    params: {}
+  - uid: bb71ee27
+    tool: buildkit
+    params: {}
+  - uid: 55bddaaa
+    tool: renovate
+    params: {}
+  - uid: c407a967
+    tool: renovate
+    params: {}
+  test:
+  - uid: 2c10f37e
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: 05f42069
+    tool: gitleaks
+    params: {}
+  - uid: 3bea73ce
+    tool: trivy
+    params: {}
+  - uid: b72fe096
+    tool: cosign
+    params: {}
+  artifacts:
+  - uid: 3779d8a1
+    tool: ecr
+    params: {}
+  infrastructure:
+  - uid: f9b3367b
+    tool: aws
+    params: {}
+  - uid: 24e0a2b6
+    tool: eks
+    params: {}
+  - uid: c3742ced
+    tool: opentofu
+    params: {}
+  - uid: f5590995
+    tool: s3
+    params: {}
+  deploy:
+  - uid: 53fe7d57
+    tool: helm
+    params: {}
+  platform:
+  - uid: f649a39b
+    tool: cert-manager
+    params: {}
+  observability:
+  - uid: 88ebe005
+    tool: prometheus
+    params: {}
+  - uid: 12b3cf1e
+    tool: grafana
+    params: {}

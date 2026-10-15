@@ -4,6 +4,32 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## 0.19.0 — 2026-10-15 — Distribution
+
+S'installe sans cloner le dépôt : paquet PyPI ou exécutable autonome, chacun avec sa preuve de provenance.
+Les fichiers générés ne changent pas.
+
+### Ajouté
+- **Paquet PyPI `izinum-devops-builder`** (« devops-builder » y était déjà pris ; la commande reste
+  `devops-builder`) : `pipx install izinum-devops-builder`. Sous pipx, les conseils d'installation des linters
+  deviennent `pipx inject izinum-devops-builder …`.
+- **Exécutables sans Python** pour Linux x86-64, Windows x86-64 et macOS Apple Silicon (`DevOps Builder.app`),
+  construits par PyInstaller et éprouvés sur chaque système avant publication (version, `check`, `generate`,
+  démarrage de l'interface). Non signés pour l'instant : le README dit comment passer SmartScreen et Gatekeeper.
+- **Attestations de provenance** (SLSA, `gh attestation verify`) pour chaque exécutable et le paquet, et
+  `SHA256SUMS` dans chaque publication ; le paquet PyPI porte aussi les attestations PEP 740.
+- **Workflow « Publication »** : une version se publie depuis Actions, sans étiquette créée à la main ; il vérifie
+  version, journal et étiquette libre, relance les tests, publie sur PyPI par publication de confiance (aucun
+  secret stocké), puis crée l'étiquette et la publication GitHub avec les notes tirées du journal. Sur une branche,
+  il construit et éprouve sans publier.
+- **CI complète** : un job installe OpenTofu et un miroir des providers (`tools/miroir_tofu.py`), kubeconform,
+  sops, age et Ansible ; chaque pile Terraform des projets de référence passe `tofu validate`, et un test sauté y
+  fait échouer la CI. La CI tourne aussi sur les branches `lot-*`.
+
+### Corrigé
+- Ligne de commande : une sortie redirigée sous Windows (page de code cp1252) ne s'arrête plus sur un caractère
+  qu'elle ne sait pas écrire.
+
 ## 0.18.0 — 2026-10-15 — Fermer les limites qui piègent
 
 Droits de la CI séparés, verrou d'état sur les clouds européens, connexion unique de Harbor et SonarQube,

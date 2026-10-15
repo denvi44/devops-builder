@@ -27,11 +27,14 @@ sur Scaleway et OVHcloud, connexion unique de Harbor (OIDC) et SonarQube (SAML a
 dans GitLab CI et Gitea Actions. Le scénario `kind-plateforme` rend vingt-huit charts avec les options générées.
 Reste : éprouver les droits réduits de la CI sur un vrai compte cloud.
 
-## 0.19 — Distribution
+## 0.19 — Distribution (fait)
 
-Dépôt public sur GitHub (fait en 0.17), CI publique complète (miroir OpenTofu, kubeconform), script
-de version, `pipx install devops-builder`, exécutables Windows, macOS et Linux signés avec attestation de
-provenance.
+`pipx install izinum-devops-builder` (« devops-builder » était pris sur PyPI) ; exécutables Windows, macOS
+(Apple Silicon) et Linux avec attestation de provenance et sommes SHA-256 ; workflow de publication qui crée
+l'étiquette, publie sur PyPI sans secret stocké et rédige la publication depuis le journal ; CI complète
+(OpenTofu et son miroir de providers, kubeconform, sops, Ansible) où aucun test n'est sauté.
+Reste : signer les exécutables (certificat Authenticode, compte Apple Developer pour la notarisation) et un
+exécutable macOS Intel.
 
 ## 0.20 — Qualité produit
 

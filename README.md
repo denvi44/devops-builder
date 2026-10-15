@@ -30,16 +30,45 @@ Le détail de chaque fonction, avec les captures d'écran : [docs/fonctionnalite
 
 ## Installation
 
-Il faut Python 3.11 à 3.14 (PySide6 6.11 ne s'installe pas sous Python 3.15 ; sous macOS, `pipx install --python python3.13 …` choisit la version). PySide6 est limité aux versions 6.11 : la 6.12.0 a un défaut de comptage de références qui fait planter l'interpréteur (à la sortie sous Python 3.11, de façon intermittente sous 3.12).
+**Avec Python** (3.11 à 3.14), par [pipx](https://pipx.pypa.io/) qui isole l'application :
+
+```bash
+pipx install izinum-devops-builder          # sous macOS : pipx install --python python3.13 izinum-devops-builder
+pipx inject izinum-devops-builder check-jsonschema actionlint-py shellcheck-py   # linters de la validation, facultatif
+devops-builder                              # l'interface ; devops-builder --help pour la ligne de commande
+```
+
+Le paquet s'appelle `izinum-devops-builder` sur PyPI (« devops-builder » y était déjà pris) ; la commande reste
+`devops-builder`. PySide6 est limité aux versions 6.11 (la 6.12.0 fait planter l'interpréteur) et ne s'installe pas
+sous Python 3.15. Sous Linux, Qt a besoin des bibliothèques système habituelles (`libxkbcommon`, `libEGL`,
+`fontconfig`, `libxcb-cursor0`).
+
+**Sans Python** : chaque [publication](https://github.com/denvi44/devops-builder/releases) porte un exécutable
+pour Linux x86-64 (`.tar.gz`, glibc 2.35 ou plus, Ubuntu 22.04 et suivantes), Windows x86-64 (`.zip`) et macOS
+Apple Silicon (`.zip` contenant `DevOps Builder.app`). Décompresser, puis lancer `devops-builder` (Linux),
+`devops-builder.exe` (Windows) ou l'application. Les exécutables ne sont **pas signés** pour l'instant :
+
+- Windows : SmartScreen avertit au premier lancement (« Informations complémentaires » → « Exécuter quand même ») ;
+- macOS : Gatekeeper refuse une application téléchargée non notariée ; après vérification (ci-dessous), lever la
+  quarantaine avec `xattr -dr com.apple.quarantine "DevOps Builder.app"`.
+
+Ce qui remplace la signature pour l'instant : chaque fichier publié (exécutables, paquet PyPI) porte une
+attestation de provenance qui prouve qu'il a été construit par le workflow `publication.yml` de ce dépôt, à partir
+de l'étiquette publiée, et la publication donne leurs sommes SHA-256 (`SHA256SUMS`).
+
+```bash
+gh attestation verify devops-builder-0.19.0-macos-arm64.zip --repo denvi44/devops-builder
+sha256sum -c SHA256SUMS --ignore-missing
+```
+
+Pour travailler sur le code :
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate          # Windows : .venv\Scripts\activate
-pip install -e .                   # ou pip install -e ".[validate]" pour les linters Python
+pip install -e ".[dev]"
 devops-builder                     # ou : python -m devops_builder
 ```
-
-Sous Linux, Qt a besoin des bibliothèques système habituelles (`libxkbcommon`, `libEGL`, `fontconfig`).
 
 ## Utilisation
 
@@ -137,7 +166,7 @@ tools/
   screenshot.py              captures hors écran de l'interface
 tests/              règles, générateurs, interface (hors écran), non-régression
   golden/           sorties figées de 156 projets (exemples, matrice, échantillon de l'assistant, environnements, ports, données, IaC, Floci, Ansible et machines)
-  data/legacy/      projets enregistrés par chaque version, de la 0.1 à la 0.17
+  data/legacy/      projets enregistrés par chaque version, de la 0.1 à la 0.18
   minihelm.py       rendu des gabarits Helm générés, sans le binaire helm
 tools/compare_captures.py  écart visuel entre deux séries de captures
 ```
@@ -172,11 +201,13 @@ pip install -e ".[dev]"
 QT_QPA_PLATFORM=offscreen pytest
 ```
 
-921 tests : un par règle, l'application de chaque correction proposée, une matrice de combinaisons CI × déploiement × cloud × environnements validées contre les schémas, avec contrôle qu'aucune brique n'y reste sans fichier, les 15 300 combinaisons de l'assistant (aucune ne doit produire d'erreur bloquante), la validation, l'écriture prudente, l'export Git vers des dépôts locaux (dont les options de push GitLab), les scripts kind et variables CI contre des outils factices et une fausse API Gitea, l'entretien du catalogue contre une fausse API GitHub et GitLab, l'analyse d'applications Python, Node.js, Java, Go et .NET (dont leurs bases et migrations), les bases de données sur chaque cible (rendu du chart, Kustomize, script de secrets exécuté, format Terraform), l'état et les variables Terraform de chaque cloud, Floci dans chaque CI, les playbooks Ansible passés à `--syntax-check` et ansible-lint, les machines de chaque cloud et le script d'inventaire contre une sortie Terraform simulée, l'identité (realm appliqué à un vrai Keycloak 26.8 puis relu sans écart, connexion OIDC à OpenBao d'un membre du groupe admins et refus d'un non-membre, ressource Keycloak contre le schéma de sa CRD), les données (sauvegarde puis restauration contre un vrai PostgreSQL, formats de connexion dans chaque cible, ressources CloudNativePG contre les schémas des CRD), les secrets (SOPS chiffré puis déchiffré avec age, écriture et lecture contre un faux Vault avec connexion JWT, ExternalSecret rendus dans le chart et les overlays, secrets écrits par Terraform pour chaque cloud, `vault-setup.sh` contre un faux coffre qui enregistre ses appels, mode d'emploi dont chaque commande passe `bash -n` et ShellCheck), la prise en charge déclarée de chaque fiche confrontée aux générateurs (projets de référence et sondes par cible), le contrat de la ligne de commande (codes de sortie, sortie `--json`, fichiers illisibles), la cohérence entre l'assistant et le filtre de la palette, le catalogue personnel et le rafraîchissement du Landscape, et l'interface pilotée hors écran : glisser-déposer, formulaire de paramètres, surcharges, éditeur d'environnements, assistant, dialogues de validation, de différences, d'export, d'entretien, de fiche, de ports et d'application, et la largeur minimale de la fenêtre (1 280 px au plus). Toute exception levée dans un slot Qt fait échouer le test en cours. Les tests utilisent un dossier personnel jetable : un catalogue personnel présent sur le poste ne les influence pas.
+930 tests : un par règle, l'application de chaque correction proposée, une matrice de combinaisons CI × déploiement × cloud × environnements validées contre les schémas, avec contrôle qu'aucune brique n'y reste sans fichier, les 15 300 combinaisons de l'assistant (aucune ne doit produire d'erreur bloquante), la validation, l'écriture prudente, l'export Git vers des dépôts locaux (dont les options de push GitLab), les scripts kind et variables CI contre des outils factices et une fausse API Gitea, l'entretien du catalogue contre une fausse API GitHub et GitLab, l'analyse d'applications Python, Node.js, Java, Go et .NET (dont leurs bases et migrations), les bases de données sur chaque cible (rendu du chart, Kustomize, script de secrets exécuté, format Terraform), l'état et les variables Terraform de chaque cloud, Floci dans chaque CI, les playbooks Ansible passés à `--syntax-check` et ansible-lint, les machines de chaque cloud et le script d'inventaire contre une sortie Terraform simulée, l'identité (realm appliqué à un vrai Keycloak 26.8 puis relu sans écart, connexion OIDC à OpenBao d'un membre du groupe admins et refus d'un non-membre, ressource Keycloak contre le schéma de sa CRD), les données (sauvegarde puis restauration contre un vrai PostgreSQL, formats de connexion dans chaque cible, ressources CloudNativePG contre les schémas des CRD), les secrets (SOPS chiffré puis déchiffré avec age, écriture et lecture contre un faux Vault avec connexion JWT, ExternalSecret rendus dans le chart et les overlays, secrets écrits par Terraform pour chaque cloud, `vault-setup.sh` contre un faux coffre qui enregistre ses appels, mode d'emploi dont chaque commande passe `bash -n` et ShellCheck), la prise en charge déclarée de chaque fiche confrontée aux générateurs (projets de référence et sondes par cible), le contrat de la ligne de commande (codes de sortie, sortie `--json`, fichiers illisibles), la cohérence entre l'assistant et le filtre de la palette, le catalogue personnel et le rafraîchissement du Landscape, et l'interface pilotée hors écran : glisser-déposer, formulaire de paramètres, surcharges, éditeur d'environnements, assistant, dialogues de validation, de différences, d'export, d'entretien, de fiche, de ports et d'application, et la largeur minimale de la fenêtre (1 280 px au plus). Toute exception levée dans un slot Qt fait échouer le test en cours. Les tests utilisent un dossier personnel jetable : un catalogue personnel présent sur le poste ne les influence pas.
+
+La CI les passe sous Python 3.11 à 3.13, et une fois avec tous les outils installés (OpenTofu et un miroir de ses providers, kubeconform, sops, age, Ansible, PostgreSQL) : là, un test sauté fait échouer (`DEVOPS_BUILDER_TESTS_COMPLETS=1`). En local, `python tools/miroir_tofu.py ~/miroir-tofu` puis `DEVOPS_BUILDER_TOFU_MIRROR=~/miroir-tofu pytest` ajoute `tofu validate` sur chaque pile Terraform des projets de référence.
 
 ### Non-régression
 
-`tests/test_regression.py` compare tout ce que génèrent 183 projets (fichiers et diagnostics) à l'instantané de `tests/golden/`, et recharge les projets enregistrés par chaque version précédente (`tests/data/legacy/`, de la 0.1 à la 0.17 : ouverts, contrôlés, générés, réenregistrés sans perte de valeur). À chaque version, des fichiers écrits par la précédente rejoignent ce corpus ; un test le vérifie. Après un changement voulu :
+`tests/test_regression.py` compare tout ce que génèrent 183 projets (fichiers et diagnostics) à l'instantané de `tests/golden/`, et recharge les projets enregistrés par chaque version précédente (`tests/data/legacy/`, de la 0.1 à la 0.18 : ouverts, contrôlés, générés, réenregistrés sans perte de valeur). À chaque version, des fichiers écrits par la précédente rejoignent ce corpus ; un test le vérifie. Après un changement voulu :
 
 ```bash
 UPDATE_GOLDEN=1 pytest tests/test_regression.py
@@ -190,7 +221,7 @@ Pour l'interface, `tools/screenshot.py` refait les captures et `tools/compare_ca
 ## Limites connues
 
 - Les fiches sont datées du 8 octobre 2026 ; le cycle de vie des outils évolue vite (ingress-nginx, Kaniko, AWS App Mesh, Google Container Registry y sont déjà signalés).
-- Bases de données : les gabarits Helm sont vérifiés par un rendu interne (`tests/minihelm.py`) puis kubeconform, pas par `helm template` ; les ressources Terraform des bases managées par `tofu fmt`, pas par `tofu validate` (registres de providers injoignables pendant les tests). Sur un service serverless (Cloud Run, ECS, Azure Container Apps), l'URL de connexion se branche à la main ; `PIPELINE.md` donne la commande, et avec le coffre du cloud la pile Terraform y écrit déjà l'URL. Le mot de passe d'une base autogérée se limite aux caractères sûrs dans une URL (lettres, chiffres, `. _ ~ -`).
+- Bases de données : les gabarits Helm sont vérifiés par un rendu interne (`tests/minihelm.py`) puis kubeconform, pas par `helm template` ; les ressources Terraform des bases managées par `tofu validate` dans la CI (job « Tests avec tous les outils »), sans apply réel. Sur un service serverless (Cloud Run, ECS, Azure Container Apps), l'URL de connexion se branche à la main ; `PIPELINE.md` donne la commande, et avec le coffre du cloud la pile Terraform y écrit déjà l'URL. Le mot de passe d'une base autogérée se limite aux caractères sûrs dans une URL (lettres, chiffres, `. _ ~ -`).
 - Identité : Dex est exécuté de bout en bout sur hôte Docker, pas encore sur Kubernetes ; SonarQube Community se relie à Keycloak en SAML (réglages par l'API du mode d'emploi), à Dex non (authentification GitHub ou GitLab de SonarQube) ; avec Dex, le groupe d'administration est le groupe de la forge (paramètre « Groupe ou organisation »). La base de Keycloak sans CloudNativePG est un StatefulSet à une instance.
 - Secrets : l'initialisation et le descellement du coffre restent manuels (clés à garder hors de l'hôte), tout comme la création d'un accès d'administration nominatif avant de révoquer le jeton racine. Avec un coffre du cloud sur un cluster d'un autre fournisseur (k3s, Kapsule…), l'identité d'External Secrets reste à poser à la main. Les jobs d'infrastructure de la CI ont des droits étendus (AdministratorAccess, Editor, Contributor), les autres jobs une identité limitée ; ces droits réduits n'ont pas encore été éprouvés sur un vrai compte cloud, et avec GitLab la séparation tient aux variables (son jeton ne distingue pas les jobs). La connexion par JWT n'est générée que pour GitLab CI et GitHub Actions (les autres CI passent par `VAULT_TOKEN`). SOPS est réglé pour age seulement. Les secrets écrits par Terraform passent par l'état : backend chiffré à accès restreint. Les ressources External Secrets ont été validées contre les schémas des CRD, les scripts contre OpenBao 2.4, SOPS 3.11 et age, sans cluster réel.
 - Terraform : azurerm reste en 4.x (la 5.0 de juillet 2026 change des schémas, migration à valider). Le backend Outscale n'a pas de verrou d'état (écriture conditionnelle non documentée par OOS) : la CI sérialise les apply, mais un apply lancé à la main pendant un job reste possible. Un seul état porte tous les environnements.
