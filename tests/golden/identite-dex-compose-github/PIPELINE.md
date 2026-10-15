@@ -77,10 +77,12 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 | Variable | Secret | Valeur | Rôle |
 | --- | --- | --- | --- |
+| `DEX_CONNECTOR_ID_STAGING` | oui | à déclarer | Identifiant (Client ID) de l'application OAuth créée sur la forge pour Dex (Préproduction) |
 | `DEX_CONNECTOR_SECRET_STAGING` | oui | à déclarer | Secret de l'application OAuth créée sur la forge pour Dex (Préproduction) |
 | `GRAFANA_OIDC_SECRET_STAGING` | oui | à déclarer | Secret du client OIDC grafana dans Dex (openssl rand -hex 24) (Préproduction) |
 | `SSH_PRIVATE_KEY` | oui | à déclarer | Clé SSH de déploiement vers les hôtes |
 | `SSH_KNOWN_HOSTS` | non | à déclarer | Facultatif : clés d'hôte attendues (ssh-keyscan) ; sans elle, la clé est acceptée à la première connexion de chaque job |
+| `DEX_CONNECTOR_ID_PRODUCTION` | oui | à déclarer | Identifiant (Client ID) de l'application OAuth créée sur la forge pour Dex (Production) |
 | `DEX_CONNECTOR_SECRET_PRODUCTION` | oui | à déclarer | Secret de l'application OAuth créée sur la forge pour Dex (Production) |
 | `GRAFANA_OIDC_SECRET_PRODUCTION` | oui | à déclarer | Secret du client OIDC grafana dans Dex (openssl rand -hex 24) (Production) |
 
@@ -95,7 +97,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
 - Ansible : préparer chaque hôte une fois avec `ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook -i ansible/inventories/staging.ini ansible/site.yml` (Docker depuis son dépôt officiel, Debian, Ubuntu, RHEL et dérivées) ; le compte SSH doit avoir sudo sans mot de passe.
 - Dex : émetteur OIDC https://dex.boutique.fr ; l'application reçoit OIDC_ISSUER_URL et OIDC_CLIENT_ID (client public, PKCE) ; clients des outils : Grafana, droits d'administration au groupe « admins ». La connexion passe par la forge : créer son application OAuth (docs/mise-en-route.md).
-- `scripts/ci-variables.sh` déclare les 6 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 8 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 

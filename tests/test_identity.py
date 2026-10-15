@@ -122,6 +122,10 @@ def test_dex_sur_hote_docker_github():
     assert doc["services"]["dex"]["configs"] == [{"source": "dex-config", "target": "/etc/dex/config.yaml"}]
     config = yaml.safe_load(doc["configs"]["dex-config"]["content"])
     assert config["connectors"][0]["type"] == "github" and config["storage"]["type"] == "sqlite3"
+    # « $$ » : Compose laisse $DEX_CONNECTOR_ID à Dex, qui le lit dans secrets/dex.env (trouvé par compose-dex)
+    assert config["connectors"][0]["config"]["clientID"] == "$$DEX_CONNECTOR_ID"
+    secrets_sh = r.files["deploy/secrets.sh"]
+    assert "DEX_CONNECTOR_ID" in secrets_sh and "DEX_CONNECTOR_SECRET" in secrets_sh
 
 
 # ------------------------------------------------------------------ realm en code et coffre

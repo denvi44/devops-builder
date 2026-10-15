@@ -149,7 +149,7 @@ def _compose_steps(out: Path, ir) -> list[Step]:
              f"mkdir -p {host} && cp -R {out}/deploy/. {host}/ && ls -la {host}"),
         Step("deploy/secrets.sh : fichiers de secrets", ["sh", "secrets.sh", "secrets"], cwd=host, env=env),
         Step("docker compose up (santé des services attendue)", f"{dc} up -d --wait --wait-timeout 180",
-             cwd=host, env=env),
+             cwd=host, env={"IMAGE": image}),   # comme le déploiement par SSH : secrets par secrets/*.env
         Step("Connexion authentifiée aux bases depuis l'application (/db)", probe, retries=10, env=env,
              evidence=True),
         Step("Donnée témoin écrite", sql("create table temoin(v text); insert into temoin values ('avant');"),
@@ -354,8 +354,9 @@ def _compose_host(out: Path, ir, env: dict[str, str]) -> tuple[Path, str, list[S
         Step("Fichiers posés comme sur l'hôte (/opt/<application>)",
              f"mkdir -p {host} && cp -R {out}/deploy/. {host}/ && ls {host}"),
         Step("deploy/secrets.sh : fichiers de secrets", ["sh", "secrets.sh", "secrets"], cwd=host, env=env),
+        # comme le déploiement par SSH : seule IMAGE est passée, les secrets ne viennent que de secrets/*.env
         Step("docker compose up (santé des services attendue)", f"{dc} up -d --wait --wait-timeout 300",
-             cwd=host, env={**env, "IMAGE": image}),
+             cwd=host, env={"IMAGE": image}),
     ]
     end = [
         Step("Consommation mesurée (docker stats), à comparer à data/sizing.yaml",
@@ -507,9 +508,14 @@ printf '%s' "$loc" | grep -q "client_id=$DEX_CONNECTOR_ID" || {{ echo "identifia
 printf '%s' "$loc" | grep -q "redirect_uri=$(printf %s '{iss}/callback' | jq -sRr @uri)"
 """
     refused = f"""
-code=$(curl -sS -o /tmp/dex-refus.html -w '%{{http_code}}' \
-  "{iss}/auth?client_id={ir.app}&redirect_uri=https%3A%2F%2Fpirate.test%2Fcallback&response_type=code&scope=openid")
-echo "adresse de retour inconnue : HTTP $code"
+next="{iss}/auth?client_id={ir.app}&redirect_uri=https%3A%2F%2Fpirate.test%2Fcallback&response_type=code&scope=openid"
+for i in 1 2 3 4; do
+  out=$(curl -sS -o /tmp/dex-refus.html -w '%{{http_code}} %{{redirect_url}}' "$next")
+  code=${{out%% *}}; loc=${{out#* }}
+  echo "étape $i : HTTP $code ${{loc%%\\?*}}"
+  case "$loc" in https://{dex}/*) next="$loc" ;; *) break ;; esac
+done
+grep -o -i 'unregistered redirect_uri[^<]*' /tmp/dex-refus.html | head -n 1 || true
 test "$code" -ge 400
 """
     return [
@@ -519,6 +525,85 @@ test "$code" -ge 400
              env=cenv, evidence=True),
         Step("Adresse de retour non déclarée refusée", refused, env=cenv, evidence=True),
         *end,
+    ]
+
+
+GITEA_IMAGE = "gitea/gitea:1.27.3"
+
+
+def _argocd_steps(out: Path, ir) -> list[Step]:
+    """GitOps de bout en bout : dépôt privé sur Gitea (réseau de kind), Argo CD installé par platform/install.sh et
+    branché par le mode d'emploi, puis le job de déploiement de la CI générée joué tel quel dans alpine, comme sur un
+    runner GitLab : la nouvelle étiquette poussée dans le dépôt arrive dans le cluster."""
+    import yaml as _yaml
+    work = out.parent
+    cluster, ctx, start, end = _kind_common(ir, work)
+    ns = ir.namespace(ir.envs[0])
+    ci = _yaml.safe_load((out / ".gitlab-ci.yml").read_text(encoding="utf-8"))
+    job = next(j for j in ci.values() if isinstance(j, dict) and any("GITOPS_REPO" in str(line)
+                                                                      for line in j.get("script", [])))
+    (work / "ci-deploy.sh").write_text("\n".join(job["script"]) + "\n", encoding="utf-8")
+    repo = ci["variables"]["GITOPS_REPO"]
+    image = "registry.e2e.test/boutique"
+    token = work / "gitea-token"
+    password = secrets.token_hex(12)
+
+    def ci_job(tag: str) -> str:
+        return (f"docker run --rm --network kind -e TAG={tag} -e IMAGE={image}:{tag} -e GITOPS_REPO={repo} "
+                f"-e GITOPS_TOKEN=\"$(cat {token})\" -v {work}/ci-deploy.sh:/job.sh:ro alpine:3.20 sh -e /job.sh")
+
+    def deployed(tag: str) -> str:
+        return f"""
+kubectl --context {ctx} -n argocd annotate application {ns} argocd.argoproj.io/refresh=normal --overwrite >/dev/null
+for _ in $(seq 1 60); do
+  img=$(kubectl --context {ctx} -n {ns} get deployment {ir.app} -o jsonpath='{{.spec.template.spec.containers[0].image}}' \
+        2>/dev/null || true)
+  [ "$img" = "{image}:{tag}" ] && break
+  sleep 5
+done
+echo "image déployée : $img"
+test "$img" = "{image}:{tag}"
+kubectl --context {ctx} -n {ns} rollout status deployment/{ir.app} --timeout=180s
+kubectl --context {ctx} -n argocd get application {ns} -o jsonpath='{{.status.sync.status}} {{.status.health.status}}{{"\\n"}}'
+"""
+    gitea = f"""
+docker run -d --name gitea-e2e --network kind --network-alias gitea -p 3000:3000 \
+  -e GITEA__security__INSTALL_LOCK=true -e GITEA__server__ROOT_URL=http://gitea:3000/ {GITEA_IMAGE}
+for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:3000/api/healthz >/dev/null 2>&1 && break; sleep 2; done
+docker exec -u git gitea-e2e gitea admin user create --username e2e --password "$GITEA_PASSWORD" \
+  --email e2e@boutique.test --admin --must-change-password=false
+docker exec -u git gitea-e2e gitea admin user generate-access-token --username e2e --token-name ci \
+  --scopes write:repository,read:user --raw > {token}
+curl -fsS -u "e2e:$GITEA_PASSWORD" -H 'Content-Type: application/json' \
+  -d '{{"name":"gitops","private":true,"default_branch":"main"}}' http://127.0.0.1:3000/api/v1/user/repos >/dev/null
+echo "dépôt privé e2e/gitops créé"
+"""
+    push = (f"git init -q -b main && git add -A && git -c user.email=e2e@boutique.test -c user.name=e2e commit -qm "
+            f"'Fichiers générés' && git push -q \"http://e2e:$(cat {token})@127.0.0.1:3000/e2e/gitops.git\" main")
+    guide = "\n".join(runbook_blocks(out, "Argo CD")) or "false"
+    log = (f"curl -fsS -H \"Authorization: token $(cat {token})\" "
+           "'http://127.0.0.1:3000/api/v1/repos/e2e/gitops/commits?limit=5' | jq -r '.[].commit.message'")
+    return [
+        Step("Image de l'application de démonstration, deux étiquettes",
+             f"docker build -t {image}:e2e-1 {APP_DIR} && docker tag {image}:e2e-1 {image}:e2e-2"),
+        *start,
+        Step("Images chargées dans le cluster (registre simulé)",
+             ["kind", "load", "docker-image", f"{image}:e2e-1", f"{image}:e2e-2", "--name", cluster]),
+        Step("Forge Gitea sur le réseau de kind, dépôt GitOps privé", gitea, env={"GITEA_PASSWORD": password}),
+        Step("Fichiers générés poussés dans le dépôt GitOps", push, cwd=out),
+        Step("Job de déploiement de la CI générée (alpine, comme GitLab) : étiquette e2e-1", ci_job("e2e-1"),
+             evidence=True),
+        Step("Mode d'emploi Argo CD joué tel quel (secret du dépôt, applications, synchronisation)",
+             f"kubectl config use-context {ctx}\nexport GITOPS_READ_TOKEN=\"$(cat {token})\"\n{guide}", cwd=out,
+             evidence=True),
+        Step("Application synchronisée par Argo CD : image e2e-1 en place", deployed("e2e-1"), evidence=True),
+        Step("Nouveau pipeline : job de déploiement, étiquette e2e-2", ci_job("e2e-2"), evidence=True),
+        Step("Argo CD applique le nouveau commit (lecture du dépôt demandée)", deployed("e2e-2"), evidence=True),
+        Step("Pipeline relancé sur la même image : rien à pousser, pas d'échec", ci_job("e2e-2"), evidence=True),
+        Step("Historique du dépôt GitOps", log, evidence=True),
+        *end[:-1],
+        Step("Arrêt de Gitea", "docker rm -f gitea-e2e", always=True),
+        end[-1],
     ]
 
 
@@ -678,6 +763,11 @@ SCENARIOS = {s.name: s for s in [
                                                            "tools_domain": "boutique.test",
                                                            "app_url": "https://boutique.test"}),
              _keycloak_compose_steps, ("docker", "curl", "jq", "tofu")),
+    Scenario("kind-argocd", "GitOps : dépôt privé sur Gitea, Argo CD branché par le mode d'emploi, le job de "
+             "déploiement de la CI générée pousse l'étiquette et Argo CD l'applique",
+             _starter(gitops=True, forge="gitlab",
+                      params={"argo-cd": {"repo_url": "http://gitea:3000/e2e/gitops.git"}}),
+             _argocd_steps, ("docker", "kind", "kubectl", "helm", "curl", "jq", "git")),
     Scenario("kind-coffre-openbao", "OpenBao initialisé et configuré par les scripts générés, External Secrets, "
              "Valkey lu dans le coffre, PostgreSQL par CloudNativePG",
              _starter(secrets="openbao", database="postgresql", cache=True),

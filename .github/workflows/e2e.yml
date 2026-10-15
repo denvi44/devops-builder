@@ -40,6 +40,7 @@ jobs:
           - compose-zap
           - compose-dex
           - compose-identite-keycloak
+          - kind-argocd
           - kind-coffre-openbao
           - kind-identite-keycloak
     env:

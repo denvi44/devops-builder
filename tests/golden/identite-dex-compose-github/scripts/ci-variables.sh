@@ -87,10 +87,12 @@ send() {
   fi
 }
 
+declare_var DEX_CONNECTOR_ID_STAGING 1 'Identifiant (Client ID) de l'"'"'application OAuth créée sur la forge pour Dex (Préproduction)'
 declare_var DEX_CONNECTOR_SECRET_STAGING 1 'Secret de l'"'"'application OAuth créée sur la forge pour Dex (Préproduction)'
 declare_var GRAFANA_OIDC_SECRET_STAGING 1 'Secret du client OIDC grafana dans Dex (openssl rand -hex 24) (Préproduction)'
 declare_var SSH_PRIVATE_KEY 1 'Clé SSH de déploiement vers les hôtes'
 declare_var SSH_KNOWN_HOSTS 0 'Facultatif : clés d'"'"'hôte attendues (ssh-keyscan) ; sans elle, la clé est acceptée à la première connexion de chaque job'
+declare_var DEX_CONNECTOR_ID_PRODUCTION 1 'Identifiant (Client ID) de l'"'"'application OAuth créée sur la forge pour Dex (Production)'
 declare_var DEX_CONNECTOR_SECRET_PRODUCTION 1 'Secret de l'"'"'application OAuth créée sur la forge pour Dex (Production)'
 declare_var GRAFANA_OIDC_SECRET_PRODUCTION 1 'Secret du client OIDC grafana dans Dex (openssl rand -hex 24) (Production)'
 

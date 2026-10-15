@@ -98,8 +98,8 @@ configs:
         id: github
         name: GitHub
         config:
-          clientID: $DEX_CONNECTOR_ID
-          clientSecret: $DEX_CONNECTOR_SECRET
+          clientID: $$DEX_CONNECTOR_ID
+          clientSecret: $$DEX_CONNECTOR_SECRET
           redirectURI: https://dex.boutique.fr/callback
       staticClients:
       - id: mon-app

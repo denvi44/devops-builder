@@ -12,10 +12,12 @@ permissions:
 env:
   TAG: ${{ github.sha }}
   IMAGE: ghcr.io/${{ github.repository_owner }}/mon-app:${{ github.sha }}
+  DEX_CONNECTOR_ID_STAGING: ${{ secrets.DEX_CONNECTOR_ID_STAGING }}
   DEX_CONNECTOR_SECRET_STAGING: ${{ secrets.DEX_CONNECTOR_SECRET_STAGING }}
   GRAFANA_OIDC_SECRET_STAGING: ${{ secrets.GRAFANA_OIDC_SECRET_STAGING }}
   SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
   SSH_KNOWN_HOSTS: ${{ vars.SSH_KNOWN_HOSTS }}
+  DEX_CONNECTOR_ID_PRODUCTION: ${{ secrets.DEX_CONNECTOR_ID_PRODUCTION }}
   DEX_CONNECTOR_SECRET_PRODUCTION: ${{ secrets.DEX_CONNECTOR_SECRET_PRODUCTION }}
   GRAFANA_OIDC_SECRET_PRODUCTION: ${{ secrets.GRAFANA_OIDC_SECRET_PRODUCTION }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -106,7 +108,7 @@ jobs:
         ansible-galaxy collection install -r ansible/requirements.yml
         mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
         if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
-        DEX_CONNECTOR_SECRET="$DEX_CONNECTOR_SECRET_STAGING" GRAFANA_OIDC_SECRET="$GRAFANA_OIDC_SECRET_STAGING" sh deploy/secrets.sh .secrets
+        DEX_CONNECTOR_ID="$DEX_CONNECTOR_ID_STAGING" DEX_CONNECTOR_SECRET="$DEX_CONNECTOR_SECRET_STAGING" GRAFANA_OIDC_SECRET="$GRAFANA_OIDC_SECRET_STAGING" sh deploy/secrets.sh .secrets
         export DEPLOY_REGISTRY="ghcr.io" DEPLOY_REGISTRY_USER="$GITHUB_ACTOR" DEPLOY_REGISTRY_PASSWORD="$GITHUB_TOKEN"
         ansible-playbook -i ansible/inventories/staging.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-staging" -e "deploy_env=staging"
   deploy-production:
@@ -131,6 +133,6 @@ jobs:
         ansible-galaxy collection install -r ansible/requirements.yml
         mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
         if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
-        DEX_CONNECTOR_SECRET="$DEX_CONNECTOR_SECRET_PRODUCTION" GRAFANA_OIDC_SECRET="$GRAFANA_OIDC_SECRET_PRODUCTION" sh deploy/secrets.sh .secrets
+        DEX_CONNECTOR_ID="$DEX_CONNECTOR_ID_PRODUCTION" DEX_CONNECTOR_SECRET="$DEX_CONNECTOR_SECRET_PRODUCTION" GRAFANA_OIDC_SECRET="$GRAFANA_OIDC_SECRET_PRODUCTION" sh deploy/secrets.sh .secrets
         export DEPLOY_REGISTRY="ghcr.io" DEPLOY_REGISTRY_USER="$GITHUB_ACTOR" DEPLOY_REGISTRY_PASSWORD="$GITHUB_TOKEN"
         ansible-playbook -i ansible/inventories/production.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app" -e "deploy_env=production"

@@ -145,7 +145,9 @@ def compose_secrets(ir: IR) -> list[ComposeSecret]:
                               "Mot de passe de la base de Keycloak"),
                 ComposeSecret("KEYCLOAK_ADMIN_PASSWORD", "keycloak.env", "KC_BOOTSTRAP_ADMIN_PASSWORD",
                               "Mot de passe de l'administrateur temporaire du premier démarrage de Keycloak")]
-    out = [ComposeSecret("DEX_CONNECTOR_SECRET", "dex.env", "DEX_CONNECTOR_SECRET",
+    out = [ComposeSecret("DEX_CONNECTOR_ID", "dex.env", "DEX_CONNECTOR_ID",
+                         "Identifiant (Client ID) de l'application OAuth créée sur la forge pour Dex"),
+           ComposeSecret("DEX_CONNECTOR_SECRET", "dex.env", "DEX_CONNECTOR_SECRET",
                          "Secret de l'application OAuth créée sur la forge pour Dex")]
     out += [ComposeSecret(secret_env_name(c), "dex.env", secret_env_name(c),
                           f"Secret du client OIDC {c.client_id} dans Dex (openssl rand -hex 24)") for c in clients(ir)]
@@ -272,7 +274,9 @@ def dex_config(ir: IR, kube: bool) -> dict:
 def compose_configs(ir: IR) -> dict[str, dict]:
     if idp(ir) != "dex" or not compose_target(ir):
         return {}
-    return {"dex-config": {"content": dump_yaml(dex_config(ir, False), None)}}
+    # « $$ » : Compose remplacerait $DEX_… au déploiement par l'environnement du shell (vide sur l'hôte) ; c'est
+    # Dex qui doit les lire, dans son propre environnement (secrets/dex.env)
+    return {"dex-config": {"content": dump_yaml(dex_config(ir, False), None).replace("$", "$$")}}
 
 
 # ------------------------------------------------------------------ Kubernetes
