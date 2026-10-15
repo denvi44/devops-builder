@@ -331,6 +331,8 @@ def _run_ansible(r: Runner, selected: list[str], cmd: list[str]) -> tuple[bool, 
         code, out = r.run(args)
         ok &= code == 0
         lines.append(("✓ " if code == 0 else "✗ ") + pb + (f"\n{out}" if out else ""))
+    if not ok and "couldn't resolve module/action" in "\n".join(lines) and (r.root / "ansible/requirements.yml").exists():
+        lines.append("Collections Ansible absentes du poste : ansible-galaxy collection install -r ansible/requirements.yml")
     return ok, "\n".join(lines)
 
 

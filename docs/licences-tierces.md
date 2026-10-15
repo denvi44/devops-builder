@@ -19,13 +19,19 @@ Installées par `pip` à côté de l'application : DevOps Builder ne les redistr
 | typing-extensions | PSF-2.0 | Compatibilité des annotations |
 
 **PySide6 et la LGPL** : utiliser PySide6 installé par `pip` depuis une application Apache 2.0 est permis ;
-la LGPL ne s'étend pas au code qui l'importe. Pour les exécutables autonomes prévus au lot 0.19, il faudra :
-garder les bibliothèques Qt et PySide6 remplaçables (dossier d'installation plutôt qu'un fichier unique
-extrait au lancement), joindre le texte de la LGPL-3.0 et de la GPL-3.0, et indiquer où obtenir les sources
-de Qt et de PySide6 dans la version utilisée.
+la LGPL ne s'étend pas au code qui l'importe.
 
-**Polices d'icônes** : redistribuées seulement dans un exécutable autonome. Avant le lot 0.19, vérifier la
-licence de Material Design Icons 6.9.96 sur le site de Pictogrammers et la joindre à l'exécutable (à vérifier).
+**Exécutables autonomes** (depuis la 0.19) : ils embarquent Python, Qt, PySide6, les paquets ci-dessus et les
+polices d'icônes. Qt et PySide6 restent remplaçables (l'exécutable est un dossier, pas un fichier unique extrait
+au lancement), et le dossier `LICENCES` de l'exécutable joint les textes de la LGPL-3.0 et de la GPL-3.0, les
+adresses des sources de Qt et de PySide6 dans la version embarquée, la licence de Python et celles des polices
+(`packaging/licences/LISEZ-MOI.md`) ; les dossiers `*.dist-info` gardent la licence de chaque paquet Python.
+
+**Polices d'icônes** (embarquées par QtAwesome, redistribuées seulement dans un exécutable) : Material Design
+Icons, la seule que l'interface affiche, et Remix Icon sous Apache 2.0 (licence de Pictogrammers vérifiée le
+15 octobre 2026 : polices sous Apache 2.0, icônes de marques exclues) ; Font Awesome Free (polices SIL OFL 1.1,
+icônes CC BY 4.0), Elusive Icons (SIL OFL 1.1), Phosphor (MIT), Codicons (CC BY 4.0). Roboto, police du thème
+qt-material, est sous Apache 2.0.
 
 ## Données embarquées
 

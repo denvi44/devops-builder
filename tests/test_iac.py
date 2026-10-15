@@ -225,10 +225,15 @@ def test_toutes_les_piles_passent_tofu_validate(tmp_path):
     rc.write_text(f'plugin_cache_dir = "{tmp_path / "cache"}"\nprovider_installation {{\n  filesystem_mirror {{\n'
                   f'    path = "{MIRROR}"\n  }}\n}}\n')
     (tmp_path / "cache").mkdir()
+    # module EKS du registre remplacé par une coquille : ses variables sont les arguments que la pile lui passe
+    eks_args = set()
+    for tf in GOLDEN.glob("*/infra/terraform/*.tf"):
+        for block in re.findall(r'module "eks" \{\n(.*?)\n\}', tf.read_text(), re.S):
+            eks_args |= set(re.findall(r"^  ([a-z_]+)\s+=", block, re.M))
+    eks_args -= {"source", "version"}
     stub = tmp_path / "eks"
     stub.mkdir()
-    stub.joinpath("main.tf").write_text("".join(f'variable "{v}" {{\n  default = null\n}}\n' for v in (
-        "name", "kubernetes_version", "vpc_id", "subnet_ids", "eks_managed_node_groups"))
+    stub.joinpath("main.tf").write_text("".join(f'variable "{v}" {{\n  default = null\n}}\n' for v in sorted(eks_args))
         + 'output "cluster_name" {\n  value = "x"\n}\noutput "cluster_endpoint" {\n  value = "x"\n}\n')
     failures = []
     for stack in sorted(GOLDEN.glob("*/infra/terraform")):

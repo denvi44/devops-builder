@@ -85,7 +85,10 @@ jobs:
           echo "9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883  /tmp/kc.tgz" | sha256sum -c -
           tar -xzf /tmp/kc.tgz -C /tmp kubeconform
           sudo install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform
-      - run: pip install -e ".[dev]" "ansible-core>=2.17"
+      - run: pip install -e ".[dev]" "ansible-core>=2.21,<2.22"
+      - name: Collections Ansible des playbooks générés
+        # le fichier même que DevOps Builder écrit dans chaque projet (ansible/requirements.yml)
+        run: ansible-galaxy collection install -r tests/golden/ansible-sans-compose/ansible/requirements.yml
       - name: Miroir des providers en cache
         id: miroir
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

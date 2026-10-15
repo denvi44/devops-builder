@@ -111,7 +111,7 @@ def test_terraform_injoignable_est_saute_pas_en_echec(tmp_path, monkeypatch):
 def test_cli_validate(capsys):
     code = cli(["validate", str(EXAMPLES / "01-web-hote-docker.devops.yaml"), "--offline"])
     out = capsys.readouterr().out
-    assert code == 0 and "réussi" in out
+    assert code == 0 and "réussi" in out, out
 
 
 # ------------------------------------------------------------------ écriture prudente
@@ -487,3 +487,14 @@ def test_conseil_d_installation_sous_pipx(monkeypatch):
     assert validate.install_hint("https://opentofu.org/docs/intro/install/").startswith("https://")
     monkeypatch.setattr(validate.sys, "prefix", "/usr")
     assert validate.install_hint("pip install shellcheck-py") == "pip install shellcheck-py"
+
+
+def test_collection_ansible_absente_donne_la_commande(tmp_path, monkeypatch):
+    from devops_builder import validate as v
+    (tmp_path / "ansible").mkdir()
+    (tmp_path / "ansible/requirements.yml").write_text("collections: []\n")
+    monkeypatch.setattr(v.Runner, "run", lambda self, args, **kw: (
+        4, "[ERROR]: couldn't resolve module/action 'community.docker.docker_compose_v2'."))
+    ok, out = v._run_ansible(v.Runner(tmp_path), ["ansible/deploy.yml"], ["ansible-playbook"])
+    assert not ok
+    assert out.endswith("ansible-galaxy collection install -r ansible/requirements.yml")

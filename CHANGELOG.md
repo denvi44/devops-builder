@@ -16,6 +16,8 @@ Les fichiers générés ne changent pas.
 - **Exécutables sans Python** pour Linux x86-64, Windows x86-64 et macOS Apple Silicon (`DevOps Builder.app`),
   construits par PyInstaller et éprouvés sur chaque système avant publication (version, `check`, `generate`,
   démarrage de l'interface). Non signés pour l'instant : le README dit comment passer SmartScreen et Gatekeeper.
+  Leur dossier `LICENCES` joint la LGPL de Qt et PySide6 (bibliothèques remplaçables, adresses des sources), la
+  licence de Python et celles des polices d'icônes (`docs/licences-tierces.md`).
 - **Attestations de provenance** (SLSA, `gh attestation verify`) pour chaque exécutable et le paquet, et
   `SHA256SUMS` dans chaque publication ; le paquet PyPI porte aussi les attestations PEP 740.
 - **Workflow « Publication »** : une version se publie depuis Actions, sans étiquette créée à la main ; il vérifie
