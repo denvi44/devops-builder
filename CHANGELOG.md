@@ -47,7 +47,27 @@ mineure peut changer les fichiers générés ; chaque changement voulu est relu 
   diffèrent. Valeurs par service dans `data/sizing.yaml`, sourcées quand une documentation les donne (Keycloak,
   Grafana, SonarQube), estimées sinon.
 
+- Scénarios de bout en bout `kind-argocd` (dépôt GitOps privé sur Gitea, Argo CD installé par
+  `platform/install.sh` et branché par le mode d'emploi, job de déploiement de la CI joué dans alpine comme sur
+  GitLab : l'étiquette poussée arrive dans le cluster, une relance sans changement ne casse rien) et `compose-dex`
+  (découverte OpenID, connexion de l'application suivie jusqu'à la page d'autorisation de la forge, adresse de
+  retour inconnue refusée). Un scénario seul se lance à la demande (entrée `scenario` du workflow).
+- Paramètre « Dépôt GitOps » des briques Argo CD et Flux, repris dans les applications, la source Flux et la
+  variable `GITOPS_REPO` ; mode d'emploi Argo CD sans la CLI `argocd` (secret de dépôt étiqueté, attente de la
+  synchronisation), jeton de lecture saisi sans écho.
+
 ### Corrigé
+- **GitOps (Argo CD, Flux) ne pouvait pas fonctionner tel que généré** : le dépôt surveillé était une adresse
+  d'exemple codée en dur ; la CI ne changeait que l'étiquette de l'image, si bien que le dépôt restait
+  `ghcr.io/OWNER/…` (Helm) ou `$CI_REGISTRY_IMAGE` que Kustomize ne développe pas ; `apk add yq` est ambigu sur
+  Alpine 3.20 (`yq-go` maintenant) ; un pipeline relancé échouait sur un commit vide ; avec le dépôt de
+  l'application comme dépôt GitOps, chaque mise à jour relançait le pipeline (commits marqués `[skip ci]`).
+  La source Flux reçoit le secret d'accès créé par le mode d'emploi.
+- **Dex sur hôte Docker démarrait sans application OAuth** : Compose remplaçait `$DEX_CONNECTOR_ID` et
+  `$DEX_CONNECTOR_SECRET` de sa configuration par l'environnement du shell au déploiement, vide sur l'hôte, et
+  `DEX_CONNECTOR_ID` n'était écrit nulle part. Les deux sont désormais lus par Dex dans `secrets/dex.env`. Le
+  premier passage du scénario `compose-dex` réussissait parce que le harnais transmettait les secrets à
+  `docker compose up` : il ne transmet plus que `IMAGE`, comme le déploiement par SSH.
 - Étapes non bloquantes (Checkov, KICS, Snyk, Infracost, Floci) : Tekton, AWS CodeBuild et Google Cloud Build
   arrêtaient le pipeline à leur échec ; elles sont maintenant tolérées (`onError: continue`, `allowFailure`,
   échec signalé dans le journal de CodeBuild).
