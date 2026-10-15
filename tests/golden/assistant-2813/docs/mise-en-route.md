@@ -53,7 +53,7 @@ Argo CD connaît le dépôt par un secret étiqueté, puis les applications sont
 kubectl -n argocd create secret generic gitops-repo --from-literal=type=git --from-literal=url="https://git.example.com/groupe/gitops.git" --from-literal=username=ci --from-literal=password="$GITOPS_READ_TOKEN"
 kubectl -n argocd label secret gitops-repo argocd.argoproj.io/secret-type=repository
 kubectl apply -f deploy/argocd/application.yaml
-kubectl -n argocd wait application/mon-app-staging --for=jsonpath='{.status.sync.status}'=Synced --timeout=300s
+kubectl -n argocd wait application/mon-app-staging --for=jsonpath='{.status.sync.status}'=Synced --timeout=600s
 kubectl -n argocd get applications
 ```
 

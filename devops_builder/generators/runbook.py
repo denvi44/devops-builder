@@ -443,7 +443,7 @@ def _gitops(ir: IR, files: dict[str, str]) -> list[str]:
                      "kubectl -n argocd label secret gitops-repo argocd.argoproj.io/secret-type=repository",
                      "kubectl apply -f deploy/argocd/application.yaml",
                      f"kubectl -n argocd wait application/{ns} --for=jsonpath='{{.status.sync.status}}'=Synced "
-                     "--timeout=300s",
+                     "--timeout=600s",
                      "kubectl -n argocd get applications"),
                 "Ensuite, chaque pipeline met à jour l'étiquette de l'image dans le dépôt GitOps ; Argo CD l'applique "
                 "à sa prochaine lecture du dépôt (trois minutes au plus).", ""]
