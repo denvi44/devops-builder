@@ -31,6 +31,8 @@ Les fichiers générés ne changent pas.
 ### Corrigé
 - Ligne de commande : une sortie redirigée sous Windows (page de code cp1252) ne s'arrête plus sur un caractère
   qu'elle ne sait pas écrire.
+- Validation : quand les playbooks échouent faute de collection Ansible sur le poste, elle donne la commande
+  `ansible-galaxy collection install -r ansible/requirements.yml`.
 
 ## 0.18.0 — 2026-10-15 — Fermer les limites qui piègent
 
