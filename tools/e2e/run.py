@@ -483,7 +483,9 @@ def _sonarqube_steps(out: Path, ir, curlrc: str) -> list[Step]:
     ready = (f"for _ in $(seq 1 90); do s=$(curl -fsS {sonar}/api/system/status 2>/dev/null | jq -r .status || true); "
              '[ "$s" = UP ] && { echo "SonarQube : $s"; exit 0; }; sleep 5; done; exit 1')
     login = f"""
-{block} | tee /tmp/saml-redirect.txt
+{{
+{block}
+}} | tee /tmp/saml-redirect.txt
 loc=$(tail -n 1 /tmp/saml-redirect.txt)
 echo "redirection : ${{loc%%\\?*}}"
 case "$loc" in {identity.issuer(ir)}/protocol/saml?SAMLRequest=*) ;; *) echo "redirection inattendue"; exit 1 ;; esac
@@ -689,7 +691,7 @@ echo "--- demandes de fusion ouvertes par Renovate :"
 PLATFORM_TOOLS = ("k3s", "helm", "traefik", "cert-manager", "dex", "harbor", "sonarqube", "prometheus", "grafana",
                   "loki", "tempo", "argo-cd", "argo-rollouts", "kyverno", "falco", "keda", "opencost", "jaeger",
                   "fluent-bit", "otel-collector", "cloudnative-pg", "kubescape", "gitea", "jenkins", "crossplane",
-                  "openbao", "external-secrets", "zot", "longhorn", "litmus", "chaos-mesh", "opensearch")
+                  "external-secrets", "zot", "longhorn", "litmus", "chaos-mesh", "opensearch")
 
 HELM_TEMPLATE = r"""#!/usr/bin/env bash
 # « helm upgrade --install » rendu par « helm template » : chaque chart, avec les options du script généré, passe
