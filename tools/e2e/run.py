@@ -691,7 +691,7 @@ echo "--- demandes de fusion ouvertes par Renovate :"
 PLATFORM_TOOLS = ("k3s", "helm", "traefik", "cert-manager", "dex", "harbor", "sonarqube", "prometheus", "grafana",
                   "loki", "tempo", "argo-cd", "argo-rollouts", "kyverno", "falco", "keda", "opencost", "jaeger",
                   "fluent-bit", "otel-collector", "cloudnative-pg", "kubescape", "gitea", "jenkins", "crossplane",
-                  "external-secrets", "zot", "longhorn", "litmus", "chaos-mesh", "opensearch")
+                  "zot", "longhorn", "litmus", "chaos-mesh", "opensearch")
 
 HELM_TEMPLATE = r"""#!/usr/bin/env bash
 # « helm upgrade --install » rendu par « helm template » : chaque chart, avec les options du script généré, passe
