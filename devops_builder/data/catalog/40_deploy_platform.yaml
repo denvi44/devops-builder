@@ -286,7 +286,7 @@
   name: Dex
   stage: platform
   support: experimental
-  support_note: "Configuration vérifiée, pas encore exécutée de bout en bout."
+  support_note: "Exécuté de bout en bout sur hôte Docker (jusqu'à la page d'autorisation de la forge) ; sur Kubernetes, valeurs du chart vérifiées sans exécution."
   extra_stages: [security]
   roles: [identity-provider]
   description: Fédération OIDC légère (CNCF) qui délègue la connexion à la forge (GitLab, GitHub).

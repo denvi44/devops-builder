@@ -1,0 +1,100 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: kubernetes
+environments:
+- id: dev
+  label: ''
+  kind: dev
+  approval: false
+  cluster: null
+  overrides: {}
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: dfaa45cc
+    tool: github
+    params: {}
+  build:
+  - uid: 80a0b818
+    tool: github-actions
+    params: {}
+  - uid: a76214a3
+    tool: buildkit
+    params: {}
+  - uid: 02068177
+    tool: dependabot
+    params: {}
+  test:
+  - uid: 649b8901
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: 0214a0d0
+    tool: gitleaks
+    params: {}
+  - uid: 4bd8bc7e
+    tool: trivy
+    params: {}
+  - uid: b785a8a1
+    tool: cosign
+    params: {}
+  artifacts:
+  - uid: d03eff6a
+    tool: ghcr
+    params: {}
+  infrastructure:
+  - uid: a131ef0f
+    tool: k3s
+    params: {}
+  deploy:
+  - uid: 34bc8c11
+    tool: helm
+    params: {}
+  - uid: faf6544d
+    tool: argo-cd
+    params: {}
+  platform:
+  - uid: bc6d3764
+    tool: traefik
+    params: {}
+  - uid: daac7bb2
+    tool: cert-manager
+    params: {}
+  - uid: 5b7bdb6b
+    tool: openbao
+    params: {}
+  - uid: 43736e36
+    tool: external-secrets
+    params: {}
+  - uid: 497eb0bf
+    tool: keycloak
+    params:
+      hostname: auth.boutique.fr
+      tools_domain: boutique.fr
+      app_url: https://boutique.fr
+  observability:
+  - uid: 44ddfc94
+    tool: prometheus
+    params: {}
+  - uid: 95f06e66
+    tool: grafana
+    params: {}

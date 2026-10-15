@@ -21,7 +21,7 @@ Une entrée du CNCF Landscape sans fiche, ou une fiche personnelle, est toujours
 | Floci | Tests & qualité | Dans la CI, le plan passe ; EKS, RDS et Lambda ne se créent qu'en local, et un apply échoue sur les réseaux existants. |
 | RKE2 | Infrastructure | Le contrôleur d'entrée embarqué dépend de la version : à désactiver à la main si un autre contrôleur est posé. |
 | Azure Container Apps | Déploiement | Aucune ressource Terraform générée : l'application Container Apps se crée à la main, la CI la met ensuite à jour. |
-| Dex | Plateforme | Configuration vérifiée, pas encore exécutée de bout en bout. |
+| Dex | Plateforme | Exécuté de bout en bout sur hôte Docker (jusqu'à la page d'autorisation de la forge) ; sur Kubernetes, valeurs du chart vérifiées sans exécution. |
 
 ## À configurer à la main
 

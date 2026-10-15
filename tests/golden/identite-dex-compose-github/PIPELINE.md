@@ -89,7 +89,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 ## Diagnostics restants
 
 - **Avertissement** (R34) — Ansible : « Hôtes de l'application » non renseigné : la valeur d'exemple « app1.example.com » sera écrite dans les fichiers.
-- **Info** (R50) — Dex est expérimental : configuration vérifiée, pas encore exécutée de bout en bout.
+- **Info** (R50) — Dex est expérimental : exécuté de bout en bout sur hôte Docker (jusqu'à la page d'autorisation de la forge) ; sur Kubernetes, valeurs du chart vérifiées sans exécution.
 
 ## Notes
 

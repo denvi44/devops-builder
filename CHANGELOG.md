@@ -4,7 +4,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
-## Non publié — lot 0.17 en cours
+## 0.17.0 — 2026-10-15 — Vérification sur une vraie infrastructure
+
+Les fichiers générés sont exécutés pour de vrai sur les machines de GitHub Actions (onze scénarios, chaque nuit) ;
+ces passages ont trouvé une dizaine de défauts, corrigés ci-dessous. Le déploiement réel sur un cloud
+(apply puis destroy) attend un compte de test et viendra dans une 0.17.x.
 
 ### Ajouté
 - Tests de bout en bout (`tools/e2e/run.py`, workflow « Bout en bout ») : les fichiers générés exécutés pour

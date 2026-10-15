@@ -1,4 +1,4 @@
 # SPDX-License-Identifier: Apache-2.0
 """DevOps Builder : composer des pipelines DevOps cohérents à partir des briques du CNCF Landscape."""
 
-__version__ = "0.16.1"
+__version__ = "0.17.0"

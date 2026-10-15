@@ -1,0 +1,93 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: vm
+environments:
+- id: dev
+  label: ''
+  kind: dev
+  approval: false
+  cluster: null
+  host: hors-production
+  overrides: {}
+- id: recette
+  label: ''
+  kind: recette
+  approval: false
+  cluster: null
+  host: hors-production
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: 6b908cd4
+    tool: gitlab
+    params: {}
+  build:
+  - uid: 4bf045b6
+    tool: gitlab-ci
+    params: {}
+  - uid: 3721edd6
+    tool: buildkit
+    params: {}
+  - uid: d23ea1e0
+    tool: renovate
+    params: {}
+  test:
+  - uid: cbb71902
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: 30f716af
+    tool: gitleaks
+    params: {}
+  - uid: d389c5c2
+    tool: trivy
+    params: {}
+  - uid: 35f2b3a7
+    tool: cosign
+    params: {}
+  artifacts: []
+  infrastructure:
+  - uid: 849d230e
+    tool: scaleway
+    params: {}
+  - uid: 32d9bcdf
+    tool: ansible
+    params: {}
+  - uid: 177dd811
+    tool: scaleway-instance
+    params: {}
+  - uid: 8f835354
+    tool: opentofu
+    params: {}
+  - uid: 2132e18f
+    tool: scaleway-object-storage
+    params: {}
+  deploy:
+  - uid: 8f0e1425
+    tool: docker-compose
+    params: {}
+  platform:
+  - uid: 928de694
+    tool: traefik
+    params: {}
+  observability:
+  - uid: d99754e2
+    tool: prometheus
+    params: {}
+  - uid: 40f78d18
+    tool: grafana
+    params: {}

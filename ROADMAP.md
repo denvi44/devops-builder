@@ -11,23 +11,23 @@ Niveau de prise en charge de chaque fiche, fichiers de toutes les versions relus
 commande stable (codes de sortie, `--json`), journal des modifications. En 0.16.1 : licence Apache 2.0 et
 préparation du dépôt public.
 
-## 0.17 — Vérification sur une vraie infrastructure
+## 0.17 — Vérification sur une vraie infrastructure (publiée le 15 octobre)
 
-Cluster kind réel (Helm, Kustomize, Argo CD, CloudNativePG, Keycloak, External Secrets, OpenBao) ; hôte
-Docker réel (Compose, Traefik, Keycloak, sauvegarde et restauration) ; `apply` puis `destroy` sur au moins un
-cloud ; Dex exécuté. Seules les cibles qui passent restent « pris en charge ».
+Onze scénarios exécutent les fichiers générés sur les machines de GitHub Actions, chaque nuit : Helm,
+Kustomize, CloudNativePG, OpenBao et External Secrets, Keycloak et Argo CD dans kind ; Compose, Traefik en
+HTTPS, sauvegarde et restauration, Keycloak, Dex, SOPS, Zabbix et ZAP sur un hôte Docker. Une dizaine de
+défauts trouvés et corrigés (voir CHANGELOG). ZAP et l'aide au dimensionnement, prévus en 0.18, y sont déjà.
+Reste pour une 0.17.x : `apply` puis `destroy` sur au moins un cloud (compte de test à fournir), et Dex
+exécuté sur Kubernetes.
 
 ## 0.18 — Fermer les limites qui piègent
 
 Moindre privilège des rôles de CI créés par le mode d'emploi, verrou d'état Terraform pour Scaleway, OVHcloud
-et Outscale, connexion OIDC de Harbor et SonarQube, job Renovate hors GitHub. Deux ajouts décidés le 14 octobre
-parce qu'ils changent la qualité d'un pipeline : **ZAP** (DAST, scan de la préproduction après chaque
-déploiement) et l'**aide au dimensionnement des machines** (besoin calculé à partir des briques posées sur
-l'hôte, type d'instance proposé pour chaque cloud).
+et Outscale, connexion OIDC de Harbor et SonarQube, job Renovate hors GitHub.
 
-## 0.19 — Ouverture du dépôt et distribution
+## 0.19 — Distribution
 
-Dépôt public sur GitHub, CI publique complète (références, miroir OpenTofu, ShellCheck, kubeconform), script
+Dépôt public sur GitHub (fait en 0.17), CI publique complète (miroir OpenTofu, kubeconform), script
 de version, `pipx install devops-builder`, exécutables Windows, macOS et Linux signés avec attestation de
 provenance.
 

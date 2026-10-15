@@ -76,7 +76,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - **Avertissement** (R34) — Google Cloud : « Identifiant du projet » non renseigné : la valeur d'exemple « mon-projet » sera écrite dans les fichiers.
 - **Avertissement** (R34) — Google Kubernetes Engine : « Nom du cluster » non renseigné : la valeur d'exemple « mon-cluster » sera écrite dans les fichiers.
 - **Avertissement** (R34) — Google Cloud Storage : « Bucket de l'état Terraform » non renseigné : la valeur d'exemple « mon-projet-tfstate » sera écrite dans les fichiers.
-- **Info** (R50) — Dex est expérimental : configuration vérifiée, pas encore exécutée de bout en bout.
+- **Info** (R50) — Dex est expérimental : exécuté de bout en bout sur hôte Docker (jusqu'à la page d'autorisation de la forge) ; sur Kubernetes, valeurs du chart vérifiées sans exécution.
 
 ## Notes
 

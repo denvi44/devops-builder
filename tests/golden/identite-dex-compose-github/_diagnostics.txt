@@ -1,2 +1,2 @@
 avertissement R34 Ansible : « Hôtes de l'application » non renseigné : la valeur d'exemple « app1.example.com » sera écrite dans les fichiers.
-info R50 Dex est expérimental : configuration vérifiée, pas encore exécutée de bout en bout.
+info R50 Dex est expérimental : exécuté de bout en bout sur hôte Docker (jusqu'à la page d'autorisation de la forge) ; sur Kubernetes, valeurs du chart vérifiées sans exécution.
