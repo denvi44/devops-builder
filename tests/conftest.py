@@ -23,3 +23,12 @@ def pytest_runtest_makereport(item, call):
         reason = report.longrepr[2] if isinstance(report.longrepr, tuple) else str(report.longrepr)
         report.outcome = "failed"
         report.longrepr = f"test sauté alors que tous les outils doivent être présents : {reason}"
+
+
+def pytest_runtest_logreport(report):
+    """Sous GitHub Actions, chaque échec devient une annotation : lisible sans ouvrir le journal du job."""
+    if os.environ.get("GITHUB_ACTIONS") != "true" or not report.failed:
+        return
+    text = str(report.longrepr)[-1500:]
+    text = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    print(f"\n::error title={report.nodeid.replace(':', '∶').replace(',', '‚')}::{text}")

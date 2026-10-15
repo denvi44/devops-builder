@@ -1,12 +1,37 @@
 # SPDX-License-Identifier: Apache-2.0
 # Exécutable autonome de DevOps Builder (PyInstaller) : un dossier par système, sans Python à installer.
 # Construit par .github/workflows/publication.yml ; en local : pyinstaller packaging/devops-builder.spec
+import shutil
 import sys
+from importlib import metadata
+from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_data_files, copy_metadata
 
 datas = collect_data_files("devops_builder") + collect_data_files("qt_material") + collect_data_files("qtawesome")
-datas += copy_metadata("izinum-devops-builder")
+# métadonnées (version) et licences des paquets embarqués, dans leurs dossiers *.dist-info
+for dist in ("izinum-devops-builder", "PySide6_Essentials", "shiboken6", "QtAwesome", "QtPy", "qt-material", "pydantic",
+             "pydantic_core", "PyYAML", "Jinja2", "MarkupSafe", "typing_extensions", "annotated-types", "typing-inspection"):
+    datas += copy_metadata(dist)
+
+# Licences jointes (LGPL de Qt et PySide6, polices, Python) et adresses des sources de Qt et PySide6
+build = Path(workpath)
+build.mkdir(parents=True, exist_ok=True)
+pyside = metadata.version("PySide6_Essentials")
+qt = ".".join(pyside.split(".")[:3])
+(build / "SOURCES.txt").write_text(
+    f"PySide6 et shiboken6 {pyside} : https://download.qt.io/official_releases/QtForPython/pyside6/"
+    f"PySide6-{pyside}-src/\n"
+    f"Qt {qt} : https://download.qt.io/official_releases/qt/{'.'.join(qt.split('.')[:2])}/{qt}/single/\n"
+    "Dépôt de PySide6 : https://code.qt.io/cgit/pyside/pyside-setup.git/\n", encoding="utf-8")
+python_licence = next(p for p in (Path(sys.base_prefix) / "LICENSE.txt",
+                                  *Path(sys.base_prefix).glob(f"lib/python{sys.version_info[0]}.{sys.version_info[1]}/LICENSE.txt"))
+                      if p.exists())
+shutil.copy(python_licence, build / "PYTHON-LICENSE.txt")
+licences = [(str(p), "LICENCES") for p in Path("licences").iterdir()]
+licences += [(str(build / "SOURCES.txt"), "LICENCES"), (str(build / "PYTHON-LICENSE.txt"), "LICENCES"),
+             ("../LICENSE", "LICENCES"), ("../NOTICE", "LICENCES"), ("../docs/licences-tierces.md", "LICENCES")]
+datas += licences
 # PySide6 : seuls les modules utilisés sont embarqués (le paquet complet dépasse 1 Go)
 excludes = ["PySide6.Qt3DAnimation", "PySide6.Qt3DCore", "PySide6.Qt3DExtras", "PySide6.Qt3DInput",
             "PySide6.Qt3DLogic", "PySide6.Qt3DRender", "PySide6.QtBluetooth", "PySide6.QtCharts",
