@@ -24,6 +24,8 @@ from pathlib import Path
 
 import yaml
 
+from . import DIST_NAME
+
 OK, FAILED, MISSING, SKIPPED = "ok", "échec", "absent", "ignoré"
 
 # Fichier généré → schéma intégré à check-jsonschema
@@ -105,20 +107,21 @@ class Check:
         return None
 
 
+
 def under_pipx() -> bool:
     """Application installée par pipx : ses outils Python s'ajoutent par « pipx inject », pas par pip."""
     return "pipx" in Path(sys.prefix).parts
 
 
 def install_hint(hint: str) -> str:
-    """Conseil d'installation adapté : « pip install x » devient « pipx inject devops-builder x » sous pipx."""
+    """Conseil d'installation adapté : « pip install x » devient « pipx inject izinum-devops-builder x » sous pipx."""
     if under_pipx():
-        return re.sub(r"\bpip install ", "pipx inject devops-builder ", hint)
+        return re.sub(r"\bpip install ", f"pipx inject {DIST_NAME} ", hint)
     return hint
 
 
 def _which(tool: str) -> str | None:
-    """Outil sur le PATH, ou à côté de l'interpréteur : avec pipx, `pipx inject devops-builder shellcheck-py`
+    """Outil sur le PATH, ou à côté de l'interpréteur : avec pipx, `pipx inject izinum-devops-builder shellcheck-py`
     installe l'outil dans l'environnement de l'application, que le PATH ne contient pas."""
     search = os.pathsep.join(filter(None, [os.environ.get("PATH", ""), str(Path(sys.executable).parent)]))
     return shutil.which(tool, path=search)

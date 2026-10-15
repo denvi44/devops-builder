@@ -464,7 +464,7 @@ def test_github_azure_statique_utilise_le_secret_declare():
 
 
 def test_outil_installe_dans_l_environnement_de_l_application(tmp_path, monkeypatch):
-    """Installation par pipx : `pipx inject devops-builder shellcheck-py` met l'outil à côté de l'interpréteur,
+    """Installation par pipx : `pipx inject izinum-devops-builder shellcheck-py` met l'outil à côté de l'interpréteur,
     hors du PATH ; la validation doit le trouver quand même."""
     from devops_builder import validate
 
@@ -483,7 +483,7 @@ def test_conseil_d_installation_sous_pipx(monkeypatch):
     from devops_builder import validate
 
     monkeypatch.setattr(validate.sys, "prefix", "/Users/v/.local/pipx/venvs/devops-builder")
-    assert validate.install_hint("pip install shellcheck-py") == "pipx inject devops-builder shellcheck-py"
+    assert validate.install_hint("pip install shellcheck-py") == "pipx inject izinum-devops-builder shellcheck-py"
     assert validate.install_hint("https://opentofu.org/docs/intro/install/").startswith("https://")
     monkeypatch.setattr(validate.sys, "prefix", "/usr")
     assert validate.install_hint("pip install shellcheck-py") == "pip install shellcheck-py"

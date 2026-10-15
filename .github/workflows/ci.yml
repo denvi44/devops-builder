@@ -52,3 +52,53 @@ jobs:
       - name: Suite de tests
         # les contrôles qui demandent un outil absent (OpenTofu, Helm, kubeconform, Keycloak…) sont sautés
         run: python -m pytest -q
+
+  complets:
+    name: Tests avec tous les outils
+    # aucun test ne doit être sauté : OpenTofu et son miroir de providers, kubeconform, sops, age, Ansible…
+    runs-on: ubuntu-24.04
+    env:
+      QT_QPA_PLATFORM: offscreen
+      DEVOPS_BUILDER_TESTS_COMPLETS: "1"
+      DEVOPS_BUILDER_TOFU_MIRROR: ${{ github.workspace }}/.miroir-tofu
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+          cache: pip
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_wrapper: false
+      - name: Bibliothèques système de Qt, age
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3 age
+      - name: sops et kubeconform (sommes de contrôle vérifiées)
+        run: |
+          curl -fsSLo /tmp/sops https://github.com/getsops/sops/releases/download/v3.11.0/sops-v3.11.0.linux.amd64
+          echo "775f1384d55decfad228e7196a3f683791914f92a473f78fc47700531c29dfef  /tmp/sops" | sha256sum -c -
+          sudo install -m 0755 /tmp/sops /usr/local/bin/sops
+          curl -fsSLo /tmp/kc.tgz https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz
+          echo "9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883  /tmp/kc.tgz" | sha256sum -c -
+          tar -xzf /tmp/kc.tgz -C /tmp kubeconform
+          sudo install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform
+      - run: pip install -e ".[dev]" "ansible-core>=2.17"
+      - name: Miroir des providers en cache
+        id: miroir
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .miroir-tofu
+          key: miroir-tofu-${{ hashFiles('tests/golden/*/infra/*/versions.tf') }}
+      - name: Miroir des providers OpenTofu
+        if: steps.miroir.outputs.cache-hit != 'true'
+        run: python tools/miroir_tofu.py .miroir-tofu
+      - name: Versions des outils
+        run: |
+          tofu version | head -1; helm version --short; kustomize version; kubeconform -v; sops --version
+          age --version; ansible-playbook --version | head -1; jq --version; docker compose version
+          ls /usr/lib/postgresql/*/bin/initdb
+      - name: Suite de tests, aucun saut admis
+        run: python -m pytest -q -rs

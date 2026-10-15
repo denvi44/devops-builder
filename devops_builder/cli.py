@@ -112,6 +112,10 @@ def run_kind_test(files: dict[str, str], env: str | None = None, app_dir: str | 
 
 
 def main(argv: list[str] | None = None) -> int:
+    # sortie redirigée sous Windows (cp1252) : un caractère hors de la page de code ne doit pas tout arrêter
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
     parser = argparse.ArgumentParser(prog="devops-builder", description="Composer des pipelines DevOps cohérents.",
                                      epilog="Codes de sortie : 0 succès, 1 problème trouvé, 2 utilisation ou fichier "
                                             "illisible.")

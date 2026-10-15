@@ -3,7 +3,7 @@ requires = ["hatchling>=1.27"]  # 1.27 : expression de licence SPDX (PEP 639)
 build-backend = "hatchling.build"
 
 [project]
-name = "devops-builder"
+name = "izinum-devops-builder"
 version = "0.18.0"
 description = "Application graphique Material pour composer des pipelines DevOps cohérents à partir du CNCF Landscape."
 readme = "README.md"

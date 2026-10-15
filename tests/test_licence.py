@@ -50,3 +50,13 @@ def test_notice_attribue_les_donnees_du_landscape():
     notice = (ROOT / "NOTICE").read_text(encoding="utf-8")
     assert "landscape_index.json" in notice and "Apache" in notice
     assert (ROOT / "devops_builder" / "data" / "landscape_index.json").exists()
+
+
+def test_nom_du_paquet_coherent():
+    """Le nom PyPI sert aux conseils « pipx inject » : un seul endroit à changer."""
+    import tomllib
+
+    from devops_builder import DIST_NAME
+    project = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())["project"]
+    assert project["name"] == DIST_NAME
+    assert project["scripts"]["devops-builder"] == "devops_builder.cli:main"
