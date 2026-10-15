@@ -52,6 +52,9 @@ TF_VARS = {
 }
 
 # Backends compatibles S3 hors AWS : point d'accès et variables CI qui donnent les clés S3
+# Stockages S3 compatibles qui acceptent l'écriture conditionnelle (If-None-Match) : le verrou natif du backend
+# s3 (use_lockfile, Terraform et OpenTofu 1.10+) y fonctionne. Outscale OOS ne la documente pas.
+S3_LOCKFILE = ("scaleway-object-storage", "ovh-object-storage")
 S3_COMPATIBLE = {
     "scaleway-object-storage": ("https://s3.{region}.scw.cloud", "SCW_ACCESS_KEY", "SCW_SECRET_KEY"),
     "ovh-object-storage": ("https://s3.{region}.io.cloud.ovh.net", "OVH_S3_ACCESS_KEY", "OVH_S3_SECRET_KEY"),
@@ -115,15 +118,19 @@ def _backend(ir: IR) -> str:
         region = s3_compatible_region(ir, tool)
         endpoint = S3_COMPATIBLE[tool][0].format(region=region)
         name = ir.catalog[tool].name
+        lock = tool in S3_LOCKFILE
         return (f'  # {name} : clés S3 dans AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY (posées par la CI).\n'
-                "  # Pas de verrou d'état : la CI sérialise les apply.\n"
-                f'  backend "s3" {{\n    bucket                      = "{ir.params(tool).get("bucket")}"\n'
+                + ("  # Verrou d'état : fichier .tflock créé par écriture conditionnelle (If-None-Match).\n" if lock else
+                   "  # Pas de verrou d'état (écriture conditionnelle non documentée) : la CI sérialise les apply ;\n"
+                   "  # ne pas lancer d'apply depuis un poste pendant qu'un job tourne.\n")
+                + f'  backend "s3" {{\n    bucket                      = "{ir.params(tool).get("bucket")}"\n'
                 f'    key                         = "{ir.app}/terraform.tfstate"\n'
                 f'    region                      = "{region}"\n'
                 f'    endpoints                   = {{ s3 = "{endpoint}" }}\n'
                 f'    skip_credentials_validation = true\n    skip_region_validation      = true\n'
                 f'    skip_requesting_account_id  = true\n    skip_metadata_api_check     = true\n'
-                f'    skip_s3_checksum            = true\n  }}')
+                f'    skip_s3_checksum            = true\n'
+                + ('    use_lockfile                = true\n' if lock else '') + '  }')
     if ir.has("gcs"):
         b = ir.params("gcs")
         return f'  backend "gcs" {{\n    bucket = "{b.get("bucket")}"\n    prefix = "{ir.app}"\n  }}'

@@ -14,7 +14,7 @@ terraform {
   }
 
   # Scaleway Object Storage : clés S3 dans AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY (posées par la CI).
-  # Pas de verrou d'état : la CI sérialise les apply.
+  # Verrou d'état : fichier .tflock créé par écriture conditionnelle (If-None-Match).
   backend "s3" {
     bucket                      = "mon-projet-tfstate"
     key                         = "mon-app/terraform.tfstate"
@@ -25,5 +25,6 @@ terraform {
     skip_requesting_account_id  = true
     skip_metadata_api_check     = true
     skip_s3_checksum            = true
+    use_lockfile                = true
   }
 }

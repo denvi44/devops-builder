@@ -10,7 +10,8 @@ terraform {
   }
 
   # Outscale Object Storage (OOS) : clés S3 dans AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY (posées par la CI).
-  # Pas de verrou d'état : la CI sérialise les apply.
+  # Pas de verrou d'état (écriture conditionnelle non documentée) : la CI sérialise les apply ;
+  # ne pas lancer d'apply depuis un poste pendant qu'un job tourne.
   backend "s3" {
     bucket                      = "mon-projet-tfstate"
     key                         = "mon-app/terraform.tfstate"

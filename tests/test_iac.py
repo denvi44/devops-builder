@@ -64,7 +64,9 @@ def test_backend_compatible_s3_des_clouds_europeens(cloud, storage, endpoint, ke
     f = files_of(p)
     versions = f["infra/terraform/versions.tf"]
     assert f'endpoints                   = {{ s3 = "{endpoint}" }}' in versions
-    assert "skip_s3_checksum            = true" in versions and "use_lockfile" not in versions
+    assert "skip_s3_checksum            = true" in versions
+    # verrou natif là où l'écriture conditionnelle est documentée (Scaleway, OVHcloud), pas chez Outscale
+    assert ("use_lockfile                = true" in versions) == (cloud != "outscale")
     ci = f[".gitlab-ci.yml"]
     assert f'export AWS_ACCESS_KEY_ID="${key}"' in ci
     assert "resource_group: terraform" in ci
