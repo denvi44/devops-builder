@@ -481,22 +481,29 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
             f'ssh "${host}" "cd /opt/{ns} && IMAGE=$IMAGE docker compose -p {ns} pull && IMAGE=$IMAGE docker compose -p {ns} up -d"'],
             tool="docker-compose", cloud=tf_clouds, id_tokens=sec.gitlab_id_tokens(ir) if secrets else {})
     if ir.has("argo-cd") or ir.has("flux"):
+        from .generators.deploy import gitops_repo_url
         gitops = "Argo CD" if ir.has("argo-cd") else "Flux"
+        # dépôt et étiquette : les fichiers du dépôt GitOps désignent l'image publiée par ce pipeline
         if ir.has("helm"):
-            bump = f"yq -i '.image.tag = strenv(TAG)' {ir.helm_values(env)}"
+            bump = (f"yq -i '.image.repository = strenv(IMAGE_NAME) | .image.tag = strenv(TAG)' "
+                    f"{ir.helm_values(env)}")
         else:
-            bump = (f"yq -i '(.images[] | select(.name == \"{app}\")).newTag = strenv(TAG)' "
-                    f"{ir.overlay(env)}/kustomization.yaml")
+            bump = (f"yq -i '(.images[] | select(.name == \"{app}\")) |= (.newName = strenv(IMAGE_NAME) "
+                    f"| .newTag = strenv(TAG))' {ir.overlay(env)}/kustomization.yaml")
+        scheme, _, rest = gitops_repo_url(ir).partition("://")
         ir.add_var("GITOPS_TOKEN", "Jeton autorisé à pousser sur le dépôt GitOps")
-        ir.add_var("GITOPS_REPO", "Dépôt GitOps surveillé, sans schéma (hôte/groupe/depot.git)", secret=False)
-        msg = f"deploy({env.id}): {app} $TAG" if ir.multi_env else f"deploy: {app} $TAG"
+        ir.add_var("GITOPS_REPO", "Dépôt GitOps surveillé, sans schéma (hôte/groupe/depot.git)", secret=False,
+                   value=rest if "example.com" not in rest else None)
+        # [skip ci] : le dépôt GitOps peut être celui de l'application sans relancer le pipeline en boucle
+        msg = f"deploy({env.id}): {app} $TAG [skip ci]" if ir.multi_env else f"deploy: {app} $TAG [skip ci]"
         return Step("deploy", f"Mise à jour GitOps ({gitops})", "deploy", ALPINE, [
-            "apk add --no-cache git yq",
-            'git clone "https://oauth2:$GITOPS_TOKEN@$GITOPS_REPO" gitops',
+            "apk add --no-cache git yq-go",
+            f'git clone "{scheme}://oauth2:$GITOPS_TOKEN@$GITOPS_REPO" gitops',
             "cd gitops",
+            'export IMAGE_NAME="${IMAGE%:*}"',
             bump,
             'git config user.email "ci@example.com" && git config user.name "CI"',
-            f'git commit -am "{msg}" && git push origin HEAD'],
+            f'if git diff --quiet; then echo "Image déjà en place"; else git commit -am "{msg}" && git push origin HEAD; fi'],
             tool="argo-cd" if ir.has("argo-cd") else "flux")
     kube_secrets = [] if sec.eso(ir) else [d for d in dbgen.kube_dbs(ir) if d.mode != "operator"]
     if ir.has("helm"):

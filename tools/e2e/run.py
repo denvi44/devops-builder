@@ -468,6 +468,60 @@ exit 1
     ]
 
 
+def _dex_steps(out: Path, ir) -> list[Step]:
+    """Dex en Compose derrière Traefik : découverte OpenID, puis une demande de connexion de l'application suivie
+    jusqu'à la forge. Sans compte sur la forge, le parcours s'arrête à sa page d'autorisation, qui doit recevoir
+    l'identifiant de l'application OAuth transmis par le pipeline."""
+    from devops_builder.generators import identity
+    connector_id = "e2e-" + secrets.token_hex(6)
+    env = {"DEX_CONNECTOR_ID": connector_id, "DEX_CONNECTOR_SECRET": secrets.token_hex(16),
+           **{identity.secret_env_name(c): secrets.token_hex(12) for c in identity.clients(ir)}}
+    host, curlrc, start, end = _compose_host(out, ir, env)
+    dex = identity.host(ir)
+    iss = identity.issuer(ir)
+    cenv = {**_curl_env(curlrc, dex), "DEX_CONNECTOR_ID": connector_id}
+    redirect = f"{identity.app_url(ir)}/callback"
+    auth = (f"{iss}/auth?client_id={ir.app}&redirect_uri=$(printf %s '{redirect}' | jq -sRr @uri)"
+            "&response_type=code&scope=openid+profile+email+groups&state=e2e")
+    discovery = f"""
+for _ in $(seq 1 60); do
+  got=$(curl -fsS https://{dex}/.well-known/openid-configuration 2>/dev/null | jq -r .issuer || true)
+  [ "$got" = "{iss}" ] && {{ echo "émetteur : $got"; exit 0; }}
+  sleep 3
+done
+exit 1
+"""
+    journey = f"""
+next="{auth}"
+for i in 1 2 3 4; do
+  loc=$(curl -sS -o /dev/null -w '%{{redirect_url}}' "$next")
+  echo "redirection $i : ${{loc%%\\?*}}"
+  case "$loc" in
+    https://github.com/login/oauth/authorize*|https://gitlab.com/oauth/authorize*) break ;;
+    https://{dex}/*) next="$loc" ;;
+    *) echo "redirection inattendue : $loc"; exit 1 ;;
+  esac
+done
+printf '%s\n' "$loc" | tr '?&' '\n\n' | grep -E '^(client_id|redirect_uri|scope)='
+printf '%s' "$loc" | grep -q "client_id=$DEX_CONNECTOR_ID" || {{ echo "identifiant de l'application OAuth absent"; exit 1; }}
+printf '%s' "$loc" | grep -q "redirect_uri=$(printf %s '{iss}/callback' | jq -sRr @uri)"
+"""
+    refused = f"""
+code=$(curl -sS -o /tmp/dex-refus.html -w '%{{http_code}}' \
+  "{iss}/auth?client_id={ir.app}&redirect_uri=https%3A%2F%2Fpirate.test%2Fcallback&response_type=code&scope=openid")
+echo "adresse de retour inconnue : HTTP $code"
+test "$code" -ge 400
+"""
+    return [
+        *start,
+        Step("Découverte OpenID par Traefik en HTTPS", discovery, env=cenv, evidence=True),
+        Step("Connexion de l'application : Dex renvoie vers la forge avec l'application OAuth du pipeline", journey,
+             env=cenv, evidence=True),
+        Step("Adresse de retour non déclarée refusée", refused, env=cenv, evidence=True),
+        *end,
+    ]
+
+
 def _sops_steps(out: Path, ir) -> list[Step]:
     """SOPS comme le mode d'emploi : clé age, clé publique dans la brique et projet régénéré, valeurs chiffrées par
     secrets-seed.sh ; puis les lignes mêmes de la CI générée (sops vérifié, déchiffrement, deploy/secrets.sh)."""
@@ -611,6 +665,12 @@ SCENARIOS = {s.name: s for s in [
              "rapport et règles FAIL de .zap/rules.tsv vérifiés",
              lambda: _project("docker-host", *GH, "docker-compose", "traefik", "zap"),
              _zap_steps, ("docker", "curl", "python3")),
+    Scenario("compose-dex", "Hôte Docker : Dex derrière Traefik en HTTPS, connexion de l'application suivie jusqu'à "
+             "la page d'autorisation de la forge",
+             lambda: _with(_project("docker-host", *GH, "docker-compose", "traefik", "dex"),
+                           dex={"hostname": "dex.boutique.test", "tools_domain": "boutique.test",
+                                "app_url": "https://boutique.test"}),
+             _dex_steps, ("docker", "curl", "jq")),
     Scenario("compose-identite-keycloak", "Hôte Docker : Keycloak et sa base derrière Traefik en HTTPS, realm "
              "appliqué par OpenTofu, revendication groups",
              lambda: _with(_project("docker-host", "gitlab", "gitlab-ci", "buildkit", "docker-compose", "traefik",

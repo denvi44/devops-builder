@@ -229,9 +229,15 @@ def kustomize(ir: IR) -> dict[str, str]:
     return files
 
 
+def gitops_repo_url(ir: IR) -> str:
+    """Dépôt GitOps saisi sur la brique Argo CD ou Flux (valeur d'exemple sinon, signalée par R34)."""
+    tool = "argo-cd" if ir.has("argo-cd") else "flux"
+    return str(ir.params(tool).get("repo_url") or "https://git.example.com/groupe/gitops.git")
+
+
 def _source(ir: IR, env) -> dict:
     """Source Git d'un environnement : chart Helm + fichier de valeurs, ou overlay Kustomize."""
-    repo = "https://git.example.com/groupe/gitops.git"
+    repo = gitops_repo_url(ir)
     if ir.has("helm"):
         src: dict = {"repoURL": repo, "targetRevision": "main", "path": f"charts/{ir.app}"}
         if ir.multi_env:
@@ -270,7 +276,8 @@ def argo_cd(ir: IR) -> dict[str, str]:
 def flux(ir: IR) -> dict[str, str]:
     repo = {"apiVersion": "source.toolkit.fluxcd.io/v1", "kind": "GitRepository",
             "metadata": {"name": "gitops", "namespace": "flux-system"},
-            "spec": {"interval": "1m", "url": "https://git.example.com/groupe/gitops.git", "ref": {"branch": "main"}}}
+            "spec": {"interval": "1m", "url": gitops_repo_url(ir), "ref": {"branch": "main"},
+                     "secretRef": {"name": "gitops"}}}  # créé par le mode d'emploi (flux create secret git)
     docs: list[dict] = [repo]
     for env in ir.envs:
         ns = ir.namespace(env)

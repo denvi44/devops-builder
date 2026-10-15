@@ -71,6 +71,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - **Avertissement** (R34) — Harbor : « Adresse du registre » non renseigné : la valeur d'exemple « registry.example.com » sera écrite dans les fichiers.
 - **Avertissement** (R34) — Outscale Kubernetes as a Service (OKS) : « Nom du cluster » non renseigné : la valeur d'exemple « mon-cluster » sera écrite dans les fichiers.
 - **Avertissement** (R34) — Outscale Object Storage (OOS) : « Bucket de l'état Terraform » non renseigné : la valeur d'exemple « mon-projet-tfstate » sera écrite dans les fichiers.
+- **Avertissement** (R34) — Argo CD : « Dépôt GitOps » non renseigné : la valeur d'exemple « https://git.example.com/groupe/gitops.git » sera écrite dans les fichiers.
 - **Info** (R31) — Aucun fichier n'est généré pour Outscale Kubernetes as a Service (OKS) dans cette configuration : à configurer à la main (listé dans PIPELINE.md).
 - **Info** (R50) — Woodpecker CI est expérimental : pas de porte d'approbation native : la production part d'un déclenchement manuel ; secrets de la CI à déclarer à la main.
 

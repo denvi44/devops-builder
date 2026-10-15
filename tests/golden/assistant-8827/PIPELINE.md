@@ -99,6 +99,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - **Avertissement** (R34) — Harbor : « Adresse du registre » non renseigné : la valeur d'exemple « registry.example.com » sera écrite dans les fichiers.
 - **Avertissement** (R34) — Outscale Kubernetes as a Service (OKS) : « Nom du cluster » non renseigné : la valeur d'exemple « mon-cluster » sera écrite dans les fichiers.
 - **Avertissement** (R34) — Outscale Object Storage (OOS) : « Bucket de l'état Terraform » non renseigné : la valeur d'exemple « mon-projet-tfstate » sera écrite dans les fichiers.
+- **Avertissement** (R34) — Argo CD : « Dépôt GitOps » non renseigné : la valeur d'exemple « https://git.example.com/groupe/gitops.git » sera écrite dans les fichiers.
 - **Info** (R23) — Harbor embarque déjà Trivy comme scanner ; l'étape Trivy en CI reste utile pour bloquer avant la publication.
 - **Info** (R24) — Terraform est sous licence BSL-1.1.
 - **Info** (R31) — Aucun fichier n'est généré pour Outscale Kubernetes as a Service (OKS) dans cette configuration : à configurer à la main (listé dans PIPELINE.md).

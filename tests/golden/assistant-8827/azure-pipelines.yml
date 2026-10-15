@@ -171,12 +171,13 @@ stages:
           steps:
           - checkout: self
           - script: |
-              apk add --no-cache git yq
+              apk add --no-cache git yq-go
               git clone "https://oauth2:$GITOPS_TOKEN@$GITOPS_REPO" gitops
               cd gitops
-              yq -i '.image.tag = strenv(TAG)' charts/mon-app/values-dev.yaml
+              export IMAGE_NAME="${IMAGE%:*}"
+              yq -i '.image.repository = strenv(IMAGE_NAME) | .image.tag = strenv(TAG)' charts/mon-app/values-dev.yaml
               git config user.email "ci@example.com" && git config user.name "CI"
-              git commit -am "deploy(dev): mon-app $TAG" && git push origin HEAD
+              if git diff --quiet; then echo "Image déjà en place"; else git commit -am "deploy(dev): mon-app $TAG [skip ci]" && git push origin HEAD; fi
             displayName: Mise à jour GitOps (Argo CD) — Développement
             env:
               SONAR_TOKEN: $(SONAR_TOKEN)
@@ -200,12 +201,13 @@ stages:
           steps:
           - checkout: self
           - script: |
-              apk add --no-cache git yq
+              apk add --no-cache git yq-go
               git clone "https://oauth2:$GITOPS_TOKEN@$GITOPS_REPO" gitops
               cd gitops
-              yq -i '.image.tag = strenv(TAG)' charts/mon-app/values-staging.yaml
+              export IMAGE_NAME="${IMAGE%:*}"
+              yq -i '.image.repository = strenv(IMAGE_NAME) | .image.tag = strenv(TAG)' charts/mon-app/values-staging.yaml
               git config user.email "ci@example.com" && git config user.name "CI"
-              git commit -am "deploy(staging): mon-app $TAG" && git push origin HEAD
+              if git diff --quiet; then echo "Image déjà en place"; else git commit -am "deploy(staging): mon-app $TAG [skip ci]" && git push origin HEAD; fi
             displayName: Mise à jour GitOps (Argo CD) — Préproduction
             env:
               SONAR_TOKEN: $(SONAR_TOKEN)
@@ -229,12 +231,13 @@ stages:
           steps:
           - checkout: self
           - script: |
-              apk add --no-cache git yq
+              apk add --no-cache git yq-go
               git clone "https://oauth2:$GITOPS_TOKEN@$GITOPS_REPO" gitops
               cd gitops
-              yq -i '.image.tag = strenv(TAG)' charts/mon-app/values-production.yaml
+              export IMAGE_NAME="${IMAGE%:*}"
+              yq -i '.image.repository = strenv(IMAGE_NAME) | .image.tag = strenv(TAG)' charts/mon-app/values-production.yaml
               git config user.email "ci@example.com" && git config user.name "CI"
-              git commit -am "deploy(production): mon-app $TAG" && git push origin HEAD
+              if git diff --quiet; then echo "Image déjà en place"; else git commit -am "deploy(production): mon-app $TAG [skip ci]" && git push origin HEAD; fi
             displayName: Mise à jour GitOps (Argo CD) — Production
             env:
               SONAR_TOKEN: $(SONAR_TOKEN)

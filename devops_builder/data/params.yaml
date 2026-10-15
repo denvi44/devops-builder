@@ -399,6 +399,21 @@ zabbix:
     description: Fuseau de l'interface web (PHP_TZ).
     default: Europe/Paris
 
+_gitops_repo: &gitops_repo
+  label: Dépôt GitOps
+  required: true
+  description: >-
+    Adresse du dépôt surveillé, qui contient le chart ou les overlays Kustomize (le dépôt de l'application
+    convient : les commits de la CI portent [skip ci]). Reprise dans les applications et dans la variable
+    GITOPS_REPO de la CI.
+  example: https://git.example.com/groupe/gitops.git
+  pattern: 'https?://[^\s@]+'
+  pattern_hint: "https://hôte/groupe/depot.git, sans identifiant"
+argo-cd:
+  repo_url: *gitops_repo
+flux:
+  repo_url: *gitops_repo
+
 zap:
   environment:
     label: Environnement analysé

@@ -80,6 +80,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - **Avertissement** (R34) — Azure Container Registry : « Nom du registre ACR » non renseigné : la valeur d'exemple « monappregistry » sera écrite dans les fichiers.
 - **Avertissement** (R34) — Azure Kubernetes Service : « Nom du cluster » non renseigné : la valeur d'exemple « mon-cluster » sera écrite dans les fichiers.
 - **Avertissement** (R34) — Azure Blob Storage : « Compte de stockage » non renseigné : la valeur d'exemple « monprojettfstate » sera écrite dans les fichiers.
+- **Avertissement** (R34) — Argo CD : « Dépôt GitOps » non renseigné : la valeur d'exemple « https://git.example.com/groupe/gitops.git » sera écrite dans les fichiers.
 - **Info** (R24) — Terraform est sous licence BSL-1.1.
 
 ## Notes

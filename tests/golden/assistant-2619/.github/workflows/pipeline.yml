@@ -66,6 +66,7 @@ jobs:
       run: |
         git clone "https://oauth2:$GITOPS_TOKEN@$GITOPS_REPO" gitops
         cd gitops
-        yq -i '.image.tag = strenv(TAG)' charts/mon-app/values.yaml
+        export IMAGE_NAME="${IMAGE%:*}"
+        yq -i '.image.repository = strenv(IMAGE_NAME) | .image.tag = strenv(TAG)' charts/mon-app/values.yaml
         git config user.email "ci@example.com" && git config user.name "CI"
-        git commit -am "deploy: mon-app $TAG" && git push origin HEAD
+        if git diff --quiet; then echo "Image déjà en place"; else git commit -am "deploy: mon-app $TAG [skip ci]" && git push origin HEAD; fi

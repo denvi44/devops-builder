@@ -83,6 +83,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - **Avertissement** (R34) — Scaleway Kapsule : « Nom du cluster » non renseigné : la valeur d'exemple « mon-cluster » sera écrite dans les fichiers.
 - **Avertissement** (R34) — Scaleway Object Storage : « Bucket de l'état Terraform » non renseigné : la valeur d'exemple « mon-projet-tfstate » sera écrite dans les fichiers.
+- **Avertissement** (R34) — Argo CD : « Dépôt GitOps » non renseigné : la valeur d'exemple « https://git.example.com/groupe/gitops.git » sera écrite dans les fichiers.
 - **Info** (R24) — Terraform est sous licence BSL-1.1.
 - **Info** (R50) — Woodpecker CI est expérimental : pas de porte d'approbation native : la production part d'un déclenchement manuel ; secrets de la CI à déclarer à la main.
 

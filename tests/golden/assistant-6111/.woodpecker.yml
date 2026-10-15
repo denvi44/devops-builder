@@ -116,12 +116,13 @@ steps:
   commands:
   - export TAG="${CI_COMMIT_SHA:0:8}"
   - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
-  - apk add --no-cache git yq
+  - apk add --no-cache git yq-go
   - git clone "https://oauth2:$$GITOPS_TOKEN@$$GITOPS_REPO" gitops
   - cd gitops
-  - yq -i '.image.tag = strenv(TAG)' charts/mon-app/values-staging.yaml
+  - export IMAGE_NAME="$${IMAGE%:*}"
+  - yq -i '.image.repository = strenv(IMAGE_NAME) | .image.tag = strenv(TAG)' charts/mon-app/values-staging.yaml
   - git config user.email "ci@example.com" && git config user.name "CI"
-  - 'git commit -am "deploy(staging): mon-app $$TAG" && git push origin HEAD'
+  - 'if git diff --quiet; then echo "Image déjà en place"; else git commit -am "deploy(staging): mon-app $$TAG [skip ci]" && git push origin HEAD; fi'
   environment:
     SONAR_TOKEN:
       from_secret: sonar_token
@@ -141,12 +142,13 @@ steps:
   commands:
   - export TAG="${CI_COMMIT_SHA:0:8}"
   - export IMAGE="registry.example.com/mon-app/mon-app:$$TAG"
-  - apk add --no-cache git yq
+  - apk add --no-cache git yq-go
   - git clone "https://oauth2:$$GITOPS_TOKEN@$$GITOPS_REPO" gitops
   - cd gitops
-  - yq -i '.image.tag = strenv(TAG)' charts/mon-app/values-production.yaml
+  - export IMAGE_NAME="$${IMAGE%:*}"
+  - yq -i '.image.repository = strenv(IMAGE_NAME) | .image.tag = strenv(TAG)' charts/mon-app/values-production.yaml
   - git config user.email "ci@example.com" && git config user.name "CI"
-  - 'git commit -am "deploy(production): mon-app $$TAG" && git push origin HEAD'
+  - 'if git diff --quiet; then echo "Image déjà en place"; else git commit -am "deploy(production): mon-app $$TAG [skip ci]" && git push origin HEAD; fi'
   environment:
     SONAR_TOKEN:
       from_secret: sonar_token

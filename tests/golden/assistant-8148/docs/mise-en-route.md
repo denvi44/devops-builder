@@ -9,7 +9,7 @@ Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque se
 À poser une fois dans le terminal ; les commandes suivantes les reprennent.
 
 ```bash
-export GITOPS_REPO="git.example.com/groupe/gitops.git"   # même valeur que la variable CI
+read -rsp "Jeton de lecture du dépôt GitOps : " GITOPS_READ_TOKEN; echo; export GITOPS_READ_TOKEN
 ```
 
 ## 1. État Terraform
@@ -46,14 +46,19 @@ kubectl get pods -A | grep -v Running   # rien ne doit rester en attente
 
 ## 4. Argo CD
 
-Le dépôt GitOps (variable `GITOPS_REPO`) doit être connu d'Argo CD, puis les applications créées :
+Le dépôt GitOps (https://git.example.com/groupe/gitops.git) contient `charts/mon-app/` tel que généré ici : le dépôt de l'application convient (les commits de la CI portent `[skip ci]`), ou un dépôt dédié où ce dossier est copié. `GITOPS_READ_TOKEN` : jeton en lecture seule sur ce dépôt, distinct de `GITOPS_TOKEN` (écriture, CI).
+
+Argo CD connaît le dépôt par un secret étiqueté, puis les applications sont créées et suivies jusqu'à leur synchronisation :
 
 ```bash
-argocd repo add "https://$GITOPS_REPO" --username ci --password "<jeton de lecture>"
-# adresse du dépôt GitOps à reporter dans deploy/argocd/application.yaml (repoURL)
+kubectl -n argocd create secret generic gitops-repo --from-literal=type=git --from-literal=url="https://git.example.com/groupe/gitops.git" --from-literal=username=ci --from-literal=password="$GITOPS_READ_TOKEN"
+kubectl -n argocd label secret gitops-repo argocd.argoproj.io/secret-type=repository
 kubectl apply -f deploy/argocd/application.yaml
-argocd app list
+kubectl -n argocd wait application/mon-app --for=jsonpath='{.status.sync.status}'=Synced --timeout=300s
+kubectl -n argocd get applications
 ```
+
+Ensuite, chaque pipeline met à jour l'étiquette de l'image dans le dépôt GitOps ; Argo CD l'applique à sa prochaine lecture du dépôt (trois minutes au plus).
 
 ## 5. Variables CI
 

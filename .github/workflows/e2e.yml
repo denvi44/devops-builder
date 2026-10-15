@@ -3,6 +3,11 @@ name: Bout en bout
 
 on:
   workflow_dispatch:
+    inputs:
+      scenario:
+        description: Un seul scénario (vide = tous)
+        required: false
+        default: ""
   schedule:
     - cron: "17 3 * * *"
   pull_request:
@@ -33,6 +38,7 @@ jobs:
           - compose-zabbix
           - compose-sops
           - compose-zap
+          - compose-dex
           - compose-identite-keycloak
           - kind-coffre-openbao
           - kind-identite-keycloak
@@ -48,7 +54,7 @@ jobs:
           cache: pip
       - run: pip install -e .
       - name: kind (compilé depuis ses sources, vérifiées par la base de sommes de Go)
-        if: startsWith(matrix.scenario, 'kind-')
+        if: startsWith(matrix.scenario, 'kind-') && (inputs.scenario == '' || inputs.scenario == matrix.scenario)
         env:
           GOTOOLCHAIN: auto
         run: |
@@ -73,4 +79,5 @@ jobs:
           docker compose version
           if [ "${SCENARIO#kind-}" != "$SCENARIO" ]; then kind version; kubectl version --client; helm version; fi
       - name: Scénario
+        if: inputs.scenario == '' || inputs.scenario == matrix.scenario
         run: python tools/e2e/run.py "$SCENARIO"

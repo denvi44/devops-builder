@@ -33,7 +33,10 @@ def _values(ir: IR, files: dict[str, str], used: str) -> list[str]:
     if "AWS_ACCOUNT_ID" in used:
         lines.append('export AWS_ACCOUNT_ID="123456789012"')
     if "$GITOPS_REPO" in used:
-        lines.append('export GITOPS_REPO="git.example.com/groupe/gitops.git"   # même valeur que la variable CI')
+        from .deploy import gitops_repo_url
+        lines.append(f'export GITOPS_REPO="{gitops_repo_url(ir).partition("://")[2]}"   # même valeur que la variable CI')
+    if "$GITOPS_READ_TOKEN" in used:  # saisi sans écho : le jeton ne reste pas dans l'historique du terminal
+        lines.append('read -rsp "Jeton de lecture du dépôt GitOps : " GITOPS_READ_TOKEN; echo; export GITOPS_READ_TOKEN')
     tool = sec.vault_tool(ir) if "$VAULT_ADDR" in used else None
     if tool:
         addr = str(sec.vault_params(ir).get("address") or "")
@@ -360,19 +363,31 @@ def _hosts(ir: IR) -> list[str]:
 
 
 def _gitops(ir: IR, files: dict[str, str]) -> list[str]:
+    from .deploy import gitops_repo_url
+    url = gitops_repo_url(ir)
+    content = (f"`charts/{ir.app}/`" if ir.has("helm") else "`deploy/kustomize/`")
+    intro = (f"Le dépôt GitOps ({url}) contient {content} tel que généré ici : le dépôt de l'application convient "
+             "(les commits de la CI portent `[skip ci]`), ou un dépôt dédié où ce dossier est copié. "
+             "`GITOPS_READ_TOKEN` : jeton en lecture seule sur ce dépôt, distinct de `GITOPS_TOKEN` (écriture, CI).")
     if "deploy/argocd/application.yaml" in files:
-        return ["## Argo CD", "",
-                "Le dépôt GitOps (variable `GITOPS_REPO`) doit être connu d'Argo CD, puis les applications créées :", "",
-                *_sh('argocd repo add "https://$GITOPS_REPO" --username ci --password "<jeton de lecture>"',
-                     "# adresse du dépôt GitOps à reporter dans deploy/argocd/application.yaml (repoURL)",
+        ns = ir.namespace(ir.envs[0])
+        return ["## Argo CD", "", intro, "",
+                "Argo CD connaît le dépôt par un secret étiqueté, puis les applications sont créées et suivies "
+                "jusqu'à leur synchronisation :", "",
+                *_sh(f'kubectl -n argocd create secret generic gitops-repo --from-literal=type=git '
+                     f'--from-literal=url="{url}" --from-literal=username=ci --from-literal=password="$GITOPS_READ_TOKEN"',
+                     "kubectl -n argocd label secret gitops-repo argocd.argoproj.io/secret-type=repository",
                      "kubectl apply -f deploy/argocd/application.yaml",
-                     "argocd app list"), ]
+                     f"kubectl -n argocd wait application/{ns} --for=jsonpath='{{.status.sync.status}}'=Synced "
+                     "--timeout=300s",
+                     "kubectl -n argocd get applications"),
+                "Ensuite, chaque pipeline met à jour l'étiquette de l'image dans le dépôt GitOps ; Argo CD l'applique "
+                "à sa prochaine lecture du dépôt (trois minutes au plus).", ""]
     if "deploy/flux/gitops.yaml" in files:
-        return ["## Flux", "",
+        return ["## Flux", "", intro, "",
                 "Flux installé sur le cluster, avec l'accès au dépôt GitOps, puis les ressources du projet :", "",
                 *_sh("flux install",
-                     'flux create secret git gitops --url "https://$GITOPS_REPO" --username ci --password "<jeton>"',
-                     "# adresse du dépôt et secretRef à reporter dans deploy/flux/gitops.yaml (GitRepository)",
+                     f'flux create secret git gitops --url "{url}" --username ci --password "$GITOPS_READ_TOKEN"',
                      "kubectl apply -f deploy/flux/gitops.yaml",
                      "flux get all -A")]
     return []

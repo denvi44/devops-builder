@@ -71,12 +71,13 @@ deploy-staging:
   environment:
     name: staging
   script:
-  - apk add --no-cache git yq
+  - apk add --no-cache git yq-go
   - git clone "https://oauth2:$GITOPS_TOKEN@$GITOPS_REPO" gitops
   - cd gitops
-  - yq -i '(.images[] | select(.name == "mon-app")).newTag = strenv(TAG)' deploy/kustomize/overlays/staging/kustomization.yaml
+  - export IMAGE_NAME="${IMAGE%:*}"
+  - yq -i '(.images[] | select(.name == "mon-app")) |= (.newName = strenv(IMAGE_NAME) | .newTag = strenv(TAG))' deploy/kustomize/overlays/staging/kustomization.yaml
   - git config user.email "ci@example.com" && git config user.name "CI"
-  - 'git commit -am "deploy(staging): mon-app $TAG" && git push origin HEAD'
+  - 'if git diff --quiet; then echo "Image déjà en place"; else git commit -am "deploy(staging): mon-app $TAG [skip ci]" && git push origin HEAD; fi'
   rules:
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 deploy-production:
@@ -88,12 +89,13 @@ deploy-production:
   environment:
     name: production
   script:
-  - apk add --no-cache git yq
+  - apk add --no-cache git yq-go
   - git clone "https://oauth2:$GITOPS_TOKEN@$GITOPS_REPO" gitops
   - cd gitops
-  - yq -i '(.images[] | select(.name == "mon-app")).newTag = strenv(TAG)' deploy/kustomize/overlays/production/kustomization.yaml
+  - export IMAGE_NAME="${IMAGE%:*}"
+  - yq -i '(.images[] | select(.name == "mon-app")) |= (.newName = strenv(IMAGE_NAME) | .newTag = strenv(TAG))' deploy/kustomize/overlays/production/kustomization.yaml
   - git config user.email "ci@example.com" && git config user.name "CI"
-  - 'git commit -am "deploy(production): mon-app $TAG" && git push origin HEAD'
+  - 'if git diff --quiet; then echo "Image déjà en place"; else git commit -am "deploy(production): mon-app $TAG [skip ci]" && git push origin HEAD; fi'
   rules:
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     when: manual

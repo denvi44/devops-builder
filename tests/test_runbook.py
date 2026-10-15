@@ -85,7 +85,19 @@ def test_hotes_ansible_et_gitops():
     assert "ansible-playbook -i ansible/inventories/staging.ini ansible/site.yml" in guide
     argo = files_of(project("kubernetes", *K3S_KUST, "argo-cd"))[GUIDE]
     assert "kubectl apply -f deploy/argocd/application.yaml" in argo
-    assert 'export GITOPS_REPO="git.example.com/groupe/gitops.git"' in argo
+    assert 'url="https://git.example.com/groupe/gitops.git"' in argo            # dépôt de la brique
+    assert "argocd.argoproj.io/secret-type=repository" in argo and "$GITOPS_READ_TOKEN" in argo
+    assert 'read -rsp "Jeton de lecture du dépôt GitOps : " GITOPS_READ_TOKEN' in argo   # sans écho
+
+
+def test_depot_gitops_saisi_sur_la_brique():
+    p = project("kubernetes", *K3S_KUST, "argo-cd")
+    p.bricks_for("argo-cd")[0].params["repo_url"] = "https://gitlab.com/boutique/gitops.git"
+    files = files_of(p)
+    assert "repoURL: https://gitlab.com/boutique/gitops.git" in files["deploy/argocd/application.yaml"]
+    ci = files[".gitlab-ci.yml"]
+    assert "GITOPS_REPO: gitlab.com/boutique/gitops.git" in ci
+    assert "apk add --no-cache git yq-go" in ci and "[skip ci]" in ci and "strenv(IMAGE_NAME)" in ci
 
 
 @pytest.mark.parametrize("forge, ci, issuer", [("gitlab", "gitlab-ci", "https://gitlab.com"),
