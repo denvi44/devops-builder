@@ -607,6 +607,56 @@ echo "dépôt privé e2e/gitops créé"
     ]
 
 
+def _renovate_steps(out: Path, ir) -> list[Step]:
+    """Renovate tel que le workflow Gitea généré le lance (image, variables), contre une vraie forge Gitea : il lit
+    renovate.json et ouvre son tableau de bord et ses demandes de fusion sur les images du dépôt."""
+    import yaml as _yaml
+    work = out.parent
+    wf = _yaml.safe_load((out / ".gitea" / "workflows" / "renovate.yml").read_text(encoding="utf-8"))
+    job = wf["jobs"]["renovate"]
+    token = work / "gitea-token"
+    repo = "e2e/boutique"
+    subst = {"${{ github.server_url }}": "http://gitea:3000", "${{ github.repository }}": repo}
+    envs = []
+    for k, v in job["env"].items():
+        if "secrets.RENOVATE_TOKEN" in v:
+            envs.append(f'-e {k}="$(cat {token})"')
+        else:
+            for a, b in subst.items():
+                v = v.replace(a, b)
+            envs.append(f"-e {k}={v}")
+    run = (f"docker run --rm --network e2e-forge {' '.join(envs)} -e LOG_LEVEL=info {job['container']} "
+           f"{job['steps'][0]['run']} 2>&1 | tail -n 40")
+    gitea = f"""
+docker network create e2e-forge >/dev/null
+docker run -d --name gitea-e2e --network e2e-forge --network-alias gitea -p 3000:3000 \\
+  -e GITEA__security__INSTALL_LOCK=true -e GITEA__server__ROOT_URL=http://gitea:3000/ {GITEA_IMAGE}
+for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:3000/api/healthz >/dev/null 2>&1 && break; sleep 2; done
+docker exec -u git gitea-e2e gitea admin user create --username e2e --password "$GITEA_PASSWORD" \\
+  --email e2e@boutique.test --admin --must-change-password=false
+docker exec -u git gitea-e2e gitea admin user generate-access-token --username e2e --token-name renovate \\
+  --scopes all --raw > {token}
+curl -fsS -u "e2e:$GITEA_PASSWORD" -H 'Content-Type: application/json' \\
+  -d '{{"name":"boutique","private":true,"default_branch":"main"}}' http://127.0.0.1:3000/api/v1/user/repos >/dev/null
+"""
+    push = (f"git init -q -b main && git add -A && git -c user.email=e2e@boutique.test -c user.name=e2e commit -qm "
+            f"'Fichiers générés' && git push -q \"http://e2e:$(cat {token})@127.0.0.1:3000/{repo}.git\" main")
+    api = f"curl -fsS -H \"Authorization: token $(cat {token})\" http://127.0.0.1:3000/api/v1/repos/{repo}"
+    check = f"""
+{api}/issues?type=issues\\&state=open | jq -r '.[].title' | tee /tmp/issues.txt
+grep -q 'Dependency Dashboard' /tmp/issues.txt
+echo "--- demandes de fusion ouvertes par Renovate :"
+{api}/pulls?state=open | jq -r '.[] | "\\(.head.ref) : \\(.title)"'
+"""
+    return [
+        Step("Forge Gitea, dépôt privé", gitea, env={"GITEA_PASSWORD": secrets.token_hex(12)}),
+        Step("Fichiers générés poussés dans le dépôt", push, cwd=out),
+        Step("Renovate lancé comme le workflow .gitea/workflows/renovate.yml", run, evidence=True),
+        Step("Tableau de bord et demandes de fusion de Renovate sur la forge", check, evidence=True),
+        Step("Arrêt de Gitea", "docker rm -f gitea-e2e; docker network rm e2e-forge", always=True),
+    ]
+
+
 def _sops_steps(out: Path, ir) -> list[Step]:
     """SOPS comme le mode d'emploi : clé age, clé publique dans la brique et projet régénéré, valeurs chiffrées par
     secrets-seed.sh ; puis les lignes mêmes de la CI générée (sops vérifié, déchiffrement, deploy/secrets.sh)."""
@@ -756,6 +806,10 @@ SCENARIOS = {s.name: s for s in [
                            dex={"hostname": "dex.boutique.test", "tools_domain": "boutique.test",
                                 "app_url": "https://boutique.test"}),
              _dex_steps, ("docker", "curl", "jq")),
+    Scenario("gitea-renovate", "Renovate lancé comme le workflow Gitea généré, contre une vraie forge Gitea : "
+             "tableau de bord et demandes de fusion sur les images du dépôt",
+             _starter(hosting="docker-host", forge="gitea", ci="gitea-actions", database="postgresql"),
+             _renovate_steps, ("docker", "curl", "jq", "git")),
     Scenario("compose-identite-keycloak", "Hôte Docker : Keycloak et sa base derrière Traefik en HTTPS, realm "
              "appliqué par OpenTofu, revendication groups",
              lambda: _with(_project("docker-host", "gitlab", "gitlab-ci", "buildkit", "docker-compose", "traefik",
