@@ -463,8 +463,8 @@ def _secret_lines(var: str, out: str, output: str, client: str) -> list[str]:
     if out:
         lines = [f'{var}="${{{var}:-$({out} {output} 2>/dev/null || true)}}"']
         hint = f"relancer ce script après « {KC_DIR} » appliqué (docs/mise-en-route.md)"
-    else:
-        lines = []
+    else:  # définie même vide : le script tourne avec « set -u »
+        lines = [f'{var}="${{{var}:-}}"']
         hint = f"renseigner {var} (secret du client {client} dans Dex)"
     lines.append(f'[ -n "${{{var}:-}}" ] || echo "{var} vide : connexion OIDC inactive, {hint}" >&2')
     return lines

@@ -19,12 +19,14 @@ helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manag
 helm upgrade --install dex dex/dex --namespace dex --create-namespace -f "$(dirname "$0")/values/dex.yaml"
 
 # Grafana — Déjà inclus si kube-prometheus-stack est installé.
+GRAFANA_OIDC_SECRET="${GRAFANA_OIDC_SECRET:-}"
 [ -n "${GRAFANA_OIDC_SECRET:-}" ] || echo "GRAFANA_OIDC_SECRET vide : connexion OIDC inactive, renseigner GRAFANA_OIDC_SECRET (secret du client grafana dans Dex)" >&2
 kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n monitoring create secret generic grafana-oidc --from-literal=GRAFANA_OIDC_SECRET="$GRAFANA_OIDC_SECRET" --dry-run=client -o yaml | kubectl apply -f -
 helm upgrade --install grafana grafana/grafana --namespace monitoring --create-namespace -f "$(dirname "$0")/values/grafana.yaml"
 
 # Harbor
+HARBOR_OIDC_SECRET="${HARBOR_OIDC_SECRET:-}"
 [ -n "${HARBOR_OIDC_SECRET:-}" ] || echo "HARBOR_OIDC_SECRET vide : connexion OIDC inactive, renseigner HARBOR_OIDC_SECRET (secret du client harbor dans Dex)" >&2
 HARBOR_OIDC_ARGS=()
 if [ -n "${HARBOR_OIDC_SECRET:-}" ]; then

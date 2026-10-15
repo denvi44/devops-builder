@@ -273,3 +273,21 @@ def test_mode_d_emploi_keycloak():
     assert "kubectl -n keycloak get secret keycloak-initial-admin" in guide
     assert "tofu -chdir=infra/keycloak apply" in guide
     assert guide.index("## 2. Keycloak") < guide.index("Premier déploiement")
+
+
+def test_install_sh_avec_dex_sans_secrets_ne_plante_pas(tmp_path):
+    """« set -u » : avec Dex, les secrets des clients non encore renseignés ne doivent pas arrêter le script
+    (trouvé par le scénario kind-plateforme)."""
+    p = project("kubernetes", *K3S_HELM, "dex", "argo-cd", "grafana", "harbor",
+                dex={"hostname": "dex.boutique.fr", "tools_domain": "boutique.fr"})
+    gen(p).write(tmp_path)
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    for name in ("helm", "kubectl"):
+        (stubs / name).write_text("#!/bin/sh\nexit 0\n")
+        (stubs / name).chmod(0o755)
+    env = {k: v for k, v in os.environ.items() if not k.endswith("_OIDC_SECRET")}
+    env["PATH"] = f"{stubs}:{env['PATH']}"
+    r = subprocess.run(["bash", "platform/install.sh"], cwd=tmp_path, env=env, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    assert "ARGO_CD_OIDC_SECRET vide" in r.stderr

@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: e2e-${{ github.ref }}
+  group: e2e-${{ github.ref }}-${{ inputs.scenario }}
   cancel-in-progress: true
 
 jobs:
