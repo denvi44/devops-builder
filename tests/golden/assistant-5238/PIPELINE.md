@@ -64,12 +64,13 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 ## Notes
 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
-- Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
+- Renovate : workflow .gitea/workflows/renovate.yml, chaque jour ouvré à 4 h (UTC).
 - `scripts/ci-variables.sh` déclare les 5 variable(s) à renseigner avec Gitea (API), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 
 - `.gitea/workflows/pipeline.yml`
+- `.gitea/workflows/renovate.yml`
 - `PIPELINE.md`
 - `devops-builder.yaml`
 - `docs/mise-en-route.md`

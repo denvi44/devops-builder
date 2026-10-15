@@ -80,7 +80,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Poste de développement : `docker compose -f dev/db/compose.yaml up -d` lance les bases du projet (même version), `dev/db/app.env` donne leurs variables de connexion.
 - Bases managées : une instance par environnement ; après `apply`, composer l'URL de connexion à partir des sorties Terraform (outputs.tf) et la déclarer en variable CI.
 - Connexion de l'application à la base sur un service serverless — Cloud Run : `gcloud run deploy --set-secrets DATABASE_URL=<secret>:latest` et, pour Cloud SQL, `--add-cloudsql-instances <projet>:<région>:<instance>`.
-- Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
+- Renovate : job « renovate » de .gitlab-ci.yml, lancé par une planification de pipeline portant la variable RENOVATE=1 (docs/mise-en-route.md) ; les autres jobs ne tournent pas dans ces pipelines.
 - `scripts/ci-variables.sh` déclare les 5 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés

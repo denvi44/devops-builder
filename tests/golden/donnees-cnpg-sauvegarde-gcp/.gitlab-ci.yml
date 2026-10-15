@@ -7,6 +7,7 @@ stages:
 - infra
 - deploy-staging
 - deploy-production
+- renovate
 variables:
   TAG: $CI_COMMIT_SHORT_SHA
   IMAGE: europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$CI_COMMIT_SHORT_SHA
@@ -19,6 +20,10 @@ unit-tests:
   script:
   - pip install -r requirements.txt
   - pytest -q
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 build-image:
   stage: build
   image:
@@ -40,6 +45,10 @@ build-image:
   - if command -v gcloud >/dev/null; then gcloud auth login --cred-file=/tmp/gcp-cred.json --quiet; fi
   - echo "$REGISTRY_PASSWORD" | docker login "europe-west9-docker.pkg.dev" -u "$REGISTRY_USER" --password-stdin
   - docker buildx build --tag "$IMAGE" --push .
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 gitleaks:
   stage: security
   image:
@@ -48,6 +57,10 @@ gitleaks:
     - ''
   script:
   - gitleaks detect --source . --verbose
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 trivy:
   stage: security
   image:
@@ -64,6 +77,10 @@ trivy:
   - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-cred.json
   - if command -v gcloud >/dev/null; then gcloud auth login --cred-file=/tmp/gcp-cred.json --quiet; fi
   - trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 cosign:
   stage: publish
   image:
@@ -83,6 +100,8 @@ cosign:
   - echo "$REGISTRY_PASSWORD" | cosign login "europe-west9-docker.pkg.dev" -u "$REGISTRY_USER" --password-stdin
   - cosign sign --yes "$IMAGE"
   rules:
+  - if: $RENOVATE == "1"
+    when: never
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 iac-plan:
   stage: infra
@@ -111,6 +130,10 @@ iac-plan:
     paths:
     - infra/terraform/plan.tfplan
     expire_in: 1 week
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 iac-apply:
   stage: infra
   image:
@@ -134,6 +157,8 @@ iac-apply:
   - tofu init -input=false
   - tofu apply -input=false -lock-timeout=5m plan.tfplan
   rules:
+  - if: $RENOVATE == "1"
+    when: never
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     when: manual
   needs:
@@ -159,6 +184,8 @@ deploy-staging:
   - gcloud container clusters get-credentials mon-cluster --region europe-west9 --project mon-projet
   - helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-staging.yaml --namespace mon-app-staging --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait
   rules:
+  - if: $RENOVATE == "1"
+    when: never
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 deploy-production:
   stage: deploy-production
@@ -181,7 +208,24 @@ deploy-production:
   - gcloud container clusters get-credentials mon-cluster --region europe-west9 --project mon-projet
   - helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-production.yaml --namespace mon-app --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --wait
   rules:
+  - if: $RENOVATE == "1"
+    when: never
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     when: manual
   needs:
   - deploy-staging
+renovate:
+  stage: renovate
+  image:
+    name: renovate/renovate:44.164.5
+    entrypoint:
+    - ''
+  rules:
+  - if: $CI_PIPELINE_SOURCE == "schedule" && $RENOVATE == "1"
+  variables:
+    RENOVATE_PLATFORM: gitlab
+    RENOVATE_ENDPOINT: $CI_API_V4_URL
+    RENOVATE_REPOSITORIES: $CI_PROJECT_PATH
+    LOG_LEVEL: info
+  script:
+  - renovate

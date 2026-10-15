@@ -90,13 +90,14 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
-- Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
+- Renovate : workflow .gitea/workflows/renovate.yml, chaque jour ouvré à 4 h (UTC).
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
 - `scripts/ci-variables.sh` déclare les 12 variable(s) à renseigner avec Gitea (API), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 
 - `.gitea/workflows/pipeline.yml`
+- `.gitea/workflows/renovate.yml`
 - `PIPELINE.md`
 - `charts/mon-app/Chart.yaml`
 - `charts/mon-app/templates/deployment.yaml`

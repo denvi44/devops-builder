@@ -5,6 +5,7 @@ stages:
 - security
 - publish
 - deploy
+- renovate
 variables:
   TAG: $CI_COMMIT_SHORT_SHA
   IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
@@ -17,6 +18,10 @@ unit-tests:
   script:
   - pip install -r requirements.txt
   - pytest -q
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 build-image:
   stage: build
   image:
@@ -30,6 +35,10 @@ build-image:
   script:
   - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
   - docker buildx build --tag "$IMAGE" --push .
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 gitleaks:
   stage: security
   image:
@@ -38,6 +47,10 @@ gitleaks:
     - ''
   script:
   - gitleaks detect --source . --verbose
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 trivy:
   stage: security
   image:
@@ -49,6 +62,10 @@ trivy:
     TRIVY_PASSWORD: $CI_REGISTRY_PASSWORD
   script:
   - trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 cosign:
   stage: publish
   image:
@@ -60,6 +77,8 @@ cosign:
   - echo "$CI_REGISTRY_PASSWORD" | cosign login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
   - cosign sign --yes "$IMAGE"
   rules:
+  - if: $RENOVATE == "1"
+    when: never
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 deploy:
   stage: deploy
@@ -81,4 +100,21 @@ deploy:
   - export DEPLOY_REGISTRY="$CI_REGISTRY" DEPLOY_REGISTRY_USER="$CI_REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$CI_REGISTRY_PASSWORD"
   - ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app" -e "deploy_env=production"
   rules:
+  - if: $RENOVATE == "1"
+    when: never
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+renovate:
+  stage: renovate
+  image:
+    name: renovate/renovate:44.164.5
+    entrypoint:
+    - ''
+  rules:
+  - if: $CI_PIPELINE_SOURCE == "schedule" && $RENOVATE == "1"
+  variables:
+    RENOVATE_PLATFORM: gitlab
+    RENOVATE_ENDPOINT: $CI_API_V4_URL
+    RENOVATE_REPOSITORIES: $CI_PROJECT_PATH
+    LOG_LEVEL: info
+  script:
+  - renovate

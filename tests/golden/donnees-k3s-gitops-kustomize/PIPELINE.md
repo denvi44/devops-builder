@@ -99,7 +99,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Bases de données avec GitOps : la CI ne touche pas au cluster ; créer dans chaque espace de noms le Secret « mon-app-mongodb » (clés password et url), « mon-app-valkey » (clés password et url), par External Secrets ou SOPS.
 - Poste de développement : `docker compose -f dev/db/compose.yaml up -d` lance les bases du projet (même version), `dev/db/app.env` donne leurs variables de connexion.
 - MongoDB : l'application se connecte avec le compte administrateur initial ; créer un compte dédié aux droits limités avant la production.
-- Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
+- Renovate : job « renovate » de .gitlab-ci.yml, lancé par une planification de pipeline portant la variable RENOVATE=1 (docs/mise-en-route.md) ; les autres jobs ne tournent pas dans ces pipelines.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (overlay Kustomize) : utile avant la première mise en production.
 - `scripts/ci-variables.sh` déclare les 3 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 

@@ -101,7 +101,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - External Secrets : le ClusterSecretStore « mon-app » (platform/external-secrets/cluster-secret-store.yaml, appliqué par platform/install.sh) lit Azure Key Vault et chaque ExternalSecret recrée le Secret de base de données attendu par l'application ; la pile Terraform donne au contrôleur la lecture du coffre (identité de charge de travail).
 - Azure Key Vault : la pile Terraform y écrit les secrets de connexion (Azure Database (serveur flexible), Valkey ; clé <espace de noms>-<brique>, JSON, lu par External Secrets) ; les valeurs passent par l'état, à garder dans un backend chiffré à accès restreint.
 - Poste de développement : `docker compose -f dev/db/compose.yaml up -d` lance les bases du projet (même version), `dev/db/app.env` donne leurs variables de connexion.
-- Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
+- Renovate : job « renovate » de .gitlab-ci.yml, lancé par une planification de pipeline portant la variable RENOVATE=1 (docs/mise-en-route.md) ; les autres jobs ne tournent pas dans ces pipelines.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
 - `scripts/ci-variables.sh` déclare les 6 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 

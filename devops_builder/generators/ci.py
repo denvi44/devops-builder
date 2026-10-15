@@ -99,6 +99,23 @@ def gitlab_ci(ir: IR) -> dict[str, str]:
             if st.always_artifacts:
                 job["artifacts"]["when"] = "always"
         doc[st.id] = job
+    from .extras import RENOVATE_IMAGE, renovate_job
+    if renovate_job(ir) == "gitlab-ci":
+        # pipelines planifiés avec RENOVATE=1 : Renovate seul, aucun build ni déploiement
+        never = {"if": '$RENOVATE == "1"', "when": "never"}
+        for st in steps:
+            job = doc[st.id]
+            # sans règle, un job suivait tous les pipelines sauf ceux de merge request : même portée ici,
+            # sans quoi GitLab créerait des pipelines de merge request en double
+            job["rules"] = [never, *job.get("rules", [{"if": '$CI_PIPELINE_SOURCE != "merge_request_event"'}])]
+        doc["stages"].append("renovate")
+        doc["renovate"] = {
+            "stage": "renovate", "image": {"name": RENOVATE_IMAGE, "entrypoint": [""]},
+            "rules": [{"if": '$CI_PIPELINE_SOURCE == "schedule" && $RENOVATE == "1"'}],
+            "variables": {"RENOVATE_PLATFORM": "gitlab", "RENOVATE_ENDPOINT": "$CI_API_V4_URL",
+                          "RENOVATE_REPOSITORIES": "$CI_PROJECT_PATH", "LOG_LEVEL": "info"},
+            "script": ["renovate"],
+        }
     _note_gates(ir, "le job attend un déclenchement manuel dans GitLab ; protéger l'environnement "
                     "(Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.")
     return {".gitlab-ci.yml": dump_yaml(doc)}

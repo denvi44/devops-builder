@@ -97,12 +97,13 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
 - Ansible : préparer chaque hôte une fois avec `ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook -i ansible/inventories/dev.ini ansible/site.yml` (Docker depuis son dépôt officiel, Debian, Ubuntu, RHEL et dérivées) ; le compte SSH doit avoir sudo sans mot de passe.
-- Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
+- Renovate : workflow .gitea/workflows/renovate.yml, chaque jour ouvré à 4 h (UTC).
 - `scripts/ci-variables.sh` déclare les 7 variable(s) à renseigner avec Gitea (API), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 
 - `.gitea/workflows/pipeline.yml`
+- `.gitea/workflows/renovate.yml`
 - `PIPELINE.md`
 - `ansible/ansible.cfg`
 - `ansible/deploy.yml`

@@ -7,6 +7,7 @@ stages:
 - infra
 - deploy-staging
 - deploy-production
+- renovate
 variables:
   TAG: $CI_COMMIT_SHORT_SHA
   IMAGE: monappregistry.azurecr.io/mon-app:$CI_COMMIT_SHORT_SHA
@@ -19,6 +20,10 @@ unit-tests:
   script:
   - pip install -r requirements.txt
   - pytest -q
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 sonarqube:
   stage: test
   image:
@@ -27,6 +32,10 @@ sonarqube:
     - ''
   script:
   - sonar-scanner -Dsonar.projectKey=mon-app -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 build-image:
   stage: build
   image:
@@ -46,6 +55,10 @@ build-image:
   - if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" --federated-token "$AZURE_OIDC_TOKEN" >/dev/null; fi
   - echo "$REGISTRY_PASSWORD" | docker login "monappregistry.azurecr.io" -u "$REGISTRY_USER" --password-stdin
   - docker buildx build --tag "$IMAGE" --push .
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 gitleaks:
   stage: security
   image:
@@ -54,6 +67,10 @@ gitleaks:
     - ''
   script:
   - gitleaks detect --source . --verbose
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 trivy:
   stage: security
   image:
@@ -68,6 +85,10 @@ trivy:
   - export ARM_USE_OIDC=true ARM_OIDC_TOKEN="$AZURE_OIDC_TOKEN"
   - if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" --federated-token "$AZURE_OIDC_TOKEN" >/dev/null; fi
   - trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 cosign:
   stage: publish
   image:
@@ -85,6 +106,8 @@ cosign:
   - echo "$REGISTRY_PASSWORD" | cosign login "monappregistry.azurecr.io" -u "$REGISTRY_USER" --password-stdin
   - cosign sign --yes "$IMAGE"
   rules:
+  - if: $RENOVATE == "1"
+    when: never
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 iac-plan:
   stage: infra
@@ -108,6 +131,10 @@ iac-plan:
     paths:
     - infra/terraform/plan.tfplan
     expire_in: 1 week
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 iac-apply:
   stage: infra
   image:
@@ -126,6 +153,8 @@ iac-apply:
   - terraform init -input=false
   - terraform apply -input=false -lock-timeout=5m plan.tfplan
   rules:
+  - if: $RENOVATE == "1"
+    when: never
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     when: manual
   needs:
@@ -147,6 +176,8 @@ deploy-staging:
   - if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" --federated-token "$AZURE_OIDC_TOKEN" >/dev/null; fi
   - az containerapp update --name mon-app-staging --resource-group rg-mon-app --image "$IMAGE"
   rules:
+  - if: $RENOVATE == "1"
+    when: never
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 deploy-production:
   stage: deploy-production
@@ -165,7 +196,24 @@ deploy-production:
   - if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" --federated-token "$AZURE_OIDC_TOKEN" >/dev/null; fi
   - az containerapp update --name mon-app --resource-group rg-mon-app --image "$IMAGE"
   rules:
+  - if: $RENOVATE == "1"
+    when: never
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     when: manual
   needs:
   - deploy-staging
+renovate:
+  stage: renovate
+  image:
+    name: renovate/renovate:44.164.5
+    entrypoint:
+    - ''
+  rules:
+  - if: $CI_PIPELINE_SOURCE == "schedule" && $RENOVATE == "1"
+  variables:
+    RENOVATE_PLATFORM: gitlab
+    RENOVATE_ENDPOINT: $CI_API_V4_URL
+    RENOVATE_REPOSITORIES: $CI_PROJECT_PATH
+    LOG_LEVEL: info
+  script:
+  - renovate

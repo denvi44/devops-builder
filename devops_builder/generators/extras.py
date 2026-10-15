@@ -45,6 +45,38 @@ def embedded_components(ir: IR) -> dict[str, str]:
 
 
 # ------------------------------------------------------------------- dépendances
+RENOVATE_IMAGE = "renovate/renovate:44.164.5"  # Renovate met à jour sa propre étiquette
+
+
+def renovate_job(ir: IR) -> str | None:
+    """CI qui porte le job Renovate planifié : « gitlab-ci » ou « gitea-actions », sinon None (note)."""
+    if not ir.has("renovate") or not ir.forge or not ir.ci:
+        return None
+    if ir.forge.id == "gitlab" and ir.ci.id == "gitlab-ci":
+        return "gitlab-ci"
+    if ir.forge.id == "gitea" and ir.ci.id == "gitea-actions":
+        return "gitea-actions"
+    return None
+
+
+def gitea_renovate_workflow(ir: IR) -> dict[str, str]:
+    if renovate_job(ir) != "gitea-actions":
+        return {}
+    doc = {
+        "name": "Renovate",
+        "on": {"schedule": [{"cron": "0 4 * * 1-5"}], "workflow_dispatch": {}},
+        "jobs": {"renovate": {
+            "runs-on": "ubuntu-latest",
+            "container": RENOVATE_IMAGE,
+            "env": {"RENOVATE_PLATFORM": "gitea", "RENOVATE_ENDPOINT": "${{ github.server_url }}/api/v1",
+                    "RENOVATE_REPOSITORIES": "${{ github.repository }}",
+                    "RENOVATE_TOKEN": "${{ secrets.RENOVATE_TOKEN }}"},
+            "steps": [{"name": "Renovate", "run": "renovate"}],
+        }},
+    }
+    return {".gitea/workflows/renovate.yml": dump_yaml(doc)}
+
+
 def renovate(ir: IR) -> dict[str, str]:
     if not ir.has("renovate"):
         return {}
@@ -59,8 +91,16 @@ def renovate(ir: IR) -> dict[str, str]:
         ir.notes.append("Renovate : installer l'application GitHub Renovate sur le dépôt ; renovate.json règle son comportement.")
     else:
         ir.add_var("RENOVATE_TOKEN", "Jeton de la forge autorisé à ouvrir des merge requests (Renovate)")
-        ir.notes.append("Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; "
-                        "renovate.json règle son comportement.")
+        job = renovate_job(ir)
+        if job == "gitlab-ci":
+            ir.notes.append("Renovate : job « renovate » de .gitlab-ci.yml, lancé par une planification de pipeline "
+                            "portant la variable RENOVATE=1 (docs/mise-en-route.md) ; les autres jobs ne tournent pas "
+                            "dans ces pipelines.")
+        elif job == "gitea-actions":
+            ir.notes.append("Renovate : workflow .gitea/workflows/renovate.yml, chaque jour ouvré à 4 h (UTC).")
+        else:
+            ir.notes.append(f"Renovate : lancer l'image {RENOVATE_IMAGE} dans un job planifié (quotidien) avec "
+                            "RENOVATE_TOKEN ; renovate.json règle son comportement.")
     ir.cover("renovate")
     return {"renovate.json": json.dumps(config, indent=2, ensure_ascii=False) + "\n"}
 

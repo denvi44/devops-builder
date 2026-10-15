@@ -46,4 +46,4 @@ ssh "<hôte>" "cd /opt/mon-app && docker compose -p mon-app ps"
 
 ## 4. Entretien
 
-- Renovate : job planifié (quotidien) avec l'image renovate/renovate et `RENOVATE_TOKEN`.
+- Renovate : `.gitea/workflows/renovate.yml` tourne chaque jour ouvré ; déclarer le secret `RENOVATE_TOKEN` (jeton Gitea avec les droits sur le dépôt et les demandes de fusion).

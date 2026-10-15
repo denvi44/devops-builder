@@ -91,6 +91,7 @@ def render(project: Project, catalog: Catalog) -> tuple[dict[str, str], IR]:
     files.update(dast.files(ir))
     dast.notes(ir)
     files.update(extras.renovate(ir))
+    files.update(extras.gitea_renovate_workflow(ir))
     files.update(extras.dependabot(ir))
     files.update(extras.clusters(ir))
     files.update(localtest.kind_test(ir, files))

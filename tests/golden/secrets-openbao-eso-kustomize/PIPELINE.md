@@ -98,7 +98,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - External Secrets : le ClusterSecretStore « mon-app » (platform/external-secrets/cluster-secret-store.yaml, appliqué par platform/install.sh) lit OpenBao et chaque ExternalSecret recrée le Secret de base de données attendu par l'application ; scripts/vault-setup.sh configure la connexion Kubernetes et le rôle « external-secrets ».
 - Poste de développement : `docker compose -f dev/db/compose.yaml up -d` lance les bases du projet (même version), `dev/db/app.env` donne leurs variables de connexion.
 - CloudNativePG : l'opérateur est installé par platform/install.sh ; le Cluster crée le Secret « <cluster>-app » (clés uri, jdbc-uri, host, user, password) lu par l'application. Sauvegardes : renseigner « Destination des sauvegardes » dans la brique (plugin Barman Cloud), ou des instantanés de volumes.
-- Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
+- Renovate : job « renovate » de .gitlab-ci.yml, lancé par une planification de pipeline portant la variable RENOVATE=1 (docs/mise-en-route.md) ; les autres jobs ne tournent pas dans ces pipelines.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (overlay Kustomize) : utile avant la première mise en production.
 - `scripts/ci-variables.sh` déclare les 3 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 

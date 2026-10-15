@@ -30,4 +30,4 @@ Pousser sur la branche principale : chaque environnement se déploie dans l'ordr
 
 ## 4. Entretien
 
-- Renovate : job planifié (quotidien) avec l'image renovate/renovate et `RENOVATE_TOKEN`.
+- Renovate : job planifié (quotidien) avec l'image `renovate/renovate:44.164.5` et `RENOVATE_TOKEN`.

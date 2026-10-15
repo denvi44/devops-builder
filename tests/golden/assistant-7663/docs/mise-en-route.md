@@ -46,4 +46,4 @@ ssh "<hôte>" "cd /opt/mon-app && docker compose -p mon-app ps"
 
 ## 4. Entretien
 
-- Renovate : job planifié (quotidien) avec l'image renovate/renovate et `RENOVATE_TOKEN`.
+- Renovate : job planifié (quotidien) avec l'image `renovate/renovate:44.164.5` et `RENOVATE_TOKEN`.

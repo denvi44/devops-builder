@@ -36,4 +36,4 @@ kubectl -n mon-app get pods
 
 ## 4. Entretien
 
-- Renovate : job planifié (quotidien) avec l'image renovate/renovate et `RENOVATE_TOKEN`.
+- Renovate : job planifié (quotidien) avec l'image `renovate/renovate:44.164.5` et `RENOVATE_TOKEN`.

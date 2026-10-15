@@ -1,0 +1,18 @@
+# Généré par DevOps Builder — à relire avant usage.
+name: Renovate
+'on':
+  schedule:
+  - cron: 0 4 * * 1-5
+  workflow_dispatch: {}
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    container: renovate/renovate:44.164.5
+    env:
+      RENOVATE_PLATFORM: gitea
+      RENOVATE_ENDPOINT: ${{ github.server_url }}/api/v1
+      RENOVATE_REPOSITORIES: ${{ github.repository }}
+      RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+    steps:
+    - name: Renovate
+      run: renovate

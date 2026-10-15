@@ -6,6 +6,7 @@ stages:
 - deploy-dev
 - deploy-staging
 - deploy-production
+- renovate
 variables:
   TAG: $CI_COMMIT_SHORT_SHA
   IMAGE: europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$CI_COMMIT_SHORT_SHA
@@ -18,6 +19,10 @@ unit-tests:
   script:
   - pip install -r requirements.txt
   - pytest -q
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 sonarqube:
   stage: test
   image:
@@ -26,6 +31,10 @@ sonarqube:
     - ''
   script:
   - sonar-scanner -Dsonar.projectKey=mon-app -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 build-image:
   stage: build
   image:
@@ -47,6 +56,10 @@ build-image:
   - if command -v gcloud >/dev/null; then gcloud auth login --cred-file=/tmp/gcp-cred.json --quiet; fi
   - echo "$REGISTRY_PASSWORD" | docker login "europe-west9-docker.pkg.dev" -u "$REGISTRY_USER" --password-stdin
   - docker buildx build --tag "$IMAGE" --push .
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 iac-plan:
   stage: infra
   image:
@@ -74,6 +87,10 @@ iac-plan:
     paths:
     - infra/terraform/plan.tfplan
     expire_in: 1 week
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 iac-apply:
   stage: infra
   image:
@@ -97,6 +114,8 @@ iac-apply:
   - tofu init -input=false
   - tofu apply -input=false -lock-timeout=5m plan.tfplan
   rules:
+  - if: $RENOVATE == "1"
+    when: never
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     when: manual
   needs:
@@ -118,6 +137,8 @@ deploy-dev:
   - git config user.email "ci@example.com" && git config user.name "CI"
   - 'if git diff --quiet; then echo "Image déjà en place"; else git commit -am "deploy(dev): mon-app $TAG [skip ci]" && git push origin HEAD; fi'
   rules:
+  - if: $RENOVATE == "1"
+    when: never
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 deploy-staging:
   stage: deploy-staging
@@ -136,6 +157,8 @@ deploy-staging:
   - git config user.email "ci@example.com" && git config user.name "CI"
   - 'if git diff --quiet; then echo "Image déjà en place"; else git commit -am "deploy(staging): mon-app $TAG [skip ci]" && git push origin HEAD; fi'
   rules:
+  - if: $RENOVATE == "1"
+    when: never
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   needs:
   - deploy-dev
@@ -156,7 +179,24 @@ deploy-production:
   - git config user.email "ci@example.com" && git config user.name "CI"
   - 'if git diff --quiet; then echo "Image déjà en place"; else git commit -am "deploy(production): mon-app $TAG [skip ci]" && git push origin HEAD; fi'
   rules:
+  - if: $RENOVATE == "1"
+    when: never
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     when: manual
   needs:
   - deploy-staging
+renovate:
+  stage: renovate
+  image:
+    name: renovate/renovate:44.164.5
+    entrypoint:
+    - ''
+  rules:
+  - if: $CI_PIPELINE_SOURCE == "schedule" && $RENOVATE == "1"
+  variables:
+    RENOVATE_PLATFORM: gitlab
+    RENOVATE_ENDPOINT: $CI_API_V4_URL
+    RENOVATE_REPOSITORIES: $CI_PROJECT_PATH
+    LOG_LEVEL: info
+  script:
+  - renovate

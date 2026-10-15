@@ -7,6 +7,7 @@ stages:
 - infra
 - deploy-staging
 - deploy-production
+- renovate
 variables:
   TAG: $CI_COMMIT_SHORT_SHA
   IMAGE: $AWS_ACCOUNT_ID.dkr.ecr.eu-west-3.amazonaws.com/mon-app:$CI_COMMIT_SHORT_SHA
@@ -20,6 +21,10 @@ unit-tests:
   script:
   - pip install -r requirements.txt
   - pytest -q
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 build-image:
   stage: build
   image:
@@ -39,6 +44,10 @@ build-image:
   - apk add --no-cache aws-cli || true
   - aws ecr get-login-password --region eu-west-3 | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.eu-west-3.amazonaws.com"
   - docker buildx build --tag "$IMAGE" --push .
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 gitleaks:
   stage: security
   image:
@@ -47,6 +56,10 @@ gitleaks:
     - ''
   script:
   - gitleaks detect --source . --verbose
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 trivy:
   stage: security
   image:
@@ -60,6 +73,10 @@ trivy:
   - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
   - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
   - trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 cosign:
   stage: publish
   image:
@@ -77,6 +94,8 @@ cosign:
   - aws ecr get-login-password --region eu-west-3 | cosign login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.eu-west-3.amazonaws.com"
   - cosign sign --yes "$IMAGE"
   rules:
+  - if: $RENOVATE == "1"
+    when: never
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 iac-plan:
   stage: infra
@@ -102,6 +121,10 @@ iac-plan:
     paths:
     - infra/terraform/plan.tfplan
     expire_in: 1 week
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 iac-apply:
   stage: infra
   image:
@@ -122,6 +145,8 @@ iac-apply:
   - tofu init -input=false
   - tofu apply -input=false -lock-timeout=5m plan.tfplan
   rules:
+  - if: $RENOVATE == "1"
+    when: never
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     when: manual
   needs:
@@ -146,6 +171,8 @@ deploy-staging:
   - helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-staging.yaml --namespace mon-app-staging --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --set-string
     database.aws_rds.url="$DATABASE_URL_STAGING" --wait
   rules:
+  - if: $RENOVATE == "1"
+    when: never
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 deploy-production:
   stage: deploy-production
@@ -167,7 +194,24 @@ deploy-production:
   - helm upgrade --install mon-app charts/mon-app -f charts/mon-app/values-production.yaml --namespace mon-app --create-namespace --set image.repository="${IMAGE%:*}" --set image.tag="$TAG" --set-string
     database.aws_rds.url="$DATABASE_URL_PRODUCTION" --wait
   rules:
+  - if: $RENOVATE == "1"
+    when: never
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     when: manual
   needs:
   - deploy-staging
+renovate:
+  stage: renovate
+  image:
+    name: renovate/renovate:44.164.5
+    entrypoint:
+    - ''
+  rules:
+  - if: $CI_PIPELINE_SOURCE == "schedule" && $RENOVATE == "1"
+  variables:
+    RENOVATE_PLATFORM: gitlab
+    RENOVATE_ENDPOINT: $CI_API_V4_URL
+    RENOVATE_REPOSITORIES: $CI_PROJECT_PATH
+    LOG_LEVEL: info
+  script:
+  - renovate

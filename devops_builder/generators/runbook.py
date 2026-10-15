@@ -435,11 +435,27 @@ def _upkeep(ir: IR, files: dict[str, str]) -> list[str]:
     if sec.vault_tool(ir) and not external_vault(ir, sec.vault_tool(ir)):
         items.append("Coffre : desceller après chaque redémarrage, ou configurer le descellement automatique "
                      "(transit, KMS du cloud) ; sauvegarder le stockage intégré (`operator raft snapshot save`).")
-    if ir.has("renovate") and not (ir.forge and ir.forge.id == "github"):
-        items.append("Renovate : job planifié (quotidien) avec l'image renovate/renovate et `RENOVATE_TOKEN`.")
+    extra: list[str] = []
+    from .extras import RENOVATE_IMAGE, renovate_job
+    job = renovate_job(ir)
+    if job == "gitlab-ci":
+        items.append("Renovate : le job `renovate` tourne dans une planification de pipeline qui porte la variable "
+                     "`RENOVATE=1` (Build › Pipeline schedules, ou par l'API ci-dessous, jeton `api` dans "
+                     "`GITLAB_TOKEN`) ; `RENOVATE_TOKEN` : jeton de projet avec les droits `api` et `write_repository`.")
+        api = '"${CI_SERVER_URL:-https://gitlab.com}/api/v4/projects/$(printf %s "$REPO" | jq -sRr @uri)/pipeline_schedules"'
+        extra = _sh(f'sid=$(curl -fsS -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -d description=Renovate -d ref=main '
+                    f'--data-urlencode "cron=0 4 * * 1-5" {api} | jq -r .id)',
+                    'curl -fsS -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -d key=RENOVATE -d value=1 '
+                    '"${CI_SERVER_URL:-https://gitlab.com}/api/v4/projects/$(printf %s "$REPO" | jq -sRr @uri)'
+                    '/pipeline_schedules/$sid/variables" >/dev/null')
+    elif job == "gitea-actions":
+        items.append("Renovate : `.gitea/workflows/renovate.yml` tourne chaque jour ouvré ; déclarer le secret "
+                     "`RENOVATE_TOKEN` (jeton Gitea avec les droits sur le dépôt et les demandes de fusion).")
+    elif ir.has("renovate") and not (ir.forge and ir.forge.id == "github"):
+        items.append(f"Renovate : job planifié (quotidien) avec l'image `{RENOVATE_IMAGE}` et `RENOVATE_TOKEN`.")
     if not items:
         return []
-    return ["## Entretien", "", *[f"- {i}" for i in items], ""]
+    return ["## Entretien", "", *[f"- {i}" for i in items], "", *extra]
 
 
 def _dbs(ir: IR):

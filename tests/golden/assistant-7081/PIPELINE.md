@@ -67,7 +67,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 ## Notes
 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
-- Renovate : lancer l'image renovate/renovate dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
+- Renovate : lancer l'image renovate/renovate:44.164.5 dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
 
 ## Fichiers générés
 
