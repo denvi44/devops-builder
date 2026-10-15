@@ -4,6 +4,43 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## Non publié — lot 0.18 en cours
+
+### Ajouté
+- **Deux identités de CI par cloud** (AWS, Google Cloud, Azure, connexion OIDC) : les jobs d'infrastructure (plan,
+  apply) prennent la leur, aux droits étendus (`AWS_INFRA_ROLE_ARN`, `GCP_INFRA_SERVICE_ACCOUNT`,
+  `AZURE_INFRA_CLIENT_ID`) ; build et déploiement gardent une identité limitée à ce qu'ils font, déduit des étapes
+  générées (pousser l'image, accéder au cluster, mettre à jour ECS, Cloud Run ou Container Apps, lire l'état).
+  Avec GitHub, seul le plan ou l'apply obtient l'identité d'infrastructure ; avec GitLab, dont le jeton ne
+  distingue pas les jobs, la séparation tient aux variables. Le mode d'emploi crée les deux. Ces droits réduits
+  n'ont pas encore été éprouvés sur un vrai compte cloud.
+- EKS : accès Kubernetes du rôle de déploiement par entrée d'accès, administrateurs déclarés dans
+  `cluster_admin_arns` (l'identité qui applique la pile change après le premier apply).
+- **Renovate hors GitHub** : job planifié dans GitLab CI (pipeline portant `RENOVATE=1`, les autres jobs exclus),
+  workflow planifié pour Gitea Actions ; planification créée par l'API dans le mode d'emploi. Scénario
+  `gitea-renovate` : Renovate lancé comme le workflow généré ouvre son tableau de bord et ses demandes de fusion
+  sur une vraie forge Gitea.
+- **Connexion unique de Harbor et SonarQube** : Harbor reçoit ses réglages OIDC par le chart et son adresse
+  publique ; SonarQube Community, qui ne parle pas OIDC, est relié à Keycloak en SAML (client et attributs dans le
+  realm, réglages par l'API dans le mode d'emploi), vérifié jusqu'à la page de connexion de Keycloak ; avec Dex,
+  son authentification GitHub ou GitLab intégrée. Sur hôte Docker, Grafana et SonarQube sont servis par Traefik à
+  l'adresse que connaît le fournisseur d'identité.
+- Scénario `kind-plateforme` : `platform/install.sh` d'un projet à vingt-huit charts, chacun rendu avec les options
+  générées et passé à kubeconform.
+- Verrou d'état Terraform sur Scaleway et OVHcloud (`use_lockfile`, écriture conditionnelle documentée par les
+  deux) ; Outscale OOS reste sans verrou.
+
+### Corrigé
+- **SonarQube ne s'installait pas sur Kubernetes** : le chart exige l'édition (Community) et un code de sonde.
+- **Loki ne s'installait pas sur Kubernetes** : le chart exige un stockage ; disque du pod et schéma de test,
+  stockage objet à poser en production.
+- `platform/install.sh` avec Dex s'arrêtait (`set -u`) quand le secret d'un client n'était pas encore renseigné.
+- Politique de confiance AWS de la CI avec GitLab : deux clés `StringEquals`, l'une écrasait l'autre (la condition
+  sur l'audience du jeton disparaissait).
+- Elasticsearch de SonarQube sur hôte Docker sans `vm.max_map_count` à régler ; dimensionnement de SonarQube porté à
+  2,5 Gio (mesuré à 2,4 Gio au repos).
+- Mode d'emploi : les outils branchés sur la connexion unique ne citent plus Vault ou Argo CD absents du projet.
+
 ## 0.17.0 — 2026-10-15 — Vérification sur une vraie infrastructure
 
 Les fichiers générés sont exécutés pour de vrai sur les machines de GitHub Actions (onze scénarios, chaque nuit) ;

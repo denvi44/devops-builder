@@ -80,7 +80,7 @@ def test_keycloak_operateur_base_cloudnativepg_et_ingress():
     assert kc["spec"]["db"]["passwordSecret"] == {"name": "keycloak-pg-app", "key": "password"}
     assert kc["spec"]["ingress"] == {"enabled": True, "className": "traefik"}  # contrôleur embarqué de k3s
     install = f["platform/install.sh"]
-    order = [install.index(x) for x in ("cnpg/cloudnative-pg", "keycloak-operator", "argo/argo-cd", "grafana/grafana")]
+    order = [install.index(x) for x in ("cnpg/cloudnative-pg", "keycloak-operator", "argo/argo-cd", "grafana-community/grafana")]
     assert order == sorted(order)  # base, puis Keycloak, puis les outils qui s'y branchent
     kc = next(d for d in yaml.safe_load_all(f["platform/keycloak/keycloak.yaml"]) if d and d["kind"] == "Keycloak")
     assert kc["spec"]["startOptimized"] is False  # image officielle : pas de --optimized au premier démarrage

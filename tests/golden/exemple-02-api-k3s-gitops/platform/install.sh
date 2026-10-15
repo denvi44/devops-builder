@@ -7,7 +7,7 @@ helm repo add cilium https://helm.cilium.io/
 helm repo add jetstack https://charts.jetstack.io
 helm repo add argo https://argoproj.github.io/argo-helm
 helm repo add external-secrets https://charts.external-secrets.io
-helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add grafana-community https://grafana-community.github.io/helm-charts
 helm repo add kyverno https://kyverno.github.io/kyverno/
 helm repo add openbao https://openbao.github.io/openbao-helm
 helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
@@ -31,7 +31,7 @@ helm upgrade --install external-secrets external-secrets/external-secrets --name
 kubectl apply -f "$(dirname "$0")/external-secrets/cluster-secret-store.yaml"
 
 # Grafana — Déjà inclus si kube-prometheus-stack est installé.
-helm upgrade --install grafana grafana/grafana --namespace monitoring --create-namespace
+helm upgrade --install grafana grafana-community/grafana --namespace monitoring --create-namespace
 
 # Kyverno
 helm upgrade --install kyverno kyverno/kyverno --namespace kyverno --create-namespace
@@ -46,4 +46,4 @@ helm upgrade --install otel-collector open-telemetry/opentelemetry-collector --n
 helm upgrade --install prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace
 
 # Grafana Tempo
-helm upgrade --install tempo grafana/tempo --namespace monitoring --create-namespace
+helm upgrade --install tempo grafana-community/tempo --namespace monitoring --create-namespace

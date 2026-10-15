@@ -5,7 +5,7 @@ set -euo pipefail
 
 helm repo add jetstack https://charts.jetstack.io
 helm repo add external-secrets https://charts.external-secrets.io
-helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add grafana-community https://grafana-community.github.io/helm-charts
 helm repo add openbao https://openbao.github.io/openbao-helm
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add traefik https://traefik.github.io/charts
@@ -19,7 +19,7 @@ helm upgrade --install external-secrets external-secrets/external-secrets --name
 kubectl apply -f "$(dirname "$0")/external-secrets/cluster-secret-store.yaml"
 
 # Grafana — Déjà inclus si kube-prometheus-stack est installé.
-helm upgrade --install grafana grafana/grafana --namespace monitoring --create-namespace
+helm upgrade --install grafana grafana-community/grafana --namespace monitoring --create-namespace
 
 # OpenBao
 helm upgrade --install openbao openbao/openbao --namespace openbao --create-namespace

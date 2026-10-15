@@ -6,7 +6,7 @@ set -euo pipefail
 helm repo add jetstack https://charts.jetstack.io
 helm repo add argo https://argoproj.github.io/argo-helm
 helm repo add external-secrets https://charts.external-secrets.io
-helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add grafana-community https://grafana-community.github.io/helm-charts
 helm repo add openbao https://openbao.github.io/openbao-helm
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add traefik https://traefik.github.io/charts
@@ -42,7 +42,7 @@ GRAFANA_OIDC_SECRET="${GRAFANA_OIDC_SECRET:-$(tofu -chdir="$(dirname "$0")/../in
 [ -n "${GRAFANA_OIDC_SECRET:-}" ] || echo "GRAFANA_OIDC_SECRET vide : connexion OIDC inactive, relancer ce script après « infra/keycloak » appliqué (docs/mise-en-route.md)" >&2
 kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n monitoring create secret generic grafana-oidc --from-literal=GRAFANA_OIDC_SECRET="$GRAFANA_OIDC_SECRET" --dry-run=client -o yaml | kubectl apply -f -
-helm upgrade --install grafana grafana/grafana --namespace monitoring --create-namespace -f "$(dirname "$0")/values/grafana.yaml"
+helm upgrade --install grafana grafana-community/grafana --namespace monitoring --create-namespace -f "$(dirname "$0")/values/grafana.yaml"
 
 # OpenBao
 helm upgrade --install openbao openbao/openbao --namespace openbao --create-namespace

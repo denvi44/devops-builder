@@ -5,7 +5,7 @@ set -euo pipefail
 
 helm repo add jetstack https://charts.jetstack.io
 helm repo add gitea-charts https://dl.gitea.com/charts/
-helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add grafana-community https://grafana-community.github.io/helm-charts
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add sonarqube https://SonarSource.github.io/helm-chart-sonarqube
 helm repo update
@@ -17,7 +17,7 @@ helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manag
 helm upgrade --install gitea gitea-charts/gitea --namespace gitea --create-namespace
 
 # Grafana — Déjà inclus si kube-prometheus-stack est installé.
-helm upgrade --install grafana grafana/grafana --namespace monitoring --create-namespace
+helm upgrade --install grafana grafana-community/grafana --namespace monitoring --create-namespace
 
 # Prometheus
 helm upgrade --install prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace
