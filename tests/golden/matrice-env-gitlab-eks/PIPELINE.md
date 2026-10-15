@@ -57,6 +57,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `TF_VAR_subnet_ids` | non | à déclarer | Sous-réseaux privés du cluster (variable Terraform subnet_ids, ex. ["subnet-0123456789abcdef0", "subnet-0fedcba9876543210"]) |
 | `AWS_ROLE_ARN` | non | à déclarer | Rôle IAM assumé par la CI via OIDC |
 | `AWS_REGION` | non | `eu-west-3` | Région AWS |
+| `AWS_INFRA_ROLE_ARN` | non | à déclarer | Rôle IAM des jobs d'infrastructure (plan, apply), assumé via OIDC |
 
 ## Diagnostics restants
 
@@ -68,7 +69,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
-- `scripts/ci-variables.sh` déclare les 4 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 5 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 

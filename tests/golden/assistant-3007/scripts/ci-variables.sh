@@ -93,6 +93,7 @@ declare_var REGISTRY_USER 1 'Compte de publication sur europe-west9-docker.pkg.d
 declare_var REGISTRY_PASSWORD 1 'Mot de passe ou jeton de publication sur europe-west9-docker.pkg.dev'
 declare_var GCP_WORKLOAD_IDENTITY_PROVIDER 0 'Fournisseur Workload Identity Federation'
 declare_var GCP_SERVICE_ACCOUNT 0 'Compte de service impersonné par la CI'
+declare_var GCP_INFRA_SERVICE_ACCOUNT 0 'Compte de service des jobs d'"'"'infrastructure (plan, apply)'
 
 echo
 if [ "$DRY_RUN" = 1 ]; then

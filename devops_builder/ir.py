@@ -711,6 +711,11 @@ def _add_steps(ir: IR) -> None:
     clouds = sorted({c for st in s for c in st.cloud})
     for c in clouds:
         _cloud_variables(ir, c)
+    # Jobs d'infrastructure : identité à part, aux droits étendus ; build et déploiement gardent l'identité réduite
+    if ir.project.cloud_auth == "oidc":
+        for c in sorted({c for st in s if st.stage == "infra" for c in st.cloud}):
+            name, desc, key = INFRA_IDENTITY[c]
+            ir.add_var(name, desc, secret=False, value=ir.params(c).get(key))
 
 
 
@@ -729,6 +734,16 @@ def aws_account_id(ir: IR) -> str | None:
     arn = str(ir.params("aws").get("role_arn") or "")
     parts = arn.split(":")
     return parts[4] if len(parts) > 5 and parts[4].isdigit() else None
+
+
+INFRA_IDENTITY = {
+    "aws": ("AWS_INFRA_ROLE_ARN", "Rôle IAM des jobs d'infrastructure (plan, apply), assumé via OIDC", "infra_role_arn"),
+    "gcp": ("GCP_INFRA_SERVICE_ACCOUNT", "Compte de service des jobs d'infrastructure (plan, apply)",
+            "infra_service_account"),
+    "azure": ("AZURE_INFRA_CLIENT_ID", "Application Entra ID des jobs d'infrastructure (plan, apply)", "infra_client_id"),
+}
+# variable de l'identité de déploiement qu'un job d'infrastructure remplace par la sienne
+DEPLOY_IDENTITY = {"aws": "AWS_ROLE_ARN", "gcp": "GCP_SERVICE_ACCOUNT", "azure": "AZURE_CLIENT_ID"}
 
 
 def _cloud_variables(ir: IR, cloud: str) -> None:

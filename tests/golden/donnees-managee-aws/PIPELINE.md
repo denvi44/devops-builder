@@ -84,6 +84,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `DATABASE_URL_PRODUCTION` | oui | à déclarer | URL de connexion à Amazon RDS (Production), lue par l'application dans DATABASE_URL ; à composer après création de l'instance (sorties Terraform) |
 | `AWS_ROLE_ARN` | non | à déclarer | Rôle IAM assumé par la CI via OIDC |
 | `AWS_REGION` | non | `eu-west-3` | Région AWS |
+| `AWS_INFRA_ROLE_ARN` | non | à déclarer | Rôle IAM des jobs d'infrastructure (plan, apply), assumé via OIDC |
 | `RENOVATE_TOKEN` | oui | à déclarer | Jeton de la forge autorisé à ouvrir des merge requests (Renovate) |
 
 ## Diagnostics restants
@@ -99,7 +100,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Bases managées : une instance par environnement ; après `apply`, composer l'URL de connexion à partir des sorties Terraform (outputs.tf) et la déclarer en variable CI.
 - Renovate : job « renovate » de .gitlab-ci.yml, lancé par une planification de pipeline portant la variable RENOVATE=1 (docs/mise-en-route.md) ; les autres jobs ne tournent pas dans ces pipelines.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
-- `scripts/ci-variables.sh` déclare les 9 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 10 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 

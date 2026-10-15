@@ -17,6 +17,7 @@ steps:
     SONAR_HOST_URL: à-renseigner
     GCP_WORKLOAD_IDENTITY_PROVIDER: à-renseigner
     GCP_SERVICE_ACCOUNT: à-renseigner
+    GCP_INFRA_SERVICE_ACCOUNT: à-renseigner
 - name: sonarqube
   image: sonarsource/sonar-scanner-cli:latest
   commands:
@@ -33,6 +34,7 @@ steps:
     SONAR_HOST_URL: à-renseigner
     GCP_WORKLOAD_IDENTITY_PROVIDER: à-renseigner
     GCP_SERVICE_ACCOUNT: à-renseigner
+    GCP_INFRA_SERVICE_ACCOUNT: à-renseigner
 - name: build-image
   image: docker:27
   commands:
@@ -55,6 +57,7 @@ steps:
     SONAR_HOST_URL: à-renseigner
     GCP_WORKLOAD_IDENTITY_PROVIDER: à-renseigner
     GCP_SERVICE_ACCOUNT: à-renseigner
+    GCP_INFRA_SERVICE_ACCOUNT: à-renseigner
 - name: iac-plan
   image: hashicorp/terraform:1.16
   commands:
@@ -78,6 +81,7 @@ steps:
     SONAR_HOST_URL: à-renseigner
     GCP_WORKLOAD_IDENTITY_PROVIDER: à-renseigner
     GCP_SERVICE_ACCOUNT: à-renseigner
+    GCP_INFRA_SERVICE_ACCOUNT: à-renseigner
 - name: iac-apply
   image: hashicorp/terraform:1.16
   commands:
@@ -99,6 +103,7 @@ steps:
     SONAR_HOST_URL: à-renseigner
     GCP_WORKLOAD_IDENTITY_PROVIDER: à-renseigner
     GCP_SERVICE_ACCOUNT: à-renseigner
+    GCP_INFRA_SERVICE_ACCOUNT: à-renseigner
   when:
   - branch: main
     event: push
@@ -121,6 +126,7 @@ steps:
     SONAR_HOST_URL: à-renseigner
     GCP_WORKLOAD_IDENTITY_PROVIDER: à-renseigner
     GCP_SERVICE_ACCOUNT: à-renseigner
+    GCP_INFRA_SERVICE_ACCOUNT: à-renseigner
   when:
   - branch: main
     event: push

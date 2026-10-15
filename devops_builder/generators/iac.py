@@ -187,6 +187,22 @@ def _resource(ir: IR, tool_id: str, p: dict | None = None, sfx: str = "", first:
   vpc_id             = var.vpc_id
   subnet_ids         = var.subnet_ids
 
+  # accès Kubernetes : l'identité qui applique la pile, le rôle de déploiement de la CI et les personnes
+  # déclarées dans cluster_admin_arns (l'identité qui applique change après le premier apply depuis le poste)
+  enable_cluster_creator_admin_permissions = true
+  access_entries = {{
+    for name, arn in merge({{ ci = var.ci_deploy_role_arn }}, {{ for i, a in var.cluster_admin_arns : "admin-${{i}}" => a }}) :
+    name => {{
+      principal_arn = arn
+      policy_associations = {{
+        admin = {{
+          policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = {{ type = "cluster" }}
+        }}
+      }}
+    }} if arn != ""
+  }}
+
   eks_managed_node_groups = {{
     default = {{
       instance_types = ["t3.large"]
@@ -385,6 +401,15 @@ def terraform(ir: IR) -> dict[str, str]:
     variables = [f"# {HEADER}"]
     for tv in required_vars(ir):
         variables.append(f'variable "{tv.name}" {{\n  type        = {tv.type}\n  description = "{tv.description}"\n}}')
+    if ir.has("eks"):
+        arn = ir.params("aws").get("role_arn") or ""
+        variables.append('variable "ci_deploy_role_arn" {\n  type        = string\n'
+                         '  description = "Rôle de déploiement de la CI (AWS_ROLE_ARN), autorisé sur le cluster ; '
+                         'vide = aucun"\n'
+                         f'  default     = "{arn}"\n}}')
+        variables.append('variable "cluster_admin_arns" {\n  type        = list(string)\n'
+                         '  description = "Rôles ou utilisateurs IAM des personnes qui administrent le cluster"\n'
+                         '  default     = []\n}')
     if ir.has("gcp"):
         pid = ir.params("gcp").get("project_id", "mon-projet")
         variables.append(f'variable "gcp_project_id" {{\n  type    = string\n  default = "{pid}"\n}}')

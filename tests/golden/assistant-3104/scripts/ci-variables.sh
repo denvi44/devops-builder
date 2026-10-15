@@ -96,6 +96,7 @@ declare_var GITOPS_REPO 0 'Dépôt GitOps surveillé, sans schéma (hôte/groupe
 declare_var AZURE_CLIENT_ID 0 'Identifiant d'"'"'application Entra ID'
 declare_var AZURE_TENANT_ID 0 'Identifiant du tenant Entra ID'
 declare_var AZURE_SUBSCRIPTION_ID 0 'Identifiant d'"'"'abonnement Azure'
+declare_var AZURE_INFRA_CLIENT_ID 0 'Application Entra ID des jobs d'"'"'infrastructure (plan, apply)'
 
 echo
 if [ "$DRY_RUN" = 1 ]; then

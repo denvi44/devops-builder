@@ -26,11 +26,11 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 
 Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
 
-Services : site-web (512 Mio, estimé), traefik (128 Mio, estimé), prometheus (1024 Mio, estimé), grafana (512 Mio), loki (512 Mio, estimé), sonarqube (2048 Mio).
+Services : site-web (512 Mio, estimé), traefik (128 Mio, estimé), prometheus (1024 Mio, estimé), grafana (512 Mio), loki (512 Mio, estimé), sonarqube (2560 Mio).
 
 | Environnements | Besoin | Type retenu | Verdict |
 | --- | --- | --- | --- |
-| production | 2 vCPU, 6,3 Gio | hôte existant | prévoir au moins 2 vCPU et 6,3 Gio |
+| production | 2 vCPU, 6,9 Gio | hôte existant | prévoir au moins 2 vCPU et 6,9 Gio |
 
 ## Briques
 

@@ -62,7 +62,7 @@ Ensuite, chaque pipeline met à jour l'étiquette de l'image dans le dépôt Git
 
 ## 5. Variables CI
 
-9 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :
+10 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :
 
 ```bash
 bash scripts/ci-variables.sh --dry-run   # ce qui serait déclaré

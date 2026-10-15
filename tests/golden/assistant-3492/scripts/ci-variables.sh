@@ -91,6 +91,7 @@ declare_var SONAR_HOST_URL 0 'URL du serveur SonarQube'
 declare_var SONAR_TOKEN 1 'Jeton d'"'"'analyse SonarQube'
 declare_var AWS_ACCOUNT_ID 0 'Identifiant du compte AWS du registre ECR'
 declare_var AWS_ROLE_ARN 0 'Rôle IAM assumé par la CI via OIDC'
+declare_var AWS_INFRA_ROLE_ARN 0 'Rôle IAM des jobs d'"'"'infrastructure (plan, apply), assumé via OIDC'
 
 echo
 if [ "$DRY_RUN" = 1 ]; then

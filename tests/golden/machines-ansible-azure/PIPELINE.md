@@ -94,6 +94,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `AZURE_CLIENT_ID` | non | à déclarer | Identifiant d'application Entra ID |
 | `AZURE_TENANT_ID` | non | à déclarer | Identifiant du tenant Entra ID |
 | `AZURE_SUBSCRIPTION_ID` | non | à déclarer | Identifiant d'abonnement Azure |
+| `AZURE_INFRA_CLIENT_ID` | non | à déclarer | Application Entra ID des jobs d'infrastructure (plan, apply) |
 | `RENOVATE_TOKEN` | oui | à déclarer | Jeton de la forge autorisé à ouvrir des merge requests (Renovate) |
 
 ## Diagnostics restants
@@ -110,7 +111,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Machines créées par OpenTofu (Azure Virtual Machines) : la clé publique de SSH_PRIVATE_KEY va dans TF_VAR_ssh_public_key ; au déploiement, `scripts/tf-inventory.sh` lit la sortie « hosts » de la pile et écrit l'inventaire de l'environnement. Lancer l'apply de la pile avant le premier déploiement.
 - SSH des machines ouvert à tout Internet (clé seulement) : restreindre « Accès SSH autorisé » aux adresses de l'équipe et des runners quand c'est possible.
 - Renovate : job « renovate » de .gitlab-ci.yml, lancé par une planification de pipeline portant la variable RENOVATE=1 (docs/mise-en-route.md) ; les autres jobs ne tournent pas dans ces pipelines.
-- `scripts/ci-variables.sh` déclare les 7 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 8 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 

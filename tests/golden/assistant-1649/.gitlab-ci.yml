@@ -119,6 +119,7 @@ iac-plan:
     AZURE_OIDC_TOKEN:
       aud: api://AzureADTokenExchange
   script:
+  - 'export AZURE_CLIENT_ID="$AZURE_INFRA_CLIENT_ID"   # identité des jobs d''infrastructure'
   - export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
   - export ARM_USE_OIDC=true ARM_OIDC_TOKEN="$AZURE_OIDC_TOKEN"
   - if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" --federated-token "$AZURE_OIDC_TOKEN" >/dev/null; fi
@@ -146,6 +147,7 @@ iac-apply:
     AZURE_OIDC_TOKEN:
       aud: api://AzureADTokenExchange
   script:
+  - 'export AZURE_CLIENT_ID="$AZURE_INFRA_CLIENT_ID"   # identité des jobs d''infrastructure'
   - export ARM_CLIENT_ID="$AZURE_CLIENT_ID" ARM_TENANT_ID="$AZURE_TENANT_ID" ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
   - export ARM_USE_OIDC=true ARM_OIDC_TOKEN="$AZURE_OIDC_TOKEN"
   - if command -v az >/dev/null; then az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID" --federated-token "$AZURE_OIDC_TOKEN" >/dev/null; fi

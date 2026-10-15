@@ -84,6 +84,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `SSH_KNOWN_HOSTS` | non | à déclarer | Facultatif : clés d'hôte attendues (ssh-keyscan) ; sans elle, la clé est acceptée à la première connexion de chaque job |
 | `AWS_ROLE_ARN` | non | à déclarer | Rôle IAM assumé par la CI via OIDC |
 | `AWS_REGION` | non | `eu-west-3` | Région AWS |
+| `AWS_INFRA_ROLE_ARN` | non | à déclarer | Rôle IAM des jobs d'infrastructure (plan, apply), assumé via OIDC |
 
 ## Diagnostics restants
 
@@ -97,7 +98,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
 - Machines créées par OpenTofu (Amazon EC2) : la clé publique de SSH_PRIVATE_KEY va dans TF_VAR_ssh_public_key ; au déploiement, `scripts/tf-inventory.sh` lit la sortie « hosts » de la pile et écrit l'inventaire de l'environnement. Lancer l'apply de la pile avant le premier déploiement.
 - SSH des machines ouvert à tout Internet (clé seulement) : restreindre « Accès SSH autorisé » aux adresses de l'équipe et des runners quand c'est possible.
-- `scripts/ci-variables.sh` déclare les 4 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 5 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 

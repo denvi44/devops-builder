@@ -97,6 +97,7 @@ declare_var TF_VAR_subnet_ids 0 'Sous-réseaux privés du cluster (variable Terr
 declare_var TF_VAR_db_subnet_group 0 'Groupe de sous-réseaux privés des instances RDS (variable Terraform db_subnet_group, ex. "rds-prive")'
 declare_var TF_VAR_db_security_group_ids 0 'Groupes de sécurité autorisant l'"'"'application à joindre la base (variable Terraform db_security_group_ids, ex. ["sg-0123456789abcdef0"])'
 declare_var AWS_ROLE_ARN 0 'Rôle IAM assumé par la CI via OIDC'
+declare_var AWS_INFRA_ROLE_ARN 0 'Rôle IAM des jobs d'"'"'infrastructure (plan, apply), assumé via OIDC'
 declare_var RENOVATE_TOKEN 1 'Jeton de la forge autorisé à ouvrir des merge requests (Renovate)'
 
 echo

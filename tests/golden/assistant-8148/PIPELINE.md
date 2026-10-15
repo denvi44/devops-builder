@@ -64,6 +64,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `GITOPS_REPO` | non | à déclarer | Dépôt GitOps surveillé, sans schéma (hôte/groupe/depot.git) |
 | `AWS_ROLE_ARN` | non | à déclarer | Rôle IAM assumé par la CI via OIDC |
 | `AWS_REGION` | non | `eu-west-3` | Région AWS |
+| `AWS_INFRA_ROLE_ARN` | non | à déclarer | Rôle IAM des jobs d'infrastructure (plan, apply), assumé via OIDC |
 | `RENOVATE_TOKEN` | oui | à déclarer | Jeton de la forge autorisé à ouvrir des merge requests (Renovate) |
 
 ## Diagnostics restants
@@ -78,7 +79,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Renovate : lancer l'image renovate/renovate:44.164.5 dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
-- `scripts/ci-variables.sh` déclare les 9 variable(s) à renseigner avec Azure Pipelines (az), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 10 variable(s) à renseigner avec Azure Pipelines (az), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 

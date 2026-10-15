@@ -7,6 +7,8 @@ ce qui dépend de l'organisation (dépôt, compte, adresse) est posé une fois e
 
 from __future__ import annotations
 
+import json
+
 from ..ir import IR
 from . import secrets as sec
 from .common import HEADER
@@ -105,67 +107,124 @@ def _state(ir: IR) -> list[str]:
 
 
 def _ci_cloud(ir: IR) -> list[str]:
+    from . import ciaccess
     clouds = sorted({c for st in ir.steps for c in st.cloud})
     if not clouds or ir.project.cloud_auth != "oidc" or not ir.ci or ir.ci.id not in sec.JWT_ISSUERS:
         return []
     gitlab = ir.ci.id == "gitlab-ci"
     issuer = sec.JWT_ISSUERS[ir.ci.id][1]
     host = issuer.removeprefix("https://")
+    infra_jobs = any(st.stage == "infra" and st.cloud for st in ir.steps)
     sub = "project_path:${REPO}:ref_type:branch:ref:main" if gitlab else "repo:${REPO}:*"
+    # GitHub distingue les jobs : l'apply tourne dans l'environnement « production », le plan sur main ou une PR
+    infra_subs = ([sub] if gitlab else ["repo:${REPO}:ref:refs/heads/main", "repo:${REPO}:pull_request",
+                                         "repo:${REPO}:environment:production"])
+    deploy_subs = ([sub] if gitlab else ["repo:${REPO}:ref:refs/heads/main"]
+                   + [f"repo:${{REPO}}:environment:{e.id}" for e in ir.envs])
     out = ["## Connexion de la CI au cloud", "",
-           f"La CI s'authentifie par jeton OIDC ({sec.JWT_ISSUERS[ir.ci.id][0]}), sans clé statique. "
-           "Une fois par cloud :", ""]
+           f"La CI s'authentifie par jeton OIDC ({sec.JWT_ISSUERS[ir.ci.id][0]}), sans clé statique, avec deux "
+           "identités : celle des jobs d'infrastructure (plan, apply), aux droits étendus parce que la pile crée "
+           "réseaux, clusters et rôles, et celle des autres jobs, limitée à ce qu'ils font. "
+           + ("GitLab ne distingue pas les jobs dans son jeton : la séparation tient aux variables, à protéger "
+              "(branche main seulement)." if gitlab else
+              "Le jeton de GitHub porte l'environnement du job : seul le plan ou l'apply obtient l'identité "
+              "d'infrastructure.") + " Une fois par cloud :", ""]
     if "aws" in clouds:
         aud = "sts.amazonaws.com"
-        cond = "StringEquals" if gitlab else "StringLike"
-        out += ["**AWS** — fournisseur d'identité OIDC et rôle assumé par la CI ; sa valeur va dans `AWS_ROLE_ARN`.",
-                "", *_sh(f"aws iam create-open-id-connect-provider --url {issuer} --client-id-list {aud}",
-                         "cat > /tmp/trust.json <<EOF",
-                         '{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", '
-                         f'"Principal": {{"Federated": "arn:aws:iam::${{AWS_ACCOUNT_ID}}:oidc-provider/{host}"}}, '
-                         '"Action": "sts:AssumeRoleWithWebIdentity", '
-                         f'"Condition": {{"StringEquals": {{"{host}:aud": "{aud}"}}, '
-                         f'"{cond}": {{"{host}:sub": "{sub}"}}}}}}]}}',
-                         "EOF",
-                         f"aws iam create-role --role-name {ir.app}-ci --assume-role-policy-document file:///tmp/trust.json",
-                         "# droits du rôle : la pile crée des rôles IAM (EKS, External Secrets) ; à restreindre ensuite",
-                         f"aws iam attach-role-policy --role-name {ir.app}-ci "
-                         "--policy-arn arn:aws:iam::aws:policy/AdministratorAccess")]
+
+        def trust(subs: list[str]) -> str:
+            # une seule clé par opérateur : deux « StringEquals » feraient perdre l'une des conditions
+            values = subs[0] if len(subs) == 1 else subs
+            cond: dict = {"StringEquals": {f"{host}:aud": aud}}
+            cond.setdefault("StringEquals" if gitlab else "StringLike", {})[f"{host}:sub"] = values
+            doc = {"Version": "2012-10-17", "Statement": [{
+                "Effect": "Allow",
+                "Principal": {"Federated": f"arn:aws:iam::${{AWS_ACCOUNT_ID}}:oidc-provider/{host}"},
+                "Action": "sts:AssumeRoleWithWebIdentity", "Condition": cond}]}
+            return json.dumps(doc)
+        policy = ciaccess.aws_policy(ir)
+        lines = [f"aws iam create-open-id-connect-provider --url {issuer} --client-id-list {aud}"]
+        if policy["Statement"]:
+            lines += [f"# déploiement : {ciaccess.deploy_summary(ir, 'aws')}",
+                      "cat > /tmp/trust-ci.json <<EOF", trust(deploy_subs), "EOF",
+                      "cat > /tmp/policy-ci.json <<EOF", json.dumps(policy, indent=2, ensure_ascii=False), "EOF",
+                      f"aws iam create-role --role-name {ir.app}-ci --assume-role-policy-document file:///tmp/trust-ci.json",
+                      f"aws iam put-role-policy --role-name {ir.app}-ci --policy-name deploiement "
+                      "--policy-document file:///tmp/policy-ci.json",
+                      f'echo "AWS_ROLE_ARN=arn:aws:iam::$AWS_ACCOUNT_ID:role/{ir.app}-ci"']
+        if infra_jobs:
+            lines += ["# infrastructure : la pile crée des rôles IAM (EKS, External Secrets) et des réseaux",
+                      "cat > /tmp/trust-infra.json <<EOF", trust(infra_subs), "EOF",
+                      f"aws iam create-role --role-name {ir.app}-ci-infra "
+                      "--assume-role-policy-document file:///tmp/trust-infra.json",
+                      f"aws iam attach-role-policy --role-name {ir.app}-ci-infra "
+                      "--policy-arn arn:aws:iam::aws:policy/AdministratorAccess",
+                      f'echo "AWS_INFRA_ROLE_ARN=arn:aws:iam::$AWS_ACCOUNT_ID:role/{ir.app}-ci-infra"']
+        out += ["**AWS** — fournisseur d'identité OIDC et rôles assumés par la CI ; les ARN affichés vont dans les "
+                "variables CI. Un refus « AccessDenied » au déploiement nomme l'action manquante, à ajouter à la "
+                "politique `deploiement`.", "", *_sh(*lines)]
     if "gcp" in clouds:
         pid = ir.params("gcp").get("project_id", "mon-projet")
         attr = "attribute.project_path" if gitlab else "attribute.repository"
         mapping = ("google.subject=assertion.sub,attribute.project_path=assertion.project_path" if gitlab else
                    "google.subject=assertion.sub,attribute.repository=assertion.repository")
-        out += ["**Google Cloud** — pool Workload Identity et compte de service ; le nom complet du fournisseur va "
-                "dans `GCP_WORKLOAD_IDENTITY_PROVIDER`.", "",
-                *_sh(f"gcloud iam workload-identity-pools create ci --project {pid} --location global",
-                     f"gcloud iam workload-identity-pools providers create-oidc ci --project {pid} --location global "
-                     f'--workload-identity-pool ci --issuer-uri {issuer} --attribute-mapping "{mapping}" '
-                     f"--attribute-condition \"assertion.{attr.split('.')[1]} == '${{REPO}}'\"",
-                     f"gcloud iam service-accounts create {ir.app}-ci --project {pid}",
-                     f'NUM="$(gcloud projects describe {pid} --format="value(projectNumber)")"',
-                     f"gcloud iam service-accounts add-iam-policy-binding {ir.app}-ci@{pid}.iam.gserviceaccount.com "
-                     '--role roles/iam.workloadIdentityUser --member '
-                     f'"principalSet://iam.googleapis.com/projects/$NUM/locations/global/workloadIdentityPools/ci/'
-                     f'{attr}/${{REPO}}"',
-                     *[f"gcloud projects add-iam-policy-binding {pid} --member "
-                       f"serviceAccount:{ir.app}-ci@{pid}.iam.gserviceaccount.com --role {role}"
-                       for role in ("roles/editor", "roles/resourcemanager.projectIamAdmin")],
-                     'echo "GCP_WORKLOAD_IDENTITY_PROVIDER=projects/$NUM/locations/global/workloadIdentityPools/ci/'
-                     'providers/ci"')]
+        member = (f'"principalSet://iam.googleapis.com/projects/$NUM/locations/global/workloadIdentityPools/ci/'
+                  f'{attr}/${{REPO}}"')
+        accounts = []
+        if ciaccess.gcp_roles(ir):
+            accounts.append((f"{ir.app}-ci", ciaccess.gcp_roles(ir), "GCP_SERVICE_ACCOUNT"))
+        if infra_jobs:
+            accounts.append((f"{ir.app}-ci-infra", ["roles/editor", "roles/resourcemanager.projectIamAdmin"],
+                             "GCP_INFRA_SERVICE_ACCOUNT"))
+        lines = [f"gcloud iam workload-identity-pools create ci --project {pid} --location global",
+                 f"gcloud iam workload-identity-pools providers create-oidc ci --project {pid} --location global "
+                 f'--workload-identity-pool ci --issuer-uri {issuer} --attribute-mapping "{mapping}" '
+                 f"--attribute-condition \"assertion.{attr.split('.')[1]} == '${{REPO}}'\"",
+                 f'NUM="$(gcloud projects describe {pid} --format="value(projectNumber)")"']
+        for name, roles, var in accounts:
+            email = f"{name}@{pid}.iam.gserviceaccount.com"
+            lines += [f"gcloud iam service-accounts create {name} --project {pid}",
+                      f"gcloud iam service-accounts add-iam-policy-binding {email} "
+                      f"--role roles/iam.workloadIdentityUser --member {member}",
+                      *[f"gcloud projects add-iam-policy-binding {pid} --member serviceAccount:{email} --role {r}"
+                        for r in roles],
+                      f'echo "{var}={email}"']
+        lines.append('echo "GCP_WORKLOAD_IDENTITY_PROVIDER=projects/$NUM/locations/global/workloadIdentityPools/ci/'
+                     'providers/ci"')
+        out += ["**Google Cloud** — pool Workload Identity et deux comptes de service ; le nom complet du "
+                f"fournisseur va dans `GCP_WORKLOAD_IDENTITY_PROVIDER`. Déploiement : {ciaccess.deploy_summary(ir, 'gcp')}.",
+                "", *_sh(*lines)]
     if "azure" in clouds:
-        subjects = ["project_path:${REPO}:ref_type:branch:ref:main"] if gitlab else (
-            ["repo:${REPO}:ref:refs/heads/main"] + [f"repo:${{REPO}}:environment:{e.id}" for e in ir.envs])
-        creds = [f"az ad app federated-credential create --id \"$APP_ID\" --parameters "
-                 f"'{{\"name\": \"ci-{i}\", \"issuer\": \"{issuer}\", \"subject\": \"'\"{s}\"'\", "
-                 "\"audiences\": [\"api://AzureADTokenExchange\"]}'" for i, s in enumerate(subjects, 1)]
-        out += ["**Azure** — application Entra ID et identifiants fédérés ; `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` "
-                "et `AZURE_SUBSCRIPTION_ID` en variables CI.", "",
-                *_sh(f'APP_ID="$(az ad app create --display-name {ir.app}-ci --query appId -o tsv)"',
-                     'az ad sp create --id "$APP_ID" >/dev/null', *creds,
-                     *[f'az role assignment create --assignee "$APP_ID" --role "{role}" '
-                       '--scope "/subscriptions/$(az account show --query id -o tsv)"'
-                       for role in ("Contributor", "Role Based Access Control Administrator")])]
+        rg = ir.params("azure").get("resource_group", "rg-mon-projet")
+
+        def creds(var: str, subjects: list[str]) -> list[str]:
+            return [f"az ad app federated-credential create --id \"${var}\" --parameters "
+                    f"'{{\"name\": \"ci-{i}\", \"issuer\": \"{issuer}\", \"subject\": \"'\"{s}\"'\", "
+                    "\"audiences\": [\"api://AzureADTokenExchange\"]}'" for i, s in enumerate(subjects, 1)]
+        gh_infra = ["repo:${REPO}:ref:refs/heads/main", "repo:${REPO}:pull_request", "repo:${REPO}:environment:production"]
+        gh_deploy = ["repo:${REPO}:ref:refs/heads/main"] + [f"repo:${{REPO}}:environment:{e.id}" for e in ir.envs]
+        lines = []
+        if infra_jobs:
+            lines += [f'INFRA_ID="$(az ad app create --display-name {ir.app}-ci-infra --query appId -o tsv)"',
+                      'az ad sp create --id "$INFRA_ID" >/dev/null',
+                      *creds("INFRA_ID", [sub] if gitlab else gh_infra),
+                      *[f'az role assignment create --assignee "$INFRA_ID" --role "{role}" '
+                        '--scope "/subscriptions/$(az account show --query id -o tsv)"'
+                        for role in ("Contributor", "Role Based Access Control Administrator")],
+                      'echo "AZURE_INFRA_CLIENT_ID=$INFRA_ID"']
+        roles = ciaccess.azure_roles(ir)
+        if roles:
+            lines += [f'APP_ID="$(az ad app create --display-name {ir.app}-ci --query appId -o tsv)"',
+                      'az ad sp create --id "$APP_ID" >/dev/null',
+                      *creds("APP_ID", [sub] if gitlab else gh_deploy),
+                      'echo "AZURE_CLIENT_ID=$APP_ID"',
+                      f"# après le premier apply, quand le groupe de ressources {rg} existe :",
+                      *[f'az role assignment create --assignee "$APP_ID" --role "{role}" '
+                        f'--scope "/subscriptions/$(az account show --query id -o tsv)/resourceGroups/{rg}"'
+                        for role, _ in roles]]
+        out += ["**Azure** — deux applications Entra ID et leurs identifiants fédérés ; `AZURE_TENANT_ID` et "
+                "`AZURE_SUBSCRIPTION_ID` en variables CI. Déploiement, sur le seul groupe de ressources du projet : "
+                f"{ciaccess.deploy_summary(ir, 'azure')}.", "", *_sh(*lines)]
     return out
 
 

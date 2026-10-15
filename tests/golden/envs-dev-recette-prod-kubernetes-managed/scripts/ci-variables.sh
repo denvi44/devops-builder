@@ -95,6 +95,7 @@ declare_var AWS_ACCOUNT_ID 0 'Identifiant du compte AWS du registre ECR'
 declare_var TF_VAR_vpc_id 0 'VPC du cluster EKS (variable Terraform vpc_id, ex. "vpc-0123456789abcdef0")'
 declare_var TF_VAR_subnet_ids 0 'Sous-réseaux privés du cluster (variable Terraform subnet_ids, ex. ["subnet-0123456789abcdef0", "subnet-0fedcba9876543210"])'
 declare_var AWS_ROLE_ARN 0 'Rôle IAM assumé par la CI via OIDC'
+declare_var AWS_INFRA_ROLE_ARN 0 'Rôle IAM des jobs d'"'"'infrastructure (plan, apply), assumé via OIDC'
 declare_var RENOVATE_TOKEN 1 'Jeton de la forge autorisé à ouvrir des merge requests (Renovate)'
 
 echo

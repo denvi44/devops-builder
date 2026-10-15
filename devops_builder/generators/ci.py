@@ -131,9 +131,14 @@ HOST_SETUP = {
 }
 
 
-def _gha_cloud_steps(ir: IR, clouds: list[str]) -> list[dict]:
+def _gha_cloud_steps(ir: IR, clouds: list[str], infra: bool = False) -> list[dict]:
+    from ..ir import DEPLOY_IDENTITY, INFRA_IDENTITY
     out: list[dict] = []
     static = ir.project.cloud_auth == "static"
+
+    def ref(name: str) -> str:  # job d'infrastructure : son identité à la place de celle du déploiement
+        cloud = next((c for c, v in DEPLOY_IDENTITY.items() if v == name), None)
+        return _gha_ref(ir, INFRA_IDENTITY[cloud][0] if infra and not static and cloud else name)
     for c in clouds:
         if c == "aws":
             w = {"aws-region": _gha_ref(ir, "AWS_REGION")}
@@ -141,15 +146,15 @@ def _gha_cloud_steps(ir: IR, clouds: list[str]) -> list[dict]:
                 w |= {"aws-access-key-id": "${{ secrets.AWS_ACCESS_KEY_ID }}",
                       "aws-secret-access-key": "${{ secrets.AWS_SECRET_ACCESS_KEY }}"}
             else:
-                w["role-to-assume"] = _gha_ref(ir, "AWS_ROLE_ARN")
+                w["role-to-assume"] = ref("AWS_ROLE_ARN")
             out.append({"uses": "aws-actions/configure-aws-credentials@v4", "with": w})
         elif c == "gcp":
             w = ({"credentials_json": "${{ secrets.GCP_SA_KEY }}"} if static else
                  {"workload_identity_provider": _gha_ref(ir, "GCP_WORKLOAD_IDENTITY_PROVIDER"),
-                  "service_account": _gha_ref(ir, "GCP_SERVICE_ACCOUNT")})
+                  "service_account": ref("GCP_SERVICE_ACCOUNT")})
             out.append({"uses": "google-github-actions/auth@v2", "with": w})
         elif c == "azure":
-            w = {"client-id": _gha_ref(ir, "AZURE_CLIENT_ID"), "tenant-id": _gha_ref(ir, "AZURE_TENANT_ID"),
+            w = {"client-id": ref("AZURE_CLIENT_ID"), "tenant-id": _gha_ref(ir, "AZURE_TENANT_ID"),
                  "subscription-id": _gha_ref(ir, "AZURE_SUBSCRIPTION_ID")}
             if static:
                 # azure/login : identifiants assemblés à partir des variables déclarées
@@ -231,7 +236,7 @@ def github_actions(ir: IR, path: str = ".github/workflows/pipeline.yml") -> dict
         gsteps: list[dict] = [{"uses": "actions/checkout@v4"}]
         script = list(st.script)
         if host:
-            gsteps += _gha_cloud_steps(ir, st.cloud)
+            gsteps += _gha_cloud_steps(ir, st.cloud, infra=st.stage == "infra")
             gsteps += HOST_SETUP.get(st.tool, [])
             script = [l for l in script if not l.startswith(("apk add", "yum install", "az aks install-cli"))
                       and "get-helm-3" not in l and l not in TOFU_INSTALL and l not in TERRAFORM_INSTALL]

@@ -67,6 +67,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `REGISTRY_PASSWORD` | oui | à déclarer | Mot de passe ou jeton de publication sur europe-west9-docker.pkg.dev |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | non | à déclarer | Fournisseur Workload Identity Federation |
 | `GCP_SERVICE_ACCOUNT` | non | à déclarer | Compte de service impersonné par la CI |
+| `GCP_INFRA_SERVICE_ACCOUNT` | non | à déclarer | Compte de service des jobs d'infrastructure (plan, apply) |
 | `RENOVATE_TOKEN` | oui | à déclarer | Jeton de la forge autorisé à ouvrir des merge requests (Renovate) |
 
 ## Diagnostics restants
@@ -80,7 +81,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : ajouter une vérification « Approvals » sur l'environnement Azure DevOps correspondant (Pipelines › Environments › Approvals and checks).
 - Renovate : lancer l'image renovate/renovate:44.164.5 dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
-- `scripts/ci-variables.sh` déclare les 7 variable(s) à renseigner avec Azure Pipelines (az), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 8 variable(s) à renseigner avec Azure Pipelines (az), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 

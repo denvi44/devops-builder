@@ -37,7 +37,7 @@ kubectl get pods -A | grep -v Running   # rien ne doit rester en attente
 
 ## 4. Variables CI
 
-5 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :
+6 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :
 
 ```bash
 bash scripts/ci-variables.sh --dry-run   # ce qui serait déclaré

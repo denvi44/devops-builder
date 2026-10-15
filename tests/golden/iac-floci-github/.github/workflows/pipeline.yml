@@ -121,7 +121,7 @@ jobs:
     - uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-region: eu-west-3
-        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+        role-to-assume: ${{ vars.AWS_INFRA_ROLE_ARN }}
     - uses: opentofu/setup-opentofu@v1
       with:
         tofu_version: 1.13.1
@@ -156,7 +156,7 @@ jobs:
     - uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-region: eu-west-3
-        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+        role-to-assume: ${{ vars.AWS_INFRA_ROLE_ARN }}
     - uses: opentofu/setup-opentofu@v1
       with:
         tofu_version: 1.13.1

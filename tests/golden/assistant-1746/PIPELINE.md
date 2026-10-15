@@ -61,6 +61,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `AWS_ACCOUNT_ID` | non | à déclarer | Identifiant du compte AWS du registre ECR |
 | `AWS_ROLE_ARN` | non | à déclarer | Rôle IAM assumé par la CI via OIDC |
 | `AWS_REGION` | non | `eu-west-3` | Région AWS |
+| `AWS_INFRA_ROLE_ARN` | non | à déclarer | Rôle IAM des jobs d'infrastructure (plan, apply), assumé via OIDC |
 | `RENOVATE_TOKEN` | oui | à déclarer | Jeton de la forge autorisé à ouvrir des merge requests (Renovate) |
 
 ## Diagnostics restants
@@ -74,7 +75,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
 - Renovate : job « renovate » de .gitlab-ci.yml, lancé par une planification de pipeline portant la variable RENOVATE=1 (docs/mise-en-route.md) ; les autres jobs ne tournent pas dans ces pipelines.
-- `scripts/ci-variables.sh` déclare les 5 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 6 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 
 ## À configurer à la main
 

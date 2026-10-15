@@ -24,6 +24,22 @@ module "eks_staging" {
   vpc_id             = var.vpc_id
   subnet_ids         = var.subnet_ids
 
+  # accès Kubernetes : l'identité qui applique la pile, le rôle de déploiement de la CI et les personnes
+  # déclarées dans cluster_admin_arns (l'identité qui applique change après le premier apply depuis le poste)
+  enable_cluster_creator_admin_permissions = true
+  access_entries = {
+    for name, arn in merge({ ci = var.ci_deploy_role_arn }, { for i, a in var.cluster_admin_arns : "admin-${i}" => a }) :
+    name => {
+      principal_arn = arn
+      policy_associations = {
+        admin = {
+          policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = { type = "cluster" }
+        }
+      }
+    } if arn != ""
+  }
+
   eks_managed_node_groups = {
     default = {
       instance_types = ["t3.large"]
@@ -53,6 +69,22 @@ module "eks_production" {
   kubernetes_version = "1.33"
   vpc_id             = var.vpc_id
   subnet_ids         = var.subnet_ids
+
+  # accès Kubernetes : l'identité qui applique la pile, le rôle de déploiement de la CI et les personnes
+  # déclarées dans cluster_admin_arns (l'identité qui applique change après le premier apply depuis le poste)
+  enable_cluster_creator_admin_permissions = true
+  access_entries = {
+    for name, arn in merge({ ci = var.ci_deploy_role_arn }, { for i, a in var.cluster_admin_arns : "admin-${i}" => a }) :
+    name => {
+      principal_arn = arn
+      policy_associations = {
+        admin = {
+          policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = { type = "cluster" }
+        }
+      }
+    } if arn != ""
+  }
 
   eks_managed_node_groups = {
     default = {

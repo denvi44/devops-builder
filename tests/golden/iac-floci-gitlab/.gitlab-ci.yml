@@ -98,6 +98,7 @@ iac-plan:
     AWS_OIDC_TOKEN:
       aud: sts.amazonaws.com
   script:
+  - 'export AWS_ROLE_ARN="$AWS_INFRA_ROLE_ARN"   # identité des jobs d''infrastructure'
   - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
   - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
   - apk add --no-cache curl unzip
@@ -123,6 +124,7 @@ iac-apply:
     AWS_OIDC_TOKEN:
       aud: sts.amazonaws.com
   script:
+  - 'export AWS_ROLE_ARN="$AWS_INFRA_ROLE_ARN"   # identité des jobs d''infrastructure'
   - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
   - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
   - apk add --no-cache curl unzip

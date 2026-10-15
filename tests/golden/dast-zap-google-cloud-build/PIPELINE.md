@@ -71,6 +71,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `ZAP_TARGET_URL` | non | `https://api-recette.boutique.fr/openapi.json` | Adresse analysée par ZAP (définition OpenAPI de l'API) |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | non | à déclarer | Fournisseur Workload Identity Federation |
 | `GCP_SERVICE_ACCOUNT` | non | à déclarer | Compte de service impersonné par la CI |
+| `GCP_INFRA_SERVICE_ACCOUNT` | non | à déclarer | Compte de service des jobs d'infrastructure (plan, apply) |
 
 ## Diagnostics restants
 

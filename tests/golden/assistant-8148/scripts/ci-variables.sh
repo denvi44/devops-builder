@@ -102,6 +102,7 @@ declare_var TF_VAR_subnet_ids 0 'Sous-réseaux privés du cluster (variable Terr
 declare_var GITOPS_TOKEN 1 'Jeton autorisé à pousser sur le dépôt GitOps'
 declare_var GITOPS_REPO 0 'Dépôt GitOps surveillé, sans schéma (hôte/groupe/depot.git)'
 declare_var AWS_ROLE_ARN 0 'Rôle IAM assumé par la CI via OIDC'
+declare_var AWS_INFRA_ROLE_ARN 0 'Rôle IAM des jobs d'"'"'infrastructure (plan, apply), assumé via OIDC'
 declare_var RENOVATE_TOKEN 1 'Jeton de la forge autorisé à ouvrir des merge requests (Renovate)'
 
 echo

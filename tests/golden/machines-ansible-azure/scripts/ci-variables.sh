@@ -97,6 +97,7 @@ declare_var SSH_KNOWN_HOSTS 0 'Facultatif : clés d'"'"'hôte attendues (ssh-key
 declare_var AZURE_CLIENT_ID 0 'Identifiant d'"'"'application Entra ID'
 declare_var AZURE_TENANT_ID 0 'Identifiant du tenant Entra ID'
 declare_var AZURE_SUBSCRIPTION_ID 0 'Identifiant d'"'"'abonnement Azure'
+declare_var AZURE_INFRA_CLIENT_ID 0 'Application Entra ID des jobs d'"'"'infrastructure (plan, apply)'
 declare_var RENOVATE_TOKEN 1 'Jeton de la forge autorisé à ouvrir des merge requests (Renovate)'
 
 echo

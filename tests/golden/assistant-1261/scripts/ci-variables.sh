@@ -99,6 +99,7 @@ declare_var GITOPS_TOKEN 1 'Jeton autorisé à pousser sur le dépôt GitOps'
 declare_var GITOPS_REPO 0 'Dépôt GitOps surveillé, sans schéma (hôte/groupe/depot.git)'
 declare_var GCP_WORKLOAD_IDENTITY_PROVIDER 0 'Fournisseur Workload Identity Federation'
 declare_var GCP_SERVICE_ACCOUNT 0 'Compte de service impersonné par la CI'
+declare_var GCP_INFRA_SERVICE_ACCOUNT 0 'Compte de service des jobs d'"'"'infrastructure (plan, apply)'
 declare_var RENOVATE_TOKEN 1 'Jeton de la forge autorisé à ouvrir des merge requests (Renovate)'
 
 echo

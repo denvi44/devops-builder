@@ -23,18 +23,25 @@ gcloud storage buckets update gs://mon-projet-tfstate --versioning
 
 ## 2. Connexion de la CI au cloud
 
-La CI s'authentifie par jeton OIDC (GitHub Actions), sans clé statique. Une fois par cloud :
+La CI s'authentifie par jeton OIDC (GitHub Actions), sans clé statique, avec deux identités : celle des jobs d'infrastructure (plan, apply), aux droits étendus parce que la pile crée réseaux, clusters et rôles, et celle des autres jobs, limitée à ce qu'ils font. Le jeton de GitHub porte l'environnement du job : seul le plan ou l'apply obtient l'identité d'infrastructure. Une fois par cloud :
 
-**Google Cloud** — pool Workload Identity et compte de service ; le nom complet du fournisseur va dans `GCP_WORKLOAD_IDENTITY_PROVIDER`.
+**Google Cloud** — pool Workload Identity et deux comptes de service ; le nom complet du fournisseur va dans `GCP_WORKLOAD_IDENTITY_PROVIDER`. Déploiement : pousser l'image, déployer sur Cloud Run.
 
 ```bash
 gcloud iam workload-identity-pools create ci --project mon-projet --location global
 gcloud iam workload-identity-pools providers create-oidc ci --project mon-projet --location global --workload-identity-pool ci --issuer-uri https://token.actions.githubusercontent.com --attribute-mapping "google.subject=assertion.sub,attribute.repository=assertion.repository" --attribute-condition "assertion.repository == '${REPO}'"
-gcloud iam service-accounts create mon-app-ci --project mon-projet
 NUM="$(gcloud projects describe mon-projet --format="value(projectNumber)")"
+gcloud iam service-accounts create mon-app-ci --project mon-projet
 gcloud iam service-accounts add-iam-policy-binding mon-app-ci@mon-projet.iam.gserviceaccount.com --role roles/iam.workloadIdentityUser --member "principalSet://iam.googleapis.com/projects/$NUM/locations/global/workloadIdentityPools/ci/attribute.repository/${REPO}"
-gcloud projects add-iam-policy-binding mon-projet --member serviceAccount:mon-app-ci@mon-projet.iam.gserviceaccount.com --role roles/editor
-gcloud projects add-iam-policy-binding mon-projet --member serviceAccount:mon-app-ci@mon-projet.iam.gserviceaccount.com --role roles/resourcemanager.projectIamAdmin
+gcloud projects add-iam-policy-binding mon-projet --member serviceAccount:mon-app-ci@mon-projet.iam.gserviceaccount.com --role roles/artifactregistry.writer
+gcloud projects add-iam-policy-binding mon-projet --member serviceAccount:mon-app-ci@mon-projet.iam.gserviceaccount.com --role roles/run.developer
+gcloud projects add-iam-policy-binding mon-projet --member serviceAccount:mon-app-ci@mon-projet.iam.gserviceaccount.com --role roles/iam.serviceAccountUser
+echo "GCP_SERVICE_ACCOUNT=mon-app-ci@mon-projet.iam.gserviceaccount.com"
+gcloud iam service-accounts create mon-app-ci-infra --project mon-projet
+gcloud iam service-accounts add-iam-policy-binding mon-app-ci-infra@mon-projet.iam.gserviceaccount.com --role roles/iam.workloadIdentityUser --member "principalSet://iam.googleapis.com/projects/$NUM/locations/global/workloadIdentityPools/ci/attribute.repository/${REPO}"
+gcloud projects add-iam-policy-binding mon-projet --member serviceAccount:mon-app-ci-infra@mon-projet.iam.gserviceaccount.com --role roles/editor
+gcloud projects add-iam-policy-binding mon-projet --member serviceAccount:mon-app-ci-infra@mon-projet.iam.gserviceaccount.com --role roles/resourcemanager.projectIamAdmin
+echo "GCP_INFRA_SERVICE_ACCOUNT=mon-app-ci-infra@mon-projet.iam.gserviceaccount.com"
 echo "GCP_WORKLOAD_IDENTITY_PROVIDER=projects/$NUM/locations/global/workloadIdentityPools/ci/providers/ci"
 ```
 
@@ -51,7 +58,7 @@ terraform -chdir=infra/terraform output
 
 ## 4. Variables CI
 
-6 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :
+7 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :
 
 ```bash
 bash scripts/ci-variables.sh --dry-run   # ce qui serait déclaré

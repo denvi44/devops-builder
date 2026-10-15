@@ -100,6 +100,7 @@ declare_var TF_VAR_db_security_group_ids 0 'Groupes de sécurité autorisant l'"
 declare_var DATABASE_URL_STAGING 1 'URL de connexion à Amazon RDS (Préproduction), lue par l'"'"'application dans DATABASE_URL ; à composer après création de l'"'"'instance (sorties Terraform)'
 declare_var DATABASE_URL_PRODUCTION 1 'URL de connexion à Amazon RDS (Production), lue par l'"'"'application dans DATABASE_URL ; à composer après création de l'"'"'instance (sorties Terraform)'
 declare_var AWS_ROLE_ARN 0 'Rôle IAM assumé par la CI via OIDC'
+declare_var AWS_INFRA_ROLE_ARN 0 'Rôle IAM des jobs d'"'"'infrastructure (plan, apply), assumé via OIDC'
 
 echo
 if [ "$DRY_RUN" = 1 ]; then

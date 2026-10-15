@@ -72,6 +72,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `GITOPS_REPO` | non | à déclarer | Dépôt GitOps surveillé, sans schéma (hôte/groupe/depot.git) |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | non | à déclarer | Fournisseur Workload Identity Federation |
 | `GCP_SERVICE_ACCOUNT` | non | à déclarer | Compte de service impersonné par la CI |
+| `GCP_INFRA_SERVICE_ACCOUNT` | non | à déclarer | Compte de service des jobs d'infrastructure (plan, apply) |
 | `RENOVATE_TOKEN` | oui | à déclarer | Jeton de la forge autorisé à ouvrir des merge requests (Renovate) |
 
 ## Diagnostics restants
@@ -87,7 +88,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
 - Renovate : job « renovate » de .gitlab-ci.yml, lancé par une planification de pipeline portant la variable RENOVATE=1 (docs/mise-en-route.md) ; les autres jobs ne tournent pas dans ces pipelines.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
-- `scripts/ci-variables.sh` déclare les 9 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 10 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 

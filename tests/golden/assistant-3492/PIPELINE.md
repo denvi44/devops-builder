@@ -57,6 +57,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `AWS_ACCOUNT_ID` | non | à déclarer | Identifiant du compte AWS du registre ECR |
 | `AWS_ROLE_ARN` | non | à déclarer | Rôle IAM assumé par la CI via OIDC |
 | `AWS_REGION` | non | `eu-west-3` | Région AWS |
+| `AWS_INFRA_ROLE_ARN` | non | à déclarer | Rôle IAM des jobs d'infrastructure (plan, apply), assumé via OIDC |
 
 ## Diagnostics restants
 
@@ -67,7 +68,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
-- `scripts/ci-variables.sh` déclare les 4 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 5 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 

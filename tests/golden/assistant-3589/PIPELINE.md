@@ -62,6 +62,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `REGISTRY_PASSWORD` | oui | à déclarer | Mot de passe ou jeton de publication sur europe-west9-docker.pkg.dev |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | non | à déclarer | Fournisseur Workload Identity Federation |
 | `GCP_SERVICE_ACCOUNT` | non | à déclarer | Compte de service impersonné par la CI |
+| `GCP_INFRA_SERVICE_ACCOUNT` | non | à déclarer | Compte de service des jobs d'infrastructure (plan, apply) |
 
 ## Diagnostics restants
 
@@ -74,7 +75,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
-- `scripts/ci-variables.sh` déclare les 6 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 7 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
 
 ## À configurer à la main
 

@@ -24,16 +24,24 @@ az storage container create --name tfstate --account-name monprojettfstate --aut
 
 ## 2. Connexion de la CI au cloud
 
-La CI s'authentifie par jeton OIDC (GitLab), sans clé statique. Une fois par cloud :
+La CI s'authentifie par jeton OIDC (GitLab), sans clé statique, avec deux identités : celle des jobs d'infrastructure (plan, apply), aux droits étendus parce que la pile crée réseaux, clusters et rôles, et celle des autres jobs, limitée à ce qu'ils font. GitLab ne distingue pas les jobs dans son jeton : la séparation tient aux variables, à protéger (branche main seulement). Une fois par cloud :
 
-**Azure** — application Entra ID et identifiants fédérés ; `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` et `AZURE_SUBSCRIPTION_ID` en variables CI.
+**Azure** — deux applications Entra ID et leurs identifiants fédérés ; `AZURE_TENANT_ID` et `AZURE_SUBSCRIPTION_ID` en variables CI. Déploiement, sur le seul groupe de ressources du projet : pousser l'image, obtenir l'accès au cluster.
 
 ```bash
+INFRA_ID="$(az ad app create --display-name mon-app-ci-infra --query appId -o tsv)"
+az ad sp create --id "$INFRA_ID" >/dev/null
+az ad app federated-credential create --id "$INFRA_ID" --parameters '{"name": "ci-1", "issuer": "https://gitlab.com", "subject": "'"project_path:${REPO}:ref_type:branch:ref:main"'", "audiences": ["api://AzureADTokenExchange"]}'
+az role assignment create --assignee "$INFRA_ID" --role "Contributor" --scope "/subscriptions/$(az account show --query id -o tsv)"
+az role assignment create --assignee "$INFRA_ID" --role "Role Based Access Control Administrator" --scope "/subscriptions/$(az account show --query id -o tsv)"
+echo "AZURE_INFRA_CLIENT_ID=$INFRA_ID"
 APP_ID="$(az ad app create --display-name mon-app-ci --query appId -o tsv)"
 az ad sp create --id "$APP_ID" >/dev/null
 az ad app federated-credential create --id "$APP_ID" --parameters '{"name": "ci-1", "issuer": "https://gitlab.com", "subject": "'"project_path:${REPO}:ref_type:branch:ref:main"'", "audiences": ["api://AzureADTokenExchange"]}'
-az role assignment create --assignee "$APP_ID" --role "Contributor" --scope "/subscriptions/$(az account show --query id -o tsv)"
-az role assignment create --assignee "$APP_ID" --role "Role Based Access Control Administrator" --scope "/subscriptions/$(az account show --query id -o tsv)"
+echo "AZURE_CLIENT_ID=$APP_ID"
+# après le premier apply, quand le groupe de ressources rg-mon-app existe :
+az role assignment create --assignee "$APP_ID" --role "AcrPush" --scope "/subscriptions/$(az account show --query id -o tsv)/resourceGroups/rg-mon-app"
+az role assignment create --assignee "$APP_ID" --role "Azure Kubernetes Service Cluster User Role" --scope "/subscriptions/$(az account show --query id -o tsv)/resourceGroups/rg-mon-app"
 ```
 
 ## 3. Premier apply
@@ -78,7 +86,7 @@ kubectl -n mon-app get externalsecret   # STATUS SecretSynced
 
 ## 7. Variables CI
 
-6 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :
+7 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :
 
 ```bash
 bash scripts/ci-variables.sh --dry-run   # ce qui serait déclaré

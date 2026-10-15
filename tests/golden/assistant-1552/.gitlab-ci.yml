@@ -124,6 +124,7 @@ iac-plan:
     GCP_OIDC_TOKEN:
       aud: https://iam.googleapis.com/$GCP_WORKLOAD_IDENTITY_PROVIDER
   script:
+  - 'export GCP_SERVICE_ACCOUNT="$GCP_INFRA_SERVICE_ACCOUNT"   # identité des jobs d''infrastructure'
   - echo "$GCP_OIDC_TOKEN" > /tmp/gcp_oidc_token
   - echo '{"type":"external_account","audience":"//iam.googleapis.com/'"$GCP_WORKLOAD_IDENTITY_PROVIDER"'","subject_token_type":"urn:ietf:params:oauth:token-type:jwt","token_url":"https://sts.googleapis.com/v1/token","service_account_impersonation_url":"https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/'"$GCP_SERVICE_ACCOUNT"':generateAccessToken","credential_source":{"file":"/tmp/gcp_oidc_token"}}'
     > /tmp/gcp-cred.json
@@ -156,6 +157,7 @@ iac-apply:
     GCP_OIDC_TOKEN:
       aud: https://iam.googleapis.com/$GCP_WORKLOAD_IDENTITY_PROVIDER
   script:
+  - 'export GCP_SERVICE_ACCOUNT="$GCP_INFRA_SERVICE_ACCOUNT"   # identité des jobs d''infrastructure'
   - echo "$GCP_OIDC_TOKEN" > /tmp/gcp_oidc_token
   - echo '{"type":"external_account","audience":"//iam.googleapis.com/'"$GCP_WORKLOAD_IDENTITY_PROVIDER"'","subject_token_type":"urn:ietf:params:oauth:token-type:jwt","token_url":"https://sts.googleapis.com/v1/token","service_account_impersonation_url":"https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/'"$GCP_SERVICE_ACCOUNT"':generateAccessToken","credential_source":{"file":"/tmp/gcp_oidc_token"}}'
     > /tmp/gcp-cred.json

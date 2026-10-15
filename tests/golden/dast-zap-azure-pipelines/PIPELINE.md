@@ -72,6 +72,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `AZURE_CLIENT_ID` | non | à déclarer | Identifiant d'application Entra ID |
 | `AZURE_TENANT_ID` | non | à déclarer | Identifiant du tenant Entra ID |
 | `AZURE_SUBSCRIPTION_ID` | non | à déclarer | Identifiant d'abonnement Azure |
+| `AZURE_INFRA_CLIENT_ID` | non | à déclarer | Application Entra ID des jobs d'infrastructure (plan, apply) |
 
 ## Diagnostics restants
 
@@ -85,7 +86,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Approbation (« Production ») : ajouter une vérification « Approvals » sur l'environnement Azure DevOps correspondant (Pipelines › Environments › Approvals and checks).
 - ZAP analyse l'environnement « Préproduction » à l'adresse ZAP_TARGET_URL (https://api-recette.boutique.fr/openapi.json) après son déploiement ; rapport en artefact du job (zap-report.html). L'adresse doit être joignable depuis les machines de la CI. Le job signale sans bloquer ; paramètre « Bloquant » pour arrêter le pipeline.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
-- `scripts/ci-variables.sh` déclare les 5 variable(s) à renseigner avec Azure Pipelines (az), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 6 variable(s) à renseigner avec Azure Pipelines (az), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 

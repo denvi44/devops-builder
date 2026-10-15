@@ -18,6 +18,7 @@ steps:
     AZURE_CLIENT_ID: à-renseigner
     AZURE_TENANT_ID: à-renseigner
     AZURE_SUBSCRIPTION_ID: à-renseigner
+    AZURE_INFRA_CLIENT_ID: à-renseigner
 - name: sonarqube
   image: sonarsource/sonar-scanner-cli:latest
   commands:
@@ -35,6 +36,7 @@ steps:
     AZURE_CLIENT_ID: à-renseigner
     AZURE_TENANT_ID: à-renseigner
     AZURE_SUBSCRIPTION_ID: à-renseigner
+    AZURE_INFRA_CLIENT_ID: à-renseigner
 - name: build-image
   image: docker:27
   commands:
@@ -58,6 +60,7 @@ steps:
     AZURE_CLIENT_ID: à-renseigner
     AZURE_TENANT_ID: à-renseigner
     AZURE_SUBSCRIPTION_ID: à-renseigner
+    AZURE_INFRA_CLIENT_ID: à-renseigner
 - name: gitleaks
   image: zricethezav/gitleaks:latest
   commands:
@@ -75,6 +78,7 @@ steps:
     AZURE_CLIENT_ID: à-renseigner
     AZURE_TENANT_ID: à-renseigner
     AZURE_SUBSCRIPTION_ID: à-renseigner
+    AZURE_INFRA_CLIENT_ID: à-renseigner
 - name: trivy
   image: aquasec/trivy:latest
   commands:
@@ -95,6 +99,7 @@ steps:
     AZURE_CLIENT_ID: à-renseigner
     AZURE_TENANT_ID: à-renseigner
     AZURE_SUBSCRIPTION_ID: à-renseigner
+    AZURE_INFRA_CLIENT_ID: à-renseigner
 - name: cosign
   image: alpine:3.20
   commands:
@@ -117,6 +122,7 @@ steps:
     AZURE_CLIENT_ID: à-renseigner
     AZURE_TENANT_ID: à-renseigner
     AZURE_SUBSCRIPTION_ID: à-renseigner
+    AZURE_INFRA_CLIENT_ID: à-renseigner
   when:
   - branch: main
     event: push
@@ -147,6 +153,7 @@ steps:
     AZURE_CLIENT_ID: à-renseigner
     AZURE_TENANT_ID: à-renseigner
     AZURE_SUBSCRIPTION_ID: à-renseigner
+    AZURE_INFRA_CLIENT_ID: à-renseigner
 - name: iac-apply
   image: alpine:3.20
   commands:
@@ -172,6 +179,7 @@ steps:
     AZURE_CLIENT_ID: à-renseigner
     AZURE_TENANT_ID: à-renseigner
     AZURE_SUBSCRIPTION_ID: à-renseigner
+    AZURE_INFRA_CLIENT_ID: à-renseigner
   when:
   - branch: main
     event: push
@@ -198,6 +206,7 @@ steps:
     AZURE_CLIENT_ID: à-renseigner
     AZURE_TENANT_ID: à-renseigner
     AZURE_SUBSCRIPTION_ID: à-renseigner
+    AZURE_INFRA_CLIENT_ID: à-renseigner
   when:
   - branch: main
     event: push
@@ -224,6 +233,7 @@ steps:
     AZURE_CLIENT_ID: à-renseigner
     AZURE_TENANT_ID: à-renseigner
     AZURE_SUBSCRIPTION_ID: à-renseigner
+    AZURE_INFRA_CLIENT_ID: à-renseigner
   when:
   - branch: main
     event: push
@@ -250,6 +260,7 @@ steps:
     AZURE_CLIENT_ID: à-renseigner
     AZURE_TENANT_ID: à-renseigner
     AZURE_SUBSCRIPTION_ID: à-renseigner
+    AZURE_INFRA_CLIENT_ID: à-renseigner
   when:
   - branch: main
     event: manual

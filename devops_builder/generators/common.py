@@ -52,13 +52,18 @@ AUDIENCES = {
 TOKEN_VARS = {"aws": "AWS_OIDC_TOKEN", "gcp": "GCP_OIDC_TOKEN", "azure": "AZURE_OIDC_TOKEN"}
 
 
-def cloud_auth_lines(ir: IR, cloud: str, token_var: str | None) -> list[str]:
+def cloud_auth_lines(ir: IR, cloud: str, token_var: str | None, infra: bool = False) -> list[str]:
     """Authentification cloud en shell, valable pour la CLI comme pour Terraform.
 
     `token_var` : variable contenant le jeton OIDC émis par la CI ; None si la
-    CI n'en émet pas (repli sur des identifiants statiques).
+    CI n'en émet pas (repli sur des identifiants statiques). `infra` : job d'infrastructure, qui prend
+    l'identité aux droits étendus à la place de celle du déploiement.
     """
     oidc = ir.project.cloud_auth == "oidc" and token_var is not None
+    if oidc and infra:
+        from ..ir import DEPLOY_IDENTITY, INFRA_IDENTITY
+        swap = f'export {DEPLOY_IDENTITY[cloud]}="${INFRA_IDENTITY[cloud][0]}"   # identité des jobs d\'infrastructure'
+        return [swap, *cloud_auth_lines(ir, cloud, token_var)]
     if cloud == "aws":
         if oidc:
             return [f'echo "${token_var}" > /tmp/aws_oidc_token',
@@ -95,5 +100,5 @@ def full_script(ir: IR, step, token_vars: dict[str, str] | None) -> list[str]:
     lines: list[str] = []
     for cloud in step.cloud:
         tv = token_vars.get(cloud) if token_vars else None
-        lines += cloud_auth_lines(ir, cloud, tv)
+        lines += cloud_auth_lines(ir, cloud, tv, infra=step.stage == "infra")
     return lines + list(step.script)

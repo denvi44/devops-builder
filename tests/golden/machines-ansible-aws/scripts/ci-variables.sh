@@ -95,6 +95,7 @@ declare_var TF_VAR_ssh_public_key 0 'Clé SSH publique du compte de déploiement
 declare_var SSH_PRIVATE_KEY 1 'Clé SSH de déploiement vers les hôtes'
 declare_var SSH_KNOWN_HOSTS 0 'Facultatif : clés d'"'"'hôte attendues (ssh-keyscan) ; sans elle, la clé est acceptée à la première connexion de chaque job'
 declare_var AWS_ROLE_ARN 0 'Rôle IAM assumé par la CI via OIDC'
+declare_var AWS_INFRA_ROLE_ARN 0 'Rôle IAM des jobs d'"'"'infrastructure (plan, apply), assumé via OIDC'
 declare_var RENOVATE_TOKEN 1 'Jeton de la forge autorisé à ouvrir des merge requests (Renovate)'
 
 echo

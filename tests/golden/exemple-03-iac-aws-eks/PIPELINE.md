@@ -67,6 +67,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `TF_VAR_subnet_ids` | non | à déclarer | Sous-réseaux privés du cluster (variable Terraform subnet_ids, ex. ["subnet-0123456789abcdef0", "subnet-0fedcba9876543210"]) |
 | `AWS_ROLE_ARN` | non | à déclarer | Rôle IAM assumé par la CI via OIDC |
 | `AWS_REGION` | non | `eu-west-3` | Région AWS |
+| `AWS_INFRA_ROLE_ARN` | non | à déclarer | Rôle IAM des jobs d'infrastructure (plan, apply), assumé via OIDC |
 
 ## Diagnostics restants
 
@@ -79,7 +80,7 @@ Aucun.
 - Amazon EKS : 2 clusters distincts (un par nom d'environnement), décrits dans la même pile.
 - External Secrets : le ClusterSecretStore « commandes » (platform/external-secrets/cluster-secret-store.yaml, appliqué par platform/install.sh) lit AWS Secrets Manager et les ExternalSecret de l'application s'y réfèrent ; la pile Terraform donne au contrôleur la lecture du coffre (identité de charge de travail).
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
-- `scripts/ci-variables.sh` déclare les 4 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 5 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 

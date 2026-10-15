@@ -30,9 +30,9 @@ services:
     source: "https://grafana.com/docs/grafana/latest/setup-grafana/installation/"
   grafana/loki: {cpu: 100, memory: 512}
   prom/prometheus: {cpu: 200, memory: 1024}
-  sonarqube:
+  sonarqube:   # mesuré : 2,4 Gio au repos (scénario compose-identite-keycloak)
     cpu: 400
-    memory: 2048
+    memory: 2560
     source: "https://docs.sonarsource.com/sonarqube-server/10.4/requirements/prerequisites-and-overview"
   gitea/gitea: {cpu: 200, memory: 1024}
   ghcr.io/project-zot/zot: {cpu: 50, memory: 256}

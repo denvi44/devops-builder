@@ -200,6 +200,11 @@ aws:
     description: Rôle assumé par la CI. Vide = à déclarer comme variable CI AWS_ROLE_ARN.
     pattern: 'arn:aws(-[a-z]+)?:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+'
     pattern_hint: "ARN de rôle IAM, ex. arn:aws:iam::123456789012:role/ci-deploy"
+  infra_role_arn:
+    label: Rôle IAM des jobs d'infrastructure (OIDC)
+    description: Rôle aux droits étendus, assumé seulement par le plan et l'apply. Vide = variable CI AWS_INFRA_ROLE_ARN.
+    pattern: 'arn:aws(-[a-z]+)?:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+'
+    pattern_hint: "ARN de rôle IAM, ex. arn:aws:iam::123456789012:role/ci-infra"
 gcp:
   project_id:
     label: Identifiant du projet
@@ -223,6 +228,11 @@ gcp:
     description: Vide = à déclarer comme variable CI GCP_SERVICE_ACCOUNT.
     pattern: '[a-z][a-z0-9-]{4,28}[a-z0-9]@[a-z0-9-]+\.iam\.gserviceaccount\.com'
     pattern_hint: "adresse <nom>@<projet>.iam.gserviceaccount.com"
+  infra_service_account:
+    label: Compte de service des jobs d'infrastructure
+    description: Droits étendus, impersonné seulement par le plan et l'apply. Vide = variable CI GCP_INFRA_SERVICE_ACCOUNT.
+    pattern: '[a-z][a-z0-9-]{4,28}[a-z0-9]@[a-z0-9-]+\.iam\.gserviceaccount\.com'
+    pattern_hint: "adresse <nom>@<projet>.iam.gserviceaccount.com"
 azure:
   location:
     label: Région Azure
@@ -238,6 +248,11 @@ azure:
   client_id:
     label: Application Entra ID de la CI
     description: Vide = à déclarer comme variable CI AZURE_CLIENT_ID.
+    pattern: '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+    pattern_hint: "identifiant au format UUID"
+  infra_client_id:
+    label: Application Entra ID des jobs d'infrastructure
+    description: Droits étendus, utilisée seulement par le plan et l'apply. Vide = variable CI AZURE_INFRA_CLIENT_ID.
     pattern: '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
     pattern_hint: "identifiant au format UUID"
   tenant_id:

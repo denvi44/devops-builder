@@ -67,6 +67,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `REGISTRY_PASSWORD` | oui | à déclarer | Mot de passe ou jeton de publication sur europe-west9-docker.pkg.dev |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | non | à déclarer | Fournisseur Workload Identity Federation |
 | `GCP_SERVICE_ACCOUNT` | non | à déclarer | Compte de service impersonné par la CI |
+| `GCP_INFRA_SERVICE_ACCOUNT` | non | à déclarer | Compte de service des jobs d'infrastructure (plan, apply) |
 | `RENOVATE_TOKEN` | oui | à déclarer | Jeton de la forge autorisé à ouvrir des merge requests (Renovate) |
 
 ## Diagnostics restants
@@ -81,7 +82,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Bases managées : une instance par environnement ; après `apply`, composer l'URL de connexion à partir des sorties Terraform (outputs.tf) et la déclarer en variable CI.
 - Connexion de l'application à la base sur un service serverless — Cloud Run : `gcloud run deploy --set-secrets DATABASE_URL=<secret>:latest` et, pour Cloud SQL, `--add-cloudsql-instances <projet>:<région>:<instance>`.
 - Renovate : job « renovate » de .gitlab-ci.yml, lancé par une planification de pipeline portant la variable RENOVATE=1 (docs/mise-en-route.md) ; les autres jobs ne tournent pas dans ces pipelines.
-- `scripts/ci-variables.sh` déclare les 5 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 6 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 

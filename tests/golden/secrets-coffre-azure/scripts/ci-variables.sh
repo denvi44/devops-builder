@@ -96,6 +96,7 @@ declare_var REGISTRY_PASSWORD 1 'Mot de passe ou jeton de publication sur monapp
 declare_var AZURE_CLIENT_ID 0 'Identifiant d'"'"'application Entra ID'
 declare_var AZURE_TENANT_ID 0 'Identifiant du tenant Entra ID'
 declare_var AZURE_SUBSCRIPTION_ID 0 'Identifiant d'"'"'abonnement Azure'
+declare_var AZURE_INFRA_CLIENT_ID 0 'Application Entra ID des jobs d'"'"'infrastructure (plan, apply)'
 declare_var RENOVATE_TOKEN 1 'Jeton de la forge autorisé à ouvrir des merge requests (Renovate)'
 
 echo

@@ -25,7 +25,13 @@ PLATFORM_CHARTS: dict[str, Chart] = {
     "gatekeeper": Chart("gatekeeper", "https://open-policy-agent.github.io/gatekeeper/charts", "gatekeeper/gatekeeper", "gatekeeper-system"),
     "prometheus": Chart("prometheus-community", "https://prometheus-community.github.io/helm-charts", "prometheus-community/kube-prometheus-stack", "monitoring"),
     "grafana": Chart("grafana", "https://grafana.github.io/helm-charts", "grafana/grafana", "monitoring", note="Déjà inclus si kube-prometheus-stack est installé."),
-    "loki": Chart("grafana", "https://grafana.github.io/helm-charts", "grafana/loki", "monitoring", "--set deploymentMode=SingleBinary", note="Configurer le stockage (objet en production)."),
+    "loki": Chart("grafana", "https://grafana.github.io/helm-charts", "grafana/loki", "monitoring",
+                  # un seul binaire, stockage sur disque : le chart refuse de s'installer sans stockage ni schéma
+                  "--set deploymentMode=SingleBinary --set singleBinary.replicas=1 --set loki.auth_enabled=false "
+                  "--set loki.commonConfig.replication_factor=1 --set loki.storage.type=filesystem "
+                  "--set loki.useTestSchema=true --set chunksCache.enabled=false --set resultsCache.enabled=false "
+                  "--set backend.replicas=0 --set read.replicas=0 --set write.replicas=0",
+                  note="Stockage sur disque du pod : en production, stockage objet (loki.storage) et schéma daté."),
     "tempo": Chart("grafana", "https://grafana.github.io/helm-charts", "grafana/tempo", "monitoring"),
     "argo-cd": Chart("argo", "https://argoproj.github.io/argo-helm", "argo/argo-cd", "argocd"),
     "argo-rollouts": Chart("argo", "https://argoproj.github.io/argo-helm", "argo/argo-rollouts", "argo-rollouts"),

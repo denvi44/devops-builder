@@ -63,6 +63,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `REGISTRY_PASSWORD` | oui | à déclarer | Mot de passe ou jeton de publication sur europe-west9-docker.pkg.dev |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | non | à déclarer | Fournisseur Workload Identity Federation |
 | `GCP_SERVICE_ACCOUNT` | non | à déclarer | Compte de service impersonné par la CI |
+| `GCP_INFRA_SERVICE_ACCOUNT` | non | à déclarer | Compte de service des jobs d'infrastructure (plan, apply) |
 | `RENOVATE_TOKEN` | oui | à déclarer | Jeton de la forge autorisé à ouvrir des merge requests (Renovate) |
 
 ## Diagnostics restants
@@ -78,7 +79,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Cloud Monitoring et Cloud Logging sont actifs par défaut sur GKE Autopilot : rien à installer.
 - Renovate : lancer l'image renovate/renovate:44.164.5 dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
-- `scripts/ci-variables.sh` déclare les 7 variable(s) à renseigner avec Azure Pipelines (az), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 8 variable(s) à renseigner avec Azure Pipelines (az), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 

@@ -63,6 +63,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `AWS_ACCOUNT_ID` | non | à déclarer | Identifiant du compte AWS du registre ECR |
 | `AWS_ROLE_ARN` | non | à déclarer | Rôle IAM assumé par la CI via OIDC |
 | `AWS_REGION` | non | `eu-west-3` | Région AWS |
+| `AWS_INFRA_ROLE_ARN` | non | à déclarer | Rôle IAM des jobs d'infrastructure (plan, apply), assumé via OIDC |
 | `RENOVATE_TOKEN` | oui | à déclarer | Jeton de la forge autorisé à ouvrir des merge requests (Renovate) |
 
 ## Diagnostics restants
@@ -75,7 +76,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : ajouter une vérification « Approvals » sur l'environnement Azure DevOps correspondant (Pipelines › Environments › Approvals and checks).
 - Renovate : lancer l'image renovate/renovate:44.164.5 dans un job planifié (quotidien) avec RENOVATE_TOKEN ; renovate.json règle son comportement.
-- `scripts/ci-variables.sh` déclare les 5 variable(s) à renseigner avec Azure Pipelines (az), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 6 variable(s) à renseigner avec Azure Pipelines (az), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 

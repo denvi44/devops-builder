@@ -25,18 +25,45 @@ aws s3api put-public-access-block --bucket mon-projet-tfstate --public-access-bl
 
 ## 2. Connexion de la CI au cloud
 
-La CI s'authentifie par jeton OIDC (GitLab), sans clé statique. Une fois par cloud :
+La CI s'authentifie par jeton OIDC (GitLab), sans clé statique, avec deux identités : celle des jobs d'infrastructure (plan, apply), aux droits étendus parce que la pile crée réseaux, clusters et rôles, et celle des autres jobs, limitée à ce qu'ils font. GitLab ne distingue pas les jobs dans son jeton : la séparation tient aux variables, à protéger (branche main seulement). Une fois par cloud :
 
-**AWS** — fournisseur d'identité OIDC et rôle assumé par la CI ; sa valeur va dans `AWS_ROLE_ARN`.
+**AWS** — fournisseur d'identité OIDC et rôles assumés par la CI ; les ARN affichés vont dans les variables CI. Un refus « AccessDenied » au déploiement nomme l'action manquante, à ajouter à la politique `deploiement`.
 
 ```bash
 aws iam create-open-id-connect-provider --url https://gitlab.com --client-id-list sts.amazonaws.com
-cat > /tmp/trust.json <<EOF
-{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Federated": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/gitlab.com"}, "Action": "sts:AssumeRoleWithWebIdentity", "Condition": {"StringEquals": {"gitlab.com:aud": "sts.amazonaws.com"}, "StringEquals": {"gitlab.com:sub": "project_path:${REPO}:ref_type:branch:ref:main"}}}]}
+# déploiement : lire les sorties de l'état Terraform
+cat > /tmp/trust-ci.json <<EOF
+{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Federated": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/gitlab.com"}, "Action": "sts:AssumeRoleWithWebIdentity", "Condition": {"StringEquals": {"gitlab.com:aud": "sts.amazonaws.com", "gitlab.com:sub": "project_path:${REPO}:ref_type:branch:ref:main"}}}]}
 EOF
-aws iam create-role --role-name mon-app-ci --assume-role-policy-document file:///tmp/trust.json
-# droits du rôle : la pile crée des rôles IAM (EKS, External Secrets) ; à restreindre ensuite
-aws iam attach-role-policy --role-name mon-app-ci --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+cat > /tmp/policy-ci.json <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EtatLecture",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::mon-projet-tfstate/mon-app/terraform.tfstate"
+    },
+    {
+      "Sid": "EtatListe",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::mon-projet-tfstate"
+    }
+  ]
+}
+EOF
+aws iam create-role --role-name mon-app-ci --assume-role-policy-document file:///tmp/trust-ci.json
+aws iam put-role-policy --role-name mon-app-ci --policy-name deploiement --policy-document file:///tmp/policy-ci.json
+echo "AWS_ROLE_ARN=arn:aws:iam::$AWS_ACCOUNT_ID:role/mon-app-ci"
+# infrastructure : la pile crée des rôles IAM (EKS, External Secrets) et des réseaux
+cat > /tmp/trust-infra.json <<EOF
+{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Federated": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/gitlab.com"}, "Action": "sts:AssumeRoleWithWebIdentity", "Condition": {"StringEquals": {"gitlab.com:aud": "sts.amazonaws.com", "gitlab.com:sub": "project_path:${REPO}:ref_type:branch:ref:main"}}}]}
+EOF
+aws iam create-role --role-name mon-app-ci-infra --assume-role-policy-document file:///tmp/trust-infra.json
+aws iam attach-role-policy --role-name mon-app-ci-infra --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+echo "AWS_INFRA_ROLE_ARN=arn:aws:iam::$AWS_ACCOUNT_ID:role/mon-app-ci-infra"
 ```
 
 ## 3. Premier apply
@@ -61,7 +88,7 @@ bash scripts/tf-inventory.sh dev   # écrit l'inventaire de l'environnement
 
 ## 5. Variables CI
 
-5 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :
+6 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :
 
 ```bash
 bash scripts/ci-variables.sh --dry-run   # ce qui serait déclaré

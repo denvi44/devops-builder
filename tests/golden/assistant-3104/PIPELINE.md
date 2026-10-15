@@ -79,6 +79,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 | `AZURE_CLIENT_ID` | non | à déclarer | Identifiant d'application Entra ID |
 | `AZURE_TENANT_ID` | non | à déclarer | Identifiant du tenant Entra ID |
 | `AZURE_SUBSCRIPTION_ID` | non | à déclarer | Identifiant d'abonnement Azure |
+| `AZURE_INFRA_CLIENT_ID` | non | à déclarer | Application Entra ID des jobs d'infrastructure (plan, apply) |
 
 ## Diagnostics restants
 
@@ -92,7 +93,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
-- `scripts/ci-variables.sh` déclare les 9 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
+- `scripts/ci-variables.sh` déclare les 10 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés
 

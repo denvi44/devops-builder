@@ -96,6 +96,7 @@ declare_var SSH_PRIVATE_KEY 1 'Clé SSH de déploiement vers les hôtes'
 declare_var SSH_KNOWN_HOSTS 0 'Facultatif : clés d'"'"'hôte attendues (ssh-keyscan) ; sans elle, la clé est acceptée à la première connexion de chaque job'
 declare_var GCP_WORKLOAD_IDENTITY_PROVIDER 0 'Fournisseur Workload Identity Federation'
 declare_var GCP_SERVICE_ACCOUNT 0 'Compte de service impersonné par la CI'
+declare_var GCP_INFRA_SERVICE_ACCOUNT 0 'Compte de service des jobs d'"'"'infrastructure (plan, apply)'
 declare_var RENOVATE_TOKEN 1 'Jeton de la forge autorisé à ouvrir des merge requests (Renovate)'
 
 echo

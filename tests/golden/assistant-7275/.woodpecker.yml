@@ -14,6 +14,7 @@ steps:
     AWS_ACCOUNT_ID: à-renseigner
     AWS_ROLE_ARN: à-renseigner
     AWS_REGION: eu-west-3
+    AWS_INFRA_ROLE_ARN: à-renseigner
 - name: sonarqube
   image: sonarsource/sonar-scanner-cli:latest
   commands:
@@ -27,6 +28,7 @@ steps:
     AWS_ACCOUNT_ID: à-renseigner
     AWS_ROLE_ARN: à-renseigner
     AWS_REGION: eu-west-3
+    AWS_INFRA_ROLE_ARN: à-renseigner
 - name: build-image
   image: docker:27
   commands:
@@ -45,6 +47,7 @@ steps:
     AWS_ACCOUNT_ID: à-renseigner
     AWS_ROLE_ARN: à-renseigner
     AWS_REGION: eu-west-3
+    AWS_INFRA_ROLE_ARN: à-renseigner
 - name: gitleaks
   image: zricethezav/gitleaks:latest
   commands:
@@ -58,6 +61,7 @@ steps:
     AWS_ACCOUNT_ID: à-renseigner
     AWS_ROLE_ARN: à-renseigner
     AWS_REGION: eu-west-3
+    AWS_INFRA_ROLE_ARN: à-renseigner
 - name: trivy
   image: aquasec/trivy:latest
   commands:
@@ -72,6 +76,7 @@ steps:
     AWS_ACCOUNT_ID: à-renseigner
     AWS_ROLE_ARN: à-renseigner
     AWS_REGION: eu-west-3
+    AWS_INFRA_ROLE_ARN: à-renseigner
 - name: cosign
   image: alpine:3.20
   commands:
@@ -89,6 +94,7 @@ steps:
     AWS_ACCOUNT_ID: à-renseigner
     AWS_ROLE_ARN: à-renseigner
     AWS_REGION: eu-west-3
+    AWS_INFRA_ROLE_ARN: à-renseigner
   when:
   - branch: main
     event: push
@@ -113,6 +119,7 @@ steps:
     AWS_ACCOUNT_ID: à-renseigner
     AWS_ROLE_ARN: à-renseigner
     AWS_REGION: eu-west-3
+    AWS_INFRA_ROLE_ARN: à-renseigner
 - name: iac-apply
   image: alpine:3.20
   commands:
@@ -132,6 +139,7 @@ steps:
     AWS_ACCOUNT_ID: à-renseigner
     AWS_ROLE_ARN: à-renseigner
     AWS_REGION: eu-west-3
+    AWS_INFRA_ROLE_ARN: à-renseigner
   when:
   - branch: main
     event: push
@@ -149,6 +157,7 @@ steps:
     AWS_ACCOUNT_ID: à-renseigner
     AWS_ROLE_ARN: à-renseigner
     AWS_REGION: eu-west-3
+    AWS_INFRA_ROLE_ARN: à-renseigner
   when:
   - branch: main
     event: push
@@ -166,6 +175,7 @@ steps:
     AWS_ACCOUNT_ID: à-renseigner
     AWS_ROLE_ARN: à-renseigner
     AWS_REGION: eu-west-3
+    AWS_INFRA_ROLE_ARN: à-renseigner
   when:
   - branch: main
     event: push
@@ -183,6 +193,7 @@ steps:
     AWS_ACCOUNT_ID: à-renseigner
     AWS_ROLE_ARN: à-renseigner
     AWS_REGION: eu-west-3
+    AWS_INFRA_ROLE_ARN: à-renseigner
   when:
   - branch: main
     event: manual
