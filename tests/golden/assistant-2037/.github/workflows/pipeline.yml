@@ -120,7 +120,7 @@ jobs:
         ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_DEV" "mkdir -p /opt/mon-app-dev"
         scp deploy/docker-compose.yml "$DEPLOY_HOST_DEV:/opt/mon-app-dev/docker-compose.yml"
         echo "$GITHUB_TOKEN" | ssh "$DEPLOY_HOST_DEV" "docker login ghcr.io -u $GITHUB_ACTOR --password-stdin"
-        ssh "$DEPLOY_HOST_DEV" "cd /opt/mon-app-dev && IMAGE=$IMAGE docker compose -p mon-app-dev pull && IMAGE=$IMAGE docker compose -p mon-app-dev up -d"
+        ssh "$DEPLOY_HOST_DEV" "cd /opt/mon-app-dev && IMAGE=$IMAGE APP_HOST=dev.mon-app.example.com docker compose -p mon-app-dev pull && IMAGE=$IMAGE APP_HOST=dev.mon-app.example.com docker compose -p mon-app-dev up -d"
   deploy-staging:
     name: Déploiement Docker Compose (SSH) — Préproduction
     runs-on: ubuntu-latest
@@ -143,7 +143,7 @@ jobs:
         ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_STAGING" "mkdir -p /opt/mon-app-staging"
         scp deploy/docker-compose.yml "$DEPLOY_HOST_STAGING:/opt/mon-app-staging/docker-compose.yml"
         echo "$GITHUB_TOKEN" | ssh "$DEPLOY_HOST_STAGING" "docker login ghcr.io -u $GITHUB_ACTOR --password-stdin"
-        ssh "$DEPLOY_HOST_STAGING" "cd /opt/mon-app-staging && IMAGE=$IMAGE docker compose -p mon-app-staging pull && IMAGE=$IMAGE docker compose -p mon-app-staging up -d"
+        ssh "$DEPLOY_HOST_STAGING" "cd /opt/mon-app-staging && IMAGE=$IMAGE APP_HOST=staging.mon-app.example.com docker compose -p mon-app-staging pull && IMAGE=$IMAGE APP_HOST=staging.mon-app.example.com docker compose -p mon-app-staging up -d"
   deploy-production:
     name: Déploiement Docker Compose (SSH) — Production
     runs-on: ubuntu-latest
@@ -166,4 +166,4 @@ jobs:
         ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_PRODUCTION" "mkdir -p /opt/mon-app"
         scp deploy/docker-compose.yml "$DEPLOY_HOST_PRODUCTION:/opt/mon-app/docker-compose.yml"
         echo "$GITHUB_TOKEN" | ssh "$DEPLOY_HOST_PRODUCTION" "docker login ghcr.io -u $GITHUB_ACTOR --password-stdin"
-        ssh "$DEPLOY_HOST_PRODUCTION" "cd /opt/mon-app && IMAGE=$IMAGE docker compose -p mon-app pull && IMAGE=$IMAGE docker compose -p mon-app up -d"
+        ssh "$DEPLOY_HOST_PRODUCTION" "cd /opt/mon-app && IMAGE=$IMAGE APP_HOST=mon-app.example.com docker compose -p mon-app pull && IMAGE=$IMAGE APP_HOST=mon-app.example.com docker compose -p mon-app up -d"

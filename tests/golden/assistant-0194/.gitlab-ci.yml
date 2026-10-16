@@ -66,7 +66,8 @@ deploy-dev:
   - ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_DEV" "mkdir -p /opt/mon-app-dev"
   - scp deploy/docker-compose.yml "$DEPLOY_HOST_DEV:/opt/mon-app-dev/docker-compose.yml"
   - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_DEV" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
-  - ssh "$DEPLOY_HOST_DEV" "cd /opt/mon-app-dev && IMAGE=$IMAGE docker compose -p mon-app-dev pull && IMAGE=$IMAGE docker compose -p mon-app-dev up -d"
+  - ssh "$DEPLOY_HOST_DEV" "cd /opt/mon-app-dev && IMAGE=$IMAGE APP_HOST=dev.mon-app.example.com docker compose -p mon-app-dev pull && IMAGE=$IMAGE APP_HOST=dev.mon-app.example.com docker compose -p mon-app-dev
+    up -d"
   rules:
   - if: $RENOVATE == "1"
     when: never
@@ -86,7 +87,8 @@ deploy-staging:
   - ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_STAGING" "mkdir -p /opt/mon-app-staging"
   - scp deploy/docker-compose.yml "$DEPLOY_HOST_STAGING:/opt/mon-app-staging/docker-compose.yml"
   - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_STAGING" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
-  - ssh "$DEPLOY_HOST_STAGING" "cd /opt/mon-app-staging && IMAGE=$IMAGE docker compose -p mon-app-staging pull && IMAGE=$IMAGE docker compose -p mon-app-staging up -d"
+  - ssh "$DEPLOY_HOST_STAGING" "cd /opt/mon-app-staging && IMAGE=$IMAGE APP_HOST=staging.mon-app.example.com docker compose -p mon-app-staging pull && IMAGE=$IMAGE APP_HOST=staging.mon-app.example.com docker
+    compose -p mon-app-staging up -d"
   rules:
   - if: $RENOVATE == "1"
     when: never
@@ -108,7 +110,7 @@ deploy-production:
   - ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_PRODUCTION" "mkdir -p /opt/mon-app"
   - scp deploy/docker-compose.yml "$DEPLOY_HOST_PRODUCTION:/opt/mon-app/docker-compose.yml"
   - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_PRODUCTION" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
-  - ssh "$DEPLOY_HOST_PRODUCTION" "cd /opt/mon-app && IMAGE=$IMAGE docker compose -p mon-app pull && IMAGE=$IMAGE docker compose -p mon-app up -d"
+  - ssh "$DEPLOY_HOST_PRODUCTION" "cd /opt/mon-app && IMAGE=$IMAGE APP_HOST=mon-app.example.com docker compose -p mon-app pull && IMAGE=$IMAGE APP_HOST=mon-app.example.com docker compose -p mon-app up -d"
   rules:
   - if: $RENOVATE == "1"
     when: never

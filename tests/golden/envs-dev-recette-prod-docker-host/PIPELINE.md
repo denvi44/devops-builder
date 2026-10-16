@@ -16,12 +16,12 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 
 | Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
 | --- | --- | --- | --- | --- | --- |
-| Développement | mon-app | — | 8000 | application | via Traefik, hôte mon-app.example.com |
+| Développement | mon-app | — | 8000 | application | via Traefik, hôte dev.mon-app.example.com |
 | Développement | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Développement | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
 | Développement | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
 | Développement | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
-| Recette | mon-app | — | 8000 | application | via Traefik, hôte mon-app.example.com |
+| Recette | mon-app | — | 8000 | application | via Traefik, hôte recette.mon-app.example.com |
 | Recette | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Recette | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
 | Recette | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
@@ -89,7 +89,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Diagnostics restants
 
-Aucun.
+- **Avertissement** (R34) — Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « mon-app.example.com » sera écrite dans les fichiers.
 
 ## Notes
 

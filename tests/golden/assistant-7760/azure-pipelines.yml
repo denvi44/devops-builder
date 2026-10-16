@@ -73,7 +73,7 @@ stages:
               mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
               if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
               export DEPLOY_REGISTRY="registry.example.com" DEPLOY_REGISTRY_USER="$REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$REGISTRY_PASSWORD"
-              ansible-playbook -i ansible/inventories/dev.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-dev" -e "deploy_env=dev"
+              ansible-playbook -i ansible/inventories/dev.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-dev" -e "deploy_env=dev" -e "app_host=dev.mon-app.example.com"
             displayName: Déploiement Ansible + Compose — Développement
             env:
               SONAR_TOKEN: $(SONAR_TOKEN)
@@ -101,7 +101,7 @@ stages:
               mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
               if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
               export DEPLOY_REGISTRY="registry.example.com" DEPLOY_REGISTRY_USER="$REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$REGISTRY_PASSWORD"
-              ansible-playbook -i ansible/inventories/staging.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-staging" -e "deploy_env=staging"
+              ansible-playbook -i ansible/inventories/staging.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-staging" -e "deploy_env=staging" -e "app_host=staging.mon-app.example.com"
             displayName: Déploiement Ansible + Compose — Préproduction
             env:
               SONAR_TOKEN: $(SONAR_TOKEN)
@@ -129,7 +129,7 @@ stages:
               mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
               if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
               export DEPLOY_REGISTRY="registry.example.com" DEPLOY_REGISTRY_USER="$REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$REGISTRY_PASSWORD"
-              ansible-playbook -i ansible/inventories/production.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app" -e "deploy_env=production"
+              ansible-playbook -i ansible/inventories/production.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app" -e "deploy_env=production" -e "app_host=mon-app.example.com"
             displayName: Déploiement Ansible + Compose — Production
             env:
               SONAR_TOKEN: $(SONAR_TOKEN)

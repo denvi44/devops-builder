@@ -18,14 +18,14 @@ Hôte partagé `vm-hors-prod` : Développement (+0), Recette (+10000). Les ports
 
 | Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
 | --- | --- | --- | --- | --- | --- |
-| Développement | boutique | — | 8000 | application | via Traefik, hôte boutique-dev.example.com |
+| Développement | boutique | — | 8000 | application | via Traefik, hôte dev.boutique.example.com |
 | Développement | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Développement | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
 | Développement | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
 | Développement | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
 | Développement | PostgreSQL | — | 5432 | PostgreSQL | réseau interne Compose (hôte « postgresql »), non publié |
 | Développement | Valkey | — | 6379 | Valkey | réseau interne Compose (hôte « valkey »), non publié |
-| Recette | boutique | — | 8000 | application | via Traefik, hôte boutique-recette.example.com |
+| Recette | boutique | — | 8000 | application | via Traefik, hôte recette.boutique.example.com |
 | Recette | Traefik | 10080 | 80 | HTTP | publié sur l'hôte Docker |
 | Recette | Traefik | 10443 | 443 | HTTPS | publié sur l'hôte Docker |
 | Recette | Prometheus | 19090 | 9090 | interface et API | publié sur l'hôte Docker |
@@ -114,7 +114,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Diagnostics restants
 
-Aucun.
+- **Avertissement** (R34) — Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « boutique.example.com » sera écrite dans les fichiers.
 
 ## Notes
 

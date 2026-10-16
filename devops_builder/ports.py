@@ -210,10 +210,18 @@ def free_port(entries: list[PortEntry], start: int) -> int:
     return port
 
 
-def app_hostname(project: Project, env: Environment) -> str:
-    """Nom d'hôte routé par Traefik : propre à chaque environnement quand les ports sont décalés."""
-    name = project.app.image_name
-    return f"{name}{project.env_suffix(env)}.example.com" if parametrized(project) else f"{name}.example.com"
+def app_hostname(project: Project, env: Environment | None = None) -> str:
+    """Nom d'hôte routé par Traefik : celui de la production, préfixé par l'environnement pour les autres
+    (staging.boutique.fr), sauf surcharge du paramètre « app_hostname » pour cet environnement."""
+    bricks = project.bricks_for("traefik")
+    given = (bricks[0].params.get("app_hostname") if bricks else None) or f"{project.app.image_name or 'app'}.example.com"
+    if env is None:
+        return given
+    override = env.overrides.get("traefik", {}).get("app_hostname")
+    if override:
+        return override
+    production = project.environments[-1].id if project.environments else env.id
+    return given if env.kind == "production" or env.id == production else f"{env.id}.{given}"
 
 
 def env_file(project: Project, env: Environment, entries: list[PortEntry]) -> str:

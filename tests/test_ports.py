@@ -156,7 +156,7 @@ def test_fichiers_avec_hote_partage(tmp_path):
     assert "${APP_HOST:-mon-app.example.com}" in compose["services"]["mon-app"]["labels"][1]
     recette = result.files["deploy/env/recette.env"]
     assert "PORT_GRAFANA_3000=13000" in recette and "PORT_TRAEFIK_443=10443" in recette
-    assert "APP_HOST=mon-app-recette.example.com" in recette
+    assert "APP_HOST=recette.mon-app.example.com" in recette
     ci = result.files[".gitlab-ci.yml"]
     assert 'scp deploy/env/recette.env "$DEPLOY_HOST_RECETTE:/opt/mon-app-recette/.env"' in ci
     assert "## Ports" in result.files["PIPELINE.md"] and "13000" in result.files["PIPELINE.md"]

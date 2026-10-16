@@ -44,6 +44,10 @@ pip install 'ansible-core>=2.21,<2.22' && ansible-galaxy collection install -r a
 ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook -i ansible/inventory.ini ansible/site.yml
 ```
 
+Noms d'hôte de l'application : chacun pointe (enregistrement DNS A ou AAAA) vers l'hôte de son environnement, joignable depuis Internet sur les ports 80 et 443 ; Traefik y obtient seul le certificat (paramètre « Adresse publique de l'application » de la brique Traefik).
+
+- Production : `mon-app.example.com`
+
 ## 3. Variables CI
 
 3 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :

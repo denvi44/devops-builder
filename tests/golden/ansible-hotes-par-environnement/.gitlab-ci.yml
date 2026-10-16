@@ -36,7 +36,7 @@ deploy-staging:
   - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
   - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
   - export DEPLOY_REGISTRY="registry.exemple.fr" DEPLOY_REGISTRY_USER="$REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$REGISTRY_PASSWORD"
-  - ansible-playbook -i ansible/inventories/staging.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=site-staging" -e "deploy_env=staging"
+  - ansible-playbook -i ansible/inventories/staging.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=site-staging" -e "deploy_env=staging" -e "app_host=staging.site.example.com"
   rules:
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 deploy-production:
@@ -56,7 +56,7 @@ deploy-production:
   - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
   - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
   - export DEPLOY_REGISTRY="registry.exemple.fr" DEPLOY_REGISTRY_USER="$REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$REGISTRY_PASSWORD"
-  - ansible-playbook -i ansible/inventories/production.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=site" -e "deploy_env=production"
+  - ansible-playbook -i ansible/inventories/production.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=site" -e "deploy_env=production" -e "app_host=site.example.com"
   rules:
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     when: manual

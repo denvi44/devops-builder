@@ -73,7 +73,7 @@ stages:
               mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
               if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
               export DEPLOY_REGISTRY="registry.example.com" DEPLOY_REGISTRY_USER="$REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$REGISTRY_PASSWORD"
-              ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app" -e "deploy_env=production"
+              ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app" -e "deploy_env=production" -e "app_host=mon-app.example.com"
             displayName: Déploiement Ansible + Compose
             env:
               SONAR_TOKEN: $(SONAR_TOKEN)

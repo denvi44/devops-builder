@@ -19,11 +19,19 @@ class ParamIssue:
     suggestion: str | None = None  # clé proche pour une clé inconnue
 
 
-def resolve_default(spec: ParamSpec, project: Project | None) -> Any:
-    value = spec.default
+def _app_name(value: Any, project: Project | None) -> Any:
     if isinstance(value, str) and project is not None:
-        value = value.replace("{app}", project.app.image_name or "app")
+        return value.replace("{app}", project.app.image_name or "app")
     return value
+
+
+def resolve_default(spec: ParamSpec, project: Project | None) -> Any:
+    return _app_name(spec.default, project)
+
+
+def resolve_example(spec: ParamSpec, project: Project | None) -> Any:
+    """Valeur d'exemple, « {app} » remplacé par le nom de l'image du projet."""
+    return _app_name(spec.example, project)
 
 
 def effective_params(tool: Tool, brick: BrickInstance | None, project: Project | None,
@@ -39,7 +47,7 @@ def effective_params(tool: Tool, brick: BrickInstance | None, project: Project |
         if default is not None:
             out[key] = default
         elif spec.example is not None:
-            out[key] = spec.example
+            out[key] = resolve_example(spec, project)
     if brick is not None:
         for key, value in brick.params.items():
             if value not in (None, ""):
@@ -107,7 +115,7 @@ def check_brick(tool: Tool, brick: BrickInstance, project: Project | None) -> li
             continue
         if spec.required and spec.example is not None:
             issues.append(ParamIssue(key, "example",
-                                     f"« {spec.label} » non renseigné : la valeur d'exemple « {spec.example} » "
+                                     f"« {spec.label} » non renseigné : la valeur d'exemple « {resolve_example(spec, project)} » "
                                      "sera écrite dans les fichiers"))
         elif spec.required:
             issues.append(ParamIssue(key, "missing", f"« {spec.label} » est obligatoire"))

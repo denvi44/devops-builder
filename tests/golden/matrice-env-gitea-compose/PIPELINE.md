@@ -15,7 +15,7 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 
 | Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
 | --- | --- | --- | --- | --- | --- |
-| Préproduction | mon-app | — | 8000 | application | via Traefik, hôte mon-app.example.com |
+| Préproduction | mon-app | — | 8000 | application | via Traefik, hôte staging.mon-app.example.com |
 | Préproduction | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Préproduction | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
 | Préproduction | zot | 5000 | 5000 | registre OCI | publié sur l'hôte Docker |
@@ -74,6 +74,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 ## Diagnostics restants
 
 - **Avertissement** (R34) — zot : « Adresse du registre » non renseigné : la valeur d'exemple « registry.example.com » sera écrite dans les fichiers.
+- **Avertissement** (R34) — Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « mon-app.example.com » sera écrite dans les fichiers.
 
 ## Notes
 

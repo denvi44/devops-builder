@@ -8,7 +8,7 @@ services:
       PORT: '8000'
     labels:
     - traefik.enable=true
-    - traefik.http.routers.mon-app.rule=Host(`mon-app.example.com`)
+    - traefik.http.routers.mon-app.rule=Host(`${APP_HOST:-mon-app.example.com}`)
     - traefik.http.routers.mon-app.entrypoints=websecure
     - traefik.http.services.mon-app.loadbalancer.server.port=8000
   traefik:

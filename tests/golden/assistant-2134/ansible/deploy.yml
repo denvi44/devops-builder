@@ -7,6 +7,7 @@
     image: ghcr.io/OWNER/mon-app:latest
     project: mon-app
     app_dir: /opt/{{ project }}
+    app_host: mon-app.example.com
     registry_host: '{{ lookup(''ansible.builtin.env'', ''DEPLOY_REGISTRY'') }}'
     registry_user: '{{ lookup(''ansible.builtin.env'', ''DEPLOY_REGISTRY_USER'') }}'
     registry_password: '{{ lookup(''ansible.builtin.env'', ''DEPLOY_REGISTRY_PASSWORD'') }}'
@@ -44,3 +45,4 @@
         wait_timeout: 180
       environment:
         IMAGE: '{{ image }}'
+        APP_HOST: '{{ app_host }}'

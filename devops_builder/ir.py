@@ -421,6 +421,11 @@ def _tf_hosts(ir: IR, env: Environment, first_into: str | None = None) -> tuple[
     return [*install, *backend_credentials(ir), run], [cloud] if cloud else []
 
 
+def _app_hostname(ir: IR, env: Environment) -> str:
+    from .ports import app_hostname
+    return app_hostname(ir.project, env)
+
+
 def _ansible_step(ir: IR, env: Environment, ns: str, secrets: list[str], name: str) -> Step:
     ssh_variables(ir, "les hôtes")
     hosts, clouds = _tf_hosts(ir, env)
@@ -432,9 +437,18 @@ def _ansible_step(ir: IR, env: Environment, ns: str, secrets: list[str], name: s
     return Step("deploy", name, "deploy", ANSIBLE_IMAGE, [
         *ANSIBLE_INSTALL, *hosts, SSH_SETUP, KNOWN_HOSTS, *secrets, *login,
         f'ansible-playbook -i {ir.inventory(env)} ansible/deploy.yml -e "image=$IMAGE" -e "project={ns}" '
-        f'-e "deploy_env={env.id}"'],
+        f'-e "deploy_env={env.id}"' + (f' -e "app_host={_app_hostname(ir, env)}"' if ir.has("traefik") else "")],
         tool="ansible", env={"ANSIBLE_CONFIG": "ansible/ansible.cfg"}, cloud=clouds,
         id_tokens=sec.gitlab_id_tokens(ir) if secrets else {})
+
+
+def _compose_env(ir: IR, env: Environment) -> str:
+    """Variables passées à docker compose sur l'hôte : l'image, et le nom d'hôte de l'environnement (Traefik)."""
+    out = "IMAGE=$IMAGE "
+    if ir.has("traefik") and not _ports_shifted(ir):  # ports décalés : APP_HOST est dans le fichier .env copié
+        from .ports import app_hostname
+        out += f"APP_HOST={app_hostname(ir.project, env)} "
+    return out
 
 
 def _deploy_step(ir: IR, env: Environment) -> Step | None:
@@ -478,7 +492,8 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
             *([f'scp {dbgen.BACKUP_SCRIPT} "${host}:/opt/{ns}/db-backup.sh"',
                f'scp {dbgen.RESTORE_SCRIPT} "${host}:/opt/{ns}/db-restore.sh"'] if dbgen.backup_script(ir) else []),
             *login,
-            f'ssh "${host}" "cd /opt/{ns} && IMAGE=$IMAGE docker compose -p {ns} pull && IMAGE=$IMAGE docker compose -p {ns} up -d"'],
+            f'ssh "${host}" "cd /opt/{ns} && {_compose_env(ir, env)}docker compose -p {ns} pull && '
+            f'{_compose_env(ir, env)}docker compose -p {ns} up -d"'],
             tool="docker-compose", cloud=tf_clouds, id_tokens=sec.gitlab_id_tokens(ir) if secrets else {})
     if ir.has("argo-cd") or ir.has("flux"):
         from .generators.deploy import gitops_repo_url

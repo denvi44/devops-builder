@@ -98,7 +98,7 @@ deploy:
   - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
   - sh deploy/secrets.sh .secrets
   - export DEPLOY_REGISTRY="$CI_REGISTRY" DEPLOY_REGISTRY_USER="$CI_REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$CI_REGISTRY_PASSWORD"
-  - ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app" -e "deploy_env=production"
+  - ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app" -e "deploy_env=production" -e "app_host=mon-app.example.com"
   rules:
   - if: $RENOVATE == "1"
     when: never

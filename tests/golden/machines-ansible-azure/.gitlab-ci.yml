@@ -169,7 +169,7 @@ deploy-dev:
   - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
   - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
   - export DEPLOY_REGISTRY="$CI_REGISTRY" DEPLOY_REGISTRY_USER="$CI_REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$CI_REGISTRY_PASSWORD"
-  - ansible-playbook -i ansible/inventories/dev.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-dev" -e "deploy_env=dev"
+  - ansible-playbook -i ansible/inventories/dev.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-dev" -e "deploy_env=dev" -e "app_host=dev.mon-app.example.com"
   rules:
   - if: $RENOVATE == "1"
     when: never
@@ -202,7 +202,7 @@ deploy-recette:
   - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
   - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
   - export DEPLOY_REGISTRY="$CI_REGISTRY" DEPLOY_REGISTRY_USER="$CI_REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$CI_REGISTRY_PASSWORD"
-  - ansible-playbook -i ansible/inventories/recette.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-recette" -e "deploy_env=recette"
+  - ansible-playbook -i ansible/inventories/recette.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-recette" -e "deploy_env=recette" -e "app_host=recette.mon-app.example.com"
   rules:
   - if: $RENOVATE == "1"
     when: never
@@ -237,7 +237,7 @@ deploy-production:
   - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
   - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
   - export DEPLOY_REGISTRY="$CI_REGISTRY" DEPLOY_REGISTRY_USER="$CI_REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$CI_REGISTRY_PASSWORD"
-  - ansible-playbook -i ansible/inventories/production.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app" -e "deploy_env=production"
+  - ansible-playbook -i ansible/inventories/production.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app" -e "deploy_env=production" -e "app_host=mon-app.example.com"
   rules:
   - if: $RENOVATE == "1"
     when: never

@@ -20,9 +20,9 @@ def _published(ir: IR, component: str, host: int, container: int) -> str:
 
 
 def _app_host(ir: IR) -> str:
-    from ..ports import parametrized
-    host = f"{ir.app}.example.com"
-    return "${APP_HOST:-" + host + "}" if parametrized(ir.project) else host
+    """Nom d'hôte de la règle Traefik : APP_HOST, donné par le déploiement de chaque environnement."""
+    from ..ports import app_hostname
+    return "${APP_HOST:-" + app_hostname(ir.project) + "}"
 
 
 def compose(ir: IR) -> dict[str, str]:

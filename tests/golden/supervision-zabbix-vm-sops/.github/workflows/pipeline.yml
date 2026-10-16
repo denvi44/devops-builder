@@ -111,4 +111,4 @@ jobs:
         eval "$SECRETS_ENV"
         sh deploy/secrets.sh .secrets
         export DEPLOY_REGISTRY="ghcr.io" DEPLOY_REGISTRY_USER="$GITHUB_ACTOR" DEPLOY_REGISTRY_PASSWORD="$GITHUB_TOKEN"
-        ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app" -e "deploy_env=production"
+        ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app" -e "deploy_env=production" -e "app_host=mon-app.example.com"

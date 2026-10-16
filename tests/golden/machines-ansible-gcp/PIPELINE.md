@@ -18,12 +18,12 @@ Hôte partagé `hors-production` : Développement (+0), Recette (+10000). Les po
 
 | Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
 | --- | --- | --- | --- | --- | --- |
-| Développement | mon-app | — | 8000 | application | via Traefik, hôte mon-app-dev.example.com |
+| Développement | mon-app | — | 8000 | application | via Traefik, hôte dev.mon-app.example.com |
 | Développement | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Développement | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
 | Développement | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
 | Développement | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
-| Recette | mon-app | — | 8000 | application | via Traefik, hôte mon-app-recette.example.com |
+| Recette | mon-app | — | 8000 | application | via Traefik, hôte recette.mon-app.example.com |
 | Recette | Traefik | 10080 | 80 | HTTP | publié sur l'hôte Docker |
 | Recette | Traefik | 10443 | 443 | HTTPS | publié sur l'hôte Docker |
 | Recette | Prometheus | 19090 | 9090 | interface et API | publié sur l'hôte Docker |
@@ -100,6 +100,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - **Avertissement** (R34) — Google Cloud : « Identifiant du projet » non renseigné : la valeur d'exemple « mon-projet » sera écrite dans les fichiers.
 - **Avertissement** (R34) — Google Cloud Storage : « Bucket de l'état Terraform » non renseigné : la valeur d'exemple « mon-projet-tfstate » sera écrite dans les fichiers.
+- **Avertissement** (R34) — Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « mon-app.example.com » sera écrite dans les fichiers.
 - **Avertissement** (R52) — Google Compute Engine : e2-small (2 vCPU, 2 Gio) pour Développement, Recette, alors que les services de l'hôte demandent environ 2 vCPU, 5,8 Gio.
 - **Avertissement** (R52) — Google Compute Engine : e2-small (2 vCPU, 2 Gio) pour Production, alors que les services de l'hôte demandent environ 1 vCPU, 3,2 Gio.
 

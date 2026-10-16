@@ -401,7 +401,7 @@ def _hosts(ir: IR) -> list[str]:
     out = ["## Hôtes", ""]
     if creates_hosts(ir):
         from .hosts import INVENTORY_SCRIPT
-        return out + [f"Les machines sont créées par la pile : cloud-init pose le compte `{user}`, la clé de la CI "
+        return out + _dns_names(ir) + [f"Les machines sont créées par la pile : cloud-init pose le compte `{user}`, la clé de la CI "
                       "(`TF_VAR_ssh_public_key`) et Docker. Rien à préparer à la main. Pour joindre une machine "
                       "depuis le poste :", "",
                       *_sh(f"bash {INVENTORY_SCRIPT} {ir.envs[0].id}   # écrit l'inventaire de l'environnement"
@@ -423,7 +423,18 @@ def _hosts(ir: IR) -> list[str]:
                 *_sh("pip install 'ansible-core>=2.21,<2.22' && ansible-galaxy collection install -r ansible/requirements.yml",
                      *[f"ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook -i {ir.inventory(e)} ansible/site.yml"
                        for e in ir.envs])]
-    return out
+    return out + _dns_names(ir)
+
+
+def _dns_names(ir: IR) -> list[str]:
+    """Noms d'hôte servis par Traefik : chacun doit désigner l'hôte de son environnement (certificat ACME)."""
+    if not (ir.has("traefik") and ir.has("docker-compose")):
+        return []
+    from ..ports import app_hostname
+    return ["Noms d'hôte de l'application : chacun pointe (enregistrement DNS A ou AAAA) vers l'hôte de son "
+            "environnement, joignable depuis Internet sur les ports 80 et 443 ; Traefik y obtient seul le certificat "
+            "(paramètre « Adresse publique de l'application » de la brique Traefik).", "",
+            *[f"- {e.display} : `{app_hostname(ir.project, e)}`" for e in ir.envs], ""]
 
 
 def _gitops(ir: IR, files: dict[str, str]) -> list[str]:

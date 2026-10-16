@@ -18,6 +18,12 @@ sudo usermod -aG docker deploy
 
 Empreinte des hôtes dans `SSH_KNOWN_HOSTS` (facultatif, recommandé) : `ssh-keyscan <hôte>`.
 
+Noms d'hôte de l'application : chacun pointe (enregistrement DNS A ou AAAA) vers l'hôte de son environnement, joignable depuis Internet sur les ports 80 et 443 ; Traefik y obtient seul le certificat (paramètre « Adresse publique de l'application » de la brique Traefik).
+
+- Développement : `dev.mon-app.example.com`
+- Préproduction : `staging.mon-app.example.com`
+- Production : `mon-app.example.com`
+
 ## 2. Premier déploiement
 
 Pousser sur la branche principale : chaque environnement se déploie dans l'ordre, la production après approbation.

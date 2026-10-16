@@ -386,6 +386,16 @@ keycloak:
   tools_domain: *tools_domain
   app_url: *app_url
 traefik:
+  app_hostname:
+    label: Adresse publique de l'application
+    description: >-
+      Nom d'hôte servi en HTTPS par Traefik pour la production. Les autres environnements reçoivent un préfixe
+      (staging.boutique.fr), sauf surcharge par environnement ; chaque nom doit pointer vers l'hôte de son
+      environnement pour que Traefik obtienne le certificat.
+    example: "{app}.example.com"
+    required: true
+    pattern: '[a-z0-9]([a-z0-9.-]*[a-z0-9])?'
+    pattern_hint: "nom d'hôte sans schéma, ex. boutique.fr"
   acme_email:
     label: Contact Let's Encrypt
     description: >-

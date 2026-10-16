@@ -15,7 +15,7 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 
 | Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
 | --- | --- | --- | --- | --- | --- |
-| Préproduction | mon-app | — | 8000 | application | via Traefik, hôte mon-app.example.com |
+| Préproduction | mon-app | — | 8000 | application | via Traefik, hôte staging.mon-app.example.com |
 | Préproduction | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Préproduction | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
 | Préproduction | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
@@ -83,7 +83,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Diagnostics restants
 
-Aucun.
+- **Avertissement** (R34) — Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « mon-app.example.com » sera écrite dans les fichiers.
 
 ## Notes
 

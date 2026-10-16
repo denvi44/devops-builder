@@ -15,7 +15,7 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 
 | Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
 | --- | --- | --- | --- | --- | --- |
-| Préproduction | site | — | 8000 | application | via Traefik, hôte site.example.com |
+| Préproduction | site | — | 8000 | application | via Traefik, hôte staging.site.example.com |
 | Préproduction | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Préproduction | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
 | Production | site | — | 8000 | application | via Traefik, hôte site.example.com |
@@ -67,6 +67,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Diagnostics restants
 
+- **Avertissement** (R34) — Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « site.example.com » sera écrite dans les fichiers.
 - **Info** (R31) — Aucun fichier n'est généré pour ansible-lint dans cette configuration : à configurer à la main (listé dans PIPELINE.md).
 
 ## Notes

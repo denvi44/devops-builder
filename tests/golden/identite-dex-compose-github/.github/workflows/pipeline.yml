@@ -110,7 +110,7 @@ jobs:
         if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
         DEX_CONNECTOR_ID="$DEX_CONNECTOR_ID_STAGING" DEX_CONNECTOR_SECRET="$DEX_CONNECTOR_SECRET_STAGING" GRAFANA_OIDC_SECRET="$GRAFANA_OIDC_SECRET_STAGING" sh deploy/secrets.sh .secrets
         export DEPLOY_REGISTRY="ghcr.io" DEPLOY_REGISTRY_USER="$GITHUB_ACTOR" DEPLOY_REGISTRY_PASSWORD="$GITHUB_TOKEN"
-        ansible-playbook -i ansible/inventories/staging.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-staging" -e "deploy_env=staging"
+        ansible-playbook -i ansible/inventories/staging.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-staging" -e "deploy_env=staging" -e "app_host=staging.mon-app.example.com"
   deploy-production:
     name: Déploiement Ansible + Compose — Production
     runs-on: ubuntu-latest
@@ -135,4 +135,4 @@ jobs:
         if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
         DEX_CONNECTOR_ID="$DEX_CONNECTOR_ID_PRODUCTION" DEX_CONNECTOR_SECRET="$DEX_CONNECTOR_SECRET_PRODUCTION" GRAFANA_OIDC_SECRET="$GRAFANA_OIDC_SECRET_PRODUCTION" sh deploy/secrets.sh .secrets
         export DEPLOY_REGISTRY="ghcr.io" DEPLOY_REGISTRY_USER="$GITHUB_ACTOR" DEPLOY_REGISTRY_PASSWORD="$GITHUB_TOKEN"
-        ansible-playbook -i ansible/inventories/production.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app" -e "deploy_env=production"
+        ansible-playbook -i ansible/inventories/production.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app" -e "deploy_env=production" -e "app_host=mon-app.example.com"

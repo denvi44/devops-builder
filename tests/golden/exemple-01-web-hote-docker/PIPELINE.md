@@ -80,6 +80,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 ## Diagnostics restants
 
 - **Avertissement** (R34) — Ansible : « Hôtes de l'application » non renseigné : la valeur d'exemple « app1.example.com » sera écrite dans les fichiers.
+- **Avertissement** (R34) — Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « site-web.example.com » sera écrite dans les fichiers.
 - **Info** (R23) — Harbor embarque déjà Trivy comme scanner ; l'étape Trivy en CI reste utile pour bloquer avant la publication.
 
 ## Notes

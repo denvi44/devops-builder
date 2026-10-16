@@ -108,7 +108,8 @@ deploy-staging:
   - scp scripts/db-backup.sh "$DEPLOY_HOST_STAGING:/opt/mon-app-staging/db-backup.sh"
   - scp scripts/db-restore.sh "$DEPLOY_HOST_STAGING:/opt/mon-app-staging/db-restore.sh"
   - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_STAGING" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
-  - ssh "$DEPLOY_HOST_STAGING" "cd /opt/mon-app-staging && IMAGE=$IMAGE docker compose -p mon-app-staging pull && IMAGE=$IMAGE docker compose -p mon-app-staging up -d"
+  - ssh "$DEPLOY_HOST_STAGING" "cd /opt/mon-app-staging && IMAGE=$IMAGE APP_HOST=staging.mon-app.example.com docker compose -p mon-app-staging pull && IMAGE=$IMAGE APP_HOST=staging.mon-app.example.com docker
+    compose -p mon-app-staging up -d"
   rules:
   - if: $RENOVATE == "1"
     when: never
@@ -139,7 +140,7 @@ deploy-production:
   - scp scripts/db-backup.sh "$DEPLOY_HOST_PRODUCTION:/opt/mon-app/db-backup.sh"
   - scp scripts/db-restore.sh "$DEPLOY_HOST_PRODUCTION:/opt/mon-app/db-restore.sh"
   - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_PRODUCTION" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
-  - ssh "$DEPLOY_HOST_PRODUCTION" "cd /opt/mon-app && IMAGE=$IMAGE docker compose -p mon-app pull && IMAGE=$IMAGE docker compose -p mon-app up -d"
+  - ssh "$DEPLOY_HOST_PRODUCTION" "cd /opt/mon-app && IMAGE=$IMAGE APP_HOST=mon-app.example.com docker compose -p mon-app pull && IMAGE=$IMAGE APP_HOST=mon-app.example.com docker compose -p mon-app up -d"
   rules:
   - if: $RENOVATE == "1"
     when: never

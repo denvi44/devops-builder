@@ -80,6 +80,12 @@ tofu -chdir=infra/terraform output
 
 ## 4. Hôtes
 
+Noms d'hôte de l'application : chacun pointe (enregistrement DNS A ou AAAA) vers l'hôte de son environnement, joignable depuis Internet sur les ports 80 et 443 ; Traefik y obtient seul le certificat (paramètre « Adresse publique de l'application » de la brique Traefik).
+
+- Développement : `dev.mon-app.example.com`
+- Recette : `recette.mon-app.example.com`
+- Production : `mon-app.example.com`
+
 Les machines sont créées par la pile : cloud-init pose le compte `deploy`, la clé de la CI (`TF_VAR_ssh_public_key`) et Docker. Rien à préparer à la main. Pour joindre une machine depuis le poste :
 
 ```bash

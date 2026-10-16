@@ -64,7 +64,7 @@ deploy:
   - ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST" "mkdir -p /opt/mon-app"
   - scp deploy/docker-compose.yml "$DEPLOY_HOST:/opt/mon-app/docker-compose.yml"
   - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
-  - ssh "$DEPLOY_HOST" "cd /opt/mon-app && IMAGE=$IMAGE docker compose -p mon-app pull && IMAGE=$IMAGE docker compose -p mon-app up -d"
+  - ssh "$DEPLOY_HOST" "cd /opt/mon-app && IMAGE=$IMAGE APP_HOST=mon-app.example.com docker compose -p mon-app pull && IMAGE=$IMAGE APP_HOST=mon-app.example.com docker compose -p mon-app up -d"
   rules:
   - if: $RENOVATE == "1"
     when: never

@@ -1,1 +1,2 @@
+avertissement R34 Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « site.example.com » sera écrite dans les fichiers.
 info R31 Aucun fichier n'est généré pour ansible-lint dans cette configuration : à configurer à la main (listé dans PIPELINE.md).

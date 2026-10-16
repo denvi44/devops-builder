@@ -96,8 +96,11 @@ def ansible(ir: IR) -> dict[str, str]:
         start = {"project_src": "{{ app_dir }}", "definition": _app_definition(ir), **start}
     tasks.append({"name": "Démarrer les services",
                   "community.docker.docker_compose_v2": start,
-                  "environment": {"IMAGE": "{{ image }}"}})
+                  "environment": {"IMAGE": "{{ image }}", **({"APP_HOST": "{{ app_host }}"} if ir.has("traefik") else {})}})
     variables = {"image": f"{ir.image_ref}:latest", "project": ir.app, "app_dir": "/opt/{{ project }}"}
+    if ir.has("traefik"):
+        from ..ports import app_hostname
+        variables["app_host"] = app_hostname(ir.project)
     if host_registry(ir) is not None:
         variables.update({
             "registry_host": "{{ lookup('ansible.builtin.env', 'DEPLOY_REGISTRY') }}",

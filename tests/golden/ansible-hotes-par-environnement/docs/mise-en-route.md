@@ -26,6 +26,11 @@ ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook -i ansible/inventories/stagi
 ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook -i ansible/inventories/production.ini ansible/site.yml
 ```
 
+Noms d'hôte de l'application : chacun pointe (enregistrement DNS A ou AAAA) vers l'hôte de son environnement, joignable depuis Internet sur les ports 80 et 443 ; Traefik y obtient seul le certificat (paramètre « Adresse publique de l'application » de la brique Traefik).
+
+- Préproduction : `staging.site.example.com`
+- Production : `site.example.com`
+
 ## 2. Variables CI
 
 4 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :
