@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 
 from .. import catalog_edit, health, landscape, userdata
 from ..catalog import Catalog
+from ..messages import explain
 from ..model import Project
 from . import theme
 from .widgets import icon, muted
@@ -53,7 +54,7 @@ class _CheckThread(QThread):
                                           progress=self.progressed.emit)
         except Exception as exc:  # inattendu : rapport vide plutôt qu'un fil mort
             report = health.Report(network=self.network)
-            report.findings.append(health.Finding("—", "Contrôle", "error", health.TO_FIX, f"erreur : {exc}"))
+            report.findings.append(health.Finding("—", "Contrôle", "error", health.TO_FIX, f"erreur : {explain(exc)}"))
         self.done.emit(report)
 
 
@@ -69,7 +70,7 @@ class _RefreshThread(QThread):
             diff, _path = landscape.refresh(self.source)
             self.done.emit(diff, "")
         except Exception as exc:
-            self.done.emit(None, str(exc))
+            self.done.emit(None, explain(exc))
 
 
 class MaintenanceDialog(QDialog):

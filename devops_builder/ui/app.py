@@ -9,6 +9,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 
 from ..catalog import default_catalog
+from ..messages import reason
 from ..model import Project, ProjectFormatError
 from ..rules import RuleEngine
 from . import a11y, theme
@@ -32,7 +33,8 @@ def create_window(argv: list[str] | None = None) -> tuple[QApplication, MainWind
         try:
             project, path = Project.load(files[0]), Path(files[0])
         except (ProjectFormatError, OSError) as exc:  # fenêtre vide et message, plutôt qu'un arrêt
-            problem = f"{Path(files[0]).name} n'a pas pu être ouvert : {exc}"
+            problem = f"{Path(files[0]).name} n'a pas pu être ouvert : " + (
+                str(exc) if isinstance(exc, ProjectFormatError) else reason(exc))
 
     from PySide6.QtCore import QSettings
     dark = QSettings("DevOpsBuilder", "DevOpsBuilder").value("dark", False, type=bool)

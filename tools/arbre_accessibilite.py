@@ -125,7 +125,12 @@ def _system_python() -> str:
         exe = shutil.which(name, path="/usr/bin")
         if exe and subprocess.run([exe, "-c", "import pyatspi"], capture_output=True).returncode == 0:
             return exe
-    raise SystemExit("pyatspi introuvable : installer python3-pyatspi (paquet du système)")
+    raise SystemExit(_fail("pyatspi introuvable : installer python3-pyatspi (paquet du système)"))
+
+
+def _fail(message: str, code: int = 2) -> int:
+    print(f"::error::{message}" if os.environ.get("GITHUB_ACTIONS") else message, file=sys.stderr)
+    return code
 
 
 def main() -> int:
@@ -160,11 +165,9 @@ def main() -> int:
         try:
             windows = json.loads(r.stdout.strip().splitlines()[-1])
         except (IndexError, json.JSONDecodeError):
-            print(r.stdout, r.stderr, file=sys.stderr)
-            return 2
+            return _fail(f"client AT-SPI sans résultat : {(r.stdout + r.stderr)[-1500:]}".replace("\n", " | "))
         if "error" in windows:
-            print(windows["error"], file=sys.stderr)
-            return 2
+            return _fail(windows["error"])
     finally:
         for p in reversed(procs):
             p.terminate()
@@ -181,8 +184,7 @@ def main() -> int:
     counts = {k: sum(1 for r in v if r["showing"]) for k, v in windows.items()}
     print(f"{', '.join(f'{k} : {n} éléments' for k, n in counts.items())} ; {len(found)} problème(s)")
     if "paramètres" not in windows:
-        print("le dialogue des paramètres ne s'est pas ouvert par AT-SPI", file=sys.stderr)
-        return 1
+        return _fail("le dialogue des paramètres ne s'est pas ouvert par AT-SPI", 1)
     return 1 if found else 0
 
 

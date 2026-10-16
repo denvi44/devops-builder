@@ -88,6 +88,7 @@ CASES = [
     ("R50", lambda: put(make(), "woodpecker"), Severity.INFO),
     ("R51", lambda: put(make(), "gitea", "drone"), Severity.WARNING),
     ("R52", lambda: _undersized(), Severity.WARNING),
+    ("R53", lambda: make("mars"), Severity.BLOCKING),
     ("R47", lambda: with_params(put(make("kubernetes"), "k3s", "helm", "cloudnative-pg"), "cloudnative-pg",
                                 backup_destination="s3://sauvegardes"), Severity.WARNING),
 ]

@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from .. import gitexport, sync
 from ..generators import GenerationResult
+from ..messages import explain
 from . import theme
 from .widgets import icon, muted
 
@@ -210,7 +211,7 @@ class _ExportThread(QThread):
         except gitexport.GitError as exc:
             self.failed.emit(str(exc))
         except Exception as exc:  # erreur inattendue : affichée plutôt que perdue dans le fil
-            self.failed.emit(f"Erreur inattendue : {exc}")
+            self.failed.emit(f"Erreur inattendue : {explain(exc)}")
         else:
             self.finished_ok.emit(out)
 

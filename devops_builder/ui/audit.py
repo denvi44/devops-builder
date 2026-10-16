@@ -250,10 +250,11 @@ def check_rendered_text(root: QWidget) -> list[Finding]:
         if res is None:
             continue
         bg, fg = res
-        # le lissage éclaircit les pixels des glyphes fins : la couleur déclarée du texte fait foi si elle est meilleure
-        declared = w.palette().color(w.foregroundRole())
-        if ratio(declared, bg) > ratio(fg, bg):
-            fg = declared
+        # Couleur du texte : celle que déclare la feuille de style (le lissage éclaircit les pixels des glyphes fins,
+        # et une icône plus sombre tromperait la mesure) ; mesurée seulement pour un texte riche à plusieurs couleurs
+        rich = isinstance(w, QLabel) and (w.textFormat() == Qt.TextFormat.RichText or Qt.mightBeRichText(text))
+        if not rich:
+            fg = w.palette().color(w.foregroundRole())
         font = w.font()
         large = font.pointSizeF() >= 18 or (font.bold() and font.pointSizeF() >= 14)
         need = 3.0 if large else 4.5

@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..catalog import Catalog
+from ..messages import explain
 from ..model import ENV_PRESETS, LANGUAGES, STAGE_LABELS, Project
 from ..rules import RuleEngine
 from ..starter import (
@@ -131,8 +132,8 @@ class StarterWizard(QWizard):
             return
         try:
             self.profile = appscan.scan(path)
-        except ValueError as exc:
-            self.w_found.setText(str(exc))
+        except (ValueError, OSError) as exc:  # dossier refusé, ou illisible (droits)
+            self.w_found.setText(str(exc) if isinstance(exc, ValueError) else explain(exc, path))
             return
         a, taken = answers_from_profile(self.profile, self.catalog, self.collect())
         self.w_name.setText(a.name)

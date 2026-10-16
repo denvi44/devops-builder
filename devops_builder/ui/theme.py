@@ -149,7 +149,10 @@ def apply(app: QApplication, dark: bool = False, text_scale: float | None = None
     font = app.font()
     font.setPointSizeF(10 * _scale)
     app.setFont(font)
-    extra = {"density_scale": "-1", "font_family": "Roboto, Inter, DejaVu Sans", "font_size": f"{px(13)}px"}
+    extra = {"density_scale": "-1", "font_family": "Roboto, Inter, DejaVu Sans", "font_size": f"{px(13)}px",
+             # couleurs des boutons « success », « danger », « warning » : celles de qt-material (#17a2b8…)
+             # n'atteignent pas 4,5:1 sur fond clair
+             "success": _current.primary, "danger": _current.blocking, "warning": _current.warning}
     qt_material.apply_stylesheet(app, theme=str(_theme_file(dark)), invert_secondary=not dark, extra=extra)
     app.setStyleSheet(app.styleSheet() + _extra_qss(_current))
     qpal = app.palette()

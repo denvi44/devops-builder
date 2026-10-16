@@ -673,6 +673,17 @@ def h_env_definition(rule: Rule, ctx: Context) -> list[Diagnostic]:
     return out
 
 
+@handler("unknown_target")
+def h_unknown_target(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    target = ctx.project.target
+    if target in TARGETS:
+        return []
+    choices = ", ".join(f"« {label} »" for label in TARGETS.values())
+    return [_diag(rule, _fmt(rule.message, target=target, targets=choices), [],
+                  [Action("set_project", f"Choisir « {label} »", {"field": "target", "value": key})
+                   for key, label in TARGETS.items()])]
+
+
 @handler("env_cluster")
 def h_env_cluster(rule: Rule, ctx: Context) -> list[Diagnostic]:
     clusters = ctx.with_role("kubernetes-cluster")

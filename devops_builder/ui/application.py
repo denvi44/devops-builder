@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from .. import appscan
 from ..catalog import Catalog
+from ..messages import explain
 from ..model import LANGUAGES, Project
 from .widgets import icon, muted, section_title
 
@@ -121,9 +122,9 @@ class ApplicationDialog(QDialog):
             return
         try:
             self.profile = appscan.scan(path)
-        except ValueError as exc:
+        except (ValueError, OSError) as exc:  # dossier refusé, ou illisible (droits)
             self.profile = None
-            self.status.setText(str(exc))
+            self.status.setText(str(exc) if isinstance(exc, ValueError) else explain(exc, path))
             return
         p = self.profile
         for line in p.summary():

@@ -226,8 +226,9 @@ def load_user_fiches(directory: Path, existing: dict[str, Tool]) -> tuple[list[T
     for path in sorted(directory.glob("*.yaml")):
         try:
             data = yaml.safe_load(path.read_text(encoding="utf-8")) or []
-        except yaml.YAMLError as exc:
-            errors.append(f"{path.name} : YAML illisible ({exc})")
+        except (yaml.YAMLError, OSError, UnicodeDecodeError) as exc:  # fiche personnelle : signalée, pas fatale
+            from .messages import explain
+            errors.append(f"{path.name} : {explain(exc)}")
             continue
         for entry in data if isinstance(data, list) else [data]:
             if not isinstance(entry, dict):
@@ -259,8 +260,9 @@ def apply_corrections(catalog: Catalog, path: Path) -> None:
         return
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except yaml.YAMLError as exc:
-        catalog.errors.append(f"{path.name} : YAML illisible ({exc})")
+    except (yaml.YAMLError, OSError, UnicodeDecodeError) as exc:
+        from .messages import explain
+        catalog.errors.append(f"{path.name} : {explain(exc)}")
         return
     if not isinstance(data, dict):
         catalog.errors.append(f"{path.name} : un dictionnaire identifiant → champs est attendu")

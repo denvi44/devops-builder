@@ -10,8 +10,18 @@ from ..ir import IR
 HEADER = "Généré par DevOps Builder — à relire avant usage."
 
 
-class _Dumper(yaml.SafeDumper):
+class _PyDumper(yaml.SafeDumper):
     def ignore_aliases(self, data):  # noqa: ARG002 — pas d'ancres YAML : toutes les CI ne les lisent pas
+        return True
+
+
+# Émetteur C de libyaml quand PyYAML en dispose : même texte, cinq à dix fois plus rapide (le contrôle R31
+# rend tous les fichiers à chaque modification du projet)
+_Base = getattr(yaml, "CSafeDumper", None) if yaml.__with_libyaml__ else None
+
+
+class _Dumper(_Base or yaml.SafeDumper):  # type: ignore[misc]
+    def ignore_aliases(self, data):  # noqa: ARG002
         return True
 
 
@@ -22,9 +32,10 @@ def _str_presenter(dumper: yaml.SafeDumper, data: str):
 
 
 _Dumper.add_representer(str, _str_presenter)
+_PyDumper.add_representer(str, _str_presenter)
 
 
-class _IndentedDumper(_Dumper):
+class _IndentedDumper(_PyDumper):
     """Listes indentées sous leur clé, comme l'attendent yamllint et ansible-lint."""
 
     def increase_indent(self, flow=False, indentless=False):  # noqa: ARG002

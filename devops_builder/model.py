@@ -205,6 +205,12 @@ class Tool(BaseModel):
         return set(self.hosting) == {"kubernetes"}
 
 
+# Lecture et écriture par libyaml (C) quand PyYAML en dispose : même résultat, cinq fois plus rapide
+# (chaque modification du projet passe par une copie YAML pour l'annulation)
+_FAST_DUMPER = yaml.CSafeDumper if yaml.__with_libyaml__ else yaml.SafeDumper
+_FAST_LOADER = yaml.CSafeLoader if yaml.__with_libyaml__ else yaml.SafeLoader
+
+
 class ProjectFormatError(ValueError):
     """Fichier projet illisible, d'un format plus récent, ou dont un champ est invalide."""
 
@@ -403,17 +409,20 @@ class Project(BaseModel):
             for key, default in (("host", ""), ("port_offset", None)):
                 if env.get(key) == default:
                     env.pop(key, None)
-        return yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
+        return yaml.dump(data, Dumper=_FAST_DUMPER, sort_keys=False, allow_unicode=True)
 
     @classmethod
     def from_yaml(cls, text: str) -> Project:
         """Lit un fichier projet ; ProjectFormatError avec un message lisible s'il ne peut pas l'être."""
         try:
-            data = yaml.safe_load(text) or {}
-        except yaml.YAMLError as exc:
-            mark = getattr(exc, "problem_mark", None)
-            where = f" (ligne {mark.line + 1})" if mark else ""
-            raise ProjectFormatError(f"YAML invalide{where} : {getattr(exc, 'problem', None) or exc}") from exc
+            data = yaml.load(text, Loader=_FAST_LOADER) or {}
+        except yaml.YAMLError:
+            try:  # l'analyseur Python décrit mieux l'erreur (messages traduits par messages.yaml_problem)
+                yaml.safe_load(text)
+            except yaml.YAMLError as exc:
+                from .messages import yaml_problem
+                raise ProjectFormatError(yaml_problem(exc)) from exc
+            raise
         if not isinstance(data, dict):
             raise ProjectFormatError("le fichier ne décrit pas un projet (il faut des clés : name, stages…)")
         version = data.get("format_version", 1)
@@ -444,7 +453,15 @@ class Project(BaseModel):
 
     @classmethod
     def load(cls, path: str | Path) -> Project:
-        return cls.from_yaml(Path(path).read_text(encoding="utf-8"))
+        """FileNotFoundError si le fichier manque ; ProjectFormatError (message en français) pour le reste."""
+        try:
+            text = Path(path).read_text(encoding="utf-8")
+        except FileNotFoundError:
+            raise
+        except (OSError, UnicodeDecodeError) as exc:
+            from .messages import reason
+            raise ProjectFormatError(reason(exc)) from exc
+        return cls.from_yaml(text)
 
     def clone(self) -> Project:
         return Project.model_validate(self.model_dump())

@@ -32,6 +32,7 @@ from pathlib import Path
 from . import __version__, sync
 from .catalog import default_catalog
 from .generators import BlockingDiagnostics, GenerationResult, generate
+from .messages import explain
 from .model import Project, ProjectFormatError
 from .rules import RuleEngine
 
@@ -56,8 +57,10 @@ def _load_project(path: str) -> Project | None:
         return Project.load(path)
     except FileNotFoundError:
         print(f"Fichier projet introuvable : {path}", file=sys.stderr)
-    except (ProjectFormatError, OSError) as exc:
+    except ProjectFormatError as exc:
         print(f"Fichier projet illisible : {path} : {exc}", file=sys.stderr)
+    except OSError as exc:
+        print(f"Fichier projet illisible : {explain(exc, path)}", file=sys.stderr)
     return None
 
 
@@ -344,7 +347,7 @@ def _catalog_command(args) -> int:
         try:
             diff, path = landscape.refresh(args.source)
         except Exception as exc:  # réseau, fichier, format
-            print(f"Rafraîchissement impossible : {exc}")
+            print(f"Rafraîchissement impossible : {explain(exc)}")
             return 1
         print(f"Index écrit dans {path} : {diff.summary()}.")
         catalog = reload_default_catalog()

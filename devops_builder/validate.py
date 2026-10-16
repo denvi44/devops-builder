@@ -25,6 +25,7 @@ from pathlib import Path
 import yaml
 
 from . import DIST_NAME
+from .messages import explain, yaml_problem
 
 OK, FAILED, MISSING, SKIPPED = "ok", "échec", "absent", "ignoré"
 
@@ -187,8 +188,10 @@ def _run_syntax(r: Runner, selected: list[str], _cmd: list[str]) -> tuple[bool, 
                 json.loads(text)
             else:
                 list(yaml.safe_load_all(text))
-        except (yaml.YAMLError, json.JSONDecodeError) as exc:
-            errors.append(f"{rel} : {exc}")
+        except yaml.YAMLError as exc:
+            errors.append(f"{rel} : {yaml_problem(exc)}")
+        except json.JSONDecodeError as exc:
+            errors.append(f"{rel} : JSON invalide ligne {exc.lineno}, colonne {exc.colno} (analyseur : {exc.msg})")
     return not errors, "\n".join(errors) or f"{len(selected)} fichier(s) lus sans erreur."
 
 
@@ -399,7 +402,7 @@ def validate_files(files: dict[str, str], network: bool = True, only: set[str] |
                 try:
                     ok, out = check.run(runner, selected, cmd)
                 except Exception as exc:  # un outil inattendu ne doit pas arrêter la validation
-                    ok, out = False, f"Erreur interne du contrôle : {exc}"
+                    ok, out = False, f"Erreur interne du contrôle : {explain(exc)}"
                 res.seconds = time.monotonic() - start
                 res.status = SKIPPED if ok is None else OK if ok else FAILED
                 res.output = out.replace(str(root) + os.sep, "")

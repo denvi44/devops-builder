@@ -36,6 +36,8 @@ def dump(control, depth=0, out=None, limit=600):
     if len(out) >= limit:
         return out
     try:
+        if control.ControlTypeName == "TitleBarControl":
+            return out  # barre de titre dessinée par Windows (boutons dans la langue du système), pas par l'application
         role = ROLES.get(control.ControlTypeName, control.ControlTypeName)
         out.append({"depth": depth, "role": role, "name": control.Name or "",
                     "description": getattr(control, "HelpText", "") or "",

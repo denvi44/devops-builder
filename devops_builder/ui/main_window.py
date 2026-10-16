@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 
 from ..catalog import DATA_DIR, Catalog
 from ..generators import BlockingDiagnostics, generate
+from ..messages import reason
 from ..model import ENVIRONMENTS, STAGE_IDS, STAGE_LABELS, TARGETS, Project, ProjectFormatError, Severity
 from ..rules import Action, RuleEngine, apply_action
 from . import theme
@@ -704,7 +705,8 @@ class MainWindow(QMainWindow):
         try:
             project = Project.load(path)
         except (ProjectFormatError, OSError) as exc:
-            QMessageBox.critical(self, "Ouverture impossible", f"{path.name} n'a pas pu être ouvert :\n{exc}")
+            QMessageBox.critical(self, "Ouverture impossible",
+                                 f"{Path(path).name} n'a pas pu être ouvert :\n{exc if isinstance(exc, ProjectFormatError) else reason(exc)}")
             return
         self._load(project, None if as_template else path)
         self.announce_unknown_fields(project)
@@ -751,7 +753,8 @@ class MainWindow(QMainWindow):
             try:
                 self._load(Project.load(autosave_path()), None)
             except (ProjectFormatError, OSError) as exc:
-                QMessageBox.critical(self, "Sauvegarde automatique illisible", str(exc))
+                QMessageBox.critical(self, "Sauvegarde automatique illisible",
+                                     str(exc) if isinstance(exc, ProjectFormatError) else reason(exc))
 
     def _generation(self):
         if not self.project.all_bricks():

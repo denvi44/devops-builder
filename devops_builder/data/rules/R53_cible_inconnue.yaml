@@ -1,0 +1,6 @@
+id: R53
+title: Cible d'hébergement inconnue
+family: environnements
+severity: bloquant
+type: unknown_target
+message: "Cible d'hébergement « {target} » inconnue de cette version : choisir parmi {targets}."

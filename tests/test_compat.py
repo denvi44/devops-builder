@@ -72,7 +72,7 @@ def test_champs_inconnus_conserves_et_signales():
 
 
 @pytest.mark.parametrize("text, message", [
-    ("name: [", "YAML invalide (ligne 1)"),
+    ("name: [", "YAML invalide ligne 1, colonne 8 : le fichier s'arrête au milieu d'une valeur"),
     ("- a\n- b\n", "ne décrit pas un projet"),
     ("name: x\ntarget: 3\n", "target : texte attendu"),
     ("cloud_auth: magie\n", "« magie » refusée, attendu : 'oidc' ou 'static'"),
