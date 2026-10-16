@@ -118,7 +118,9 @@ def test_playbooks_valides(tmp_path):
     result = generate(p, CATALOG, ENGINE, allow_blocking=True)
     result.write(tmp_path)
     (tmp_path / ".secrets").mkdir()
-    env = {"ANSIBLE_CONFIG": "ansible/ansible.cfg", "PATH": __import__("os").environ["PATH"]}
+    environ = __import__("os").environ  # collections du poste : HOME ou ANSIBLE_COLLECTIONS_PATH (CI)
+    env = {"ANSIBLE_CONFIG": "ansible/ansible.cfg", "PATH": environ["PATH"],
+           **{k: environ[k] for k in ("HOME", "ANSIBLE_COLLECTIONS_PATH") if k in environ}}
     r = subprocess.run(["ansible-playbook", "--syntax-check", "-i", "ansible/inventories/staging.ini",
                         "ansible/deploy.yml", "ansible/site.yml"], cwd=tmp_path, env=env, capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
