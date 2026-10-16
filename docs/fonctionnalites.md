@@ -1,6 +1,6 @@
 # Fonctionnalités en détail
 
-Description complète de ce que fait DevOps Builder ; le [README](../README.md) en donne le résumé.
+Description complète de ce que fait DevOps Builder ; le [README](https://github.com/denvi44/devops-builder#readme) en donne le résumé.
 
 
 - **L'application d'abord** : on désigne le dossier de l'application (carte de l'application dans la barre du projet, première page de l'assistant, ou `devops-builder init`). L'analyse lit, sans rien exécuter, le langage et son cadre (FastAPI, Django, Flask, Express, Next.js, Spring Boot, Gin, ASP.NET…), le port (EXPOSE du Dockerfile, sinon le port usuel du cadre), le Dockerfile, la CI et la forge déjà en place (fichiers de CI, dépôt distant), un chart Helm, Kustomize, Compose, Terraform ou OpenTofu, les tests, Renovate ou Dependabot, les bases de données (pilotes PostgreSQL, MySQL, MariaDB, MongoDB et Redis dans les dépendances, schéma Prisma, services Compose) et les migrations (Alembic, Django, Prisma, Knex, Sequelize, goose, golang-migrate). Chaque détection donne sa preuve, et les briques qui en découlent sont proposées : sans Dockerfile, l'image est construite par Buildpacks.

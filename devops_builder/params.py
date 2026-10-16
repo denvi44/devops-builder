@@ -105,7 +105,7 @@ def check_brick(tool: Tool, brick: BrickInstance, project: Project | None) -> li
             issues.append(ParamIssue(key, "invalid", f"« {spec.label} » vaut « {value} » ; {err}"))
     for key, spec in tool.param_schema.items():
         given = brick.params.get(key)
-        if given not in (None, ""):
+        if given not in (None, "") or not spec.applies_to(project):
             continue
         default = resolve_default(spec, project)
         if default is not None:

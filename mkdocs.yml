@@ -1,0 +1,59 @@
+# Site de documentation (GitHub Pages) : guide de l'utilisateur et références, construit depuis docs/.
+site_name: DevOps Builder
+site_description: Composer des pipelines DevOps cohérents à partir des briques du CNCF Landscape
+site_url: https://denvi44.github.io/devops-builder/
+repo_url: https://github.com/denvi44/devops-builder
+repo_name: denvi44/devops-builder
+edit_uri: edit/main/docs/
+docs_dir: docs
+copyright: DevOps Builder — Apache 2.0
+
+theme:
+  name: material
+  language: fr
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Passer au thème sombre
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Passer au thème clair
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+
+nav:
+  - Accueil: index.md
+  - Guide de l'utilisateur:
+      - Vue d'ensemble: guide/index.md
+      - Prise en main de l'interface: guide/interface.md
+      - "Tutoriel : hôte Docker": guide/tutoriels/hote-docker.md
+      - "Tutoriel : k3s en GitOps": guide/tutoriels/k3s-gitops.md
+      - "Tutoriel : Amazon EKS": guide/tutoriels/eks.md
+      - "Tutoriel : souverain SecNumCloud": guide/tutoriels/souverain.md
+  - Références:
+      - Fonctionnalités en détail: fonctionnalites.md
+      - Ligne de commande: ligne-de-commande.md
+      - Format du fichier projet: format.md
+      - Prise en charge des briques: prise-en-charge.md
+  - Accessibilité: accessibilite.md
+  - Licences tierces: licences-tierces.md

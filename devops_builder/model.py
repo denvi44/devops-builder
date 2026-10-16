@@ -105,6 +105,11 @@ class ParamSpec(BaseModel):
     # Capacité qui fournit la valeur à la génération (ex. hôtes créés par Terraform) : l'exemple n'est
     # alors pas signalé.
     provided_by: str | None = None
+    # Cibles d'hébergement où le paramètre sert (vide : toutes) ; ailleurs il n'est ni montré ni signalé.
+    targets: list[str] = Field(default_factory=list)
+
+    def applies_to(self, project: Project | None) -> bool:
+        return not self.targets or project is None or project.target in self.targets
 
 
 class LandscapeRef(BaseModel):

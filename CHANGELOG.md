@@ -4,6 +4,53 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## 0.20.0 — 2026-10-16 — Qualité produit
+
+Accessibilité de l'application vérifiée et corrigée, messages d'erreur en français, deux à trois fois plus
+rapide sur un gros projet, et un guide de l'utilisateur avec quatre tutoriels. Les fichiers générés changent
+pour l'hôte Docker avec Traefik (adresse publique de l'application par environnement).
+
+### Ajouté
+- **Audit d'accessibilité automatisé** (`devops_builder/ui/audit.py`, `tools/audit_accessibilite.py`) sur la
+  fenêtre principale, les onze dialogues et l'assistant, dans les deux thèmes : nom accessible, clavier, focus
+  mesuré à l'écran, contrastes, titres, langue, raccourcis, texte coupé à 200 % ; critères de l'EN 301 549
+  (WCAG 2.1 AA) et du RGAA en regard. Deux jobs de CI lisent l'arbre de l'application comme Orca (AT-SPI) et
+  comme NVDA (UI Automation, Windows). État et limites : `docs/accessibilite.md`.
+- **Taille du texte** réglable de 100 à 200 % (Affichage, Ctrl++ et Ctrl+-), retenue d'une session à l'autre ;
+  à 150 % et plus, le nom du projet passe sur sa propre ligne, les messages des diagnostics se replient.
+- **Anneau de focus** de deux pixels, au contraste vérifié, autour du contrôle actif.
+- **Annonces aux lecteurs d'écran** : chaque message de la barre d'état ; l'ajout et le déplacement d'une
+  brique disent l'étape et la position.
+- **Alt+↑ et Alt+↓** déplacent une brique dans son étape (le glisser avait seul cette possibilité).
+- **Guide de l'utilisateur** (`docs/guide/`, site publié par GitHub Pages) : prise en main, clavier, et quatre
+  tutoriels de bout en bout — hôte Docker, k3s en GitOps, Amazon EKS, souverain SecNumCloud sur Outscale. Un test
+  vérifie que chaque fichier cité par un tutoriel est généré et que chaque paramètre à renseigner y est nommé.
+- **Adresse publique de l'application** (brique Traefik, hôte Docker et machines virtuelles) : la production
+  prend le nom saisi, les autres environnements un préfixe (staging.boutique.fr) sauf surcharge ; R34 tant
+  qu'il garde sa valeur d'exemple, et le mode d'emploi liste les noms à faire pointer vers chaque hôte.
+- **R53** : cible d'hébergement inconnue (fichier modifié à la main), bloquante, avec les corrections.
+- `devops-builder projet.devops.yaml` ouvre le projet dans l'interface.
+
+### Corrigé
+- Accessibilité : textes de Qt en anglais (« Close », « Cancel », boutons des boîtes de message, menus
+  contextuels) ; focus presque invisible sur la plupart des contrôles ; avertissements en orange à 3,5:1,
+  boutons d'action à 2,8:1 et boutons principaux à 4:1 (4,5:1 et plus désormais) ; icônes d'étape exposées
+  comme images sans nom ; zones de défilement et onglets sans nom.
+- Hôte Docker avec Traefik : la règle visait `<app>.example.com`, identique dans chaque environnement ; la
+  préproduction réclamait le certificat de la production.
+- Messages d'erreur : un fichier projet qui n'est pas en UTF-8 arrêtait la ligne de commande sur une trace
+  Python ; les erreurs du système (« [Errno 21] Is a directory »), de YAML (« mapping values are not allowed
+  here ») et des commandes sont traduites, avec la cause et la piste ; une fiche personnelle illisible est
+  signalée au lieu d'interrompre le chargement du catalogue.
+- Validation : quand les playbooks échouent faute de collection Ansible, elle donne la commande
+  `ansible-galaxy collection install -r ansible/requirements.yml`.
+
+### Performances
+- libyaml pour écrire les fichiers générés et lire ou écrire le projet (texte identique sur les 183 projets de
+  référence et 301 fichiers projet) : sur 167 briques et cinq environnements, évaluation des règles en 0,07 s
+  au lieu de 0,23 s, génération en 0,17 s au lieu de 0,45 s, ajout d'une brique dans l'interface en 0,2 s au
+  lieu de 0,3 s ; la suite de tests passe de 5 à 3,5 minutes. Un test garde ces temps.
+
 ## 0.19.0 — 2026-10-15 — Distribution
 
 S'installe sans cloner le dépôt : paquet PyPI ou exécutable autonome, chacun avec sa preuve de provenance.

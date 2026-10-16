@@ -193,3 +193,42 @@ def test_assistant_hote_partage():
     assert parametrized(p) and r39(p) == []
     k = build_starter(StarterAnswers(hosting="kubernetes", envs="complet", shared_host=True), CATALOG)
     assert all(not e.host for e in k.environments)
+
+
+# ------------------------------------------------------------------ adresse publique de l'application
+def test_adresse_publique_par_environnement():
+    p = docker("traefik", preset="dev-staging-prod")
+    assert any(d.rule_id == "R34" and "Adresse publique" in d.message for d in ENGINE.evaluate(p))
+    p.bricks_for("traefik")[0].params["app_hostname"] = "boutique.fr"
+    p.env("staging").overrides["traefik"] = {"app_hostname": "recette.boutique.fr"}
+    assert not any(d.rule_id == "R34" and "Adresse publique" in d.message for d in ENGINE.evaluate(p))
+    files = generate(p, CATALOG).files
+    compose = yaml.safe_load(files["deploy/docker-compose.yml"])
+    assert "Host(`${APP_HOST:-boutique.fr}`)" in compose["services"]["mon-app"]["labels"][1]
+    ci = files[".gitlab-ci.yml"]
+    assert "APP_HOST=dev.boutique.fr docker compose -p mon-app-dev up -d" in ci
+    assert "APP_HOST=recette.boutique.fr docker compose" in ci            # surcharge de l'environnement
+    assert "APP_HOST=boutique.fr docker compose -p mon-app pull" in ci    # production : le nom tel quel
+    runbook = files["docs/mise-en-route.md"]
+    assert "- Développement : `dev.boutique.fr`" in runbook and "- Production : `boutique.fr`" in runbook
+
+
+def test_adresse_publique_sans_objet_sur_kubernetes():
+    p = Project(name="k", target="kubernetes", environments=env_preset("prod"))
+    for t in ("github", "github-actions", "buildkit", "ghcr", "k3s", "helm", "traefik"):
+        p.add(t, CATALOG[t].stage)
+    assert not any("Adresse publique" in d.message for d in ENGINE.evaluate(p))
+    assert not CATALOG["traefik"].param_schema["app_hostname"].applies_to(p)
+
+
+def test_adresse_publique_avec_ansible():
+    p = Project(name="vm", target="vm", environments=env_preset("staging-prod"))
+    for t in ("gitlab", "gitlab-ci", "buildkit", "harbor", "ansible", "docker-compose", "traefik"):
+        p.add(t, CATALOG[t].stage)
+    p.bricks_for("ansible")[0].params["hosts"] = "a.boutique.fr"
+    p.bricks_for("traefik")[0].params["app_hostname"] = "boutique.fr"
+    files = generate(p, CATALOG, allow_blocking=True).files
+    assert '-e "app_host=staging.boutique.fr"' in files[".gitlab-ci.yml"]
+    deploy = yaml.safe_load(files["ansible/deploy.yml"])
+    start = next(t for t in deploy[0]["tasks"] if "community.docker.docker_compose_v2" in t)
+    assert start["environment"]["APP_HOST"] == "{{ app_host }}" and deploy[0]["vars"]["app_host"] == "boutique.fr"

@@ -87,8 +87,12 @@ jobs:
           sudo install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform
       - run: pip install -e ".[dev]" "ansible-core>=2.21,<2.22"
       - name: Collections Ansible des playbooks générés
-        # le fichier même que DevOps Builder écrit dans chaque projet (ansible/requirements.yml)
-        run: ansible-galaxy collection install -r tests/golden/ansible-sans-compose/ansible/requirements.yml
+        # le fichier même que DevOps Builder écrit dans chaque projet (ansible/requirements.yml), dans un dossier
+        # fixe : les tests qui changent HOME les retrouvent
+        run: |
+          ansible-galaxy collection install -r tests/golden/ansible-sans-compose/ansible/requirements.yml \
+            -p "$RUNNER_TEMP/collections"
+          echo "ANSIBLE_COLLECTIONS_PATH=$RUNNER_TEMP/collections" >> "$GITHUB_ENV"
       - name: Miroir des providers en cache
         id: miroir
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

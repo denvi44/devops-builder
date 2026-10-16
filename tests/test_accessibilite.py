@@ -17,7 +17,8 @@ EXAMPLE = DATA_DIR / "examples" / "01-web-hote-docker.devops.yaml"
 
 @pytest.fixture(scope="module")
 def win(tmp_path_factory):
-    os.environ["HOME"] = str(tmp_path_factory.mktemp("home-a11y"))
+    home = os.environ.get("HOME")
+    os.environ["HOME"] = str(tmp_path_factory.mktemp("home-a11y"))  # réglages Qt (thème, taille du texte) jetables
     from devops_builder.ui.app import create_window
     app, window = create_window(["devops-builder"])
     window.show()
@@ -27,6 +28,8 @@ def win(tmp_path_factory):
     yield window
     window.undo_stack.setClean()
     window.close()
+    if home is not None:  # les tests suivants (collections Ansible du poste…) retrouvent le vrai dossier
+        os.environ["HOME"] = home
 
 
 def test_audit_sans_constat_dans_les_deux_themes(win):

@@ -52,6 +52,8 @@ class ParamForm(QWidget):
         form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
         form.setVerticalSpacing(4)
         for key, spec in tool.param_schema.items():
+            if not spec.applies_to(project) and key not in self.source:
+                continue  # sans effet pour cette cible d'hébergement
             editor = self._editor(key, spec, self.source.get(key))
             label = QLabel(spec.label + (" *" if spec.required else ""))
             label.setBuddy(editor)
@@ -173,6 +175,8 @@ class ParamForm(QWidget):
     def values(self) -> dict[str, Any]:
         out: dict[str, Any] = {}
         for key, spec in self.tool.param_schema.items():
+            if key not in self.editors:
+                continue  # paramètre sans effet pour cette cible : pas de champ
             value = self._raw(key)
             if value is None:
                 continue

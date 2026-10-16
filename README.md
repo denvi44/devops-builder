@@ -25,8 +25,9 @@ les fichiers à committer.
 - **Mode d'emploi** : `docs/mise-en-route.md`, les gestes à faire une fois, avec les commandes déjà remplies.
 - **Prise en charge déclarée** : chaque brique est *prise en charge*, *expérimentale* ou *à configurer à la main* ([matrice](docs/prise-en-charge.md)) ; des scénarios de bout en bout exécutent les fichiers générés pour de vrai, chaque nuit.
 - **Livraison** : validation locale, test dans kind, écriture prudente (fichiers retouchés préservés), export Git avec demande de fusion.
+- **Accessible** : utilisable au clavier seul, lu par les lecteurs d'écran (arbres NVDA et Orca vérifiés en CI), contrastes vérifiés dans les deux thèmes, texte agrandi jusqu'à 200 % ([état et limites](docs/accessibilite.md)).
 
-Le détail de chaque fonction, avec les captures d'écran : [docs/fonctionnalites.md](docs/fonctionnalites.md).
+Le **[guide de l'utilisateur](https://denvi44.github.io/devops-builder/)** mène de l'installation au premier déploiement, avec quatre tutoriels (hôte Docker, k3s en GitOps, Amazon EKS, souverain SecNumCloud) ; ses sources sont dans [docs/guide/](docs/guide/index.md). Le détail de chaque fonction, avec les captures d'écran : [docs/fonctionnalites.md](docs/fonctionnalites.md).
 
 ## Installation
 
@@ -75,7 +76,7 @@ devops-builder                     # ou : python -m devops_builder
 | Action | Comment |
 | --- | --- |
 | Ajouter une brique | Glisser depuis le catalogue, ou double-clic / Entrée |
-| Déplacer une brique | Glisser vers une colonne compatible, ou Alt+← / Alt+→ (saute à l'étape autorisée suivante) |
+| Déplacer une brique | Glisser vers une colonne compatible, ou Alt+← / Alt+→ (saute à l'étape autorisée suivante) ; Alt+↑ / Alt+↓ dans son étape |
 | Retirer une brique | Suppr, ou bouton dans Propriétés |
 | Corriger un diagnostic | Sélectionner le diagnostic puis cliquer une correction (Entrée applique la première) |
 | Nouveau projet | Ctrl+N : assistant, qui commence par le dossier de l'application ; Ctrl+Maj+N : projet vide |
@@ -88,6 +89,8 @@ devops-builder                     # ou : python -m devops_builder
 | Annuler / rétablir | Ctrl+Z / Ctrl+Y |
 | Rechercher | Ctrl+F ; Ctrl+2 pour le pipeline, Ctrl+3 pour les diagnostics |
 | Thème sombre | Ctrl+T |
+| Taille du texte | Affichage › Taille du texte (100 à 200 %), Ctrl++ et Ctrl+- |
+| Ouvrir un projet depuis un terminal | `devops-builder projet.devops.yaml` |
 
 Quatre projets d'exemple sont fournis dans **Fichier › Ouvrir un exemple** : un site web sur hôte Docker, une API sur k3s en GitOps, une plateforme AWS EKS en OpenTofu et une boutique avec PostgreSQL, Valkey et migrations sur un hôte partagé.
 
@@ -140,7 +143,9 @@ devops_builder/
   rules.py          moteur de règles, handlers génériques, corrections
   ir.py             représentation intermédiaire neutre du pipeline
   generators/       ci, deploy, data (bases), iac, platform, extras (dépendances, clusters), report
-  ui/               interface PySide6 + qt-material
+  ui/               interface PySide6 + qt-material (a11y.py : traduction de Qt, annonces, anneau de focus ;
+                    audit.py : audit d'accessibilité)
+  messages.py       erreurs du système, de YAML et des commandes traduites en français
   params.py         validation et valeurs effectives des paramètres (surcharges par environnement)
   starter.py        assistant de démarrage : réponses → projet
   validate.py       contrôles locaux des fichiers générés
@@ -163,10 +168,14 @@ devops_builder/
   data/examples/    projets de référence
 tools/
   build_landscape_index.py   rafraîchit l'index depuis landscape.yml
-  screenshot.py              captures hors écran de l'interface
+  screenshot.py              captures hors écran de l'interface et du guide
+  audit_accessibilite.py     audit d'accessibilité hors écran, les deux thèmes
+  arbre_accessibilite.py     arbre lu comme Orca (AT-SPI) ; arbre_uia.py : comme NVDA (UI Automation)
+  tutoriels.py               projets des tutoriels du guide
+  miroir_tofu.py, publication.py   miroir de providers OpenTofu ; vérification d'une publication
 tests/              règles, générateurs, interface (hors écran), non-régression
-  golden/           sorties figées de 156 projets (exemples, matrice, échantillon de l'assistant, environnements, ports, données, IaC, Floci, Ansible et machines)
-  data/legacy/      projets enregistrés par chaque version, de la 0.1 à la 0.18
+  golden/           sorties figées de 183 projets (exemples, matrice, échantillon de l'assistant, environnements, ports, données, IaC, Floci, Ansible et machines)
+  data/legacy/      projets enregistrés par chaque version, de la 0.1 à la 0.19
   minihelm.py       rendu des gabarits Helm générés, sans le binaire helm
 tools/compare_captures.py  écart visuel entre deux séries de captures
 ```
@@ -201,13 +210,13 @@ pip install -e ".[dev]"
 QT_QPA_PLATFORM=offscreen pytest
 ```
 
-931 tests : un par règle, l'application de chaque correction proposée, une matrice de combinaisons CI × déploiement × cloud × environnements validées contre les schémas, avec contrôle qu'aucune brique n'y reste sans fichier, les 15 300 combinaisons de l'assistant (aucune ne doit produire d'erreur bloquante), la validation, l'écriture prudente, l'export Git vers des dépôts locaux (dont les options de push GitLab), les scripts kind et variables CI contre des outils factices et une fausse API Gitea, l'entretien du catalogue contre une fausse API GitHub et GitLab, l'analyse d'applications Python, Node.js, Java, Go et .NET (dont leurs bases et migrations), les bases de données sur chaque cible (rendu du chart, Kustomize, script de secrets exécuté, format Terraform), l'état et les variables Terraform de chaque cloud, Floci dans chaque CI, les playbooks Ansible passés à `--syntax-check` et ansible-lint, les machines de chaque cloud et le script d'inventaire contre une sortie Terraform simulée, l'identité (realm appliqué à un vrai Keycloak 26.8 puis relu sans écart, connexion OIDC à OpenBao d'un membre du groupe admins et refus d'un non-membre, ressource Keycloak contre le schéma de sa CRD), les données (sauvegarde puis restauration contre un vrai PostgreSQL, formats de connexion dans chaque cible, ressources CloudNativePG contre les schémas des CRD), les secrets (SOPS chiffré puis déchiffré avec age, écriture et lecture contre un faux Vault avec connexion JWT, ExternalSecret rendus dans le chart et les overlays, secrets écrits par Terraform pour chaque cloud, `vault-setup.sh` contre un faux coffre qui enregistre ses appels, mode d'emploi dont chaque commande passe `bash -n` et ShellCheck), la prise en charge déclarée de chaque fiche confrontée aux générateurs (projets de référence et sondes par cible), le contrat de la ligne de commande (codes de sortie, sortie `--json`, fichiers illisibles), la cohérence entre l'assistant et le filtre de la palette, le catalogue personnel et le rafraîchissement du Landscape, et l'interface pilotée hors écran : glisser-déposer, formulaire de paramètres, surcharges, éditeur d'environnements, assistant, dialogues de validation, de différences, d'export, d'entretien, de fiche, de ports et d'application, et la largeur minimale de la fenêtre (1 280 px au plus). Toute exception levée dans un slot Qt fait échouer le test en cours. Les tests utilisent un dossier personnel jetable : un catalogue personnel présent sur le poste ne les influence pas.
+976 tests : un par règle, l'application de chaque correction proposée, une matrice de combinaisons CI × déploiement × cloud × environnements validées contre les schémas, avec contrôle qu'aucune brique n'y reste sans fichier, les 15 300 combinaisons de l'assistant (aucune ne doit produire d'erreur bloquante), la validation, l'écriture prudente, l'export Git vers des dépôts locaux (dont les options de push GitLab), les scripts kind et variables CI contre des outils factices et une fausse API Gitea, l'entretien du catalogue contre une fausse API GitHub et GitLab, l'analyse d'applications Python, Node.js, Java, Go et .NET (dont leurs bases et migrations), les bases de données sur chaque cible (rendu du chart, Kustomize, script de secrets exécuté, format Terraform), l'état et les variables Terraform de chaque cloud, Floci dans chaque CI, les playbooks Ansible passés à `--syntax-check` et ansible-lint, les machines de chaque cloud et le script d'inventaire contre une sortie Terraform simulée, l'identité (realm appliqué à un vrai Keycloak 26.8 puis relu sans écart, connexion OIDC à OpenBao d'un membre du groupe admins et refus d'un non-membre, ressource Keycloak contre le schéma de sa CRD), les données (sauvegarde puis restauration contre un vrai PostgreSQL, formats de connexion dans chaque cible, ressources CloudNativePG contre les schémas des CRD), les secrets (SOPS chiffré puis déchiffré avec age, écriture et lecture contre un faux Vault avec connexion JWT, ExternalSecret rendus dans le chart et les overlays, secrets écrits par Terraform pour chaque cloud, `vault-setup.sh` contre un faux coffre qui enregistre ses appels, mode d'emploi dont chaque commande passe `bash -n` et ShellCheck), la prise en charge déclarée de chaque fiche confrontée aux générateurs (projets de référence et sondes par cible), le contrat de la ligne de commande (codes de sortie, sortie `--json`, fichiers illisibles), la cohérence entre l'assistant et le filtre de la palette, le catalogue personnel et le rafraîchissement du Landscape, et l'interface pilotée hors écran : glisser-déposer, formulaire de paramètres, surcharges, éditeur d'environnements, assistant, dialogues de validation, de différences, d'export, d'entretien, de fiche, de ports et d'application, et la largeur minimale de la fenêtre (1 280 px au plus) ; l'accessibilité (audit des deux thèmes : noms, clavier, focus mesuré à l'écran, contrastes, langue, texte à 200 %), les messages d'erreur en français, les performances sur un projet de 167 briques, et le guide confronté aux fichiers générés. Toute exception levée dans un slot Qt fait échouer le test en cours. Les tests utilisent un dossier personnel jetable : un catalogue personnel présent sur le poste ne les influence pas.
 
-La CI les passe sous Python 3.11 à 3.13, et une fois avec tous les outils installés (OpenTofu et un miroir de ses providers, kubeconform, sops, age, Ansible, PostgreSQL) : là, un test sauté fait échouer (`DEVOPS_BUILDER_TESTS_COMPLETS=1`). En local, `python tools/miroir_tofu.py ~/miroir-tofu` puis `DEVOPS_BUILDER_TOFU_MIRROR=~/miroir-tofu pytest` ajoute `tofu validate` sur chaque pile Terraform des projets de référence.
+La CI lit aussi l'arbre d'accessibilité de l'application comme Orca (AT-SPI, Linux) et NVDA (UI Automation, Windows). La CI les passe sous Python 3.11 à 3.13, et une fois avec tous les outils installés (OpenTofu et un miroir de ses providers, kubeconform, sops, age, Ansible, PostgreSQL) : là, un test sauté fait échouer (`DEVOPS_BUILDER_TESTS_COMPLETS=1`). En local, `python tools/miroir_tofu.py ~/miroir-tofu` puis `DEVOPS_BUILDER_TOFU_MIRROR=~/miroir-tofu pytest` ajoute `tofu validate` sur chaque pile Terraform des projets de référence.
 
 ### Non-régression
 
-`tests/test_regression.py` compare tout ce que génèrent 183 projets (fichiers et diagnostics) à l'instantané de `tests/golden/`, et recharge les projets enregistrés par chaque version précédente (`tests/data/legacy/`, de la 0.1 à la 0.18 : ouverts, contrôlés, générés, réenregistrés sans perte de valeur). À chaque version, des fichiers écrits par la précédente rejoignent ce corpus ; un test le vérifie. Après un changement voulu :
+`tests/test_regression.py` compare tout ce que génèrent 183 projets (fichiers et diagnostics) à l'instantané de `tests/golden/`, et recharge les projets enregistrés par chaque version précédente (`tests/data/legacy/`, de la 0.1 à la 0.19 : ouverts, contrôlés, générés, réenregistrés sans perte de valeur). À chaque version, des fichiers écrits par la précédente rejoignent ce corpus ; un test le vérifie. Après un changement voulu :
 
 ```bash
 UPDATE_GOLDEN=1 pytest tests/test_regression.py
@@ -238,6 +247,7 @@ Pour l'interface, `tools/screenshot.py` refait les captures et `tools/compare_ca
 - Une brique issue du Landscape sans fiche n'est contrôlée par aucune règle et ne produit aucun fichier : en faire une fiche personnelle. Une fiche personnelle est contrôlée par les règles, mais aucun générateur ne la connaît : elle apparaît dans « À configurer à la main ».
 - L'entretien n'interroge que GitHub et GitLab.com ; un dépôt hébergé ailleurs (Gitea, Codeberg, GitLab autohébergé) n'est suivi que par le Landscape et la date de vérification.
 - L'authentification cloud par OIDC n'est générée que pour GitLab CI et GitHub Actions. Gitea Actions reprend les actions GitHub, mais l'émission du jeton dépend de l'instance. Jenkins, Woodpecker, Tekton, Azure Pipelines et Cloud Build reposent sur des secrets ou sur l'identité du service.
+- Accessibilité : l'arbre lu par NVDA et Orca est vérifié, pas une session d'écoute complète ; VoiceOver n'est pas couvert ; le mode contraste élevé et la taille de police du système ne sont pas suivis (la taille du texte se règle dans l'application). Détail dans [docs/accessibilite.md](docs/accessibilite.md).
 
 ## Contribuer
 

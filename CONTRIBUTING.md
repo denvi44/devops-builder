@@ -77,7 +77,14 @@ l'outil de référence (schéma, linter, `tofu validate`, ShellCheck) dans les t
   (`docs/ligne-de-commande.md`).
 - Une ligne dans `CHANGELOG.md` pour chaque changement visible.
 - Accessibilité : chaque contrôle de l'interface a un nom accessible, et l'information ne passe jamais par la
-  couleur seule.
+  couleur seule ; `tests/test_accessibilite.py` passe l'audit (noms, clavier, focus, contrastes, langue, texte à
+  200 %) sur chaque dialogue : un dialogue ajouté se déclare dans `dialogs_of` (`devops_builder/ui/audit.py`).
+  Une icône décorative est une `DecorativeIcon`, pas un `QLabel` avec une image ; un message à faire lire passe
+  par la barre d'état ou par `a11y.announce`.
+- Messages d'erreur : jamais une trace ni un message système brut ; `messages.explain` traduit les erreurs du
+  système, de YAML et des commandes lancées.
+- Guide : un tutoriel cite des fichiers que son projet génère vraiment (`tests/test_guide.py`) ; un changement
+  de l'interface ou des fichiers générés met à jour `docs/guide/` (`mkdocs build --strict` pour vérifier).
 
 ## Publier une version
 

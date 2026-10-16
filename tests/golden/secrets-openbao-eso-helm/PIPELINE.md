@@ -94,7 +94,6 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Diagnostics restants
 
-- **Avertissement** (R34) — Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « mon-app.example.com » sera écrite dans les fichiers.
 - **Avertissement** (R40) — MySQL tourne dans le cluster et sert « Production », mais rien ne sauvegarde ses données : ajouter Velero, des instantanés de volumes ou les sauvegardes de l'opérateur, et tester la restauration.
 - **Avertissement** (R41) — MySQL est déployé en StatefulSet à une seule instance pour « Production » : ni réplication ni bascule. En production, préférer un opérateur ou un service managé.
 

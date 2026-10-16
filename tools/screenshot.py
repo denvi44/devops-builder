@@ -262,7 +262,19 @@ def main() -> int:
     app.processEvents()
     data.grab().save(str(out / f"16-vue-donnees{suffix}.png"))
     data.close()
-    print("captures écrites dans", out)
+    # Guide : le pipeline de chaque tutoriel, tel que l'assistant le crée
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from tutoriels import TUTORIALS
+
+    from devops_builder.starter import build_starter
+    guide = Path(__file__).resolve().parent.parent / "docs" / "guide" / "captures"
+    guide.mkdir(parents=True, exist_ok=True)
+    for slug, answers in TUTORIALS.items() if not dark else ():  # le guide n'illustre que le thème clair
+        win._load(build_starter(answers, win.catalog), None)
+        app.processEvents()
+        win.grab().save(str(guide / f"{slug}.png"))
+    win.undo_stack.setClean()
+    print("captures écrites dans", out, "et", guide)
     return 0
 
 

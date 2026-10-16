@@ -394,6 +394,7 @@ traefik:
       environnement pour que Traefik obtienne le certificat.
     example: "{app}.example.com"
     required: true
+    targets: [docker-host, vm]   # sur Kubernetes, le service n'est pas exposé par une règle Traefik générée
     pattern: '[a-z0-9]([a-z0-9.-]*[a-z0-9])?'
     pattern_hint: "nom d'hôte sans schéma, ex. boutique.fr"
   acme_email:

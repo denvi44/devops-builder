@@ -36,11 +36,15 @@ l'étiquette, publie sur PyPI sans secret stocké et rédige la publication depu
 Reste : signer les exécutables (certificat Authenticode, compte Apple Developer pour la notarisation) et un
 exécutable macOS Intel.
 
-## 0.20 — Qualité produit
+## 0.20 — Qualité produit (fait)
 
-Audit RGAA de l'application (lecteurs d'écran NVDA et Orca, clavier seul, contrastes des deux thèmes) et
-corrections ; guide utilisateur publié avec tutoriels ; messages d'erreur relus ; performances sur un gros
-projet.
+Audit d'accessibilité automatisé (EN 301 549 / WCAG 2.1 AA, RGAA en regard) dans les deux thèmes et corrections :
+textes de Qt traduits, anneau de focus, contrastes, annonces aux lecteurs d'écran, taille du texte jusqu'à
+200 %, équivalent clavier de chaque glisser. Arbres lus comme Orca et NVDA vérifiés en CI. Guide utilisateur
+publié avec quatre tutoriels confrontés aux fichiers générés ; messages d'erreur traduits ; libyaml (deux à trois
+fois plus rapide sur un gros projet).
+Reste : une session d'écoute complète avec NVDA, Orca et VoiceOver ; suivre le mode contraste élevé et la taille
+de police du système.
 
 ## Après la 1.0
 
