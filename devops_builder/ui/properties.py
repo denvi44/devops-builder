@@ -44,6 +44,7 @@ class PropertiesPanel(QScrollArea):
         self.catalog = catalog
         self.setWidgetResizable(True)
         self.setFrameShape(QScrollArea.Shape.NoFrame)
+        self.setAccessibleName("Propriétés de la sélection")
         self._uid: str | None = None
         self._tool_id: str | None = None
         self._loading = False

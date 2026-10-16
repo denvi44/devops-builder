@@ -100,7 +100,7 @@ class ChangesView(QWidget):
         rl.addWidget(self.diff, 1)
         split.addWidget(right)
         split.setSizes([500, 560])
-        self.tree.setColumnWidth(0, 300)
+        self.tree.setColumnWidth(0, theme.px(300))
         lay.addWidget(split, 1)
 
     def set_changes(self, changes: list[sync.FileChange]) -> None:

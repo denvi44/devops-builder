@@ -72,6 +72,7 @@ class FicheDialog(QDialog):
                               "s'en servent comme d'une fiche livrée. Relisez surtout les rôles, les capacités et les cibles."))
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setAccessibleName("Champs de la fiche")
         body = QWidget()
         form = QFormLayout(body)
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)

@@ -28,7 +28,7 @@ class Palette:
     text: str
     text_muted: str
     blocking: str = "#d32f2f"
-    warning: str = "#e65100"
+    warning: str = "#bf360c"   # orange foncé : 5,1:1 sur le fond clair (#e65100 n'atteignait que 3,5:1)
     info: str = "#1565c0"
     ok: str = "#2e7d32"
 
@@ -36,11 +36,23 @@ class Palette:
         return {"bloquant": self.blocking, "avertissement": self.warning, "info": self.info}.get(value, self.text_muted)
 
 
-LIGHT = Palette(False, "#00796b", "#48a999", "#ffffff", "#f5f5f5", "#d6d6d6", "#212121", "#5f6368")
-DARK = Palette(True, "#4db6ac", "#82e9de", "#2b3035", "#202326", "#3d444b", "#eceff1", "#b0bec5",
+LIGHT = Palette(False, "#00695c", "#48a999", "#ffffff", "#f5f5f5", "#d6d6d6", "#212121", "#5f6368")
+DARK = Palette(True, "#80cbc4", "#b2fef7", "#2b3035", "#202326", "#3d444b", "#eceff1", "#b0bec5",
                blocking="#ef9a9a", warning="#ffb74d", info="#90caf9", ok="#a5d6a7")
 
 _current: Palette = LIGHT
+# Taille du texte choisie dans Affichage (WCAG 1.4.4 : jusqu'à 200 % sans perte de contenu)
+TEXT_SCALES = (1.0, 1.25, 1.5, 2.0)
+_scale = 1.0
+
+
+def scale() -> float:
+    return _scale
+
+
+def px(value: float) -> int:
+    """Dimension proportionnelle à la taille du texte choisie."""
+    return round(value * _scale)
 
 
 def current() -> Palette:
@@ -52,6 +64,11 @@ def qcolor(hex_value: str, alpha: int | None = None) -> QColor:
     if alpha is not None:
         c.setAlpha(alpha)
     return c
+
+
+def _rgba(hex_value: str, alpha: float) -> str:
+    c = QColor(hex_value)
+    return f"rgba({c.red()}, {c.green()}, {c.blue()}, {alpha})"
 
 
 def _extra_qss(p: Palette) -> str:
@@ -70,11 +87,11 @@ QFrame#stageCard[dropState="no"] {{
     border: 1px dashed {p.border};
     background: {p.background};
 }}
-QLabel#stageTitle {{ font-weight: 600; font-size: 14px; color: {p.text}; }}
+QLabel#stageTitle {{ font-weight: 600; font-size: {px(14)}px; color: {p.text}; }}
 QFrame#stageCard[dropState="no"] QLabel#stageTitle {{ color: {p.text_muted}; }}
 QLabel#stageCount {{ color: {p.text_muted}; }}
-QLabel#sectionTitle {{ font-weight: 600; font-size: 13px; color: {p.text}; text-transform: none; }}
-QLabel#heroTitle {{ font-size: 20px; font-weight: 600; color: {p.text}; }}
+QLabel#sectionTitle {{ font-weight: 600; font-size: {px(13)}px; color: {p.text}; text-transform: none; }}
+QLabel#heroTitle {{ font-size: {px(20)}px; font-weight: 600; color: {p.text}; }}
 QLabel#muted {{ color: {p.text_muted}; }}
 QLabel[chip="true"] {{
     border: 1px solid {p.border};
@@ -100,8 +117,9 @@ QListWidget#stageList {{
 QListWidget#stageList::item, QListWidget#stageList::item:selected,
 QListWidget#stageList::item:hover {{ background: transparent; border: none; }}
 QScrollArea#canvasScroll, QWidget#canvasInner {{ background: {p.background}; border: none; }}
-QPlainTextEdit#codePreview {{ font-family: "DejaVu Sans Mono", "Consolas", monospace; font-size: 12px; }}
+QPlainTextEdit#codePreview {{ font-family: "DejaVu Sans Mono", "Consolas", monospace; font-size: {px(12)}px; }}
 QPushButton {{ text-transform: none; }}
+QToolButton:focus, QPushButton:focus, QPushButton:flat:focus {{ background-color: {_rgba(p.primary, 0.12)}; }}
 QPushButton#viewsButton {{ padding-right: 22px; }}
 QPushButton#viewsButton::menu-indicator {{ subcontrol-origin: padding; subcontrol-position: right center; right: 6px; }}
 QToolBar {{ spacing: 6px; }}
@@ -120,13 +138,18 @@ def _theme_file(dark: bool) -> Path:
     return THEMES_DIR / ("devops_dark.xml" if dark else "devops_light.xml")
 
 
-def apply(app: QApplication, dark: bool = False) -> Palette:
+def apply(app: QApplication, dark: bool = False, text_scale: float | None = None) -> Palette:
     """Applique le thème Material ; retourne la palette utilisée pour le dessin."""
-    global _current
+    global _current, _scale
     import qt_material  # importé après PySide6, comme l'exige qt-material
 
     _current = DARK if dark else LIGHT
-    extra = {"density_scale": "-1", "font_family": "Roboto, Inter, DejaVu Sans", "font_size": "13px"}
+    if text_scale is not None:
+        _scale = min(TEXT_SCALES, key=lambda s: abs(s - text_scale))
+    font = app.font()
+    font.setPointSizeF(10 * _scale)
+    app.setFont(font)
+    extra = {"density_scale": "-1", "font_family": "Roboto, Inter, DejaVu Sans", "font_size": f"{px(13)}px"}
     qt_material.apply_stylesheet(app, theme=str(_theme_file(dark)), invert_secondary=not dark, extra=extra)
     app.setStyleSheet(app.styleSheet() + _extra_qss(_current))
     qpal = app.palette()

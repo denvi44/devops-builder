@@ -292,6 +292,7 @@ class ProjectSettingsDialog(QDialog):
                 clusters.append((b.tool, t.name))
         self.envs_editor = EnvironmentsEditor(project, clusters, catalog=catalog)
         self.tabs = QTabWidget()
+        self.tabs.setAccessibleName("Paramètres du projet par thème")
         self.tabs.addTab(general, "Général")
         self.tabs.addTab(self.envs_editor, "Environnements")
 

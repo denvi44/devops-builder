@@ -177,6 +177,11 @@ def main(argv: list[str] | None = None) -> int:
     it.add_argument("--database", choices=["none", "postgresql", "mysql", "mariadb", "mongodb"],
                     help="Base de données principale (par défaut : celle que l'analyse a détectée)")
     it.add_argument("--envs", default="staging-prod", help="Modèle d'environnements (prod, staging-prod, …)")
+    raw = sys.argv[1:] if argv is None else argv
+    if raw and raw[0].endswith((".yaml", ".yml")) and not raw[0].startswith("-"):
+        # « devops-builder projet.devops.yaml » (ou un double-clic sur le fichier) : l'ouvrir dans l'interface
+        from .ui.app import run
+        return run(["devops-builder", *raw])
     args = parser.parse_args(argv)
 
     if args.cmd in ("scan", "init"):

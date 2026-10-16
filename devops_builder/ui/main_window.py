@@ -8,7 +8,7 @@ from datetime import date
 from pathlib import Path
 
 from PySide6.QtCore import QSettings, Qt, QTimer
-from PySide6.QtGui import QAction, QKeySequence, QUndoCommand, QUndoStack
+from PySide6.QtGui import QAction, QActionGroup, QKeySequence, QUndoCommand, QUndoStack
 from PySide6.QtWidgets import (
     QApplication,
     QDockWidget,
@@ -32,12 +32,13 @@ from ..generators import BlockingDiagnostics, generate
 from ..model import ENVIRONMENTS, STAGE_IDS, STAGE_LABELS, TARGETS, Project, ProjectFormatError, Severity
 from ..rules import Action, RuleEngine, apply_action
 from . import theme
+from .a11y import DecorativeIcon, announce
 from .canvas import PipelineCanvas
 from .diagnostics import DiagnosticsPanel
 from .dialogs import GenerateDialog, ProjectSettingsDialog, about_text
 from .palette import PaletteWidget
 from .properties import PropertiesPanel
-from .widgets import STAGE_ICONS, chip, clear_layout, icon
+from .widgets import chip, clear_layout, icon
 
 
 def autosave_path() -> Path:
@@ -86,12 +87,15 @@ class MainWindow(QMainWindow):
         self._build_docks()
         self._build_actions()
         self._build_toolbar_and_menus()
+        # chaque message de la barre d'état est aussi lu par le lecteur d'écran (WCAG 4.1.3)
+        self.statusBar().messageChanged.connect(lambda text: announce(self, text))
         self.statusBar().showMessage("Prêt", 3000)
         if self.catalog.errors:
             self.statusBar().showMessage(f"{len(self.catalog.errors)} erreur(s) dans le catalogue personnel : "
                                          "Catalogue › Entretien du catalogue pour le détail.", 15000)
         self.summary = QLabel()
         self.statusBar().addPermanentWidget(self.summary)
+        self._fit_status_bar()
         geo = self.settings.value("geometry")
         if geo is not None:
             self.restoreGeometry(geo)
@@ -105,11 +109,19 @@ class MainWindow(QMainWindow):
         lay.setSpacing(0)
         self.project_bar = QFrame()
         self.project_bar.setObjectName("projectBar")
-        bar = QHBoxLayout(self.project_bar)
-        bar.setContentsMargins(16, 10, 16, 10)
+        outer = QVBoxLayout(self.project_bar)
+        outer.setContentsMargins(16, 10, 16, 10)
+        outer.setSpacing(6)
+        self.title_row = QHBoxLayout()   # le titre y passe seul quand le texte est agrandi (150 % et plus)
+        outer.addLayout(self.title_row)
+        bar = QHBoxLayout()
+        bar.setContentsMargins(0, 0, 0, 0)
+        outer.addLayout(bar)
+        self.bar = bar
         self.title = QLabel()
         self.title.setObjectName("heroTitle")
         self.title.setMinimumWidth(120)
+        self.title.setWordWrap(True)  # texte agrandi ou nom long : le titre passe à la ligne plutôt que d'être coupé
         self.title.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
         bar.addWidget(self.title)
         self.app_btn = QPushButton()
@@ -125,7 +137,9 @@ class MainWindow(QMainWindow):
         self.chips_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.chips_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.chips_area.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
-        self.chips_area.setFixedHeight(30)
+        self.chips_area.setFixedHeight(theme.px(30))
+        self.chips_area.setAccessibleName("Résumé du projet")
+        self.chips_area.setAccessibleDescription("Flèches gauche et droite : faire défiler les puces rognées")
         self.chips_area.setStyleSheet("QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; }")
         chips = QWidget()
         self.chips_box = QHBoxLayout(chips)
@@ -150,6 +164,7 @@ class MainWindow(QMainWindow):
         self.generate_btn.clicked.connect(self.generate)
         bar.addWidget(self.generate_btn)
         lay.addWidget(self.project_bar)
+        self._arrange_bar()
 
         self.canvas = PipelineCanvas()
         self.canvas.selectionChanged.connect(self._select_brick)
@@ -295,6 +310,18 @@ class MainWindow(QMainWindow):
         c.addActions([self.a_maintenance, self.a_new_fiche, self.a_catalog_folder])
         v = mb.addMenu("&Affichage")
         v.addAction(self.a_theme)
+        sizes = v.addMenu("Taille du te&xte")
+        self.text_size_group = QActionGroup(self)
+        for factor in theme.TEXT_SCALES:
+            a = sizes.addAction(f"{round(factor * 100)} %")
+            a.setCheckable(True)
+            a.setChecked(abs(factor - theme.scale()) < 0.01)
+            a.setData(factor)
+            a.triggered.connect(lambda checked=False, f=factor: self.set_text_scale(f))
+            self.text_size_group.addAction(a)
+        sizes.addSeparator()
+        sizes.addAction(self._act("Agrandir le texte", lambda: self._step_text(1), "Ctrl++"))
+        sizes.addAction(self._act("Réduire le texte", lambda: self._step_text(-1), "Ctrl+-"))
         v.addSeparator()
         for d in (self.palette_dock, self.props_dock, self.diag_dock):
             v.addAction(d.toggleViewAction())
@@ -313,8 +340,8 @@ class MainWindow(QMainWindow):
         self.generate_btn.setIcon(icon("mdi6.rocket-launch-outline", pal.primary))
         self.settings_btn.setIcon(icon("mdi6.cog-outline", pal.text))
         self.views_btn.setIcon(icon("mdi6.view-dashboard-outline", pal.text))
-        for sid, col in self.canvas.columns.items():
-            col.findChild(QLabel).setPixmap(icon(STAGE_ICONS[sid], pal.primary).pixmap(20, 20))
+        for ic in self.canvas.findChildren(DecorativeIcon):
+            ic.update()
 
     # ============================================================ état / rafraîchissement
     def refresh(self, properties: bool = True) -> None:
@@ -434,6 +461,8 @@ class MainWindow(QMainWindow):
             self.selected = b.uid
 
         self.mutate(f"Ajouter {tool.name}", do)
+        self.statusBar().showMessage(f"{tool.name} ajouté à l'étape {STAGE_LABELS[target_stage]} — {self.summary.text()}",
+                                     5000)
 
     def move_brick(self, uid: str, stage: str, index: int) -> None:
         found = self.project.find(uid)
@@ -447,6 +476,7 @@ class MainWindow(QMainWindow):
             index -= 1
         self.selected = uid
         self.mutate("Déplacer la brique", lambda p: p.move(uid, stage, index))
+        self._announce_place(uid)
 
     def shift_brick(self, uid: str, delta: int) -> None:
         found = self.project.find(uid)
@@ -469,6 +499,16 @@ class MainWindow(QMainWindow):
         self.selected = uid
         self.mutate("Déplacer la brique", lambda p: p.move(uid, dest))
         self.canvas.select(uid)
+        self._announce_place(uid)
+
+    def _announce_place(self, uid: str) -> None:
+        found = self.project.find(uid)
+        if found:
+            stage, idx, brick = found
+            tool = self.catalog.get(brick.tool)
+            total = len(self.project.stages.get(stage, []))
+            self.statusBar().showMessage(f"{tool.name if tool else brick.tool} : étape {STAGE_LABELS[stage]}, "
+                                         f"position {idx + 1} sur {total}", 4000)
 
     def _explain_refusal(self, tool_id: str, stage: str) -> None:
         tool = self.catalog.get(tool_id)
@@ -742,9 +782,45 @@ class MainWindow(QMainWindow):
         self.a_theme.setChecked(self.dark)
         self.settings.setValue("dark", self.dark)
         theme.apply(QApplication.instance(), self.dark)  # type: ignore[arg-type]
+        self.canvas.rescale()
         self._update_icons()
         self.palette.refresh()
         self.refresh()
+
+    def set_text_scale(self, factor: float) -> None:
+        self.settings.setValue("text_scale", factor)
+        theme.apply(QApplication.instance(), self.dark, factor)  # type: ignore[arg-type]
+        for a in self.text_size_group.actions():
+            a.setChecked(abs(a.data() - theme.scale()) < 0.01)
+        self.chips_area.setFixedHeight(theme.px(30))
+        self._fit_status_bar()
+        self._arrange_bar()
+        self.canvas.rescale()
+        self._update_icons()
+        self.palette.refresh()
+        self.refresh()
+        self.statusBar().showMessage(f"Taille du texte : {round(theme.scale() * 100)} %", 3000)
+
+    def _arrange_bar(self) -> None:
+        """Texte agrandi : le titre prend sa propre ligne, pour ne pas être coupé à côté des boutons (WCAG 1.4.4)."""
+        alone = theme.scale() >= 1.5
+        self.title_row.removeWidget(self.title)
+        self.bar.removeWidget(self.title)
+        self.title.setWordWrap(not alone)
+        if alone:
+            self.title_row.addWidget(self.title)
+            self.title.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        else:
+            self.bar.insertWidget(0, self.title)
+            self.title.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
+
+    def _fit_status_bar(self) -> None:
+        self.statusBar().setMinimumHeight(self.summary.fontMetrics().height() + theme.px(10))
+
+    def _step_text(self, delta: int) -> None:
+        sizes = theme.TEXT_SCALES
+        i = min(range(len(sizes)), key=lambda k: abs(sizes[k] - theme.scale()))
+        self.set_text_scale(sizes[max(0, min(len(sizes) - 1, i + delta))])
 
     def show_rules(self) -> None:
         rows = "".join(f"<tr><td><b>{r.id}</b></td><td>{r.severity.label}</td><td>{r.title}</td></tr>"

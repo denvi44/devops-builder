@@ -38,7 +38,7 @@ def chip(text: str, primary: bool = False, tooltip: str = "") -> QLabel:
     if tooltip:
         lbl.setToolTip(tooltip)
     lbl.setAccessibleName(text)
-    lbl.setFixedHeight(24)
+    lbl.setFixedHeight(theme.px(24))
     return lbl
 
 

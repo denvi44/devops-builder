@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QApplication
 from ..catalog import default_catalog
 from ..model import Project, ProjectFormatError
 from ..rules import RuleEngine
-from . import theme
+from . import a11y, theme
 from .main_window import MainWindow
 
 
@@ -21,6 +21,8 @@ def create_window(argv: list[str] | None = None) -> tuple[QApplication, MainWind
     app.setApplicationName("DevOps Builder")
     app.setOrganizationName("DevOpsBuilder")
     app.setFont(theme.default_font())
+    a11y.install_translations(app)  # boutons standard, menus contextuels, sélecteur de fichiers en français
+    a11y.install_focus_ring(app)
     catalog = default_catalog()
     engine = RuleEngine(catalog)
 
@@ -34,7 +36,8 @@ def create_window(argv: list[str] | None = None) -> tuple[QApplication, MainWind
 
     from PySide6.QtCore import QSettings
     dark = QSettings("DevOpsBuilder", "DevOpsBuilder").value("dark", False, type=bool)
-    theme.apply(app, dark)  # type: ignore[arg-type]
+    text_scale = QSettings("DevOpsBuilder", "DevOpsBuilder").value("text_scale", 1.0, type=float)
+    theme.apply(app, dark, text_scale)  # type: ignore[arg-type]
     window = MainWindow(catalog, engine, project, path)
     if problem:
         window.statusBar().showMessage(problem, 15000)
@@ -43,7 +46,7 @@ def create_window(argv: list[str] | None = None) -> tuple[QApplication, MainWind
     return app, window  # type: ignore[return-value]
 
 
-def run() -> int:
-    app, window = create_window()
+def run(argv: list[str] | None = None) -> int:
+    app, window = create_window(argv)
     window.show()
     return app.exec()

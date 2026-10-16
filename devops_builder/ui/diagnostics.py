@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QRect, Qt, Signal
 from PySide6.QtWidgets import (
+    QHeaderView,
     QLabel,
     QPushButton,
     QSplitter,
+    QStyledItemDelegate,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -18,6 +20,20 @@ from ..model import Severity
 from ..rules import Action, Diagnostic
 from . import theme
 from .widgets import SEVERITY_ICONS, clear_layout, icon, muted, plain, section_title
+
+
+class _WrapDelegate(QStyledItemDelegate):
+    """Hauteur de ligne d'après le texte replié à la largeur de la colonne (Qt mesure sans largeur imposée)."""
+
+    def sizeHint(self, option, index):  # noqa: N802
+        size = super().sizeHint(option, index)
+        view = self.parent()
+        width = view.columnWidth(index.column()) - 12
+        text = index.data() or ""
+        if width > 40 and text:
+            rect = option.fontMetrics.boundingRect(QRect(0, 0, width, 100000), Qt.TextFlag.TextWordWrap, text)
+            size.setHeight(max(size.height(), rect.height() + 12))
+        return size
 
 
 class DiagnosticsPanel(QWidget):
@@ -39,9 +55,14 @@ class DiagnosticsPanel(QWidget):
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels(["Gravité", "Règle", "Message"])
         self.tree.setRootIsDecorated(False)
-        self.tree.setColumnWidth(0, 140)
-        self.tree.setColumnWidth(1, 72)
+        # largeur des colonnes Gravité et Règle d'après leur contenu : rien de coupé quand le texte est agrandi
+        self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.tree.setAlternatingRowColors(True)
+        self.tree.setWordWrap(True)          # message entier sur plusieurs lignes, plutôt que tronqué
+        self.tree.setUniformRowHeights(False)
+        self.tree.setItemDelegate(_WrapDelegate(self.tree))
+        self.tree.header().sectionResized.connect(lambda *_: self.tree.scheduleDelayedItemsLayout())
         self.tree.setAccessibleName("Diagnostics de compatibilité")
         self.tree.currentItemChanged.connect(self._current)
         self.tree.itemActivated.connect(self._activated)

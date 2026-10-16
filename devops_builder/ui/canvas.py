@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 from ..catalog import Catalog
 from ..model import STAGES, SUPPORT, Project
 from . import theme
+from .a11y import DecorativeIcon
 from .palette import MIME_TOOL
 from .widgets import KIND_ICONS, SEVERITY_ICONS, STAGE_ICONS, icon
 
@@ -44,7 +45,8 @@ class BrickDelegate(QStyledItemDelegate):
     """Dessine une brique comme une carte Material : nom, sous-titre, état."""
 
     def sizeHint(self, option, index) -> QSize:  # noqa: N802
-        return QSize(COLUMN_WIDTH - 24, CARD_HEIGHT)
+        line = option.fontMetrics.height()
+        return QSize(theme.px(COLUMN_WIDTH) - 24, max(CARD_HEIGHT, 2 * line + 26))
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex) -> None:
         pal = theme.current()
@@ -84,15 +86,19 @@ class BrickDelegate(QStyledItemDelegate):
         name_font.setBold(True)
         painter.setFont(name_font)
         painter.setPen(theme.qcolor(pal.text))
-        name_rect = QRect(text_left, rect.top() + 7, rect.right() - text_left - right_pad, 20)
+        line = painter.fontMetrics().height()
+        name_rect = QRect(text_left, rect.top() + 6, rect.right() - text_left - right_pad, line + 2)
         name = painter.fontMetrics().elidedText(index.data(R_NAME) or "", Qt.TextElideMode.ElideRight, name_rect.width())
         painter.drawText(name_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, name)
 
         sub_font = QFont(option.font)
-        sub_font.setPointSizeF(max(7.5, option.font.pointSizeF() - 1.5))
+        if option.font.pixelSize() > 0:   # taille donnée en pixels par la feuille de style
+            sub_font.setPixelSize(max(10, round(option.font.pixelSize() * 0.85)))
+        else:
+            sub_font.setPointSizeF(max(7.5, option.font.pointSizeF() - 1.5))
         painter.setFont(sub_font)
         painter.setPen(theme.qcolor(pal.text_muted))
-        sub_rect = QRect(text_left, rect.top() + 28, rect.right() - text_left - 10, 18)
+        sub_rect = QRect(text_left, name_rect.bottom() + 3, rect.right() - text_left - 10, painter.fontMetrics().height() + 2)
         sub = painter.fontMetrics().elidedText(index.data(R_SUB) or "", Qt.TextElideMode.ElideRight, sub_rect.width())
         painter.drawText(sub_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, sub)
 
@@ -128,7 +134,8 @@ class StageList(QListWidget):
         self.setMouseTracking(True)
         self.setSpacing(1)
         self.setAccessibleName(f"Étape {label}")
-        self.setAccessibleDescription("Suppr retire la brique ; Alt+flèches la déplace d'étape.")
+        self.setAccessibleDescription("Suppr retire la brique ; Alt+gauche ou droite la change d'étape, "
+                                      "Alt+haut ou bas la déplace dans l'étape.")
 
     # ----------------------------------------------------------- glisser-déposer
     def mimeTypes(self):  # noqa: N802
@@ -215,6 +222,15 @@ class StageList(QListWidget):
             if event.modifiers() & Qt.KeyboardModifier.AltModifier and event.key() in (Qt.Key.Key_Left, Qt.Key.Key_Right):
                 self.shiftRequested.emit(uid, -1 if event.key() == Qt.Key.Key_Left else 1)
                 return
+            # Alt+haut / Alt+bas : l'équivalent clavier du glisser dans la colonne (WCAG 2.5.7)
+            row = self.row(item)
+            if event.modifiers() & Qt.KeyboardModifier.AltModifier and event.key() == Qt.Key.Key_Up and row > 0:
+                self.brickMoved.emit(uid, self.stage, row - 1)
+                return
+            if event.modifiers() & Qt.KeyboardModifier.AltModifier and event.key() == Qt.Key.Key_Down \
+                    and row < self.count() - 1:
+                self.brickMoved.emit(uid, self.stage, row + 2)  # index avant retrait, comme un dépôt
+                return
         super().keyPressEvent(event)
 
     def paintEvent(self, event):  # noqa: N802
@@ -246,14 +262,12 @@ class StageColumn(QFrame):
     def __init__(self, stage: str, label: str, parent: QWidget | None = None):
         super().__init__(parent)
         self.setObjectName("stageCard")
-        self.setFixedWidth(COLUMN_WIDTH)
+        self.setFixedWidth(theme.px(COLUMN_WIDTH))
         lay = QVBoxLayout(self)
         lay.setContentsMargins(10, 10, 10, 10)
         lay.setSpacing(6)
         head = QHBoxLayout()
-        ic = QLabel()
-        ic.setPixmap(icon(STAGE_ICONS[stage], theme.current().primary).pixmap(20, 20))
-        head.addWidget(ic)
+        head.addWidget(DecorativeIcon(STAGE_ICONS[stage]))
         title = QLabel(label)
         title.setObjectName("stageTitle")
         head.addWidget(title, 1)
@@ -284,6 +298,7 @@ class PipelineCanvas(QScrollArea):
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setObjectName("canvasScroll")
+        self.setAccessibleName("Pipeline")
         self.setWidgetResizable(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         inner = QWidget()
@@ -349,6 +364,7 @@ class PipelineCanvas(QScrollArea):
             lst.clear()
             bricks = project.stages.get(sid, [])
             col.count.setText(str(len(bricks)))
+            col.count.setAccessibleName(f"{len(bricks)} brique" + ("s" if len(bricks) > 1 else ""))
             for b in bricks:
                 t = catalog.get(b.tool)
                 item = QListWidgetItem()
@@ -386,6 +402,12 @@ class PipelineCanvas(QScrollArea):
         if t.roles:
             parts.append(", ".join(t.roles[:2]))
         return " · ".join(parts)
+
+    def rescale(self) -> None:
+        """Largeur des colonnes et hauteur des cartes après un changement de taille du texte."""
+        for col in self.columns.values():
+            col.setFixedWidth(theme.px(COLUMN_WIDTH))
+            col.list.doItemsLayout()
 
     def select(self, uid: str) -> None:
         for col in self.columns.values():
