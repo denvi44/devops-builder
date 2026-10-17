@@ -36,7 +36,7 @@ l'étiquette, publie sur PyPI sans secret stocké et rédige la publication depu
 Reste : signer les exécutables (certificat Authenticode, compte Apple Developer pour la notarisation) et un
 exécutable macOS Intel.
 
-## 0.20 — Qualité produit (fait)
+## 0.20 — Qualité produit (publiée le 17 octobre)
 
 Audit d'accessibilité automatisé (EN 301 549 / WCAG 2.1 AA, RGAA en regard) dans les deux thèmes et corrections :
 textes de Qt traduits, anneau de focus, contrastes, annonces aux lecteurs d'écran, taille du texte jusqu'à
