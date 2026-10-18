@@ -245,6 +245,29 @@ def external_vault(ir: IR, tool_id: str) -> bool:
     return tool_id in ("vault", "openbao") and ir.has(tool_id) and bool(ir.params(tool_id).get("address"))
 
 
+def _behind_traefik(ir: IR, services: dict[str, dict]) -> dict[str, dict]:
+    """Avec Traefik : les interfaces web passent derrière lui (HTTPS, nom d'hôte) au lieu d'être publiées sur
+    l'hôte ; Prometheus et Loki, sans authentification, ne sont plus publiés du tout."""
+    from ..ports import INTERNAL_TOOLS, ROUTED_TOOLS, routed_hostname
+    out = dict(services)
+    for tid, svc in services.items():
+        if tid in INTERNAL_TOOLS:
+            out[tid] = {k: v for k, v in svc.items() if k != "ports"}
+        elif tid in ROUTED_TOOLS:
+            port = ROUTED_TOOLS[tid][0]
+            kept = [p for p in svc.get("ports", []) if int(str(p).split(":")[-1]) != port]
+            new = {k: v for k, v in svc.items() if k != "ports"}
+            if kept:
+                new["ports"] = kept
+            name = ROUTED_TOOLS[tid][1]
+            new["labels"] = ["traefik.enable=true",
+                             f"traefik.http.routers.{name}.rule=Host(`{routed_hostname(ir.project, tid)}`)",
+                             f"traefik.http.routers.{name}.entrypoints=websecure",
+                             f"traefik.http.services.{name}.loadbalancer.server.port={port}"]
+            out[tid] = new
+    return out
+
+
 def compose_platform_services(ir: IR) -> dict[str, dict]:
     services = {t: COMPOSE_SERVICES[t] for t in COMPOSE_SERVICES if ir.has(t) and not external_vault(ir, t)}
     # seulement une adresse saisie : la valeur d'exemple (example.com) ferait refuser le compte par Let's Encrypt
@@ -252,6 +275,8 @@ def compose_platform_services(ir: IR) -> dict[str, dict]:
     if email and "traefik" in services:  # adresse de contact du compte Let's Encrypt (facultative)
         services["traefik"] = {**services["traefik"], "command": [
             *services["traefik"]["command"], f"--certificatesresolvers.letsencrypt.acme.email={email}"]}
+    if ir.has("traefik"):
+        services = _behind_traefik(ir, services)
     for t in ("vault", "openbao"):
         if external_vault(ir, t):
             ir.cover(t)  # coffre existant : lu par la CI (scripts/secrets-fetch.sh)

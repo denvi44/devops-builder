@@ -13,9 +13,29 @@ _registry_url: &registry_url
     pattern: '[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?'
     pattern_hint: "nom d'hôte sans schéma ni chemin, ex. registry.example.com ou registry.local:5000"
 
+_hostname: &hostname
+  label: Adresse publique
+  description: >-
+    Nom d'hôte servi en HTTPS par Traefik (sans schéma). Laissé vide : <sous-domaine>.<domaine des outils>.
+    Sans Traefik, le port de l'interface est publié sur l'hôte.
+  pattern: '[a-z0-9]([a-z0-9.-]*[a-z0-9])?'
+  pattern_hint: "nom d'hôte sans schéma, ex. grafana.example.com"
+
 harbor: *registry_url
 zot: *registry_url
 distribution: *registry_url
+grafana:
+  hostname: *hostname
+sonarqube:
+  hostname: *hostname
+jenkins:
+  hostname: *hostname
+gitea:
+  hostname: *hostname
+minio:
+  hostname: *hostname
+jaeger:
+  hostname: *hostname
 nexus:
   url:
     label: Adresse du registre Docker de Nexus

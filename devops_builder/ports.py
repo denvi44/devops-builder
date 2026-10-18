@@ -72,6 +72,33 @@ def env_offset(project: Project, env: Environment) -> int:
 WEB_SERVICES = (("keycloak", 8080, "interface et OIDC"), ("dex", 5556, "OIDC"), ("zabbix", 8080, "interface web"))
 
 
+# Interfaces web des briques Compose, servies par Traefik quand il est présent : (port du conteneur, sous-domaine).
+# Elles ont leur propre authentification ; leur port n'est alors plus publié sur l'hôte.
+ROUTED_TOOLS: dict[str, tuple[int, str]] = {
+    "grafana": (3000, "grafana"), "sonarqube": (9000, "sonarqube"), "jenkins": (8080, "jenkins"),
+    "gitea": (3000, "gitea"), "minio": (9001, "minio"), "jaeger": (16686, "jaeger"),
+    "zot": (5000, "registry"), "distribution": (5000, "registry"),
+}
+# Services sans authentification propre, utiles seulement aux autres conteneurs (Grafana les interroge) :
+# jamais publiés quand Traefik est là, ni derrière lui (il les exposerait sans mot de passe).
+INTERNAL_TOOLS = ("prometheus", "loki")
+
+
+def tools_domain(project: Project) -> str:
+    for _, b in project.all_bricks():
+        if b.tool in ("keycloak", "dex") and (b.params or {}).get("tools_domain"):
+            return str(b.params["tools_domain"])
+    return "example.com"
+
+
+def routed_hostname(project: Project, tool: str) -> str:
+    """Adresse servie par Traefik : paramètre « hostname » de la brique, sinon <sous-domaine>.<domaine des outils>."""
+    key = "url" if tool in ("zot", "distribution") else "hostname"
+    given = next((str(b.params.get(key)).split(":")[0] for _, b in project.all_bricks()
+                  if b.tool == tool and (b.params or {}).get(key)), "")
+    return given or f"{ROUTED_TOOLS[tool][1]}.{tools_domain(project)}"
+
+
 def compose_publishes(project: Project) -> bool:
     return project.target in ("docker-host", "vm") and any(b.tool == "docker-compose" for _, b in project.all_bricks())
 
@@ -139,8 +166,14 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
                     continue
                 tool = catalog.get(tid)
                 for host, container in _compose_ports(COMPOSE_SERVICES[tid].get("ports", [])):
-                    add(tid, tool.name if tool else tid, container, host + offset,
-                        ports.get(tid, {}).get(container, ""), "publié sur l'hôte Docker")
+                    usage = ports.get(tid, {}).get(container, "")
+                    label = tool.name if tool else tid
+                    if "traefik" in present and tid in INTERNAL_TOOLS:
+                        add(tid, label, container, None, usage, "réseau interne Compose, non publié")
+                    elif "traefik" in present and ROUTED_TOOLS.get(tid, (0,))[0] == container:
+                        add(tid, label, container, None, usage, f"via Traefik, hôte {routed_hostname(project, tid)}")
+                    else:
+                        add(tid, label, container, host + offset, usage, "publié sur l'hôte Docker")
             # services écrits par leur propre générateur (identité, Zabbix) : derrière Traefik, sinon publiés
             for tid, container, usage in WEB_SERVICES:
                 if tid not in present:

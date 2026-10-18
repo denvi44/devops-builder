@@ -136,6 +136,9 @@ def tool_url(ir: IR, c: ToolClient) -> str:
         addr = str(ir.params(c.tool).get("address") or "")
         if addr:
             return addr.rstrip("/")
+    given = str(ir.params(c.tool).get("hostname") or "")
+    if given:
+        return f"https://{given}"
     return f"https://{c.sub}.{domain(ir)}"
 
 
