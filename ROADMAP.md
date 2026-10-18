@@ -46,6 +46,12 @@ fois plus rapide sur un gros projet).
 Reste : une session d'écoute complète avec NVDA, Orca et VoiceOver ; suivre le mode contraste élevé et la taille
 de police du système.
 
+## 0.21 — Pipelines types par fournisseur (en préparation)
+
+Douze modèles (Kubernetes managé, serverless ou machines) pour AWS, Google Cloud, Azure, OVHcloud, Scaleway et
+Outscale, ouverts depuis le menu Fichier ou `devops-builder template`.
+Reste : les éprouver sur un vrai compte cloud (apply, destroy).
+
 ## Après la 1.0
 
 - 1.1 : pile Elastic sur hôte Docker (Elasticsearch, Kibana, Logstash), comme Zabbix ; schéma d'architecture

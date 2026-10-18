@@ -31,6 +31,7 @@ sortie d'erreur et conservés (voir [format.md](format.md)).
 | `devops-builder catalog-import "Nom"` | Créer une fiche personnelle depuis le Landscape ; `--id`, `--stage`, `--license`, `--offline` |
 | `devops-builder landscape-refresh` | Rafraîchir l'index du Landscape ; `--source`, `--reset` |
 | `devops-builder scan ../mon-app` | Analyser le dossier d'une application ; `--json` |
+| `devops-builder template` | Lister les pipelines types par fournisseur ; `template aws -o projet.devops.yaml` crée le projet (voir le guide) |
 | `devops-builder init ../mon-app -o mon-app.devops.yaml` | Créer un projet depuis l'analyse ; `--hosting`, `--cloud`, `--database`, `--envs` |
 
 `generate` n'écrase pas un fichier retouché à la main : il le liste (`kept` en JSON), et `--overwrite` le

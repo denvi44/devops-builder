@@ -4,6 +4,21 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## 0.21.0 — 2026-10-18 — Pipelines types par fournisseur
+
+Douze pipelines complets, prêts à ouvrir et à ajuster : un Kubernetes managé pour chacun des six fournisseurs du
+catalogue, et des variantes sans Kubernetes. Les fichiers générés des projets existants ne changent pas.
+
+### Ajouté
+- **Modèles de pipeline par fournisseur** (`devops_builder/modeles.py`) : AWS (EKS, ECS Fargate, EC2), Google
+  Cloud (GKE, Cloud Run), Azure (AKS, machines virtuelles), OVHcloud (Managed Kubernetes, instances), Scaleway
+  (Kapsule, instance Docker) et Outscale (SecNumCloud, machines). Chacun réunit les services du fournisseur
+  (registre, base managée, coffre de secrets, supervision, état OpenTofu), la connexion de la CI au cloud et les
+  contrôles de sécurité ; aucune erreur bloquante, seules les valeurs propres au projet restent signalées (R34).
+  Menu Fichier › Nouveau depuis un modèle de fournisseur, et `devops-builder template [modèle] -o projet.devops.yaml`.
+- Guide : page « Pipelines types par fournisseur cloud ». Douze projets de référence ajoutés aux tests, et le
+  corpus de compatibilité des fichiers projet de la 0.20.
+
 ## 0.20.0 — 2026-10-16 — Qualité produit
 
 Accessibilité de l'application vérifiée et corrigée, messages d'erreur en français, deux à trois fois plus

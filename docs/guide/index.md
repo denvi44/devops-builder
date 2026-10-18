@@ -41,6 +41,8 @@ Le projet s'enregistre dans un fichier `.devops.yaml` (Ctrl+S), lisible et versi
 ## Pour commencer
 
 - [Prise en main de l'interface](interface.md) : les zones de l'écran, le clavier, les réglages d'affichage.
+- [Pipelines types par fournisseur](modeles.md) : un modèle prêt à ajuster pour AWS, Google Cloud, Azure,
+  OVHcloud, Scaleway et Outscale.
 - Tutoriels, chacun de bout en bout :
     - [Site web sur un hôte Docker](tutoriels/hote-docker.md) — GitLab, Docker Compose, PostgreSQL ;
     - [API sur k3s en GitOps](tutoriels/k3s-gitops.md) — GitHub, Helm, Argo CD ;

@@ -1,0 +1,225 @@
+# Généré par DevOps Builder — à relire avant usage.
+stages:
+- test
+- build
+- security
+- publish
+- infra
+- deploy-staging
+- deploy-production
+- renovate
+variables:
+  TAG: $CI_COMMIT_SHORT_SHA
+  IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+unit-tests:
+  stage: test
+  image:
+    name: python:3.12-slim
+    entrypoint:
+    - ''
+  script:
+  - pip install -r requirements.txt
+  - pytest -q
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+build-image:
+  stage: build
+  image:
+    name: docker:27
+    entrypoint:
+    - ''
+  services:
+  - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: /certs
+  script:
+  - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  - docker buildx build --tag "$IMAGE" --push .
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+gitleaks:
+  stage: security
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint:
+    - ''
+  script:
+  - gitleaks detect --source . --verbose
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+trivy:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint:
+    - ''
+  variables:
+    TRIVY_USERNAME: $CI_REGISTRY_USER
+    TRIVY_PASSWORD: $CI_REGISTRY_PASSWORD
+  script:
+  - trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+cosign:
+  stage: publish
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  script:
+  - apk add --no-cache cosign
+  - echo "$CI_REGISTRY_PASSWORD" | cosign login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  - cosign sign --yes "$IMAGE"
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+iac-plan:
+  stage: infra
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  script:
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - export AWS_ACCESS_KEY_ID="$SCW_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$SCW_SECRET_KEY"
+  - cd infra/terraform
+  - tofu fmt -check -recursive
+  - tofu init -input=false
+  - tofu validate
+  - tofu plan -input=false -lock-timeout=5m -out=plan.tfplan
+  artifacts:
+    paths:
+    - infra/terraform/plan.tfplan
+    expire_in: 1 week
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+iac-apply:
+  stage: infra
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  resource_group: terraform
+  script:
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - export AWS_ACCESS_KEY_ID="$SCW_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$SCW_SECRET_KEY"
+  - cd infra/terraform
+  - tofu init -input=false
+  - tofu apply -input=false -lock-timeout=5m plan.tfplan
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - iac-plan
+deploy-staging:
+  stage: deploy-staging
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  environment:
+    name: staging
+  script:
+  - apk add --no-cache openssh-client
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - apk add --no-cache bash jq
+  - export AWS_ACCESS_KEY_ID="$SCW_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$SCW_SECRET_KEY"
+  - export DEPLOY_HOST_STAGING="deploy@$(bash scripts/tf-inventory.sh --first staging)"
+  - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+  - ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_STAGING" "mkdir -p /opt/mon-app-staging"
+  - scp deploy/docker-compose.yml "$DEPLOY_HOST_STAGING:/opt/mon-app-staging/docker-compose.yml"
+  - apk add --no-cache curl bash jq
+  - mkdir -p "$HOME/.local/bin" && export PATH="$HOME/.local/bin:$PATH"
+  - curl -fsSLo "$HOME/.local/bin/sops" "https://github.com/getsops/sops/releases/download/v3.11.0/sops-v3.11.0.linux.amd64"
+  - echo "775f1384d55decfad228e7196a3f683791914f92a473f78fc47700531c29dfef  $HOME/.local/bin/sops" | sha256sum -c -
+  - chmod +x "$HOME/.local/bin/sops"
+  - SECRETS_ENV="$(bash scripts/secrets-fetch.sh staging)"
+  - eval "$SECRETS_ENV"
+  - sh deploy/secrets.sh .secrets
+  - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_STAGING" "mkdir -p /opt/mon-app-staging/secrets && chmod 700 /opt/mon-app-staging/secrets && tar -C /opt/mon-app-staging/secrets -xf - && chmod 600 /opt/mon-app-staging/secrets/*"
+  - rm -rf .secrets
+  - scp scripts/db-backup.sh "$DEPLOY_HOST_STAGING:/opt/mon-app-staging/db-backup.sh"
+  - scp scripts/db-restore.sh "$DEPLOY_HOST_STAGING:/opt/mon-app-staging/db-restore.sh"
+  - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_STAGING" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
+  - ssh "$DEPLOY_HOST_STAGING" "cd /opt/mon-app-staging && IMAGE=$IMAGE APP_HOST=staging.mon-app.example.com docker compose -p mon-app-staging pull && IMAGE=$IMAGE APP_HOST=staging.mon-app.example.com docker
+    compose -p mon-app-staging up -d"
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+deploy-production:
+  stage: deploy-production
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  environment:
+    name: production
+  script:
+  - apk add --no-cache openssh-client
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - apk add --no-cache bash jq
+  - export AWS_ACCESS_KEY_ID="$SCW_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$SCW_SECRET_KEY"
+  - export DEPLOY_HOST_PRODUCTION="deploy@$(bash scripts/tf-inventory.sh --first production)"
+  - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+  - ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST_PRODUCTION" "mkdir -p /opt/mon-app"
+  - scp deploy/docker-compose.yml "$DEPLOY_HOST_PRODUCTION:/opt/mon-app/docker-compose.yml"
+  - apk add --no-cache curl bash jq
+  - mkdir -p "$HOME/.local/bin" && export PATH="$HOME/.local/bin:$PATH"
+  - curl -fsSLo "$HOME/.local/bin/sops" "https://github.com/getsops/sops/releases/download/v3.11.0/sops-v3.11.0.linux.amd64"
+  - echo "775f1384d55decfad228e7196a3f683791914f92a473f78fc47700531c29dfef  $HOME/.local/bin/sops" | sha256sum -c -
+  - chmod +x "$HOME/.local/bin/sops"
+  - SECRETS_ENV="$(bash scripts/secrets-fetch.sh production)"
+  - eval "$SECRETS_ENV"
+  - sh deploy/secrets.sh .secrets
+  - tar -C .secrets -cf - . | ssh "$DEPLOY_HOST_PRODUCTION" "mkdir -p /opt/mon-app/secrets && chmod 700 /opt/mon-app/secrets && tar -C /opt/mon-app/secrets -xf - && chmod 600 /opt/mon-app/secrets/*"
+  - rm -rf .secrets
+  - scp scripts/db-backup.sh "$DEPLOY_HOST_PRODUCTION:/opt/mon-app/db-backup.sh"
+  - scp scripts/db-restore.sh "$DEPLOY_HOST_PRODUCTION:/opt/mon-app/db-restore.sh"
+  - echo "$CI_REGISTRY_PASSWORD" | ssh "$DEPLOY_HOST_PRODUCTION" "docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin"
+  - ssh "$DEPLOY_HOST_PRODUCTION" "cd /opt/mon-app && IMAGE=$IMAGE APP_HOST=mon-app.example.com docker compose -p mon-app pull && IMAGE=$IMAGE APP_HOST=mon-app.example.com docker compose -p mon-app up -d"
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - deploy-staging
+renovate:
+  stage: renovate
+  image:
+    name: renovate/renovate:44.164.5
+    entrypoint:
+    - ''
+  rules:
+  - if: $CI_PIPELINE_SOURCE == "schedule" && $RENOVATE == "1"
+  variables:
+    RENOVATE_PLATFORM: gitlab
+    RENOVATE_ENDPOINT: $CI_API_V4_URL
+    RENOVATE_REPOSITORIES: $CI_PROJECT_PATH
+    LOG_LEVEL: info
+  script:
+  - renovate

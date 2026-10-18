@@ -1,0 +1,82 @@
+format_version: 2
+name: Modèle AWS ECS
+description: Conteneurs serverless sur ECS Fargate, ECR, RDS PostgreSQL, Secrets Manager
+  ; sans cluster à administrer ; journaux dans CloudWatch ; GitHub Actions connecté
+  à AWS par OIDC.
+target: docker-host
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: github
+    params: {}
+  build:
+  - uid: brique002
+    tool: github-actions
+    params: {}
+  - uid: brique003
+    tool: buildkit
+    params: {}
+  - uid: brique004
+    tool: dependabot
+    params: {}
+  test:
+  - uid: brique005
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: brique006
+    tool: gitleaks
+    params: {}
+  - uid: brique007
+    tool: trivy
+    params: {}
+  - uid: brique008
+    tool: cosign
+    params: {}
+  artifacts:
+  - uid: brique009
+    tool: ecr
+    params: {}
+  infrastructure:
+  - uid: brique010
+    tool: aws
+    params: {}
+  - uid: brique011
+    tool: opentofu
+    params: {}
+  - uid: brique012
+    tool: s3
+    params: {}
+  data:
+  - uid: brique013
+    tool: aws-rds
+    params: {}
+  deploy:
+  - uid: brique014
+    tool: ecs-fargate
+    params: {}
+  platform:
+  - uid: brique015
+    tool: aws-secrets-manager
+    params: {}
+  observability: []

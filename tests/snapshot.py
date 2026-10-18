@@ -57,6 +57,11 @@ def corpus() -> dict[str, Project]:
             cases[f"assistant-{i:04d}"] = build_starter(answers, catalog)
     for name, project in extra_cases(catalog).items():
         cases[name] = project
+    # 0.21 : pipelines types par fournisseur cloud
+    from devops_builder import modeles
+    if hasattr(modeles, "MODELES"):
+        for slug in modeles.MODELES:
+            cases[f"modele-{slug}"] = modeles.build(slug, catalog)
     return cases
 
 

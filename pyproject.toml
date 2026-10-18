@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "izinum-devops-builder"
-version = "0.20.0"
+version = "0.21.0"
 description = "Application graphique Material pour composer des pipelines DevOps cohérents à partir du CNCF Landscape."
 readme = "README.md"
 requires-python = ">=3.11,<3.15"  # PySide6 6.11 : pas de Python 3.15

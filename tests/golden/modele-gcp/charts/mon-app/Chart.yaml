@@ -1,0 +1,7 @@
+# Généré par DevOps Builder — à relire avant usage.
+apiVersion: v2
+name: mon-app
+description: Chart de Modèle Google Cloud
+type: application
+version: 0.1.0
+appVersion: 0.1.0

@@ -172,6 +172,9 @@ def main(argv: list[str] | None = None) -> int:
     sc = sub.add_parser("scan", help="Analyser le dossier d'une application")
     sc.add_argument("folder")
     sc.add_argument("--json", action="store_true", help="Sortie JSON")
+    tp = sub.add_parser("template", help="Créer un projet depuis un pipeline type par fournisseur cloud")
+    tp.add_argument("modele", nargs="?", help="aws, gcp, azure, ovhcloud, scaleway, outscale, aws-ecs, aws-ec2… ; sans argument : la liste")
+    tp.add_argument("-o", "--output", help="Fichier projet à écrire (.devops.yaml)")
     it = sub.add_parser("init", help="Créer un projet à partir du dossier d'une application")
     it.add_argument("folder")
     it.add_argument("-o", "--output", required=True, help="Fichier projet à écrire (.devops.yaml)")
@@ -189,6 +192,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd in ("scan", "init"):
         return _app_command(args)
+    if args.cmd == "template":
+        return _template_command(args)
     if args.cmd is None:
         from .ui.app import run
         return run()
@@ -334,6 +339,27 @@ def _app_command(args) -> int:
     blocking = RuleEngine.blocking(diags)
     print(f"{len(project.all_bricks())} briques, {len(diags)} diagnostic(s)" + (f", dont {len(blocking)} bloquant(s)" if blocking else "") + ".")
     return 1 if blocking else 0
+
+
+def _template_command(args) -> int:
+    from .modeles import MODELES, build
+    if not args.modele:
+        for m in MODELES.values():
+            print(f"{m.slug:<10} {m.title} — {m.description}")
+        return 0
+    if args.modele not in MODELES:
+        print(f"Modèle inconnu : {args.modele} (au choix : {', '.join(MODELES)})", file=sys.stderr)
+        return USAGE
+    if not args.output:
+        print("Préciser le fichier à écrire : -o projet.devops.yaml", file=sys.stderr)
+        return USAGE
+    catalog = default_catalog()
+    project = build(args.modele, catalog)
+    project.save(args.output)
+    diags = RuleEngine(catalog).evaluate(project)
+    print(f"Projet « {project.name} » écrit dans {args.output} : {len(project.all_bricks())} briques, "
+          f"{len(diags)} valeur(s) à renseigner ou diagnostic(s) (devops-builder check {args.output}).")
+    return 0
 
 
 def _catalog_command(args) -> int:

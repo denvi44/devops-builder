@@ -284,6 +284,13 @@ class MainWindow(QMainWindow):
         mb = self.menuBar()
         m = mb.addMenu("&Fichier")
         m.addActions([self.a_new, self.a_new_empty, self.a_open])
+        tpl = m.addMenu("Nouveau depuis un modèle de fournisseur")
+        from ..modeles import MODELES
+        for slug, modele in MODELES.items():
+            a = tpl.addAction(modele.title, lambda checked=False, s=slug: self.new_from_modele(s))
+            a.setToolTip(modele.description)
+            a.setStatusTip(modele.description)
+        tpl.setToolTipsVisible(True)
         ex = m.addMenu("Ouvrir un exemple")
         for p in sorted((DATA_DIR / "examples").glob("*.yaml")):
             proj = Project.load(p)
@@ -687,6 +694,15 @@ class MainWindow(QMainWindow):
         if wizard.exec():
             self._load(wizard.project(), None)
             self.statusBar().showMessage("Projet créé par l'assistant : tout reste modifiable.", 5000)
+
+    def new_from_modele(self, slug: str) -> None:
+        """Pipeline type d'un fournisseur cloud, comme un nouveau projet (sans fichier)."""
+        if not self._confirm_discard():
+            return
+        from ..modeles import MODELES, build
+        self._load(build(slug, self.catalog), None)
+        self.statusBar().showMessage(f"Modèle {MODELES[slug].title} : renseigner les valeurs signalées dans les "
+                                     "diagnostics, puis enregistrer.", 6000)
 
     def new_empty_project(self) -> None:
         if self._confirm_discard():

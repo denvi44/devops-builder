@@ -1,0 +1,94 @@
+format_version: 2
+name: Modèle Google Cloud
+description: GKE, Artifact Registry, Cloud SQL PostgreSQL, Secret Manager lu par External
+  Secrets, Cloud Monitoring ; état OpenTofu dans Cloud Storage ; GitLab CI par Workload
+  Identity Federation, sans clé stockée.
+target: kubernetes-managed
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: gitlab
+    params: {}
+  build:
+  - uid: brique002
+    tool: gitlab-ci
+    params: {}
+  - uid: brique003
+    tool: buildkit
+    params: {}
+  - uid: brique004
+    tool: renovate
+    params: {}
+  test:
+  - uid: brique005
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: brique006
+    tool: gitleaks
+    params: {}
+  - uid: brique007
+    tool: trivy
+    params: {}
+  - uid: brique008
+    tool: cosign
+    params: {}
+  artifacts:
+  - uid: brique009
+    tool: artifact-registry
+    params: {}
+  infrastructure:
+  - uid: brique010
+    tool: gcp
+    params: {}
+  - uid: brique011
+    tool: gke
+    params: {}
+  - uid: brique012
+    tool: opentofu
+    params: {}
+  - uid: brique013
+    tool: gcs
+    params: {}
+  data:
+  - uid: brique014
+    tool: cloud-sql
+    params: {}
+  deploy:
+  - uid: brique015
+    tool: helm
+    params: {}
+  platform:
+  - uid: brique016
+    tool: cert-manager
+    params: {}
+  - uid: brique017
+    tool: gcp-secret-manager
+    params: {}
+  - uid: brique018
+    tool: external-secrets
+    params: {}
+  observability:
+  - uid: brique019
+    tool: cloud-monitoring
+    params: {}
