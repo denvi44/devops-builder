@@ -15,7 +15,8 @@ Traefik, Prometheus et Grafana portent une pastille d'avertissement](captures/re
 
 ![Le même réseau en isométrique : un plan par couche, les composants posés dessus](captures/reseau-3d.png)
 
-L'environnement se choisit en haut (la production par défaut) ; **Enregistrer l'image…** écrit le schéma en PNG,
+L'environnement se choisit en haut (la production par défaut), ainsi que la **taille du schéma** (100 à 200 % : textes et
+espaces suivent, le dessin défile s'il dépasse la fenêtre) ; **Enregistrer l'image…** écrit le schéma en PNG,
 pour un dossier d'architecture ou une revue.
 
 ## Lire les erreurs sur le schéma

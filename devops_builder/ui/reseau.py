@@ -73,6 +73,7 @@ class NetworkView(QWidget):
 
     def __init__(self, parent: QWidget | None = None):
         self._size = QSize(480, 320)
+        self.zoom = 1.25   # taille du dessin : 1,0 à 2,0 ; les textes et les espaces suivent
         super().__init__(parent)
         self.graph: NetGraph | None = None
         self.mode = "2d"
@@ -92,6 +93,13 @@ class NetworkView(QWidget):
     def set_graph(self, graph: NetGraph, selected: str | None = None) -> None:
         self.graph = graph
         self.selected = selected if selected and graph.node(selected) else None
+        self._relayout()
+
+    def _px(self, value: float) -> int:
+        return round(theme.px(value) * self.zoom)
+
+    def set_zoom(self, zoom: float) -> None:
+        self.zoom = zoom
         self._relayout()
 
     def set_mode(self, mode: str) -> None:
@@ -114,15 +122,17 @@ class NetworkView(QWidget):
 
     # ------------------------------------------------------------------ géométrie
     def _metrics(self) -> tuple[QFont, QFont]:
+        base = max(8.0, self.font().pointSizeF()) * self.zoom
         label = QFont(self.font())
         label.setBold(True)
+        label.setPointSizeF(base * 1.15)
         small = QFont(self.font())
-        small.setPointSizeF(max(7.0, self.font().pointSizeF() * 0.85))
+        small.setPointSizeF(base * 0.95)
         return label, small
 
     def _relayout(self) -> None:
         self._hits, self._pills, self._anchors, self._plates, self._boxes = [], {}, {}, [], []
-        self._size = QSize(theme.px(480), theme.px(320))
+        self._size = QSize(self._px(480), self._px(320))
         if self.graph is None or not self.graph.nodes:
             self.updateGeometry()
             self.update()
@@ -135,41 +145,41 @@ class NetworkView(QWidget):
     def _pill_size(self, node: NetNode) -> QSizeF:
         label, small = self._metrics()
         w = max(QFontMetricsF(label).horizontalAdvance(node.label), QFontMetricsF(small).horizontalAdvance(node.detail))
-        return QSizeF(max(theme.px(120), w + theme.px(34)), QFontMetricsF(label).height() + QFontMetricsF(small).height()
-                      + theme.px(14))
+        return QSizeF(max(self._px(150), w + self._px(44)), QFontMetricsF(label).height() + QFontMetricsF(small).height()
+                      + self._px(22))
 
     def _layout_2d(self) -> None:
         g = self.graph
         layers = [(layer, g.layer(layer)) for layer in LAYERS if g.layer(layer)]
         sizes = {n.id: self._pill_size(n) for n in g.nodes}
-        gap, margin, band_pad = theme.px(34), theme.px(24), theme.px(18)
-        left = theme.px(120)   # titre du plan, à gauche
+        gap, margin, band_pad = self._px(56), self._px(32), self._px(18)
+        left = self._px(40)
         widths = [sum(sizes[n.id].width() for n in nodes) + gap * (len(nodes) - 1) for _, nodes in layers]
         total = max(widths) + left + 2 * margin
         y = margin
         for (layer, nodes), width in zip(layers, widths, strict=True):
             height = max(sizes[n.id].height() for n in nodes) + 2 * band_pad
-            band = QRectF(margin, y, total - 2 * margin, height + theme.px(26))
+            band = QRectF(margin, y, total - 2 * margin, height + self._px(34))
             self._plates.append((layer, band))
             x = left + margin + (total - left - 2 * margin - width) / 2
             for n in nodes:
                 size = sizes[n.id]
-                rect = QRectF(x, y + theme.px(26) + band_pad, size.width(), size.height())
+                rect = QRectF(x, y + self._px(34) + band_pad, size.width(), size.height())
                 self._pills[n.id] = rect
                 path = QPainterPath()
                 path.addRoundedRect(rect.adjusted(-4, -4, 4, 4), 10, 10)
                 self._hits.append((n.id, path))
                 x += size.width() + gap
-            y += band.height() + theme.px(46)   # l'espace entre deux plans porte les flèches
-        self._size = QSize(round(total), round(y - theme.px(46) + margin))
+            y += band.height() + self._px(64)   # l'espace entre deux plans porte les flèches
+        self._size = QSize(round(total), round(y - self._px(64) + margin))
 
     def _layout_3d(self) -> None:
         g = self.graph
         layers = [(layer, g.layer(layer)) for layer in LAYERS if g.layer(layer)]
-        k = theme.scale() * 0.62
-        col, depth, zgap = 150.0, 150.0, 215.0
+        k = theme.scale() * 0.7 * self.zoom
+        col, depth, zgap = 215.0, 200.0, 270.0
         most = max(len(nodes) for _, nodes in layers)
-        pw = most * col + 70
+        pw = most * col + 90
 
         def iso(x: float, y: float, z: float) -> QPointF:
             return QPointF((x - y) * 0.866 * k, (x + y) * 0.5 * k - z * k)
@@ -181,17 +191,17 @@ class NetworkView(QWidget):
             z = (len(layers) - 1 - i) * zgap
             raw.append((layer, [iso(0, 0, z), iso(pw, 0, z), iso(pw, depth, z), iso(0, depth, z)], z))
             for j, n in enumerate(nodes):
-                cx = 35 + col * (j + 0.5) + (most - len(nodes)) * col / 2
-                x0, x1, y0, y1, h = cx - 46, cx + 46, depth / 2 - 30, depth / 2 + 30, 24
+                cx = 45 + col * (j + 0.5) + (most - len(nodes)) * col / 2
+                x0, x1, y0, y1, h = cx - 52, cx + 52, depth / 2 - 34, depth / 2 + 34, 28
                 top = [iso(x0, y0, z + h), iso(x1, y0, z + h), iso(x1, y1, z + h), iso(x0, y1, z + h)]
                 left = [iso(x0, y1, z + h), iso(x1, y1, z + h), iso(x1, y1, z), iso(x0, y1, z)]
                 right = [iso(x1, y0, z + h), iso(x1, y1, z + h), iso(x1, y1, z), iso(x1, y0, z)]
                 boxes.append((n.id, [top, left, right]))
                 anchors[n.id] = iso(cx, depth / 2, z + h)
         points = [p for _, poly, _ in raw for p in poly] + [p for _, faces in boxes for f in faces for p in f]
-        margin = theme.px(40)
-        min_x = min(p.x() for p in points) - margin - theme.px(110)   # place du titre des plans, à gauche
-        min_y = min(p.y() for p in points) - margin - theme.px(20)
+        margin = self._px(40)
+        min_x = min(p.x() for p in points) - margin - self._px(190)   # place du titre des plans, à gauche
+        min_y = min(p.y() for p in points) - margin - self._px(20)
         max_x = max(p.x() for p in points) + margin
         max_y = max(p.y() for p in points) + margin
         shift = QPointF(-min_x, -min_y)
@@ -205,7 +215,7 @@ class NetworkView(QWidget):
             self._anchors[node_id] = point + shift
         for node in g.nodes:
             size = self._pill_size(node)
-            centre = self._anchors[node.id] + QPointF(0, -size.height() / 2 - theme.px(4))
+            centre = self._anchors[node.id] + QPointF(0, -size.height() / 2 - self._px(4))
             rect = QRectF(centre.x() - size.width() / 2, centre.y() - size.height() / 2, size.width(), size.height())
             self._pills[node.id] = rect
             path = QPainterPath()
@@ -233,6 +243,7 @@ class NetworkView(QWidget):
         self._draw_plates(painter, p, small_font)
         if self.mode == "3d":
             self._draw_boxes(painter, p)
+        self._spread_ends()
         for edge in g.edges:
             self._draw_edge(painter, p, edge, small_font)
         for node in g.nodes:
@@ -240,6 +251,8 @@ class NetworkView(QWidget):
         painter.end()
 
     def _draw_plates(self, painter: QPainter, p, small: QFont) -> None:
+        small = QFont(small)
+        small.setBold(True)
         painter.setFont(small)
         for layer, shape in self._plates:
             fill = _mix(p.surface, p.background, 0.0 if self.mode == "2d" else 0.15)
@@ -248,13 +261,13 @@ class NetworkView(QWidget):
             if isinstance(shape, QRectF):
                 painter.drawRoundedRect(shape, 10, 10)
                 painter.setPen(QColor(p.text_muted))
-                painter.drawText(QPointF(shape.left() + theme.px(14), shape.top() + theme.px(19)), LAYER_LABELS[layer])
+                painter.drawText(QPointF(shape.left() + self._px(14), shape.top() + self._px(19)), LAYER_LABELS[layer])
             else:
                 painter.drawPolygon(shape)
                 painter.setPen(QColor(p.text_muted))
                 corner = shape[3]   # coin gauche du plan
-                painter.drawText(QPointF(corner.x() - theme.px(8) - QFontMetricsF(small).horizontalAdvance(LAYER_LABELS[layer]),
-                                         corner.y() + theme.px(16)), LAYER_LABELS[layer])
+                painter.drawText(QPointF(corner.x() - self._px(8) - QFontMetricsF(small).horizontalAdvance(LAYER_LABELS[layer]),
+                                         corner.y() + self._px(16)), LAYER_LABELS[layer])
 
     def _draw_boxes(self, painter: QPainter, p) -> None:
         top_color = _mix(p.surface, p.primary, 0.12)
@@ -264,14 +277,31 @@ class NetworkView(QWidget):
                 painter.setBrush(_mix(top_color.name(), p.text, shade * 0.35))
                 painter.drawPolygon(face)
 
+    def _spread_ends(self) -> None:
+        """Plusieurs flèches sur le même bord d'un composant s'y répartissent au lieu de se superposer."""
+        ends: dict[tuple[str, str], list[tuple[int, int, float]]] = {}
+        for i, edge in enumerate(self.graph.edges):
+            a, b = self._pills.get(edge.src), self._pills.get(edge.dst)
+            if a is None or b is None or (self.mode != "3d" and abs(a.center().y() - b.center().y()) <= 2):
+                continue
+            a_up = a.center().y() < b.center().y()
+            ends.setdefault((edge.src, "bottom" if a_up else "top"), []).append((i, 0, b.center().x()))
+            ends.setdefault((edge.dst, "top" if a_up else "bottom"), []).append((i, 1, a.center().x()))
+        self._slots: dict[tuple[int, int], float] = {}
+        for items in ends.values():
+            items.sort(key=lambda t: t[2])   # de gauche à droite, d'après la position de l'autre extrémité
+            for rank, (i, end, _x) in enumerate(items):
+                self._slots[(i, end)] = (rank + 1) / (len(items) + 1)
+
     def _edge_points(self, edge: NetEdge) -> tuple[QPointF, QPointF] | None:
         a, b = self._pills.get(edge.src), self._pills.get(edge.dst)
         if a is None or b is None:
             return None
         if self.mode == "3d" or abs(a.center().y() - b.center().y()) > 2:
+            i = self.graph.edges.index(edge)
             upper, lower = (a, b) if a.center().y() < b.center().y() else (b, a)
-            start = QPointF(a.center().x(), a.bottom() if a is upper else a.top())
-            end = QPointF(b.center().x(), b.top() if b is lower else b.bottom())
+            start = QPointF(a.left() + a.width() * self._slots.get((i, 0), 0.5), a.bottom() if a is upper else a.top())
+            end = QPointF(b.left() + b.width() * self._slots.get((i, 1), 0.5), b.top() if b is lower else b.bottom())
             return start, end
         left, right = (a, b) if a.center().x() < b.center().x() else (b, a)
         return (QPointF(a.right(), a.center().y()), QPointF(b.left(), b.center().y())) if a is left else \
@@ -284,7 +314,7 @@ class NetworkView(QWidget):
         start, end = pts
         risky = edge.public and not edge.secure
         color = QColor(p.warning if risky else (p.primary if edge.public else p.text_muted))
-        pen = QPen(color, 2.2 if edge.public else 1.6)
+        pen = QPen(color, (2.6 if edge.public else 2.0) * min(self.zoom, 1.6))
         if risky:
             pen.setStyle(Qt.PenStyle.DashLine)
         painter.setPen(pen)
@@ -294,19 +324,20 @@ class NetworkView(QWidget):
         path.cubicTo(QPointF(start.x(), mid_y), QPointF(end.x(), mid_y), end)
         painter.drawPath(path)
         angle = math.atan2(end.y() - path.pointAtPercent(0.97).y(), end.x() - path.pointAtPercent(0.97).x())
-        head = QPolygonF([end, QPointF(end.x() - 9 * math.cos(angle - 0.4), end.y() - 9 * math.sin(angle - 0.4)),
-                          QPointF(end.x() - 9 * math.cos(angle + 0.4), end.y() - 9 * math.sin(angle + 0.4))])
+        a = 12 * self.zoom
+        head = QPolygonF([end, QPointF(end.x() - a * math.cos(angle - 0.4), end.y() - a * math.sin(angle - 0.4)),
+                          QPointF(end.x() - a * math.cos(angle + 0.4), end.y() - a * math.sin(angle + 0.4))])
         painter.setBrush(color)
         painter.drawPolygon(head)
         if edge.label:
             painter.setFont(small)
             mid = path.pointAtPercent(0.5)
             fm = QFontMetricsF(small)
-            box = QRectF(mid.x() - fm.horizontalAdvance(edge.label) / 2 - 5, mid.y() - fm.height() / 2 - 1,
-                         fm.horizontalAdvance(edge.label) + 10, fm.height() + 2)
+            box = QRectF(mid.x() - fm.horizontalAdvance(edge.label) / 2 - 8, mid.y() - fm.height() / 2 - 3,
+                         fm.horizontalAdvance(edge.label) + 16, fm.height() + 6)
             painter.setPen(QPen(color, 1))
             painter.setBrush(QColor(p.surface))
-            painter.drawRoundedRect(box, 6, 6)
+            painter.drawRoundedRect(box, 8, 8)
             painter.setPen(QColor(p.text))
             painter.drawText(box, Qt.AlignmentFlag.AlignCenter, edge.label)
 
@@ -325,16 +356,16 @@ class NetworkView(QWidget):
         painter.setPen(QColor(p.text))
         painter.setFont(label_font)
         lm = QFontMetricsF(label_font)
-        painter.drawText(QPointF(rect.left() + theme.px(10), rect.top() + theme.px(7) + lm.ascent()), node.label)
+        painter.drawText(QPointF(rect.left() + self._px(14), rect.top() + self._px(10) + lm.ascent()), node.label)
         painter.setPen(QColor(p.text_muted))
         painter.setFont(small_font)
-        painter.drawText(QPointF(rect.left() + theme.px(10), rect.top() + theme.px(7) + lm.height() + QFontMetricsF(small_font).ascent()),
+        painter.drawText(QPointF(rect.left() + self._px(14), rect.top() + self._px(10) + lm.height() + QFontMetricsF(small_font).ascent()),
                          node.detail)
         if worst:
             self._draw_badge(painter, p, rect, worst, len(self.graph.findings_of(node.id)))
 
     def _draw_badge(self, painter: QPainter, p, rect: QRectF, severity: Severity, count: int) -> None:
-        d = theme.px(22)
+        d = self._px(26)
         box = QRectF(rect.right() - d * 0.6, rect.top() - d * 0.45, d, d)
         color = QColor(p.severity(severity.value))
         painter.setPen(QPen(QColor(p.surface), 1.5))
@@ -354,7 +385,7 @@ class NetworkView(QWidget):
         if count > 1:
             painter.setPen(QColor(p.text))
             small = QFont(self.font())
-            small.setPointSizeF(max(7.0, self.font().pointSizeF() * 0.8))
+            small.setPointSizeF(max(8.0, self.font().pointSizeF() * self.zoom))
             painter.setFont(small)
             painter.drawText(QPointF(box.right() + 4, box.center().y() + 4), f"×{count}")
 
@@ -442,7 +473,7 @@ class NetworkDialog(QDialog):
         self.apply_fix, self.focus_brick = apply_fix, focus_brick
         self.graph: NetGraph | None = None
         self.setWindowTitle("Réseau")
-        self.resize(1280, 760)
+        self.resize(1400, 880)
         lay = QVBoxLayout(self)
         top = QHBoxLayout()
         self.env = QComboBox()
@@ -461,6 +492,14 @@ class NetworkDialog(QDialog):
         self.mode.setCurrentIndex(1 if saved == "3d" else 0)
         self.mode.currentIndexChanged.connect(lambda _: self._set_mode(self.mode.currentData()))
         top.addWidget(self.mode)
+        self.size_combo = QComboBox()
+        self.size_combo.setAccessibleName("Taille du schéma")
+        for label, value in (("Taille 100 %", 1.0), ("Taille 125 %", 1.25), ("Taille 150 %", 1.5), ("Taille 200 %", 2.0)):
+            self.size_combo.addItem(label, value)
+        saved_zoom = float(QSettings("DevOpsBuilder", "DevOpsBuilder").value("network/zoom", 1.25))
+        self.size_combo.setCurrentIndex(max(0, self.size_combo.findData(saved_zoom)))
+        self.size_combo.currentIndexChanged.connect(self._set_zoom)
+        top.addWidget(self.size_combo)
         top.addStretch(1)
         self.save_btn = QPushButton(icon("mdi6.image-outline"), "Enregistrer l'image…")
         self.save_btn.clicked.connect(self.save_image)
@@ -510,7 +549,7 @@ class NetworkDialog(QDialog):
         split.addWidget(side)
         split.setStretchFactor(0, 3)
         split.setStretchFactor(1, 2)
-        split.setSizes([800, 460])
+        split.setSizes([920, 440])
         lay.addWidget(split, 1)
 
         self.summary = muted("")
@@ -522,10 +561,16 @@ class NetworkDialog(QDialog):
         close.clicked.connect(self.accept)
         row.addWidget(close)
         lay.addLayout(row)
+        self.view.zoom = float(self.size_combo.currentData())
         self.view.set_mode("3d" if saved == "3d" else "2d")
         self.refresh()
 
     # ------------------------------------------------------------------ état
+    def _set_zoom(self, _index: int) -> None:
+        zoom = float(self.size_combo.currentData())
+        QSettings("DevOpsBuilder", "DevOpsBuilder").setValue("network/zoom", zoom)
+        self.view.set_zoom(zoom)
+
     def _set_mode(self, mode: str) -> None:
         QSettings("DevOpsBuilder", "DevOpsBuilder").setValue("network/view", mode)
         self.view.set_mode(mode)

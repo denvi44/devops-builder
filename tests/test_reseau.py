@@ -198,3 +198,19 @@ def test_corriger_depuis_le_schema(win):
     dialog.actions_box.itemAt(0).widget().click()
     assert not [f for f in dialog.graph.findings if f.rule_id == "R52"], "la correction a effacé l'erreur du schéma"
     dialog.close()
+
+
+def test_taille_du_schema_agrandit_textes_et_espaces(win):
+    from devops_builder.ui.reseau import NetworkDialog
+    dialog = NetworkDialog(win.project, win.catalog, win.engine, win)
+    dialog.show()
+    sizes = {}
+    for zoom in (1.0, 2.0):
+        dialog.view.set_zoom(zoom)
+        for mode in ("2d", "3d"):
+            dialog.view.set_mode(mode)
+            sizes[(zoom, mode)] = (dialog.view.sizeHint(), dialog.view._metrics()[0].pointSizeF())
+    for mode in ("2d", "3d"):
+        small, big = sizes[(1.0, mode)], sizes[(2.0, mode)]
+        assert big[0].width() > small[0].width() * 1.5 and big[1] > small[1] * 1.8
+    dialog.close()
