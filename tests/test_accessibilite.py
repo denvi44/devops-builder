@@ -41,6 +41,18 @@ def test_audit_sans_constat_dans_les_deux_themes(win):
     assert not findings, "\n".join(map(str, findings))
 
 
+def test_audit_de_l_accueil_dans_les_deux_themes(win):
+    from devops_builder.ui.audit import clipped_at, full_audit
+    win.new_empty_project()
+    assert win.welcome.isVisible()
+    findings = []
+    for _ in range(2):
+        findings += full_audit(win) + clipped_at(win, 2.0)
+        win.toggle_theme()
+    win.open_path(EXAMPLE)
+    assert not findings, "\n".join(map(str, findings))
+
+
 def test_couleurs_des_deux_themes():
     from devops_builder.ui.audit import check_palettes, ratio
     from devops_builder.ui.theme import LIGHT

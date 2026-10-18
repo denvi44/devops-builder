@@ -4,10 +4,10 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
-## 0.21.0 — 2026-10-18 — Pipelines types par fournisseur
+## 0.21.0 — 2026-10-18 — Pipelines types par fournisseur et accueil
 
 Douze pipelines complets, prêts à ouvrir et à ajuster : un Kubernetes managé pour chacun des six fournisseurs du
-catalogue, et des variantes sans Kubernetes. Les fichiers générés des projets existants ne changent pas.
+catalogue, et des variantes sans Kubernetes ; un écran d'accueil qui dit par où commencer. Les fichiers générés des projets existants ne changent pas.
 
 ### Ajouté
 - **Modèles de pipeline par fournisseur** (`devops_builder/modeles.py`) : AWS (EKS, ECS Fargate, EC2), Google
@@ -16,8 +16,16 @@ catalogue, et des variantes sans Kubernetes. Les fichiers générés des projets
   (registre, base managée, coffre de secrets, supervision, état OpenTofu), la connexion de la CI au cloud et les
   contrôles de sécurité ; aucune erreur bloquante, seules les valeurs propres au projet restent signalées (R34).
   Menu Fichier › Nouveau depuis un modèle de fournisseur, et `devops-builder template [modèle] -o projet.devops.yaml`.
+- **Écran « Par où commencer ? »** : un projet vide ne montre plus trois panneaux vides, mais cinq départs (assistant
+  conseillé, modèle de fournisseur, exemple, projet enregistré, construction à la main) ; les panneaux viennent avec
+  la première brique. Bandeau **Prochaine étape** (erreurs bloquantes, valeurs d'exemple à renseigner, dossier de
+  l'application, génération). Audité dans les deux thèmes et à 200 %.
 - Guide : page « Pipelines types par fournisseur cloud ». Douze projets de référence ajoutés aux tests, et le
   corpus de compatibilité des fichiers projet de la 0.20.
+
+### Modifié
+- Barre d'outils réduite à Nouveau, Ouvrir, Enregistrer, Annuler, Rétablir et Valider (Paramètres et Générer sont
+  dans l'en-tête du projet, le thème dans Affichage) ; les filtres du catalogue sont repliés sous « Filtres ».
 
 ## 0.20.0 — 2026-10-16 — Qualité produit
 

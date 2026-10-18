@@ -34,6 +34,7 @@ from ..model import ENVIRONMENTS, STAGE_IDS, STAGE_LABELS, TARGETS, Project, Pro
 from ..rules import Action, RuleEngine, apply_action
 from . import theme
 from .a11y import DecorativeIcon, announce
+from .accueil import NextStep, WelcomePanel, next_step
 from .canvas import PipelineCanvas
 from .diagnostics import DiagnosticsPanel
 from .dialogs import GenerateDialog, ProjectSettingsDialog, about_text
@@ -165,6 +166,8 @@ class MainWindow(QMainWindow):
         self.generate_btn.clicked.connect(self.generate)
         bar.addWidget(self.generate_btn)
         lay.addWidget(self.project_bar)
+        self.next_step = NextStep()
+        lay.addWidget(self.next_step)
         self._arrange_bar()
 
         self.canvas = PipelineCanvas()
@@ -176,6 +179,17 @@ class MainWindow(QMainWindow):
         self.canvas.dropRefused.connect(self._explain_refusal)
         self.canvas.set_placement_check(self.catalog.can_place)
         lay.addWidget(self.canvas, 1)
+        from ..modeles import MODELES
+        examples = [(Project.load(p).name, p) for p in sorted((DATA_DIR / "examples").glob("*.yaml"))]
+        self.welcome = WelcomePanel([(slug, m.title, m.description) for slug, m in MODELES.items()], examples)
+        self.welcome.wizardRequested.connect(self.new_project)
+        self.welcome.templateRequested.connect(self.new_from_modele)
+        self.welcome.exampleRequested.connect(lambda path: self.open_path(path, as_template=True))
+        self.welcome.openRequested.connect(self.open_project)
+        self.welcome.manualRequested.connect(self._start_manually)
+        lay.addWidget(self.welcome, 1)
+        self.manual_start = False
+        self._docks_before: dict[QDockWidget, bool] | None = None
         self.setCentralWidget(central)
 
     def _build_docks(self) -> None:
@@ -272,8 +286,8 @@ class MainWindow(QMainWindow):
         tb.setObjectName("main-toolbar")
         tb.setMovable(False)
         tb.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        for a in (self.a_new, self.a_open, self.a_save, None, self.a_undo, self.a_redo, None,
-                  self.a_settings, self.a_generate, self.a_validate, None, self.a_theme):
+        # Barre d'outils réduite à l'essentiel : Paramètres et Générer sont dans l'en-tête du projet, le thème dans Affichage
+        for a in (self.a_new, self.a_open, self.a_save, None, self.a_undo, self.a_redo, None, self.a_validate):
             if a is None:
                 tb.addSeparator()
             else:
@@ -371,8 +385,38 @@ class MainWindow(QMainWindow):
         self.summary.setText(f"{n} brique{'s' if n > 1 else ''} · "
                              + (f"{blocking} erreur(s) bloquante(s)" if blocking else "aucune erreur bloquante"))
         self.generate_btn.setEnabled(n > 0)
+        self._update_guidance(n, diags)
         if properties:
             self._show_selected()
+
+    def _update_guidance(self, n: int, diags) -> None:
+        """Accueil (projet vide) ou prochaine étape (projet commencé) ; les panneaux ne s'affichent qu'ensuite."""
+        welcome = n == 0 and not self.manual_start
+        if n:
+            self.manual_start = False
+        self.welcome.setVisible(welcome)
+        self.canvas.setVisible(not welcome)
+        self.project_bar.setVisible(not welcome)
+        self.next_step.setVisible(n > 0)
+        if welcome and self._docks_before is None:
+            self._docks_before = {d: not d.isHidden() for d in (self.palette_dock, self.props_dock, self.diag_dock)}
+            for d in self._docks_before:
+                d.hide()
+        elif not welcome and self._docks_before is not None:
+            for d, was_visible in self._docks_before.items():
+                d.setVisible(was_visible)
+            self._docks_before = None
+        if n:
+            text, button, action, tone = next_step(self.project, diags, Severity.BLOCKING)
+            slots = {"diagnostics": lambda: self.diagnostics.tree.setFocus(), "application": self.edit_application,
+                     "generer": self.generate}
+            self.next_step.set_step(text, button, slots[action], tone)
+
+    def _start_manually(self) -> None:
+        """Quitter l'accueil sans modèle : pipeline vide, catalogue ouvert."""
+        self.manual_start = True
+        self.refresh()
+        self.palette.search.setFocus()
 
     def _update_project_bar(self) -> None:
         from .application import LANGUAGE_ICONS, app_label
@@ -739,6 +783,7 @@ class MainWindow(QMainWindow):
         self.project = project
         self.path = path
         self.selected = None
+        self.manual_start = False
         self.undo_stack.clear()
         self.refresh()
         self.canvas.horizontalScrollBar().setValue(0)

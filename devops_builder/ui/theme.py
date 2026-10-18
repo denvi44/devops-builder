@@ -110,6 +110,24 @@ QFrame#projectBar {{
     background: {p.surface};
     border-bottom: 1px solid {p.border};
 }}
+QFrame#welcome, QScrollArea#welcomeScroll, QWidget#welcomeContent {{ background: {p.background}; border: none; }}
+QPushButton#startCard {{
+    background: {p.surface};
+    border: 1px solid {p.border};
+    border-radius: 12px;
+    text-align: left;
+    text-transform: none;
+}}
+QPushButton#startCard[recommended="true"] {{ border: 2px solid {p.primary}; }}
+QPushButton#startCard:hover {{ border-color: {p.primary}; background: {_rgba(p.primary, 0.06)}; }}
+QPushButton#startCard::menu-indicator {{ subcontrol-origin: padding; subcontrol-position: right center; right: 14px; }}
+QLabel#startTitle {{ font-size: {px(15)}px; font-weight: 600; color: {p.text}; background: transparent; }}
+QPushButton#startCard QLabel#muted {{ background: transparent; }}
+QFrame#nextStep {{ background: {_rgba(p.primary, 0.08)}; border-bottom: 1px solid {p.border}; }}
+QFrame#nextStep[tone="blocking"] {{ background: {_rgba(p.blocking, 0.10)}; }}
+QFrame#nextStep[tone="warning"] {{ background: {_rgba(p.warning, 0.10)}; }}
+QLabel#nextStepText {{ color: {p.text}; background: transparent; }}
+QToolButton#filtersToggle {{ border: none; text-align: left; padding: 4px 2px; text-transform: none; }}
 QListWidget#stageList {{
     background: transparent;
     border: none;

@@ -3,6 +3,16 @@
 ![Fenêtre principale : le catalogue à gauche, le pipeline au centre en colonnes par étape, les propriétés de la
 brique sélectionnée à droite et les diagnostics en bas](../captures/01-pipeline.png)
 
+## Par où commencer
+
+À l'ouverture, un projet vide n'affiche qu'un écran **Par où commencer ?** : l'assistant (conseillé si on débute),
+un modèle de fournisseur cloud, un exemple, un projet enregistré, ou « Construire à la main » qui ouvre le
+catalogue. Les panneaux (catalogue, propriétés, diagnostics) n'apparaissent qu'avec la première brique.
+
+Ensuite, un bandeau **Prochaine étape**, sous la barre du projet, indique le seul geste utile du moment, avec son
+bouton : corriger les erreurs bloquantes, renseigner les valeurs d'exemple (R34), désigner le dossier de
+l'application, puis générer.
+
 ## Les zones de l'écran
 
 **Barre du projet** (en haut du centre) : le nom du projet ; la carte de l'application (dossier analysé,
@@ -14,7 +24,7 @@ qualité, Sécurité, Artefacts, Infrastructure, Données, Déploiement, Platefo
 affiche son nom, son rôle et, si un diagnostic la concerne, l'icône de sa gravité.
 
 **Catalogue** (à gauche) : les outils vérifiés, rangés par étape, avec une recherche (Ctrl+F) et des filtres :
-étape, maturité CNCF, open source uniquement, « Adapté au projet » (masque ce que le projet écarterait :
+étape, maturité CNCF, puis, repliés sous **Filtres** : open source uniquement, « Adapté au projet » (masque ce que le projet écarterait :
 cible, forge, licence, SecNumCloud, cloud, rôle déjà tenu) et « Inclure tout le Landscape » (les ~1 000 entrées
 du CNCF Landscape, sans fiche de compatibilité).
 

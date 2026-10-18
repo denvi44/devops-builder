@@ -11,6 +11,8 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMenu,
+    QSizePolicy,
+    QToolButton,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -101,8 +103,26 @@ class PaletteWidget(QWidget):
             lambda on: QSettings("DevOpsBuilder", "DevOpsBuilder").setValue("palette/adapted", on))
         self.landscape = QCheckBox("Inclure tout le Landscape (non vérifié)")
         self.landscape.setToolTip("Ajoute les ~1 000 entrées du CNCF Landscape sans fiche de compatibilité.")
+        # Les trois cases sont repliées derrière « Filtres » : l'écran d'ouverture n'en montre qu'un titre
+        self.filters_toggle = QToolButton()
+        self.filters_toggle.setObjectName("filtersToggle")
+        self.filters_toggle.setCheckable(True)
+        self.filters_toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.filters_toggle.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.filters_toggle.setAccessibleName("Filtres du catalogue")
+        self.filters_box = QWidget()
+        box = QVBoxLayout(self.filters_box)
+        box.setContentsMargins(0, 0, 0, 0)
+        box.setSpacing(2)
         for cb in (self.oss, self.compatible, self.landscape):
-            lay.addWidget(cb)
+            box.addWidget(cb)
+        self.filters_box.setVisible(False)
+        self.filters_toggle.toggled.connect(self._toggle_filters)
+        for cb in (self.oss, self.compatible, self.landscape):
+            cb.toggled.connect(self._filters_label)
+        lay.addWidget(self.filters_toggle)
+        lay.addWidget(self.filters_box)
+        self._filters_label()
 
         self.tree = _Tree()
         self.tree.setHeaderHidden(True)
@@ -130,6 +150,16 @@ class PaletteWidget(QWidget):
         self.tree.itemActivated.connect(self._activated)
         self.tree.currentItemChanged.connect(self._selected)
         self.refresh()
+
+    def _toggle_filters(self, open_: bool) -> None:
+        self.filters_box.setVisible(open_)
+        self._filters_label()
+
+    def _filters_label(self) -> None:
+        active = sum(cb.isChecked() for cb in (self.oss, self.compatible, self.landscape))
+        self.filters_toggle.setText("Filtres" + (f" ({active} actif{'s' if active > 1 else ''})" if active else ""))
+        self.filters_toggle.setArrowType(Qt.ArrowType.DownArrow if self.filters_toggle.isChecked()
+                                         else Qt.ArrowType.RightArrow)
 
     # ------------------------------------------------------------------
     def set_target(self, target: str) -> None:

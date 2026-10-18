@@ -21,7 +21,8 @@ Windows et de macOS, et comment vérifier leur provenance.
 
 ## Le cycle de travail
 
-1. **Décrire le projet** avec l'assistant (Ctrl+N) : le dossier de l'application, la forge, l'hébergement, les
+1. **Décrire le projet** : à l'ouverture, l'écran « Par où commencer ? » propose l'assistant (Ctrl+N), un modèle de
+   fournisseur cloud ou un exemple. L'assistant demande : le dossier de l'application, la forge, l'hébergement, les
    environnements et les options. L'assistant lit le dossier s'il est donné (langage, port, Dockerfile, bases de
    données, CI déjà en place) et pré-remplit ses réponses.
 2. **Ajuster le pipeline** sur le canevas : ajouter, déplacer ou retirer des briques, renseigner leurs
