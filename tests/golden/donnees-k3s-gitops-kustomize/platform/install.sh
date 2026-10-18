@@ -14,7 +14,7 @@ helm repo update
 helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set crds.enabled=true
 
 # Argo CD
-helm upgrade --install argo-cd argo/argo-cd --namespace argocd --create-namespace
+helm upgrade --install argo-cd argo/argo-cd --namespace argocd --create-namespace --set server.ingress.enabled=true --set server.ingress.ingressClassName=traefik --set server.ingress.hostname=argocd.example.com --set configs.params.server.insecure=true
 
 # Grafana — Déjà inclus si kube-prometheus-stack est installé.
 helm upgrade --install grafana grafana-community/grafana --namespace monitoring --create-namespace --set ingress.enabled=true --set ingress.ingressClassName=traefik --set 'ingress.hosts[0]=grafana.example.com'

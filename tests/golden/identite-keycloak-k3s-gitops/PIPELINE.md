@@ -17,21 +17,21 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
 | --- | --- | --- | --- | --- | --- |
 | Développement | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-dev, exposé par Traefik, hôte dev.mon-app.example.com |
-| Développement | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Développement | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd, exposé par Traefik, hôte argocd.boutique.fr |
 | Développement | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
 | Développement | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
 | Développement | OpenBao | — | 8200 | API et interface | Service Kubernetes, espace de noms openbao |
 | Développement | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
 | Développement | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring, exposé par Traefik, hôte grafana.boutique.fr |
 | Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging, exposé par Traefik, hôte staging.mon-app.example.com |
-| Préproduction | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Préproduction | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd, exposé par Traefik, hôte argocd.boutique.fr |
 | Préproduction | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
 | Préproduction | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
 | Préproduction | OpenBao | — | 8200 | API et interface | Service Kubernetes, espace de noms openbao |
 | Préproduction | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
 | Préproduction | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring, exposé par Traefik, hôte grafana.boutique.fr |
 | Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app, exposé par Traefik, hôte mon-app.example.com |
-| Production | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Production | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd, exposé par Traefik, hôte argocd.boutique.fr |
 | Production | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
 | Production | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
 | Production | OpenBao | — | 8200 | API et interface | Service Kubernetes, espace de noms openbao |

@@ -84,7 +84,12 @@ ROUTED_TOOLS: dict[str, tuple[int, str]] = {
 INTERNAL_TOOLS = ("prometheus", "loki")
 INGRESS_TOOLS = ("traefik", "ingress-nginx", "envoy-gateway")
 # Sur Kubernetes : interfaces web des charts placées derrière le contrôleur d'entrée (Ingress ou HTTPRoute)
-KUBE_ROUTED = ("grafana", "sonarqube", "jenkins", "gitea", "zot")
+# (port du Service, sous-domaine par défaut)
+KUBE_ROUTED: dict[str, tuple[int, str]] = {
+    "grafana": (3000, "grafana"), "sonarqube": (9000, "sonarqube"), "jenkins": (8080, "jenkins"),
+    "gitea": (3000, "gitea"), "zot": (5000, "registry"), "jaeger": (16686, "jaeger"), "harbor": (80, "harbor"),
+    "argo-cd": (8080, "argocd"), "argo-workflows": (2746, "argo"), "chaos-mesh": (2333, "chaos"),
+}
 
 
 def tools_domain(project: Project) -> str:
@@ -96,10 +101,11 @@ def tools_domain(project: Project) -> str:
 
 def routed_hostname(project: Project, tool: str) -> str:
     """Adresse servie par Traefik : paramètre « hostname » de la brique, sinon <sous-domaine>.<domaine des outils>."""
-    key = "url" if tool in ("zot", "distribution") else "hostname"
+    key = "url" if tool in ("zot", "distribution", "harbor") else "hostname"
     given = next((str(b.params.get(key)).split(":")[0] for _, b in project.all_bricks()
                   if b.tool == tool and (b.params or {}).get(key)), "")
-    return given or f"{ROUTED_TOOLS[tool][1]}.{tools_domain(project)}"
+    sub = (ROUTED_TOOLS.get(tool) or KUBE_ROUTED[tool])[1]
+    return given or f"{sub}.{tools_domain(project)}"
 
 
 def compose_publishes(project: Project) -> bool:
@@ -205,7 +211,7 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
                     tool = catalog.get(tid)
                     for container, usage in ports[tid].items():
                         where = f"Service Kubernetes, espace de noms {PLATFORM_CHARTS[tid].namespace}"
-                        if ingress and tid in KUBE_ROUTED and ROUTED_TOOLS[tid][0] == container:
+                        if ingress and tid in KUBE_ROUTED and KUBE_ROUTED[tid][0] == container:
                             where += f", exposé par {ingress}, hôte {routed_hostname(project, tid)}"
                         add(tid, tool.name if tool else tid, container, None, usage, where)
         else:

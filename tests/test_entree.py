@@ -14,13 +14,14 @@ from devops_builder.rules import RuleEngine
 
 CATALOG = default_catalog()
 ENGINE = RuleEngine(CATALOG)
-WEB = ("grafana", "sonarqube", "jenkins", "gitea", "zot")
+WEB = ("grafana", "sonarqube", "jenkins", "gitea", "zot", "harbor", "argo-cd", "argo-workflows", "chaos-mesh")
+AVEC_MANIFESTE = ("jaeger",)   # Ingress écrit dans platform/ingress.yaml, pas dans les valeurs du chart
 CLASSES = {"traefik": "traefik", "ingress-nginx": "nginx"}
 
 
 def kube(ingress: str, deploy: str = "helm") -> Project:
     p = Project(name="t", target="kubernetes", environments=env_preset("staging-prod"))
-    for t in ("gitlab", "gitlab-ci", "buildkit", "harbor", deploy, "k3s", ingress, *WEB):
+    for t in dict.fromkeys(("gitlab", "gitlab-ci", "buildkit", deploy, "k3s", ingress, *WEB, *AVEC_MANIFESTE)):
         p.add(t, CATALOG[t].stage)
     return p
 
@@ -62,10 +63,19 @@ def test_interfaces_web_des_briques_derriere_le_controleur(ingress):
     cls = CLASSES[ingress]
     for tool, expected in (("grafana", f"ingress.ingressClassName={cls}"), ("sonarqube", f"ingress.ingressClassName={cls}"),
                            ("jenkins", f"controller.ingress.ingressClassName={cls}"),
-                           ("gitea", f"ingress.className={cls}"), ("zot", f"ingress.className={cls}")):
+                           ("gitea", f"ingress.className={cls}"), ("zot", f"ingress.className={cls}"),
+                           ("harbor", f"expose.ingress.className={cls}"),
+                           ("argo-cd", f"server.ingress.ingressClassName={cls}"),
+                           ("argo-workflows", f"server.ingress.ingressClassName={cls}"),
+                           ("chaos-mesh", f"dashboard.ingress.ingressClassName={cls}")):
         line = next(ln for ln in install.splitlines() if ln.startswith(f"helm upgrade --install {tool} "))
         assert expected in line, tool
     assert "grafana.example.com" in install and "registry.example.com" in install
+    assert "argocd.example.com" in install and "chaos.example.com" in install
+    assert "configs.params.server.insecure=true" in install, "Argo CD derrière l'entrée parle en clair"
+    ingress_file = list(yaml.safe_load_all(files(kube(ingress))["platform/ingress.yaml"]))
+    assert [d["metadata"]["name"] for d in ingress_file] == ["jaeger"] and ingress_file[0]["spec"]["ingressClassName"] == cls
+    assert 'kubectl apply -f "$(dirname "$0")/ingress.yaml"' in install
 
 
 def test_gateway_api_pour_les_briques_avec_envoy_gateway():
@@ -73,7 +83,8 @@ def test_gateway_api_pour_les_briques_avec_envoy_gateway():
     docs = list(yaml.safe_load_all(f["platform/gateway.yaml"]))
     assert [d["kind"] for d in docs[:2]] == ["GatewayClass", "Gateway"]
     routes = {d["metadata"]["name"]: d for d in docs if d["kind"] == "HTTPRoute"}
-    assert set(routes) == set(WEB)
+    assert set(routes) == {*WEB, *AVEC_MANIFESTE}
+    assert "platform/ingress.yaml" not in f
     assert routes["grafana"]["metadata"]["namespace"] == "monitoring"
     assert routes["grafana"]["spec"]["hostnames"] == ["grafana.example.com"]
     install = f["platform/install.sh"]
@@ -86,7 +97,7 @@ def test_vue_reseau_derriere_l_entree(ingress):
     g = build_graph(kube(ingress), CATALOG, ENGINE)
     edges = {(e.src, e.dst) for e in g.edges}
     assert ("internet", ingress) in edges and (ingress, "app") in edges
-    for tool in WEB:
+    for tool in (*WEB, *AVEC_MANIFESTE):
         assert (ingress, tool) in edges, tool
         assert not any(e.public and e.dst == tool for e in g.edges)
 

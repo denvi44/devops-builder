@@ -204,10 +204,11 @@ def install_script(ir: IR) -> dict[str, str]:
                          "--wait")
         lines.append("")
     lines += idp_lines
-    files = entree.gateway_file(ir, present)
-    if files:   # routes des interfaces web : les espaces de noms existent une fois les charts installés
-        lines += ["# Gateway API : GatewayClass, Gateway et routes (Envoy Gateway)",
-                  'kubectl apply -f "$(dirname "$0")/gateway.yaml"', ""]
+    files = {**entree.gateway_file(ir, present), **entree.ingress_file(ir, present)}
+    for name, label in (("gateway.yaml", "Gateway API : GatewayClass, Gateway et routes (Envoy Gateway)"),
+                        ("ingress.yaml", "Ingress des briques dont le chart n'en gère pas")):
+        if f"platform/{name}" in files:   # les espaces de noms existent une fois les charts installés
+            lines += [f"# {label}", f'kubectl apply -f "$(dirname "$0")/{name}"', ""]
     return {"platform/install.sh": "\n".join(lines), **files}
 
 

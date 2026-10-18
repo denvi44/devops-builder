@@ -136,7 +136,7 @@ def tool_url(ir: IR, c: ToolClient) -> str:
         addr = str(ir.params(c.tool).get("address") or "")
         if addr:
             return addr.rstrip("/")
-    given = str(ir.params(c.tool).get("hostname") or "")
+    given = str(ir.params(c.tool).get("url" if c.tool == "harbor" else "hostname") or "").split(":")[0]
     if given:
         return f"https://{given}"
     return f"https://{c.sub}.{domain(ir)}"
@@ -445,8 +445,7 @@ def chart_args(ir: IR, tool_id: str) -> tuple[list[str], str]:
                   "  printf '" + settings + "' \"$HARBOR_OIDC_SECRET\" > \"$HARBOR_SETTINGS\"",
                   '  HARBOR_OIDC_ARGS=(--set-file core.configureUserSettings="$HARBOR_SETTINGS")',
                   "fi"]
-        cls = " --set expose.ingress.className=traefik" if ir.has("traefik") else ""
-        return lines, (f" --set externalURL={url} --set expose.ingress.hosts.core={host_}{cls}"
+        return lines, (f" --set externalURL={url} --set expose.ingress.hosts.core={host_}"
                        ' "${HARBOR_OIDC_ARGS[@]}"')
     if tool_id == "sonarqube" and ir.has("sonarqube") and idp(ir) == "keycloak":
         url = tool_url(ir, next(c for c in TOOL_CLIENTS if c.tool == "sonarqube"))

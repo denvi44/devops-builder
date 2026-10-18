@@ -13,7 +13,7 @@ helm repo update
 helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set crds.enabled=true
 
 # Argo CD
-helm upgrade --install argo-cd argo/argo-cd --namespace argocd --create-namespace
+helm upgrade --install argo-cd argo/argo-cd --namespace argocd --create-namespace --set server.ingress.enabled=true --set server.ingress.ingressClassName=traefik --set server.ingress.hostname=argocd.example.com --set configs.params.server.insecure=true
 
 # SonarQube — PostgreSQL externe requis en production.
 kubectl create namespace sonarqube --dry-run=client -o yaml | kubectl apply -f -

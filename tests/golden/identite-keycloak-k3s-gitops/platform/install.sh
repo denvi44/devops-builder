@@ -31,7 +31,7 @@ helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manag
 # Argo CD
 ARGO_CD_OIDC_SECRET="${ARGO_CD_OIDC_SECRET:-$(tofu -chdir="$(dirname "$0")/../infra/keycloak" output -raw argo_cd_client_secret 2>/dev/null || true)}"
 [ -n "${ARGO_CD_OIDC_SECRET:-}" ] || echo "ARGO_CD_OIDC_SECRET vide : connexion OIDC inactive, relancer ce script après « infra/keycloak » appliqué (docs/mise-en-route.md)" >&2
-helm upgrade --install argo-cd argo/argo-cd --namespace argocd --create-namespace -f "$(dirname "$0")/values/argo-cd.yaml" --set-string "configs.secret.extra.oidc\.clientSecret=$ARGO_CD_OIDC_SECRET"
+helm upgrade --install argo-cd argo/argo-cd --namespace argocd --create-namespace -f "$(dirname "$0")/values/argo-cd.yaml" --set-string "configs.secret.extra.oidc\.clientSecret=$ARGO_CD_OIDC_SECRET" --set server.ingress.enabled=true --set server.ingress.ingressClassName=traefik --set server.ingress.hostname=argocd.boutique.fr --set configs.params.server.insecure=true
 
 # External Secrets Operator
 helm upgrade --install external-secrets external-secrets/external-secrets --namespace external-secrets --create-namespace --wait

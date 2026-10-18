@@ -24,6 +24,22 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
+  name: argo-cd
+  namespace: argocd
+spec:
+  parentRefs:
+  - name: entree
+    namespace: envoy-gateway-system
+  hostnames:
+  - argocd.example.com
+  rules:
+  - backendRefs:
+    - name: argo-cd-server
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
   name: grafana
   namespace: monitoring
 spec:

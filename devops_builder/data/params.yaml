@@ -36,6 +36,10 @@ minio:
   hostname: *hostname
 jaeger:
   hostname: *hostname
+argo-workflows:
+  hostname: *hostname
+chaos-mesh:
+  hostname: *hostname
 nexus:
   url:
     label: Adresse du registre Docker de Nexus
@@ -462,6 +466,7 @@ _gitops_repo: &gitops_repo
   pattern_hint: "https://hôte/groupe/depot.git, sans identifiant"
 argo-cd:
   repo_url: *gitops_repo
+  hostname: *hostname
 flux:
   repo_url: *gitops_repo
 

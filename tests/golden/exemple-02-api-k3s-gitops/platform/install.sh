@@ -21,7 +21,7 @@ helm upgrade --install cilium cilium/cilium --namespace kube-system --create-nam
 helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set crds.enabled=true
 
 # Argo CD
-helm upgrade --install argo-cd argo/argo-cd --namespace argocd --create-namespace
+helm upgrade --install argo-cd argo/argo-cd --namespace argocd --create-namespace --set configs.params.server.insecure=true
 
 # Envoy Gateway
 helm upgrade --install envoy-gateway oci://docker.io/envoyproxy/gateway-helm --namespace envoy-gateway-system --create-namespace

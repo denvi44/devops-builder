@@ -17,12 +17,12 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | --- | --- | --- | --- | --- | --- |
 | Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging, exposé par Traefik, hôte staging.mon-app.example.com |
 | Préproduction | SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube, exposé par Traefik, hôte sonarqube.example.com |
-| Préproduction | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Préproduction | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd, exposé par Traefik, hôte argocd.example.com |
 | Préproduction | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
 | Préproduction | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
 | Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app, exposé par Traefik, hôte mon-app.example.com |
 | Production | SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube, exposé par Traefik, hôte sonarqube.example.com |
-| Production | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Production | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd, exposé par Traefik, hôte argocd.example.com |
 | Production | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
 | Production | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
 

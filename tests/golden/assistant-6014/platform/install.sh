@@ -18,7 +18,7 @@ helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manag
 helm upgrade --install grafana grafana-community/grafana --namespace monitoring --create-namespace --set ingress.enabled=true --set ingress.ingressClassName=traefik --set 'ingress.hosts[0]=grafana.example.com'
 
 # Harbor
-helm upgrade --install harbor harbor/harbor --namespace harbor --create-namespace
+helm upgrade --install harbor harbor/harbor --namespace harbor --create-namespace --set externalURL=https://harbor.example.com --set expose.ingress.hosts.core=harbor.example.com --set expose.ingress.className=traefik
 
 # Prometheus
 helm upgrade --install prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace

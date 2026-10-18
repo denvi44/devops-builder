@@ -17,7 +17,7 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
 | --- | --- | --- | --- | --- | --- |
 | Développement | api | — | 3000 | application | Service api port 80, espace de noms api-dev, exposé par Envoy Gateway, hôte dev.api.example.com |
-| Développement | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Développement | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd, exposé par Envoy Gateway, hôte argocd.example.com |
 | Développement | Envoy Gateway | — | 80 | HTTP | Service Kubernetes, espace de noms envoy-gateway-system |
 | Développement | Envoy Gateway | — | 443 | HTTPS | Service Kubernetes, espace de noms envoy-gateway-system |
 | Développement | OpenBao | — | 8200 | API et interface | Service Kubernetes, espace de noms openbao |
@@ -27,7 +27,7 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Développement | OpenTelemetry Collector | — | 4318 | OTLP HTTP | Service Kubernetes, espace de noms observability |
 | Développement | Grafana Tempo | — | 3200 | API HTTP | Service Kubernetes, espace de noms monitoring |
 | Préproduction | api | — | 3000 | application | Service api port 80, espace de noms api-staging, exposé par Envoy Gateway, hôte staging.api.example.com |
-| Préproduction | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Préproduction | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd, exposé par Envoy Gateway, hôte argocd.example.com |
 | Préproduction | Envoy Gateway | — | 80 | HTTP | Service Kubernetes, espace de noms envoy-gateway-system |
 | Préproduction | Envoy Gateway | — | 443 | HTTPS | Service Kubernetes, espace de noms envoy-gateway-system |
 | Préproduction | OpenBao | — | 8200 | API et interface | Service Kubernetes, espace de noms openbao |
@@ -37,7 +37,7 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction | OpenTelemetry Collector | — | 4318 | OTLP HTTP | Service Kubernetes, espace de noms observability |
 | Préproduction | Grafana Tempo | — | 3200 | API HTTP | Service Kubernetes, espace de noms monitoring |
 | Production | api | — | 3000 | application | Service api port 80, espace de noms api, exposé par Envoy Gateway, hôte api.example.com |
-| Production | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Production | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd, exposé par Envoy Gateway, hôte argocd.example.com |
 | Production | Envoy Gateway | — | 80 | HTTP | Service Kubernetes, espace de noms envoy-gateway-system |
 | Production | Envoy Gateway | — | 443 | HTTPS | Service Kubernetes, espace de noms envoy-gateway-system |
 | Production | OpenBao | — | 8200 | API et interface | Service Kubernetes, espace de noms openbao |

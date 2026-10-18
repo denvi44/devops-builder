@@ -13,10 +13,15 @@ from ..ports import INGRESS_TOOLS, KUBE_ROUTED, app_hostname, routed_hostname
 from .common import HEADER, dump_yaml, dump_yaml_docs
 
 GATEWAY, GATEWAY_NS, GATEWAY_FILE = "entree", "envoy-gateway-system", "platform/gateway.yaml"
+INGRESS_FILE = "platform/ingress.yaml"
 CLASSES = {"traefik": "traefik", "ingress-nginx": "nginx", "envoy-gateway": None}
 # Service Kubernetes de l'interface web des charts installés par platform/install.sh : (nom, port)
 CHART_SERVICES = {"grafana": ("grafana", 80), "sonarqube": ("sonarqube", 9000), "jenkins": ("jenkins", 8080),
-                  "gitea": ("gitea-http", 3000), "zot": ("zot", 5000)}
+                  "gitea": ("gitea-http", 3000), "zot": ("zot", 5000), "harbor": ("harbor", 80),
+                  "argo-cd": ("argo-cd-server", 80), "argo-workflows": ("argo-workflows-server", 2746),
+                  "chaos-mesh": ("chaos-dashboard", 2333), "jaeger": ("jaeger", 16686)}
+# Charts dont les valeurs d'Ingress ne sont pas fiables : l'Ingress est écrit dans platform/ingress.yaml
+MANIFEST_ROUTED = ("jaeger",)
 
 
 def controller(ir: IR) -> tuple[str, str | None] | None:
@@ -116,11 +121,15 @@ def kustomize_resource(ir: IR, env) -> dict | None:
 
 # ------------------------------------------------------------------ briques de plateforme
 def chart_args(ir: IR, tool: str) -> str:
-    """Options Helm qui placent l'interface web d'une brique derrière le contrôleur (Ingress)."""
+    """Options Helm qui placent l'interface web d'une brique derrière le contrôleur."""
     c = controller(ir)
-    if not c or not c[1] or tool not in KUBE_ROUTED:
+    if not c or tool not in KUBE_ROUTED or tool in MANIFEST_ROUTED:
         return ""
     cls, host = c[1], routed_hostname(ir.project, tool)
+    if cls is None:   # Gateway API : la route est dans platform/gateway.yaml ; réglages du chart pour être derrière elle
+        return {"argo-cd": " --set configs.params.server.insecure=true",
+                "harbor": f" --set expose.type=clusterIP --set expose.tls.enabled=false --set externalURL=https://{host}"
+                }.get(tool, "")
     if tool == "grafana":
         return f" --set ingress.enabled=true --set ingress.ingressClassName={cls} --set 'ingress.hosts[0]={host}'"
     if tool == "sonarqube":
@@ -128,8 +137,44 @@ def chart_args(ir: IR, tool: str) -> str:
     if tool == "jenkins":
         return (f" --set controller.ingress.enabled=true --set controller.ingress.ingressClassName={cls}"
                 f" --set controller.ingress.hostName={host}")
+    if tool == "argo-cd":   # TLS terminé à l'entrée : le serveur parle en clair
+        return (f" --set server.ingress.enabled=true --set server.ingress.ingressClassName={cls}"
+                f" --set server.ingress.hostname={host} --set configs.params.server.insecure=true")
+    if tool == "argo-workflows":
+        return (f" --set server.ingress.enabled=true --set server.ingress.ingressClassName={cls}"
+                f" --set 'server.ingress.hosts[0]={host}'")
+    if tool == "chaos-mesh":
+        return (f" --set dashboard.ingress.enabled=true --set dashboard.ingress.ingressClassName={cls}"
+                f" --set 'dashboard.ingress.hosts[0].name={host}'")
+    if tool == "harbor":   # avec la connexion unique, l'adresse externe est déjà posée par identity.py
+        from .identity import issuer
+        base = "" if issuer(ir) else f" --set externalURL=https://{host} --set expose.ingress.hosts.core={host}"
+        return base + f" --set expose.ingress.className={cls}"
     return (f" --set ingress.enabled=true --set ingress.className={cls} --set 'ingress.hosts[0].host={host}'"
             " --set 'ingress.hosts[0].paths[0].path=/'")
+
+
+def ingress_file(ir: IR, present: list[str]) -> dict[str, str]:
+    """Ingress des briques dont le chart n'en porte pas de façon fiable (platform/ingress.yaml)."""
+    c = controller(ir)
+    if not c or not c[1]:
+        return {}
+    from .platform import PLATFORM_CHARTS
+    docs = []
+    for tool in present:
+        if tool in MANIFEST_ROUTED and tool in CHART_SERVICES:
+            svc, port = CHART_SERVICES[tool]
+            docs.append({"apiVersion": "networking.k8s.io/v1", "kind": "Ingress",
+                         "metadata": {"name": tool, "namespace": PLATFORM_CHARTS[tool].namespace},
+                         "spec": {"ingressClassName": c[1],
+                                  "rules": [{"host": routed_hostname(ir.project, tool), "http": {"paths": [{
+                                      "path": "/", "pathType": "Prefix",
+                                      "backend": {"service": {"name": svc, "port": {"number": port}}}}]}}]}})
+    if not docs:
+        return {}
+    ir.notes.append("platform/ingress.yaml : Ingress des briques dont le chart n'en gère pas de façon fiable "
+                    "(Jaeger) ; vérifier le nom du Service (kubectl -n observability get svc).")
+    return {INGRESS_FILE: dump_yaml_docs(docs)}
 
 
 def gateway_file(ir: IR, present: list[str]) -> dict[str, str]:
@@ -160,4 +205,4 @@ def gateway_file(ir: IR, present: list[str]) -> dict[str, str]:
 
 
 __all__ = ["controller", "gateway_api", "helm_values", "helm_env_values", "helm_templates", "kustomize_resource",
-           "chart_args", "gateway_file", "dump_yaml", "HEADER"]
+           "chart_args", "gateway_file", "ingress_file", "dump_yaml", "HEADER"]

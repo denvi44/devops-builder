@@ -29,7 +29,8 @@ seul Grafana les interroge. Les ports « machine » (OTLP, SSH de Gitea, API S3 
 une flèche directe depuis Internet. Sans Traefik, ces interfaces sont publiées sur l'hôte et le schéma le signale.
 
 Sur Kubernetes, le contrôleur d'entrée est celui du pipeline : Traefik, ingress-nginx (Ingress) ou Envoy Gateway
-(Gateway API). Il porte l'application et les interfaces web de Grafana, SonarQube, Jenkins, Gitea et Zot ; le
+(Gateway API). Il porte l'application et les interfaces web de Grafana, SonarQube, Jenkins, Gitea, Zot, Harbor, Argo CD,
+Argo Workflows, Chaos Mesh et Jaeger ; le
 schéma tire une flèche de l'entrée vers chacun.
 
 ## Lire les erreurs sur le schéma

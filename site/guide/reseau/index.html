@@ -995,7 +995,8 @@ publique » de la brique). Prometheus et Loki n'ont pas d'authentification : ils
 seul Grafana les interroge. Les ports « machine » (OTLP, SSH de Gitea, API S3 de MinIO) restent publiés, avec
 une flèche directe depuis Internet. Sans Traefik, ces interfaces sont publiées sur l'hôte et le schéma le signale.</p>
 <p>Sur Kubernetes, le contrôleur d'entrée est celui du pipeline : Traefik, ingress-nginx (Ingress) ou Envoy Gateway
-(Gateway API). Il porte l'application et les interfaces web de Grafana, SonarQube, Jenkins, Gitea et Zot ; le
+(Gateway API). Il porte l'application et les interfaces web de Grafana, SonarQube, Jenkins, Gitea, Zot, Harbor, Argo CD,
+Argo Workflows, Chaos Mesh et Jaeger ; le
 schéma tire une flèche de l'entrée vers chacun.</p>
 <h2 id="lire-les-erreurs-sur-le-schema">Lire les erreurs sur le schéma<a class="headerlink" href="#lire-les-erreurs-sur-le-schema" title="Permanent link">&para;</a></h2>
 <p>Une pastille sur un composant dit qu'un constat le concerne : <strong>disque barré</strong> pour une erreur bloquante,

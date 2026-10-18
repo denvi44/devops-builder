@@ -34,7 +34,7 @@ if [ -n "${HARBOR_OIDC_SECRET:-}" ]; then
   printf '{"auth_mode":"oidc_auth","oidc_name":"Dex","oidc_endpoint":"https://dex.boutique.fr","oidc_client_id":"harbor","oidc_client_secret":"%s","oidc_scope":"openid,profile,email,groups,offline_access","oidc_groups_claim":"groups","oidc_admin_group":"admins","oidc_user_claim":"preferred_username","oidc_auto_onboard":"true","oidc_verify_cert":"true"}' "$HARBOR_OIDC_SECRET" > "$HARBOR_SETTINGS"
   HARBOR_OIDC_ARGS=(--set-file core.configureUserSettings="$HARBOR_SETTINGS")
 fi
-helm upgrade --install harbor harbor/harbor --namespace harbor --create-namespace --set externalURL=https://harbor.boutique.fr --set expose.ingress.hosts.core=harbor.boutique.fr --set expose.ingress.className=traefik "${HARBOR_OIDC_ARGS[@]}"
+helm upgrade --install harbor harbor/harbor --namespace harbor --create-namespace --set externalURL=https://harbor.boutique.fr --set expose.ingress.hosts.core=harbor.boutique.fr "${HARBOR_OIDC_ARGS[@]}" --set expose.ingress.className=traefik
 
 # Prometheus
 helm upgrade --install prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace

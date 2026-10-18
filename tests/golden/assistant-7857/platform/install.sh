@@ -13,7 +13,7 @@ helm repo update
 helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set crds.enabled=true
 
 # Harbor
-helm upgrade --install harbor harbor/harbor --namespace harbor --create-namespace
+helm upgrade --install harbor harbor/harbor --namespace harbor --create-namespace --set externalURL=https://harbor.example.com --set expose.ingress.hosts.core=harbor.example.com --set expose.ingress.className=traefik
 
 # SonarQube — PostgreSQL externe requis en production.
 kubectl create namespace sonarqube --dry-run=client -o yaml | kubectl apply -f -

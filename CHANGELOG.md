@@ -21,9 +21,10 @@ catalogue, et des variantes sans Kubernetes ; un écran d'accueil qui dit par o�
   mais rien n'était routé. Le chart Helm (`templates/ingress.yaml`) et les overlays Kustomize (`ingress.yaml`)
   créent désormais l'Ingress de l'application, un nom d'hôte par environnement (paramètre « Adresse publique de
   l'application », maintenant aussi sur Kubernetes et sur ingress-nginx et Envoy Gateway), et `platform/install.sh`
-  place Grafana, SonarQube, Jenkins, Gitea et Zot derrière le contrôleur (classe `traefik` ou `nginx`). Avec Envoy
+  place Grafana, SonarQube, Jenkins, Gitea, Zot, Harbor, Argo CD, Argo Workflows et Chaos Mesh derrière le contrôleur (classe `traefik` ou `nginx`). Avec Envoy
   Gateway, qui n'a pas d'Ingress : une HTTPRoute par application (chart ou overlay) et `platform/gateway.yaml`
-  (GatewayClass, Gateway HTTP, routes des briques). TLS à ajouter (cert-manager) ; noms des Services à vérifier.
+  (GatewayClass, Gateway HTTP, routes des briques). Jaeger, dont le chart n'a pas de réglage d'Ingress fiable, a le
+  sien dans `platform/ingress.yaml`. Argo CD derrière l'entrée parle en clair (`configs.params.server.insecure`). TLS à ajouter (cert-manager) ; noms des Services à vérifier.
   Le contrôleur embarqué de k3s est reconnu. Les projets Kubernetes avec un contrôleur voient donc leurs fichiers
   changer et un avertissement R34 de plus (adresse d'exemple).
 
