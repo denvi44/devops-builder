@@ -142,23 +142,22 @@ def build_graph(project: Project, catalog: Catalog, engine: RuleEngine, env_id: 
             continue
         published = [e for e in comp if e.host_port is not None]
         via_ingress = ingress and any("via Traefik" in e.exposure or "exposé par" in e.exposure for e in comp)
+        if via_ingress:   # interface web derrière l'entrée ; ports restants (OTLP, SSH, S3…) : protocoles machine
+            graph.edges.append(NetEdge(ingress, cid, f":{next(e for e in comp if e.host_port is None).container_port}"))
         if published:
             graph.edges.append(NetEdge("internet", cid, ":" + ", ".join(str(e.host_port) for e in published),
                                        public=True, secure=False))
-            for e in published:
-                hint = ADMIN_PORT_HINT.get(cid)
-                if hint or ingress:
-                    graph.findings.append(Finding(
-                        Severity.WARNING,
-                        f"{node.label} : port {e.host_port} publié sur l'hôte"
-                        + (f" ({hint})" if hint else "") + ", sans passer par "
-                        + (catalog[ingress].name if ingress else "un reverse proxy")
-                        + " : le placer derrière l'entrée ou le fermer au pare-feu.",
-                        "réseau", [cid]))
-                    break
-        elif via_ingress:
-            graph.edges.append(NetEdge(ingress, cid, f":{comp[0].container_port}"))
-        else:
+            hint = ADMIN_PORT_HINT.get(cid)
+            if not via_ingress and (hint or ingress):
+                e = published[0]
+                graph.findings.append(Finding(
+                    Severity.WARNING,
+                    f"{node.label} : port {e.host_port} publié sur l'hôte"
+                    + (f" ({hint})" if hint else "") + ", sans passer par "
+                    + (catalog[ingress].name if ingress else "un reverse proxy")
+                    + " : le placer derrière l'entrée ou le fermer au pare-feu.",
+                    "réseau", [cid]))
+        elif not via_ingress:
             graph.edges.append(NetEdge("app", cid, f":{comp[0].container_port}"))
 
     for tid in sorted(present):   # hébergement : fournisseur cloud et cluster, porteurs des erreurs de dimensionnement

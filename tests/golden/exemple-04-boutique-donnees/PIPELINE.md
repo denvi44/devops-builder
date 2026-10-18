@@ -21,22 +21,22 @@ Hôte partagé `vm-hors-prod` : Développement (+0), Recette (+10000). Les ports
 | Développement | boutique | — | 8000 | application | via Traefik, hôte dev.boutique.example.com |
 | Développement | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Développement | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Développement | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
-| Développement | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
+| Développement | Prometheus | — | 9090 | interface et API | réseau interne Compose, non publié |
+| Développement | Grafana | — | 3000 | interface web | via Traefik, hôte grafana.example.com |
 | Développement | PostgreSQL | — | 5432 | PostgreSQL | réseau interne Compose (hôte « postgresql »), non publié |
 | Développement | Valkey | — | 6379 | Valkey | réseau interne Compose (hôte « valkey »), non publié |
 | Recette | boutique | — | 8000 | application | via Traefik, hôte recette.boutique.example.com |
 | Recette | Traefik | 10080 | 80 | HTTP | publié sur l'hôte Docker |
 | Recette | Traefik | 10443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Recette | Prometheus | 19090 | 9090 | interface et API | publié sur l'hôte Docker |
-| Recette | Grafana | 13000 | 3000 | interface web | publié sur l'hôte Docker |
+| Recette | Prometheus | — | 9090 | interface et API | réseau interne Compose, non publié |
+| Recette | Grafana | — | 3000 | interface web | via Traefik, hôte grafana.example.com |
 | Recette | PostgreSQL | — | 5432 | PostgreSQL | réseau interne Compose (hôte « postgresql »), non publié |
 | Recette | Valkey | — | 6379 | Valkey | réseau interne Compose (hôte « valkey »), non publié |
 | Production | boutique | — | 8000 | application | via Traefik, hôte boutique.example.com |
 | Production | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Production | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Production | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
-| Production | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
+| Production | Prometheus | — | 9090 | interface et API | réseau interne Compose, non publié |
+| Production | Grafana | — | 3000 | interface web | via Traefik, hôte grafana.example.com |
 | Production | PostgreSQL | — | 5432 | PostgreSQL | réseau interne Compose (hôte « postgresql »), non publié |
 | Production | Valkey | — | 6379 | Valkey | réseau interne Compose (hôte « valkey »), non publié |
 

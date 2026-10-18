@@ -21,28 +21,28 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Bac à sable | mon-app | — | 8000 | application | via Traefik, hôte sandbox.mon-app.example.com |
 | Bac à sable | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Bac à sable | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Bac à sable | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
-| Bac à sable | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
+| Bac à sable | Prometheus | — | 9090 | interface et API | réseau interne Compose, non publié |
+| Bac à sable | Grafana | — | 3000 | interface web | via Traefik, hôte grafana.example.com |
 | Développement | mon-app | — | 8000 | application | via Traefik, hôte dev.mon-app.example.com |
 | Développement | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Développement | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Développement | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
-| Développement | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
+| Développement | Prometheus | — | 9090 | interface et API | réseau interne Compose, non publié |
+| Développement | Grafana | — | 3000 | interface web | via Traefik, hôte grafana.example.com |
 | Recette | mon-app | — | 8000 | application | via Traefik, hôte recette.mon-app.example.com |
 | Recette | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Recette | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Recette | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
-| Recette | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
+| Recette | Prometheus | — | 9090 | interface et API | réseau interne Compose, non publié |
+| Recette | Grafana | — | 3000 | interface web | via Traefik, hôte grafana.example.com |
 | Préproduction | mon-app | — | 8000 | application | via Traefik, hôte staging.mon-app.example.com |
 | Préproduction | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Préproduction | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Préproduction | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
-| Préproduction | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
+| Préproduction | Prometheus | — | 9090 | interface et API | réseau interne Compose, non publié |
+| Préproduction | Grafana | — | 3000 | interface web | via Traefik, hôte grafana.example.com |
 | Production | mon-app | — | 8000 | application | via Traefik, hôte mon-app.example.com |
 | Production | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Production | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Production | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
-| Production | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
+| Production | Prometheus | — | 9090 | interface et API | réseau interne Compose, non publié |
+| Production | Grafana | — | 3000 | interface web | via Traefik, hôte grafana.example.com |
 
 ## Dimensionnement
 

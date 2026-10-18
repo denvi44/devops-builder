@@ -7,7 +7,15 @@ mineure peut changer les fichiers générés ; chaque changement voulu est relu 
 ## 0.21.0 — 2026-10-18 — Pipelines types, accueil et vue Réseau
 
 Douze pipelines complets, prêts à ouvrir et à ajuster : un Kubernetes managé pour chacun des six fournisseurs du
-catalogue, et des variantes sans Kubernetes ; un écran d'accueil qui dit par où commencer. Les fichiers générés des projets existants ne changent pas.
+catalogue, et des variantes sans Kubernetes ; un écran d'accueil qui dit par où commencer. Avec Traefik sur hôte Docker, les interfaces web passent derrière lui : les fichiers générés de ces projets changent (voir « Modifié »).
+
+### Modifié
+- **Outils derrière Traefik** (hôte Docker avec Traefik) : Grafana, SonarQube, Jenkins, Gitea, console MinIO,
+  interface Jaeger et registres Zot / Distribution ne publient plus leur port sur l'hôte ; ils sont servis en HTTPS
+  par Traefik, à l'adresse `<outil>.<domaine des outils>` ou au paramètre « Adresse publique » (`hostname`) de la
+  brique. Prometheus et Loki, sans authentification, ne sont plus publiés du tout (Grafana les interroge sur le
+  réseau Compose). Restent publiés les ports « machine » : OTLP (Jaeger, collecteur), SSH de Gitea, API S3 de
+  MinIO. Sans Traefik, rien ne change. Le plan de ports, R39 et la vue Réseau suivent.
 
 ### Ajouté
 - **Modèles de pipeline par fournisseur** (`devops_builder/modeles.py`) : AWS (EKS, ECS Fargate, EC2), Google

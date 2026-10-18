@@ -32,12 +32,15 @@ services:
     - traefik-letsencrypt:/letsencrypt
   sonarqube:
     image: sonarqube:community
-    ports:
-    - 9002:9000
     volumes:
     - sonarqube-data:/opt/sonarqube/data
     environment:
       SONAR_SEARCH_JAVAADDITIONALOPTS: -Dnode.store.allow_mmap=false
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.sonarqube.rule=Host(`sonarqube.example.com`)
+    - traefik.http.routers.sonarqube.entrypoints=websecure
+    - traefik.http.services.sonarqube.loadbalancer.server.port=9000
 volumes:
   sonarqube-data: {}
   traefik-letsencrypt: {}

@@ -18,14 +18,14 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction | mon-app | — | 8000 | application | via Traefik, hôte staging.mon-app.example.com |
 | Préproduction | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Préproduction | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Préproduction | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
-| Préproduction | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
+| Préproduction | Prometheus | — | 9090 | interface et API | réseau interne Compose, non publié |
+| Préproduction | Grafana | — | 3000 | interface web | via Traefik, hôte grafana.example.com |
 | Préproduction | Dex | — | 5556 | OIDC | via Traefik, hôte dex.boutique.fr |
 | Production | mon-app | — | 8000 | application | via Traefik, hôte mon-app.example.com |
 | Production | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Production | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Production | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
-| Production | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
+| Production | Prometheus | — | 9090 | interface et API | réseau interne Compose, non publié |
+| Production | Grafana | — | 3000 | interface web | via Traefik, hôte grafana.example.com |
 | Production | Dex | — | 5556 | OIDC | via Traefik, hôte dex.boutique.fr |
 
 ## Dimensionnement

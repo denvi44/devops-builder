@@ -19,6 +19,15 @@ L'environnement se choisit en haut (la production par défaut), ainsi que la **t
 espaces suivent, le dessin défile s'il dépasse la fenêtre) ; **Enregistrer l'image…** écrit le schéma en PNG,
 pour un dossier d'architecture ou une revue.
 
+## Qui est derrière qui
+
+Sur un hôte Docker avec Traefik, seule l'entrée est ouverte sur Internet. Les interfaces web (Grafana, SonarQube,
+Jenkins, Gitea, console MinIO, interface Jaeger, registres Zot et Distribution) sont derrière Traefik : une flèche
+part de l'entrée vers chacune, en HTTPS, à l'adresse `<outil>.<domaine des outils>` (ou le paramètre « Adresse
+publique » de la brique). Prometheus et Loki n'ont pas d'authentification : ils restent sur le réseau interne et
+seul Grafana les interroge. Les ports « machine » (OTLP, SSH de Gitea, API S3 de MinIO) restent publiés, avec
+une flèche directe depuis Internet. Sans Traefik, ces interfaces sont publiées sur l'hôte et le schéma le signale.
+
 ## Lire les erreurs sur le schéma
 
 Une pastille sur un composant dit qu'un constat le concerne : **disque barré** pour une erreur bloquante,

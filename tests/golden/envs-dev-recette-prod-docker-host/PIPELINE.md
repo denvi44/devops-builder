@@ -19,18 +19,18 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Développement | mon-app | — | 8000 | application | via Traefik, hôte dev.mon-app.example.com |
 | Développement | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Développement | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Développement | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
-| Développement | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
+| Développement | Prometheus | — | 9090 | interface et API | réseau interne Compose, non publié |
+| Développement | Grafana | — | 3000 | interface web | via Traefik, hôte grafana.example.com |
 | Recette | mon-app | — | 8000 | application | via Traefik, hôte recette.mon-app.example.com |
 | Recette | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Recette | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Recette | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
-| Recette | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
+| Recette | Prometheus | — | 9090 | interface et API | réseau interne Compose, non publié |
+| Recette | Grafana | — | 3000 | interface web | via Traefik, hôte grafana.example.com |
 | Production | mon-app | — | 8000 | application | via Traefik, hôte mon-app.example.com |
 | Production | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Production | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Production | Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
-| Production | Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
+| Production | Prometheus | — | 9090 | interface et API | réseau interne Compose, non publié |
+| Production | Grafana | — | 3000 | interface web | via Traefik, hôte grafana.example.com |
 
 ## Dimensionnement
 

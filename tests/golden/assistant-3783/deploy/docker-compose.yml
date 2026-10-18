@@ -32,31 +32,39 @@ services:
     - traefik-letsencrypt:/letsencrypt
   prometheus:
     image: prom/prometheus:latest
-    ports:
-    - 9090:9090
     volumes:
     - prometheus-data:/prometheus
   grafana:
     image: grafana/grafana:latest
-    ports:
-    - 3000:3000
     volumes:
     - grafana-data:/var/lib/grafana
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.grafana.rule=Host(`grafana.example.com`)
+    - traefik.http.routers.grafana.entrypoints=websecure
+    - traefik.http.services.grafana.loadbalancer.server.port=3000
   gitea:
     image: gitea/gitea:latest
-    ports:
-    - 3001:3000
-    - '2222:22'
     volumes:
     - gitea-data:/data
+    ports:
+    - '2222:22'
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.gitea.rule=Host(`gitea.example.com`)
+    - traefik.http.routers.gitea.entrypoints=websecure
+    - traefik.http.services.gitea.loadbalancer.server.port=3000
   sonarqube:
     image: sonarqube:community
-    ports:
-    - 9002:9000
     volumes:
     - sonarqube-data:/opt/sonarqube/data
     environment:
       SONAR_SEARCH_JAVAADDITIONALOPTS: -Dnode.store.allow_mmap=false
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.sonarqube.rule=Host(`sonarqube.example.com`)
+    - traefik.http.routers.sonarqube.entrypoints=websecure
+    - traefik.http.services.sonarqube.loadbalancer.server.port=9000
 volumes:
   gitea-data: {}
   grafana-data: {}

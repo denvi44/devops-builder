@@ -496,6 +496,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#qui-est-derriere-qui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Qui est derrière qui
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#lire-les-erreurs-sur-le-schema" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -908,6 +919,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#qui-est-derriere-qui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Qui est derrière qui
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#lire-les-erreurs-sur-le-schema" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -965,6 +987,13 @@ Traefik, Prometheus et Grafana portent une pastille d'avertissement" src="../cap
 <p>L'environnement se choisit en haut (la production par défaut), ainsi que la <strong>taille du schéma</strong> (100 à 200 % : textes et
 espaces suivent, le dessin défile s'il dépasse la fenêtre) ; <strong>Enregistrer l'image…</strong> écrit le schéma en PNG,
 pour un dossier d'architecture ou une revue.</p>
+<h2 id="qui-est-derriere-qui">Qui est derrière qui<a class="headerlink" href="#qui-est-derriere-qui" title="Permanent link">&para;</a></h2>
+<p>Sur un hôte Docker avec Traefik, seule l'entrée est ouverte sur Internet. Les interfaces web (Grafana, SonarQube,
+Jenkins, Gitea, console MinIO, interface Jaeger, registres Zot et Distribution) sont derrière Traefik : une flèche
+part de l'entrée vers chacune, en HTTPS, à l'adresse <code>&lt;outil&gt;.&lt;domaine des outils&gt;</code> (ou le paramètre « Adresse
+publique » de la brique). Prometheus et Loki n'ont pas d'authentification : ils restent sur le réseau interne et
+seul Grafana les interroge. Les ports « machine » (OTLP, SSH de Gitea, API S3 de MinIO) restent publiés, avec
+une flèche directe depuis Internet. Sans Traefik, ces interfaces sont publiées sur l'hôte et le schéma le signale.</p>
 <h2 id="lire-les-erreurs-sur-le-schema">Lire les erreurs sur le schéma<a class="headerlink" href="#lire-les-erreurs-sur-le-schema" title="Permanent link">&para;</a></h2>
 <p>Une pastille sur un composant dit qu'un constat le concerne : <strong>disque barré</strong> pour une erreur bloquante,
 <strong>triangle</strong> pour un avertissement, <strong>disque</strong> pour une information. Le contour du composant prend la couleur de la

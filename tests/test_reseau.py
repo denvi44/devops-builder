@@ -48,11 +48,31 @@ def test_une_erreur_de_regle_est_posee_sur_le_composant_de_sa_brique():
     assert g.elsewhere >= 0 and g.worst("postgresql") is None
 
 
+def _docker(*tools):
+    from devops_builder.model import env_preset
+    p = Project(name="ports", target="docker-host", environments=env_preset("prod"))
+    for t in ("gitlab", "gitlab-ci", "buildkit", "harbor", "docker-compose", *tools):
+        p.add(t, CATALOG[t].stage)
+    return p
+
+
 def test_service_publie_sans_passer_par_l_entree():
-    g = build_graph(build("outscale", CATALOG), CATALOG, ENGINE)
+    # sans Traefik, Grafana est publié sur l'hôte : constat, mais sans « entrée » à contourner pour Prometheus
+    g = build_graph(_docker("grafana", "prometheus"), CATALOG, ENGINE)
     reseau = [f for f in g.findings if f.source == "réseau"]
     assert {n for f in reseau for n in f.nodes} >= {"grafana", "prometheus"}
     assert any(e.public and not e.secure and e.dst == "grafana" for e in g.edges)
+
+
+def test_interfaces_derriere_traefik_et_services_internes():
+    g = build_graph(_docker("traefik", "grafana", "prometheus", "jaeger"), CATALOG, ENGINE)
+    assert any(e.src == "traefik" and e.dst == "grafana" for e in g.edges)
+    assert not any(e.public and e.dst in ("grafana", "prometheus") for e in g.edges)
+    assert not any(f.nodes == ["grafana"] for f in g.findings if f.source == "réseau")
+    # Jaeger : interface derrière Traefik, ports OTLP encore publiés (protocole machine, pas de constat)
+    assert any(e.src == "traefik" and e.dst == "jaeger" for e in g.edges)
+    assert any(e.public and e.dst == "jaeger" for e in g.edges)
+    assert not any(f.nodes == ["jaeger"] for f in g.findings if f.source == "réseau")
 
 
 def test_conflit_de_port_bloquant():
@@ -128,15 +148,15 @@ def test_selection_synchronisee_et_erreurs_dans_la_liste(win):
     from devops_builder.ui.reseau import NetworkDialog
     dialog = NetworkDialog(win.project, win.catalog, win.engine, win)
     dialog.show()
-    dialog.view.select("grafana")
-    assert dialog.tree.currentItem().data(0, Qt.ItemDataRole.UserRole) == ("node", "grafana")
+    dialog.view.select("traefik")
+    assert dialog.tree.currentItem().data(0, Qt.ItemDataRole.UserRole) == ("node", "traefik")
     assert "avertissement" in dialog.detail.text()
     texts = [dialog.tree.topLevelItem(i).text(0) for i in range(dialog.tree.topLevelItemCount())]
-    assert any("Grafana" in t and "avertissement" in t for t in texts), "l'erreur est écrite, pas seulement colorée"
+    assert any("Traefik" in t and "avertissement" in t for t in texts), "l'erreur est écrite, pas seulement colorée"
     grafana = next(dialog.tree.topLevelItem(i) for i in range(dialog.tree.topLevelItemCount())
-                   if "Grafana" in dialog.tree.topLevelItem(i).text(0))
+                   if "Traefik" in dialog.tree.topLevelItem(i).text(0))
     dialog.tree.setCurrentItem(grafana.child(0))
-    assert dialog.view.selected == "grafana"
+    assert dialog.view.selected == "traefik"
     dialog.close()
 
 

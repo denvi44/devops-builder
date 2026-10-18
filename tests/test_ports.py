@@ -148,25 +148,29 @@ def test_pas_de_conflit_entre_hotes_dedies():
 
 # ------------------------------------------------------------------ génération
 def test_fichiers_avec_hote_partage(tmp_path):
-    p = docker("traefik", "grafana", preset="dev-recette-prod")
+    p = docker("traefik", "grafana", "jaeger", preset="dev-recette-prod")
     p.environments[0].host = p.environments[1].host = "vm-hors-prod"
     result = generate(p, CATALOG)
     compose = yaml.safe_load(result.files["deploy/docker-compose.yml"])
-    assert compose["services"]["grafana"]["ports"] == ["${PORT_GRAFANA_3000:-3000}:3000"]
+    # Grafana est derrière Traefik (plus de port publié) ; Jaeger garde ses ports OTLP, pas son interface
+    assert "ports" not in compose["services"]["grafana"]
+    assert "traefik.http.routers.grafana.rule=Host(`grafana.example.com`)" in compose["services"]["grafana"]["labels"]
+    assert "${PORT_JAEGER_4317:-4317}:4317" in compose["services"]["jaeger"]["ports"]
+    assert not any(x.endswith(":16686") for x in compose["services"]["jaeger"]["ports"])
     assert "${APP_HOST:-mon-app.example.com}" in compose["services"]["mon-app"]["labels"][1]
     recette = result.files["deploy/env/recette.env"]
-    assert "PORT_GRAFANA_3000=13000" in recette and "PORT_TRAEFIK_443=10443" in recette
+    assert "PORT_JAEGER_4317=14317" in recette and "PORT_TRAEFIK_443=10443" in recette
     assert "APP_HOST=recette.mon-app.example.com" in recette
     ci = result.files[".gitlab-ci.yml"]
     assert 'scp deploy/env/recette.env "$DEPLOY_HOST_RECETTE:/opt/mon-app-recette/.env"' in ci
-    assert "## Ports" in result.files["PIPELINE.md"] and "13000" in result.files["PIPELINE.md"]
+    assert "## Ports" in result.files["PIPELINE.md"] and "14317" in result.files["PIPELINE.md"]
     if shutil.which("docker") and subprocess.run(["docker", "compose", "version"], capture_output=True).returncode == 0:
         result.write(tmp_path)
         (tmp_path / "deploy" / ".env").write_text(recette)
         out = subprocess.run(["docker", "compose", "-f", "deploy/docker-compose.yml", "config"], cwd=tmp_path,
                              capture_output=True, text=True)
         assert out.returncode == 0, out.stderr
-        assert "published: \"13000\"" in out.stdout or "13000" in out.stdout
+        assert "14317" in out.stdout
 
 
 def test_ansible_copie_le_fichier_de_ports():
