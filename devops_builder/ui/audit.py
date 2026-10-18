@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from PySide6.QtCore import QEvent, QPoint, QRect, Qt
+from PySide6.QtCore import QEvent, QEventLoop, QPoint, QRect, Qt, QTimer
 from PySide6.QtGui import QAccessible, QAction, QColor, QImage, QKeySequence
 from PySide6.QtWidgets import (
     QAbstractButton,
@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QPlainTextEdit,
     QRadioButton,
+    QScrollArea,
     QScrollBar,
     QSlider,
     QTabBar,
@@ -297,13 +298,27 @@ def check_palettes() -> list[Finding]:
 
 
 # ------------------------------------------------------------------ focus visible
+def _wait(ms: int) -> None:
+    loop = QEventLoop()
+    QTimer.singleShot(ms, loop.quit)
+    loop.exec()
+
+
 def focus_change(w: QWidget, sink: QWidget) -> int:
     """Pixels qui changent avec un contraste d'au moins 3:1 quand le contrôle prend le focus."""
     sink.setFocus()
     QApplication.processEvents()
+    # Tab amène le contrôle dans la zone visible d'un défilement ; setFocus ne le fait pas
+    ancestor = w.parentWidget()
+    while ancestor is not None:
+        if isinstance(ancestor, QScrollArea):
+            ancestor.ensureWidgetVisible(w)
+        ancestor = ancestor.parentWidget()
+    QApplication.processEvents()
     before = snapshot(w, 4)
     w.setFocus()
     QApplication.processEvents()
+    _wait(80)  # l'anneau revérifie sa place toutes les 60 ms
     after = snapshot(w, 4)
     if not w.hasFocus():
         return -1

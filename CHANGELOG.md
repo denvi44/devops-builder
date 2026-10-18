@@ -23,6 +23,9 @@ catalogue, et des variantes sans Kubernetes ; un écran d'accueil qui dit par o�
 - Guide : page « Pipelines types par fournisseur cloud ». Douze projets de référence ajoutés aux tests, et le
   corpus de compatibilité des fichiers projet de la 0.20.
 
+### Corrigé
+- L'anneau de focus suit le contrôle quand le pipeline (ou tout parent) défile, et est rogné par la zone visible, au lieu de rester en l'air.
+
 ### Modifié
 - Barre d'outils réduite à Nouveau, Ouvrir, Enregistrer, Annuler, Rétablir et Valider (Paramètres et Générer sont
   dans l'en-tête du projet, le thème dans Affichage) ; les filtres du catalogue sont repliés sous « Filtres ».
@@ -269,6 +272,9 @@ Gel du périmètre en vue de la 1.0 : aucune brique nouvelle, un contrat de comp
 - Ligne de commande : codes de sortie stables (0, 1, 2), `--json` pour `check`, `generate` et `validate`,
   `--version` ; `docs/ligne-de-commande.md`.
 - `docs/format.md` (champs, migrations, promesse de compatibilité) et ce journal.
+
+### Corrigé
+- L'anneau de focus suit le contrôle quand le pipeline (ou tout parent) défile, et est rogné par la zone visible, au lieu de rester en l'air.
 
 ### Modifié
 - Un fichier projet absent ou illisible donne le code 2 et un message sur la sortie d'erreur, au lieu d'une

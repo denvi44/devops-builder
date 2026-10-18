@@ -134,3 +134,29 @@ def test_ligne_de_commande_ouvre_un_projet_dans_l_interface(monkeypatch):
     monkeypatch.setattr(app, "run", lambda argv=None: seen.append(argv) or 0)
     assert cli.main([str(EXAMPLE)]) == 0
     assert seen == [["devops-builder", str(EXAMPLE)]]
+
+
+def test_anneau_de_focus_suit_le_defilement_du_pipeline(win):
+    """Faire défiler le pipeline déplaçait la colonne active mais pas son anneau, resté en l'air."""
+    from PySide6.QtTest import QTest
+
+    from devops_builder.ui.a11y import _ring
+    win.open_path(EXAMPLE)
+    win.resize(1100, 800)
+    QTest.qWait(50)
+    column = next(c for c in win.canvas.columns.values() if c.list.isVisible() and c.list.count())
+    column.list.setFocus()
+    QTest.qWait(150)
+    assert _ring is not None and _ring.isVisible()
+    start = _ring.geometry()
+    bar = win.canvas.horizontalScrollBar()
+    assert bar.maximum() > 0, "le pipeline doit déborder pour défiler"
+    bar.setValue(min(bar.maximum(), 120))
+    QTest.qWait(200)
+    top = column.list.window()
+    wanted = column.list.mapTo(top, column.list.rect().topLeft())
+    if _ring.isVisible():  # encore en vue : l'anneau est collé au contrôle, rogné par la zone visible
+        assert abs(_ring.geometry().top() - (wanted.y() - _ring.MARGIN)) <= 1
+        assert _ring.geometry() != start
+    bar.setValue(0)
+    QTest.qWait(200)

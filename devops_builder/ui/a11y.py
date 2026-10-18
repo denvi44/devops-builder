@@ -83,6 +83,11 @@ class FocusRing(QWidget):
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setObjectName("focusRing")
         self.target: QWidget | None = None
+        # Un parent qui défile ou se redimensionne déplace le contrôle sans qu'il reçoive d'événement Move :
+        # on revérifie sa position à l'écran, tant que l'anneau est affiché.
+        self._watch = QTimer(self)
+        self._watch.setInterval(60)
+        self._watch.timeout.connect(self.place)
         self.hide()
 
     def follow(self, old: QWidget | None, new: QWidget | None) -> None:
@@ -91,6 +96,7 @@ class FocusRing(QWidget):
         self.target = new if isinstance(new, QWidget) and new is not self else None
         if self.target is None or self.target.window() is self.target:
             self.target = None
+            self._watch.stop()
             self.hide()
             return
         self.target.installEventFilter(self)
@@ -100,6 +106,7 @@ class FocusRing(QWidget):
         t = self.target
         if t is None or not shiboken6.isValid(t) or not t.isVisible():
             self.target = None
+            self._watch.stop()
             self.hide()
             return
         top = t.window()
@@ -108,11 +115,29 @@ class FocusRing(QWidget):
             # la fenêtre (un dialogue) sera détruite avant l'anneau : il la quitte à temps
             top.destroyed.connect(self._orphan)
         m = self.MARGIN
-        rect = QRect(t.mapTo(top, QPoint(0, 0)), t.size()).adjusted(-m, -m, m, m)
-        self.setGeometry(rect.intersected(top.rect()))
-        self.raise_()
-        self.show()
-        self.update()
+        visible = self._visible_part(t)  # ce que les zones de défilement laissent voir du contrôle, en coordonnées du contrôle
+        if visible.isEmpty():
+            self.hide()
+            self._watch.start()
+            return
+        rect = QRect(t.mapTo(top, visible.topLeft()), visible.size()).adjusted(-m, -m, m, m)
+        rect = rect.intersected(top.rect())
+        if rect != self.geometry() or not self.isVisible():
+            self.setGeometry(rect)
+            self.raise_()
+            self.show()
+            self.update()
+        self._watch.start()
+
+    @staticmethod
+    def _visible_part(t: QWidget) -> QRect:
+        """Partie du contrôle que ses ancêtres ne rognent pas (zone de défilement, panneau, fenêtre), dans son repère."""
+        rect = t.rect()
+        ancestor = t.parentWidget()
+        while ancestor is not None and not rect.isEmpty():
+            rect = rect.intersected(QRect(t.mapFrom(ancestor, QPoint(0, 0)), ancestor.size()))
+            ancestor = ancestor.parentWidget()
+        return rect
 
     def _orphan(self, *_) -> None:
         self.target = None
