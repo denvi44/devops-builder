@@ -11,12 +11,69 @@ kind: Gateway
 metadata:
   name: entree
   namespace: envoy-gateway-system
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
 spec:
   gatewayClassName: eg
   listeners:
   - name: http
     protocol: HTTP
     port: 80
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: https-app-dev
+    protocol: HTTPS
+    port: 443
+    hostname: dev.api.example.com
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: app-dev-tls
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: https-app-staging
+    protocol: HTTPS
+    port: 443
+    hostname: staging.api.example.com
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: app-staging-tls
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: https-app-production
+    protocol: HTTPS
+    port: 443
+    hostname: api.example.com
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: app-production-tls
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: https-argo-cd
+    protocol: HTTPS
+    port: 443
+    hostname: argocd.example.com
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: argo-cd-tls
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: https-grafana
+    protocol: HTTPS
+    port: 443
+    hostname: grafana.example.com
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: grafana-tls
     allowedRoutes:
       namespaces:
         from: All

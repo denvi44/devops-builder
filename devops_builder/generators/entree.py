@@ -14,6 +14,7 @@ from .common import HEADER, dump_yaml, dump_yaml_docs
 
 GATEWAY, GATEWAY_NS, GATEWAY_FILE = "entree", "envoy-gateway-system", "platform/gateway.yaml"
 INGRESS_FILE = "platform/ingress.yaml"
+ISSUER, ISSUER_FILE = "letsencrypt", "platform/cluster-issuer.yaml"
 CLASSES = {"traefik": "traefik", "ingress-nginx": "nginx", "envoy-gateway": None}
 # Service Kubernetes de l'interface web des charts installés par platform/install.sh : (nom, port)
 CHART_SERVICES = {"grafana": ("grafana", 80), "sonarqube": ("sonarqube", 9000), "jenkins": ("jenkins", 8080),
@@ -35,6 +36,16 @@ def controller(ir: IR) -> tuple[str, str | None] | None:
     return ("traefik", "traefik") if ir.has("k3s") else None   # contrôleur embarqué de k3s
 
 
+def https(ir: IR) -> bool:
+    """HTTPS à l'entrée : certificats Let's Encrypt obtenus par cert-manager (ClusterIssuer « letsencrypt »)."""
+    return controller(ir) is not None and ir.has("cert-manager")
+
+
+def acme_email(ir: IR) -> str:
+    return next((str(b.params.get("acme_email")) for t in INGRESS_TOOLS for b in ir.project.bricks_for(t)
+                 if b.params.get("acme_email")), "")
+
+
 def gateway_api(ir: IR) -> bool:
     c = controller(ir)
     return bool(c and c[1] is None)
@@ -46,8 +57,18 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ .Release.Name }}
+  {{- if .Values.ingress.clusterIssuer }}
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.clusterIssuer }}
+  {{- end }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.clusterIssuer }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host | quote }}
+      secretName: {{ .Release.Name }}-tls
+  {{- end }}
   rules:
     - host: {{ .Values.ingress.host | quote }}
       http:
@@ -88,6 +109,8 @@ def helm_values(ir: IR) -> dict:
     ingress: dict = {"enabled": True, "host": app_hostname(ir.project)}
     if c[1]:
         ingress = {"enabled": True, "className": c[1], "host": ingress["host"]}
+        if https(ir):
+            ingress["clusterIssuer"] = ISSUER
     return {"ingress": ingress}
 
 
@@ -113,15 +136,45 @@ def kustomize_resource(ir: IR, env) -> dict | None:
         return {"apiVersion": "gateway.networking.k8s.io/v1", "kind": "HTTPRoute", "metadata": {"name": ir.app},
                 "spec": {"parentRefs": [{"name": GATEWAY, "namespace": GATEWAY_NS}], "hostnames": [host],
                          "rules": [{"backendRefs": [{"name": ir.app, "port": 80}]}]}}
-    return {"apiVersion": "networking.k8s.io/v1", "kind": "Ingress", "metadata": {"name": ir.app},
-            "spec": {"ingressClassName": c[1],
-                     "rules": [{"host": host, "http": {"paths": [{"path": "/", "pathType": "Prefix", "backend": {
-                         "service": {"name": ir.app, "port": {"number": 80}}}}]}}]}}
+    ingress: dict = {"apiVersion": "networking.k8s.io/v1", "kind": "Ingress", "metadata": {"name": ir.app},
+                     "spec": {"ingressClassName": c[1],
+                              "rules": [{"host": host, "http": {"paths": [{"path": "/", "pathType": "Prefix", "backend": {
+                                  "service": {"name": ir.app, "port": {"number": 80}}}}]}}]}}
+    if https(ir):
+        ingress["metadata"]["annotations"] = {"cert-manager.io/cluster-issuer": ISSUER}
+        ingress["spec"]["tls"] = [{"hosts": [host], "secretName": f"{ir.app}-tls"}]
+    return ingress
 
 
 # ------------------------------------------------------------------ briques de plateforme
+ANNOTATION = "cert-manager\\.io/cluster-issuer=" + ISSUER   # point échappé : clé Helm --set
+
+
+def _tls_args(tool: str, host: str) -> str:
+    """Options Helm qui demandent un certificat à cert-manager pour l'Ingress d'une brique."""
+    prefix = {"jenkins": "controller.ingress", "argo-workflows": "server.ingress"}.get(tool, "ingress")
+    if tool == "argo-cd":
+        return f" --set server.ingress.tls=true --set 'server.ingress.annotations.{ANNOTATION}'"
+    if tool == "chaos-mesh":
+        return (f" --set 'dashboard.ingress.annotations.{ANNOTATION}' --set 'dashboard.ingress.hosts[0].tls=true'"
+                " --set 'dashboard.ingress.hosts[0].tlsSecret=chaos-mesh-tls'")
+    if tool == "harbor":
+        return (f" --set 'expose.ingress.annotations.{ANNOTATION}' --set expose.tls.certSource=secret"
+                " --set expose.tls.secret.secretName=harbor-tls")
+    return (f" --set '{prefix}.annotations.{ANNOTATION}' --set '{prefix}.tls[0].secretName={tool}-tls'"
+            f" --set '{prefix}.tls[0].hosts[0]={host}'")
+
+
 def chart_args(ir: IR, tool: str) -> str:
     """Options Helm qui placent l'interface web d'une brique derrière le contrôleur."""
+    args = _routing_args(ir, tool)
+    c = controller(ir)
+    if args and c and c[1] and https(ir):
+        args += _tls_args(tool, routed_hostname(ir.project, tool))
+    return args
+
+
+def _routing_args(ir: IR, tool: str) -> str:
     c = controller(ir)
     if not c or tool not in KUBE_ROUTED or tool in MANIFEST_ROUTED:
         return ""
@@ -154,6 +207,36 @@ def chart_args(ir: IR, tool: str) -> str:
             " --set 'ingress.hosts[0].paths[0].path=/'")
 
 
+def issuer_file(ir: IR) -> dict[str, str]:
+    """ClusterIssuer Let's Encrypt (challenge HTTP-01 par le contrôleur d'entrée) quand cert-manager est là."""
+    c = controller(ir)
+    if not c or not https(ir):
+        return {}
+    solver = ({"http01": {"ingress": {"ingressClassName": c[1]}}} if c[1] else
+              {"http01": {"gatewayHTTPRoute": {"parentRefs": [{"kind": "Gateway", "name": GATEWAY,
+                                                                 "namespace": GATEWAY_NS}]}}})
+    spec: dict = {"server": "https://acme-v02.api.letsencrypt.org/directory",
+                  "privateKeySecretRef": {"name": "letsencrypt-account"}, "solvers": [solver]}
+    if acme_email(ir):
+        spec["email"] = acme_email(ir)
+    ir.notes.append("HTTPS Kubernetes : platform/cluster-issuer.yaml (Let's Encrypt, challenge HTTP-01) ; chaque nom "
+                    "d'hôte doit pointer vers l'adresse publique du contrôleur d'entrée avant l'émission du certificat."
+                    + (" Envoy Gateway : cert-manager est installé avec la Gateway API activée."
+                       if c[1] is None else ""))
+    return {ISSUER_FILE: dump_yaml_docs([{"apiVersion": "cert-manager.io/v1", "kind": "ClusterIssuer",
+                                          "metadata": {"name": ISSUER}, "spec": {"acme": spec}}])}
+
+
+def cert_manager_args(ir: IR) -> str:
+    """cert-manager prêt (webhook) avant le ClusterIssuer ; Envoy Gateway : Gateway API activée sur demande."""
+    if not https(ir):
+        return ""
+    gateway = (" --set config.apiVersion=controller.config.cert-manager.io/v1alpha1"
+               " --set config.kind=ControllerConfiguration --set config.enableGatewayAPI=true"
+               if gateway_api(ir) else "")
+    return gateway + " --wait"
+
+
 def ingress_file(ir: IR, present: list[str]) -> dict[str, str]:
     """Ingress des briques dont le chart n'en porte pas de façon fiable (platform/ingress.yaml)."""
     c = controller(ir)
@@ -164,12 +247,17 @@ def ingress_file(ir: IR, present: list[str]) -> dict[str, str]:
     for tool in present:
         if tool in MANIFEST_ROUTED and tool in CHART_SERVICES:
             svc, port = CHART_SERVICES[tool]
-            docs.append({"apiVersion": "networking.k8s.io/v1", "kind": "Ingress",
-                         "metadata": {"name": tool, "namespace": PLATFORM_CHARTS[tool].namespace},
-                         "spec": {"ingressClassName": c[1],
-                                  "rules": [{"host": routed_hostname(ir.project, tool), "http": {"paths": [{
-                                      "path": "/", "pathType": "Prefix",
-                                      "backend": {"service": {"name": svc, "port": {"number": port}}}}]}}]}})
+            host = routed_hostname(ir.project, tool)
+            ingress: dict = {"apiVersion": "networking.k8s.io/v1", "kind": "Ingress",
+                             "metadata": {"name": tool, "namespace": PLATFORM_CHARTS[tool].namespace},
+                             "spec": {"ingressClassName": c[1],
+                                      "rules": [{"host": host, "http": {"paths": [{
+                                          "path": "/", "pathType": "Prefix",
+                                          "backend": {"service": {"name": svc, "port": {"number": port}}}}]}}]}}
+            if https(ir):
+                ingress["metadata"]["annotations"] = {"cert-manager.io/cluster-issuer": ISSUER}
+                ingress["spec"]["tls"] = [{"hosts": [host], "secretName": f"{tool}-tls"}]
+            docs.append(ingress)
     if not docs:
         return {}
     ir.notes.append("platform/ingress.yaml : Ingress des briques dont le chart n'en gère pas de façon fiable "
@@ -182,14 +270,22 @@ def gateway_file(ir: IR, present: list[str]) -> dict[str, str]:
     if not gateway_api(ir):
         return {}
     from .platform import PLATFORM_CHARTS
+    listeners: list[dict] = [{"name": "http", "protocol": "HTTP", "port": 80,
+                              "allowedRoutes": {"namespaces": {"from": "All"}}}]
+    gateway: dict = {"apiVersion": "gateway.networking.k8s.io/v1", "kind": "Gateway",
+                     "metadata": {"name": GATEWAY, "namespace": GATEWAY_NS},
+                     "spec": {"gatewayClassName": "eg", "listeners": listeners}}
+    if https(ir):   # un listener HTTPS par nom d'hôte ; cert-manager (Gateway API activée) y dépose le certificat
+        gateway["metadata"]["annotations"] = {"cert-manager.io/cluster-issuer": ISSUER}
+        hosts = [(f"app-{e.id}", app_hostname(ir.project, e)) for e in ir.envs]
+        hosts += [(t, routed_hostname(ir.project, t)) for t in present if t in KUBE_ROUTED and t in CHART_SERVICES]
+        for name, host in dict.fromkeys(hosts):
+            listeners.append({"name": f"https-{name}", "protocol": "HTTPS", "port": 443, "hostname": host,
+                              "tls": {"mode": "Terminate", "certificateRefs": [{"name": f"{name}-tls"}]},
+                              "allowedRoutes": {"namespaces": {"from": "All"}}})
     docs: list[dict] = [
         {"apiVersion": "gateway.networking.k8s.io/v1", "kind": "GatewayClass", "metadata": {"name": "eg"},
-         "spec": {"controllerName": "gateway.envoyproxy.io/gatewayclass-controller"}},
-        {"apiVersion": "gateway.networking.k8s.io/v1", "kind": "Gateway",
-         "metadata": {"name": GATEWAY, "namespace": GATEWAY_NS},
-         "spec": {"gatewayClassName": "eg",
-                  "listeners": [{"name": "http", "protocol": "HTTP", "port": 80,
-                                 "allowedRoutes": {"namespaces": {"from": "All"}}}]}}]
+         "spec": {"controllerName": "gateway.envoyproxy.io/gatewayclass-controller"}}, gateway]
     for tool in present:
         if tool in KUBE_ROUTED and tool in CHART_SERVICES:
             svc, port = CHART_SERVICES[tool]
@@ -198,11 +294,12 @@ def gateway_file(ir: IR, present: list[str]) -> dict[str, str]:
                          "spec": {"parentRefs": [{"name": GATEWAY, "namespace": GATEWAY_NS}],
                                   "hostnames": [routed_hostname(ir.project, tool)],
                                   "rules": [{"backendRefs": [{"name": svc, "port": port}]}]}})
-    ir.notes.append("Envoy Gateway : platform/gateway.yaml déclare la GatewayClass, la Gateway (HTTP, port 80) et une "
-                    "route par interface web ; ajouter un listener HTTPS avec un certificat (cert-manager) pour le TLS, "
-                    "et vérifier le nom des Services (kubectl -n <espace> get svc).")
+    ir.notes.append("Envoy Gateway : platform/gateway.yaml déclare la GatewayClass, la Gateway (HTTP, port 80"
+                    + (", un listener HTTPS par nom d'hôte, certificats cert-manager" if https(ir) else
+                       " ; ajouter cert-manager au pipeline pour le HTTPS") +
+                    ") et une route par interface web ; vérifier le nom des Services (kubectl -n <espace> get svc).")
     return {GATEWAY_FILE: dump_yaml_docs(docs)}
 
 
 __all__ = ["controller", "gateway_api", "helm_values", "helm_env_values", "helm_templates", "kustomize_resource",
-           "chart_args", "gateway_file", "ingress_file", "dump_yaml", "HEADER"]
+           "chart_args", "gateway_file", "ingress_file", "issuer_file", "cert_manager_args", "https", "dump_yaml", "HEADER"]

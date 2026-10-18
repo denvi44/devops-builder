@@ -31,7 +31,9 @@ une flèche directe depuis Internet. Sans Traefik, ces interfaces sont publiées
 Sur Kubernetes, le contrôleur d'entrée est celui du pipeline : Traefik, ingress-nginx (Ingress) ou Envoy Gateway
 (Gateway API). Il porte l'application et les interfaces web de Grafana, SonarQube, Jenkins, Gitea, Zot, Harbor, Argo CD,
 Argo Workflows, Chaos Mesh et Jaeger ; le
-schéma tire une flèche de l'entrée vers chacun.
+schéma tire une flèche de l'entrée vers chacun. Avec cert-manager dans le pipeline, l'entrée sert l'application et
+les interfaces en HTTPS (certificats Let's Encrypt, `platform/cluster-issuer.yaml`) ; sans lui, elle reste en HTTP
+et la règle R54 propose de l'ajouter.
 
 ## Lire les erreurs sur le schéma
 

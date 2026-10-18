@@ -73,6 +73,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
+- HTTPS Kubernetes : platform/cluster-issuer.yaml (Let's Encrypt, challenge HTTP-01) ; chaque nom d'hôte doit pointer vers l'adresse publique du contrôleur d'entrée avant l'émission du certificat.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
 - `scripts/ci-variables.sh` déclare les 4 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
 
@@ -92,6 +93,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `devops-builder.yaml`
 - `docs/mise-en-route.md`
 - `infra/cluster/install-k3s.sh`
+- `platform/cluster-issuer.yaml`
 - `platform/install.sh`
 - `scripts/ci-variables.sh`
 - `scripts/test-kind.sh`

@@ -16,7 +16,7 @@ On pose des briques du CNCF Landscape dans les étapes d'un pipeline ; l'applica
 les fichiers à committer.
 
 - **Part de l'application** : analyse du dossier (langage, port, Dockerfile, CI, bases, migrations) et briques proposées en conséquence ; assistant de démarrage pour un projet neuf.
-- **Contrôle continu** : 54 règles signalent les combinaisons incohérentes, chacune avec sa correction en un clic.
+- **Contrôle continu** : 55 règles signalent les combinaisons incohérentes, chacune avec sa correction en un clic.
 - **Génère** la CI (GitLab CI, GitHub et Gitea Actions, Jenkins, Woodpecker, Tekton, Azure Pipelines, CodeBuild, Cloud Build), le déploiement (Compose, Helm, Kustomize, Ansible, Argo CD, Flux), l'infrastructure Terraform / OpenTofu sur six clouds et la plateforme Kubernetes.
 - **Environnements** : chaîne de promotion avec approbation de la production, ports et surcharges par environnement.
 - **Données et secrets** : bases autogérées, opérateur ou managées, sauvegardes ; secrets par variables CI, SOPS, Vault / OpenBao ou coffre du cloud.

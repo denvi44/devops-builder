@@ -125,3 +125,72 @@ def test_controleur_kubernetes_refuse_sur_hote_docker():
     for t in ("gitlab", "gitlab-ci", "buildkit", "harbor", "docker-compose", "ingress-nginx"):
         p.add(t, CATALOG[t].stage)
     assert any(d.rule_id == "R01" and d.severity.name == "BLOCKING" for d in ENGINE.evaluate(p))
+
+
+# ------------------------------------------------------------------ HTTPS (cert-manager)
+def avec_https(ingress: str, deploy: str = "helm") -> Project:
+    p = kube(ingress, deploy)
+    p.add("cert-manager", CATALOG["cert-manager"].stage)
+    return p
+
+
+@pytest.mark.parametrize("ingress", ["traefik", "ingress-nginx"])
+def test_https_application_et_briques_par_cert_manager(ingress):
+    f = files(avec_https(ingress))
+    assert yaml.safe_load(f["charts/mon-app/values.yaml"])["ingress"]["clusterIssuer"] == "letsencrypt"
+    assert "cert-manager.io/cluster-issuer" in f["charts/mon-app/templates/ingress.yaml"]
+    install = f["platform/install.sh"]
+    for tool in ("grafana", "sonarqube", "jenkins", "gitea", "zot", "argo-workflows"):
+        line = next(ln for ln in install.splitlines() if ln.startswith(f"helm upgrade --install {tool} "))
+        assert "cert-manager\\.io/cluster-issuer=letsencrypt" in line and f"{tool}-tls" in line, tool
+    assert "server.ingress.tls=true" in install and "expose.tls.secret.secretName=harbor-tls" in install
+    issuer = yaml.safe_load(f["platform/cluster-issuer.yaml"])
+    solver = issuer["spec"]["acme"]["solvers"][0]["http01"]["ingress"]
+    assert issuer["kind"] == "ClusterIssuer" and solver["ingressClassName"] == CLASSES[ingress]
+    jaeger = yaml.safe_load(f["platform/ingress.yaml"])
+    assert jaeger["spec"]["tls"][0]["secretName"] == "jaeger-tls"
+    assert install.index("helm upgrade --install cert-manager") < install.index('cluster-issuer.yaml"')
+    assert " --wait" in next(ln for ln in install.splitlines() if "install cert-manager " in ln)
+
+
+def test_https_overlay_kustomize():
+    f = files(avec_https("ingress-nginx", "kustomize"))
+    ing = yaml.safe_load(f["deploy/kustomize/overlays/production/ingress.yaml"])
+    assert ing["metadata"]["annotations"] == {"cert-manager.io/cluster-issuer": "letsencrypt"}
+    assert ing["spec"]["tls"] == [{"hosts": ["mon-app.example.com"], "secretName": "mon-app-tls"}]
+
+
+def test_https_envoy_gateway_un_listener_par_nom_d_hote():
+    f = files(avec_https("envoy-gateway"))
+    docs = list(yaml.safe_load_all(f["platform/gateway.yaml"]))
+    gateway = docs[1]
+    assert gateway["metadata"]["annotations"]["cert-manager.io/cluster-issuer"] == "letsencrypt"
+    https = {li["hostname"]: li for li in gateway["spec"]["listeners"] if li["protocol"] == "HTTPS"}
+    assert {"mon-app.example.com", "staging.mon-app.example.com", "grafana.example.com", "harbor.example.com"} <= set(https)
+    assert all(li["tls"]["mode"] == "Terminate" for li in https.values())
+    names = [li["name"] for li in gateway["spec"]["listeners"]]
+    assert len(names) == len(set(names)) and all(len(n) <= 63 for n in names)
+    issuer = yaml.safe_load(f["platform/cluster-issuer.yaml"])
+    assert "gatewayHTTPRoute" in issuer["spec"]["acme"]["solvers"][0]["http01"]
+    cm = next(ln for ln in f["platform/install.sh"].splitlines() if "install cert-manager " in ln)
+    assert "config.enableGatewayAPI=true" in cm
+
+
+def test_email_du_compte_acme():
+    p = avec_https("traefik")
+    next(b for _, b in p.all_bricks() if b.tool == "traefik").params["acme_email"] = "ops@boutique.fr"
+    assert yaml.safe_load(files(p)["platform/cluster-issuer.yaml"])["spec"]["acme"]["email"] == "ops@boutique.fr"
+    assert "email" not in yaml.safe_load(files(avec_https("ingress-nginx"))["platform/cluster-issuer.yaml"])["spec"]["acme"]
+
+
+def test_sans_cert_manager_rien_de_https():
+    f = files(kube("ingress-nginx"))
+    assert "clusterIssuer" not in f["charts/mon-app/values.yaml"]
+    assert "platform/cluster-issuer.yaml" not in f and "cert-manager" not in f["platform/install.sh"]
+
+
+def test_regle_entree_sans_cert_manager():
+    p = kube("ingress-nginx")
+    diags = [d for d in ENGINE.evaluate(p) if d.rule_id == "R54"]
+    assert diags and diags[0].actions and diags[0].actions[0].args["tool"] == "cert-manager"
+    assert not [d for d in ENGINE.evaluate(avec_https("ingress-nginx")) if d.rule_id == "R54"]

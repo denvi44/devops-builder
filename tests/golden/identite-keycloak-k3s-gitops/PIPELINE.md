@@ -93,6 +93,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
+- HTTPS Kubernetes : platform/cluster-issuer.yaml (Let's Encrypt, challenge HTTP-01) ; chaque nom d'hôte doit pointer vers l'adresse publique du contrôleur d'entrée avant l'émission du certificat.
 - External Secrets : le ClusterSecretStore « mon-app » (platform/external-secrets/cluster-secret-store.yaml, appliqué par platform/install.sh) lit OpenBao et les ExternalSecret de l'application s'y réfèrent ; scripts/vault-setup.sh configure la connexion Kubernetes et le rôle « external-secrets ».
 - Keycloak : émetteur OIDC https://auth.boutique.fr/realms/mon-app ; l'application reçoit OIDC_ISSUER_URL et OIDC_CLIENT_ID (client public, PKCE) ; clients des outils : OpenBao, Argo CD, Grafana, droits d'administration au groupe « admins ». Le realm est décrit en Terraform dans infra/keycloak/ (docs/mise-en-route.md).
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
@@ -120,6 +121,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `infra/keycloak/outputs.tf`
 - `infra/keycloak/variables.tf`
 - `infra/keycloak/versions.tf`
+- `platform/cluster-issuer.yaml`
 - `platform/external-secrets/cluster-secret-store.yaml`
 - `platform/install.sh`
 - `platform/keycloak/keycloak.yaml`

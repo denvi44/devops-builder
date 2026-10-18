@@ -95,6 +95,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
+- HTTPS Kubernetes : platform/cluster-issuer.yaml (Let's Encrypt, challenge HTTP-01) ; chaque nom d'hôte doit pointer vers l'adresse publique du contrôleur d'entrée avant l'émission du certificat.
 - Secrets dans OpenBao (moteur KV v2 « secret », clés <espace de noms>/<brique>) : `scripts/secrets-seed.sh <environnement>` les écrit. La CI s'y connecte par JWT (rôle « mon-app-ci » sur auth/jwt, émetteur GitLab ou GitHub, politique de lecture de secret/data/<espace de noms>/*) ou par VAULT_TOKEN.
 - External Secrets : le ClusterSecretStore « mon-app » (platform/external-secrets/cluster-secret-store.yaml, appliqué par platform/install.sh) lit OpenBao et chaque ExternalSecret recrée le Secret de base de données attendu par l'application ; scripts/vault-setup.sh configure la connexion Kubernetes et le rôle « external-secrets ».
 - Poste de développement : `docker compose -f dev/db/compose.yaml up -d` lance les bases du projet (même version), `dev/db/app.env` donne leurs variables de connexion.
@@ -124,6 +125,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `devops-builder.yaml`
 - `docs/mise-en-route.md`
 - `infra/cluster/install-k3s.sh`
+- `platform/cluster-issuer.yaml`
 - `platform/external-secrets/cluster-secret-store.yaml`
 - `platform/install.sh`
 - `renovate.json`

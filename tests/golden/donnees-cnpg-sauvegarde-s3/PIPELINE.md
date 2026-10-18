@@ -95,6 +95,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
+- HTTPS Kubernetes : platform/cluster-issuer.yaml (Let's Encrypt, challenge HTTP-01) ; chaque nom d'hôte doit pointer vers l'adresse publique du contrôleur d'entrée avant l'émission du certificat.
 - Poste de développement : `docker compose -f dev/db/compose.yaml up -d` lance les bases du projet (même version), `dev/db/app.env` donne leurs variables de connexion.
 - CloudNativePG : l'opérateur est installé par platform/install.sh ; le Cluster crée le Secret « <cluster>-app » (clés uri, jdbc-uri, host, user, password) lu par l'application. Sauvegardes : plugin Barman Cloud vers s3://boutique-sauvegardes/<espace de noms> (archivage continu des WAL, sauvegarde quotidienne, rétention 30 jours).
 - Renovate : job « renovate » de .gitlab-ci.yml, lancé par une planification de pipeline portant la variable RENOVATE=1 (docs/mise-en-route.md) ; les autres jobs ne tournent pas dans ces pipelines.
@@ -120,6 +121,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `devops-builder.yaml`
 - `docs/mise-en-route.md`
 - `infra/cluster/install-k3s.sh`
+- `platform/cluster-issuer.yaml`
 - `platform/install.sh`
 - `renovate.json`
 - `scripts/ci-variables.sh`

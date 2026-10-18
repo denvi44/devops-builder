@@ -24,7 +24,12 @@ catalogue, et des variantes sans Kubernetes ; un écran d'accueil qui dit par o�
   place Grafana, SonarQube, Jenkins, Gitea, Zot, Harbor, Argo CD, Argo Workflows et Chaos Mesh derrière le contrôleur (classe `traefik` ou `nginx`). Avec Envoy
   Gateway, qui n'a pas d'Ingress : une HTTPRoute par application (chart ou overlay) et `platform/gateway.yaml`
   (GatewayClass, Gateway HTTP, routes des briques). Jaeger, dont le chart n'a pas de réglage d'Ingress fiable, a le
-  sien dans `platform/ingress.yaml`. Argo CD derrière l'entrée parle en clair (`configs.params.server.insecure`). TLS à ajouter (cert-manager) ; noms des Services à vérifier.
+  sien dans `platform/ingress.yaml`. Argo CD derrière l'entrée parle en clair (`configs.params.server.insecure`).
+  **HTTPS** quand cert-manager est dans le pipeline : `platform/cluster-issuer.yaml` (ClusterIssuer Let's Encrypt,
+  challenge HTTP-01 ; contact facultatif : paramètre « Contact Let's Encrypt »), Ingress de l'application et des
+  briques avec `tls` et l'annotation cert-manager, et, avec Envoy Gateway, un listener HTTPS par nom d'hôte sur la
+  Gateway (cert-manager installé avec la Gateway API activée). **R54** (information) propose d'ajouter cert-manager
+  à une entrée Kubernetes restée en HTTP. Chaque nom d'hôte doit pointer vers l'entrée avant l'émission (cert-manager) ; noms des Services à vérifier.
   Le contrôleur embarqué de k3s est reconnu. Les projets Kubernetes avec un contrôleur voient donc leurs fichiers
   changer et un avertissement R34 de plus (adresse d'exemple).
 

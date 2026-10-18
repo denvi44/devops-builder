@@ -409,6 +409,16 @@ keycloak:
     pattern_hint: "version, ex. 26.8"
   tools_domain: *tools_domain
   app_url: *app_url
+_acme_email: &acme_email
+  label: Contact Let's Encrypt
+  description: >-
+    Adresse du compte ACME (facultative). Sur un hôte Docker, Traefik obtient seul le certificat de chaque nom
+    d'hôte servi (challenge TLS sur le port 443, qui doit être joignable depuis Internet). Sur Kubernetes avec
+    cert-manager, c'est le contact du ClusterIssuer Let's Encrypt (platform/cluster-issuer.yaml).
+  example: ops@example.com
+  pattern: '[^@\s]+@[^@\s]+\.[^@\s]+'
+  pattern_hint: "adresse électronique"
+
 _app_hostname: &app_hostname
   label: Adresse publique de l'application
   description: >-
@@ -422,18 +432,13 @@ _app_hostname: &app_hostname
 
 ingress-nginx:
   app_hostname: *app_hostname
+  acme_email: *acme_email
 envoy-gateway:
   app_hostname: *app_hostname
+  acme_email: *acme_email
 traefik:
   app_hostname: *app_hostname
-  acme_email:
-    label: Contact Let's Encrypt
-    description: >-
-      Adresse du compte ACME (facultative) ; sur un hôte Docker, Traefik obtient seul le certificat de chaque nom
-      d'hôte servi (challenge TLS sur le port 443, qui doit être joignable depuis Internet).
-    example: ops@example.com
-    pattern: '[^@\s]+@[^@\s]+\.[^@\s]+'
-    pattern_hint: "adresse électronique"
+  acme_email: *acme_email
 
 zabbix:
   hostname:

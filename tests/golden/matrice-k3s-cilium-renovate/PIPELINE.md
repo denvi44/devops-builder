@@ -52,6 +52,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 ## Diagnostics restants
 
 - **Avertissement** (R34) — Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « mon-app.example.com » sera écrite dans les fichiers.
+- **Info** (R54) — Traefik sert l'application et les interfaces web en HTTP simple : ajouter cert-manager au pipeline pour obtenir des certificats Let's Encrypt (platform/cluster-issuer.yaml).
 
 ## Notes
 

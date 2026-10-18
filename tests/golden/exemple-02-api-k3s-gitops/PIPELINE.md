@@ -107,7 +107,8 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
-- Envoy Gateway : platform/gateway.yaml déclare la GatewayClass, la Gateway (HTTP, port 80) et une route par interface web ; ajouter un listener HTTPS avec un certificat (cert-manager) pour le TLS, et vérifier le nom des Services (kubectl -n <espace> get svc).
+- Envoy Gateway : platform/gateway.yaml déclare la GatewayClass, la Gateway (HTTP, port 80, un listener HTTPS par nom d'hôte, certificats cert-manager) et une route par interface web ; vérifier le nom des Services (kubectl -n <espace> get svc).
+- HTTPS Kubernetes : platform/cluster-issuer.yaml (Let's Encrypt, challenge HTTP-01) ; chaque nom d'hôte doit pointer vers l'adresse publique du contrôleur d'entrée avant l'émission du certificat. Envoy Gateway : cert-manager est installé avec la Gateway API activée.
 - External Secrets : le ClusterSecretStore « api » (platform/external-secrets/cluster-secret-store.yaml, appliqué par platform/install.sh) lit OpenBao et les ExternalSecret de l'application s'y réfèrent ; scripts/vault-setup.sh configure la connexion Kubernetes et le rôle « external-secrets ».
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
 - `scripts/ci-variables.sh` déclare les 2 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
@@ -129,6 +130,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `devops-builder.yaml`
 - `docs/mise-en-route.md`
 - `infra/cluster/install-k3s.sh`
+- `platform/cluster-issuer.yaml`
 - `platform/external-secrets/cluster-secret-store.yaml`
 - `platform/gateway.yaml`
 - `platform/install.sh`

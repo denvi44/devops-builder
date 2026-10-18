@@ -26,12 +26,12 @@ kubectl -n keycloak rollout status deployment/keycloak-operator --timeout=300s
 kubectl apply -f "$(dirname "$0")/keycloak/keycloak.yaml"
 
 # cert-manager
-helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set crds.enabled=true
+helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set crds.enabled=true --wait
 
 # Argo CD
 ARGO_CD_OIDC_SECRET="${ARGO_CD_OIDC_SECRET:-$(tofu -chdir="$(dirname "$0")/../infra/keycloak" output -raw argo_cd_client_secret 2>/dev/null || true)}"
 [ -n "${ARGO_CD_OIDC_SECRET:-}" ] || echo "ARGO_CD_OIDC_SECRET vide : connexion OIDC inactive, relancer ce script après « infra/keycloak » appliqué (docs/mise-en-route.md)" >&2
-helm upgrade --install argo-cd argo/argo-cd --namespace argocd --create-namespace -f "$(dirname "$0")/values/argo-cd.yaml" --set-string "configs.secret.extra.oidc\.clientSecret=$ARGO_CD_OIDC_SECRET" --set server.ingress.enabled=true --set server.ingress.ingressClassName=traefik --set server.ingress.hostname=argocd.boutique.fr --set configs.params.server.insecure=true
+helm upgrade --install argo-cd argo/argo-cd --namespace argocd --create-namespace -f "$(dirname "$0")/values/argo-cd.yaml" --set-string "configs.secret.extra.oidc\.clientSecret=$ARGO_CD_OIDC_SECRET" --set server.ingress.enabled=true --set server.ingress.ingressClassName=traefik --set server.ingress.hostname=argocd.boutique.fr --set configs.params.server.insecure=true --set server.ingress.tls=true --set 'server.ingress.annotations.cert-manager\.io/cluster-issuer=letsencrypt'
 
 # External Secrets Operator
 helm upgrade --install external-secrets external-secrets/external-secrets --namespace external-secrets --create-namespace --wait
@@ -42,7 +42,7 @@ GRAFANA_OIDC_SECRET="${GRAFANA_OIDC_SECRET:-$(tofu -chdir="$(dirname "$0")/../in
 [ -n "${GRAFANA_OIDC_SECRET:-}" ] || echo "GRAFANA_OIDC_SECRET vide : connexion OIDC inactive, relancer ce script après « infra/keycloak » appliqué (docs/mise-en-route.md)" >&2
 kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n monitoring create secret generic grafana-oidc --from-literal=GRAFANA_OIDC_SECRET="$GRAFANA_OIDC_SECRET" --dry-run=client -o yaml | kubectl apply -f -
-helm upgrade --install grafana grafana-community/grafana --namespace monitoring --create-namespace -f "$(dirname "$0")/values/grafana.yaml" --set ingress.enabled=true --set ingress.ingressClassName=traefik --set 'ingress.hosts[0]=grafana.boutique.fr'
+helm upgrade --install grafana grafana-community/grafana --namespace monitoring --create-namespace -f "$(dirname "$0")/values/grafana.yaml" --set ingress.enabled=true --set ingress.ingressClassName=traefik --set 'ingress.hosts[0]=grafana.boutique.fr' --set 'ingress.annotations.cert-manager\.io/cluster-issuer=letsencrypt' --set 'ingress.tls[0].secretName=grafana-tls' --set 'ingress.tls[0].hosts[0]=grafana.boutique.fr'
 
 # OpenBao
 helm upgrade --install openbao openbao/openbao --namespace openbao --create-namespace
@@ -52,3 +52,6 @@ helm upgrade --install prometheus prometheus-community/kube-prometheus-stack --n
 
 # Traefik
 helm upgrade --install traefik traefik/traefik --namespace traefik --create-namespace
+
+# ClusterIssuer Let's Encrypt (HTTPS de l'entrée, cert-manager)
+kubectl apply -f "$(dirname "$0")/cluster-issuer.yaml"
