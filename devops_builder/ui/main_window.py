@@ -152,8 +152,8 @@ class MainWindow(QMainWindow):
         bar.addWidget(self.chips_area, 1)
         # Vues transverses du projet (ports, données) : un seul bouton, pour tenir sur un écran de portable
         self.views_btn = QPushButton("Vues")
-        self.views_btn.setAccessibleName("Vues du projet : ports, données")
-        self.views_btn.setToolTip("Ports (Ctrl+Maj+P) et Données (Ctrl+Maj+D), par environnement")
+        self.views_btn.setAccessibleName("Vues du projet : réseau, ports, données")
+        self.views_btn.setToolTip("Réseau (Ctrl+Maj+R), ports (Ctrl+Maj+P) et données (Ctrl+Maj+D), par environnement")
         self.views_btn.setObjectName("viewsButton")
         bar.addWidget(self.views_btn)
         self.settings_btn = QPushButton()
@@ -253,6 +253,9 @@ class MainWindow(QMainWindow):
                                  "Ports de l'application et des briques, par environnement (Ctrl+Maj+P)")
         self.a_data = self._act("Données…", self.show_data, "Ctrl+Shift+D", "mdi6.database-outline",
                                 "Bases du projet par environnement : mode, connexion, secret, sauvegarde (Ctrl+Maj+D)")
+        self.a_network = self._act("Réseau…", self.show_network, "Ctrl+Shift+R", "mdi6.lan-connect",
+                                    "Schéma réseau par environnement, en 2D ou en 3D isométrique, avec les erreurs "
+                                    "sur les composants (Ctrl+Maj+R)")
         self.a_application = self._act("Application…", self.edit_application, "Ctrl+Shift+A", "mdi6.application-cog-outline",
                                        "Dossier de l'application, analyse, langage et port (Ctrl+Maj+A)")
         self.a_validate = self._act("Valider…", self.validate, "Ctrl+Shift+V", "mdi6.check-decagram-outline",
@@ -325,8 +328,9 @@ class MainWindow(QMainWindow):
         p.addAction(self.a_validate)
         p.addAction(self.a_ports)
         p.addAction(self.a_data)
+        p.addAction(self.a_network)
         views = QMenu(self.views_btn)
-        views.addActions([self.a_ports, self.a_data])
+        views.addActions([self.a_network, self.a_ports, self.a_data])
         self.views_btn.setMenu(views)
         c = mb.addMenu("&Catalogue")
         c.addActions([self.a_maintenance, self.a_new_fiche, self.a_catalog_folder])
@@ -709,6 +713,15 @@ class MainWindow(QMainWindow):
             self.edit_settings("environnements")
             return self.project
         PortsDialog(self.project, self.catalog, self, edit_environments=edit).exec()
+
+    def show_network(self) -> None:
+        from .reseau import NetworkDialog
+
+        def fix(action) -> Project:
+            self.apply_fix(action)
+            return self.project
+        NetworkDialog(self.project, self.catalog, self.engine, self, apply_fix=fix,
+                      focus_brick=self._focus_brick).exec()
 
     def show_data(self) -> None:
         from .data import DataDialog

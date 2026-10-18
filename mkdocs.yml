@@ -47,6 +47,7 @@ nav:
       - Vue d'ensemble: guide/index.md
       - Prise en main de l'interface: guide/interface.md
       - Pipelines types par fournisseur: guide/modeles.md
+      - Le schéma réseau: guide/reseau.md
       - "Tutoriel : hôte Docker": guide/tutoriels/hote-docker.md
       - "Tutoriel : k3s en GitOps": guide/tutoriels/k3s-gitops.md
       - "Tutoriel : Amazon EKS": guide/tutoriels/eks.md

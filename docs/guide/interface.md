@@ -17,7 +17,7 @@ l'application, puis générer.
 
 **Barre du projet** (en haut du centre) : le nom du projet ; la carte de l'application (dossier analysé,
 langage, port — Ctrl+Maj+A) ; des puces qui résument la cible, les environnements et l'authentification de la
-CI ; le bouton **Vues** (ports et données par environnement) ; les paramètres du projet (F2) ; **Générer**.
+CI ; le bouton **Vues** (réseau, ports et données par environnement) ; les paramètres du projet (F2) ; **Générer**.
 
 **Pipeline** (au centre) : une colonne par étape, de la source à l'observabilité — Source, Build, Tests &
 qualité, Sécurité, Artefacts, Infrastructure, Données, Déploiement, Plateforme, Observabilité. Chaque brique
@@ -56,7 +56,7 @@ Tout se fait sans souris ; le glisser-déposer a toujours son équivalent clavie
 | Nouveau projet (assistant), projet vide | Ctrl+N, Ctrl+Maj+N |
 | Ouvrir, enregistrer | Ctrl+O, Ctrl+S |
 | Paramètres du projet | F2 |
-| Application, ports, données | Ctrl+Maj+A, Ctrl+Maj+P, Ctrl+Maj+D |
+| Application, ports, données, réseau | Ctrl+Maj+A, Ctrl+Maj+P, Ctrl+Maj+D, Ctrl+Maj+R |
 | Générer, valider | Ctrl+G, Ctrl+Maj+V |
 | Thème sombre | Ctrl+T |
 | Agrandir, réduire le texte | Ctrl++, Ctrl+- |

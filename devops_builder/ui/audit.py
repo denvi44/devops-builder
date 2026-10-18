@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from PySide6.QtCore import QEvent, QEventLoop, QPoint, QRect, Qt, QTimer
+from PySide6.QtCore import QEvent, QPoint, QRect, Qt
 from PySide6.QtGui import QAccessible, QAction, QColor, QImage, QKeySequence
 from PySide6.QtWidgets import (
     QAbstractButton,
@@ -298,12 +298,6 @@ def check_palettes() -> list[Finding]:
 
 
 # ------------------------------------------------------------------ focus visible
-def _wait(ms: int) -> None:
-    loop = QEventLoop()
-    QTimer.singleShot(ms, loop.quit)
-    loop.exec()
-
-
 def focus_change(w: QWidget, sink: QWidget) -> int:
     """Pixels qui changent avec un contraste d'au moins 3:1 quand le contrôle prend le focus."""
     sink.setFocus()
@@ -314,11 +308,17 @@ def focus_change(w: QWidget, sink: QWidget) -> int:
         if isinstance(ancestor, QScrollArea):
             ancestor.ensureWidgetVisible(w)
         ancestor = ancestor.parentWidget()
+    from . import a11y
+    if a11y._ring is not None:   # le contrôle déjà actif dans sa fenêtre garderait son anneau : on part sans
+        a11y._ring.follow(None, None)   # cache l'anneau et l'oublie (plus de re-vérification)
     QApplication.processEvents()
     before = snapshot(w, 4)
     w.setFocus()
     QApplication.processEvents()
-    _wait(80)  # l'anneau revérifie sa place toutes les 60 ms
+    if a11y._ring is not None:   # l'anneau se replace de lui-même toutes les 60 ms ; ici on n'attend pas
+        if a11y._ring.target is not w and w.hasFocus():   # fenêtre non active (écran virtuel) : pas de focusChanged
+            a11y._ring.follow(None, w)
+        a11y._ring.place()
     after = snapshot(w, 4)
     if not w.hasFocus():
         return -1
@@ -358,11 +358,12 @@ def audit_window(root: QWidget, sink: QWidget | None = None, focus: bool = True)
 # ------------------------------------------------------------------ parcours de toute l'interface
 def dialogs_of(win) -> list[tuple[str, object]]:
     """Fabriques des dialogues de l'application, pour le projet ouvert dans la fenêtre."""
-    from . import application, data, dialogs, export, fiche, maintenance, ports, validation, wizard
+    from . import application, data, dialogs, export, fiche, maintenance, ports, reseau, validation, wizard
     result = win._generation()
     out = [
         ("Paramètres du projet", lambda: dialogs.ProjectSettingsDialog(win.project, win, win.catalog)),
         ("Application", lambda: application.ApplicationDialog(win.project, win.catalog, win)),
+        ("Réseau", lambda: reseau.NetworkDialog(win.project, win.catalog, win.engine, win)),
         ("Ports", lambda: ports.PortsDialog(win.project, win.catalog, win)),
         ("Données", lambda: data.DataDialog(win.project, win.catalog, win.engine, win)),
         ("Entretien du catalogue", lambda: maintenance.MaintenanceDialog(win.catalog, win.project, win)),

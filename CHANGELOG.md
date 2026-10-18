@@ -4,7 +4,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
-## 0.21.0 — 2026-10-18 — Pipelines types par fournisseur et accueil
+## 0.21.0 — 2026-10-18 — Pipelines types, accueil et vue Réseau
 
 Douze pipelines complets, prêts à ouvrir et à ajuster : un Kubernetes managé pour chacun des six fournisseurs du
 catalogue, et des variantes sans Kubernetes ; un écran d'accueil qui dit par où commencer. Les fichiers générés des projets existants ne changent pas.
@@ -22,6 +22,11 @@ catalogue, et des variantes sans Kubernetes ; un écran d'accueil qui dit par o�
   l'application, génération). Audité dans les deux thèmes et à 200 %.
 - Guide : page « Pipelines types par fournisseur cloud ». Douze projets de référence ajoutés aux tests, et le
   corpus de compatibilité des fichiers projet de la 0.20.
+
+- **Vue Réseau** (Vues › Réseau, Ctrl+Maj+R) : le schéma d'un environnement en plan 2D ou en isométrique 3D, avec
+  les flux et leurs ports, et les erreurs posées sur les composants (pastille de forme distincte par gravité, texte
+  dans la liste « Composants et constats », correction applicable, accès à la brique) ; constats propres au réseau :
+  service publié sans passer par l'entrée, application en HTTP simple, cluster sans point d'entrée ; export PNG.
 
 ### Corrigé
 - L'anneau de focus suit le contrôle quand le pipeline (ou tout parent) défile, et est rogné par la zone visible, au lieu de rester en l'air.
