@@ -134,7 +134,7 @@ COMPOSE_SERVICES: dict[str, dict] = {
 
 
 def install_script(ir: IR) -> dict[str, str]:
-    from . import identity, secrets
+    from . import entree, identity, secrets
     from .data import cnpg_backup
     from .extras import embedded_components
 
@@ -185,6 +185,7 @@ def install_script(ir: IR) -> dict[str, str]:
         pre_idp, idp_args = identity.chart_args(ir, t)
         lines += pre_idp
         args += idp_args
+        args += entree.chart_args(ir, t)
         store_file = t == "external-secrets" and secrets.eso(ir)
         if store_file:
             pre, extra = secrets.eso_helm_args(ir)
@@ -203,7 +204,11 @@ def install_script(ir: IR) -> dict[str, str]:
                          "--wait")
         lines.append("")
     lines += idp_lines
-    return {"platform/install.sh": "\n".join(lines)}
+    files = entree.gateway_file(ir, present)
+    if files:   # routes des interfaces web : les espaces de noms existent une fois les charts installés
+        lines += ["# Gateway API : GatewayClass, Gateway et routes (Envoy Gateway)",
+                  'kubectl apply -f "$(dirname "$0")/gateway.yaml"', ""]
+    return {"platform/install.sh": "\n".join(lines), **files}
 
 
 VAULT_CONFIG = """ui            = true

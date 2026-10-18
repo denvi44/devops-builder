@@ -82,6 +82,9 @@ ROUTED_TOOLS: dict[str, tuple[int, str]] = {
 # Services sans authentification propre, utiles seulement aux autres conteneurs (Grafana les interroge) :
 # jamais publiés quand Traefik est là, ni derrière lui (il les exposerait sans mot de passe).
 INTERNAL_TOOLS = ("prometheus", "loki")
+INGRESS_TOOLS = ("traefik", "ingress-nginx", "envoy-gateway")
+# Sur Kubernetes : interfaces web des charts placées derrière le contrôleur d'entrée (Ingress ou HTTPRoute)
+KUBE_ROUTED = ("grafana", "sonarqube", "jenkins", "gitea", "zot")
 
 
 def tools_domain(project: Project) -> str:
@@ -190,18 +193,21 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
             add_databases(False)
         elif project.target in KUBERNETES_TARGETS or any(
                 (t := catalog.get(tid)) and "kubernetes-cluster" in t.roles for tid in present):
-            ingress = next((catalog[t].name for t in ("traefik", "ingress-nginx", "envoy-gateway") if t in present), None)
+            ingress_id = next((t for t in INGRESS_TOOLS if t in present), None)
+            ingress = catalog[ingress_id].name if ingress_id else None
             exposure = f"Service {name} port 80, espace de noms {name}{suffix}"
             if ingress:
-                exposure += f", exposé par {ingress}"
+                exposure += f", exposé par {ingress}, hôte {app_hostname(project, env)}"
             add("app", name, app_port, None, "application", exposure)
             add_databases(True)
             for tid in present:
                 if tid in PLATFORM_CHARTS and tid in ports and tid not in DATABASE_TOOLS:
                     tool = catalog.get(tid)
                     for container, usage in ports[tid].items():
-                        add(tid, tool.name if tool else tid, container, None, usage,
-                            f"Service Kubernetes, espace de noms {PLATFORM_CHARTS[tid].namespace}")
+                        where = f"Service Kubernetes, espace de noms {PLATFORM_CHARTS[tid].namespace}"
+                        if ingress and tid in KUBE_ROUTED and ROUTED_TOOLS[tid][0] == container:
+                            where += f", exposé par {ingress}, hôte {routed_hostname(project, tid)}"
+                        add(tid, tool.name if tool else tid, container, None, usage, where)
         else:
             service = next((SERVERLESS[t] for t in present if t in SERVERLESS), None)
             add("app", name, app_port, None, "application",
@@ -246,11 +252,12 @@ def free_port(entries: list[PortEntry], start: int) -> int:
 def app_hostname(project: Project, env: Environment | None = None) -> str:
     """Nom d'hôte routé par Traefik : celui de la production, préfixé par l'environnement pour les autres
     (staging.boutique.fr), sauf surcharge du paramètre « app_hostname » pour cet environnement."""
-    bricks = project.bricks_for("traefik")
+    ingress = next((t for t in INGRESS_TOOLS if project.bricks_for(t)), "traefik")
+    bricks = project.bricks_for(ingress)
     given = (bricks[0].params.get("app_hostname") if bricks else None) or f"{project.app.image_name or 'app'}.example.com"
     if env is None:
         return given
-    override = env.overrides.get("traefik", {}).get("app_hostname")
+    override = env.overrides.get(ingress, {}).get("app_hostname")
     if override:
         return override
     production = project.environments[-1].id if project.environments else env.id

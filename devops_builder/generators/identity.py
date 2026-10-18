@@ -450,8 +450,7 @@ def chart_args(ir: IR, tool_id: str) -> tuple[list[str], str]:
                        ' "${HARBOR_OIDC_ARGS[@]}"')
     if tool_id == "sonarqube" and ir.has("sonarqube") and idp(ir) == "keycloak":
         url = tool_url(ir, next(c for c in TOOL_CLIENTS if c.tool == "sonarqube"))
-        cls = " --set ingress.ingressClassName=traefik" if ir.has("traefik") else ""
-        return [], f" --set ingress.enabled=true --set 'ingress.hosts[0].name={url.split('://', 1)[1]}'{cls}"
+        return [], ""   # Ingress posé par generators/entree.py (adresse : paramètre « hostname » ou <outil>.<domaine>)
     if tool_id == "grafana" and ir.has("grafana"):
         lines = _secret_lines("GRAFANA_OIDC_SECRET", out, "grafana_client_secret", "grafana")
         lines += ["kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -",
