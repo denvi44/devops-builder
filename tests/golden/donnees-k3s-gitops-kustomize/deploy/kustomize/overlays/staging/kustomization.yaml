@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: mon-app-staging
 resources:
 - ../../base
+- ingress.yaml
 images:
 - name: mon-app
   newName: $CI_REGISTRY_IMAGE

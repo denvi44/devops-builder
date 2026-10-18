@@ -5,3 +5,5 @@ image:
 database:
   cloudnative_pg:
     instances: 1
+ingress:
+  host: staging.mon-app.example.com

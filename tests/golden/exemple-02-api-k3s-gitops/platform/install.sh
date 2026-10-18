@@ -47,3 +47,6 @@ helm upgrade --install prometheus prometheus-community/kube-prometheus-stack --n
 
 # Grafana Tempo
 helm upgrade --install tempo grafana-community/tempo --namespace monitoring --create-namespace
+
+# Gateway API : GatewayClass, Gateway et routes (Envoy Gateway)
+kubectl apply -f "$(dirname "$0")/gateway.yaml"

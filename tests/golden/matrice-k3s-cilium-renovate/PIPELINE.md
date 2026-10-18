@@ -14,7 +14,7 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 
 | Composant | Port publié | Port du conteneur | Usage | Exposition |
 | --- | --- | --- | --- | --- |
-| mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app, exposé par Traefik |
+| mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app, exposé par Traefik, hôte mon-app.example.com |
 | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
 | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
 | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
@@ -51,7 +51,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Diagnostics restants
 
-Aucun.
+- **Avertissement** (R34) — Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « mon-app.example.com » sera écrite dans les fichiers.
 
 ## Notes
 
@@ -66,6 +66,7 @@ Aucun.
 - `PIPELINE.md`
 - `charts/mon-app/Chart.yaml`
 - `charts/mon-app/templates/deployment.yaml`
+- `charts/mon-app/templates/ingress.yaml`
 - `charts/mon-app/templates/service.yaml`
 - `charts/mon-app/values.yaml`
 - `devops-builder.yaml`

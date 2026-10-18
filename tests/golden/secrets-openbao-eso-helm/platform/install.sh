@@ -19,7 +19,7 @@ helm upgrade --install external-secrets external-secrets/external-secrets --name
 kubectl apply -f "$(dirname "$0")/external-secrets/cluster-secret-store.yaml"
 
 # Grafana — Déjà inclus si kube-prometheus-stack est installé.
-helm upgrade --install grafana grafana-community/grafana --namespace monitoring --create-namespace
+helm upgrade --install grafana grafana-community/grafana --namespace monitoring --create-namespace --set ingress.enabled=true --set ingress.ingressClassName=traefik --set 'ingress.hosts[0]=grafana.example.com'
 
 # OpenBao
 helm upgrade --install openbao openbao/openbao --namespace openbao --create-namespace

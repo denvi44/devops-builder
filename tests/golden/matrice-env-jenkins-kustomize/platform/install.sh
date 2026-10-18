@@ -11,4 +11,4 @@ helm repo update
 helm upgrade --install harbor harbor/harbor --namespace harbor --create-namespace
 
 # Jenkins
-helm upgrade --install jenkins jenkins/jenkins --namespace jenkins --create-namespace
+helm upgrade --install jenkins jenkins/jenkins --namespace jenkins --create-namespace --set controller.ingress.enabled=true --set controller.ingress.ingressClassName=traefik --set controller.ingress.hostName=jenkins.example.com

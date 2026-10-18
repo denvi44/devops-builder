@@ -243,7 +243,7 @@ def test_kustomize_externalsecret_par_overlay(tmp_path):
     p = project("kubernetes", *K3S_KUST, "valkey", "openbao", "external-secrets")
     r = gen(p)
     overlay = yaml.safe_load(r.files["deploy/kustomize/overlays/production/kustomization.yaml"])
-    assert overlay["resources"] == ["../../base", "externalsecrets.yaml"]
+    assert overlay["resources"] == ["../../base", "ingress.yaml", "externalsecrets.yaml"]  # k3s : Traefik embarqué
     ci = r.files[".gitlab-ci.yml"]
     assert "create secret generic" not in ci and "kubectl create namespace shop " in ci
     if shutil.which("kustomize") or shutil.which("kubectl"):

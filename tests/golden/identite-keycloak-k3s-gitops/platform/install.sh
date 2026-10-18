@@ -42,7 +42,7 @@ GRAFANA_OIDC_SECRET="${GRAFANA_OIDC_SECRET:-$(tofu -chdir="$(dirname "$0")/../in
 [ -n "${GRAFANA_OIDC_SECRET:-}" ] || echo "GRAFANA_OIDC_SECRET vide : connexion OIDC inactive, relancer ce script après « infra/keycloak » appliqué (docs/mise-en-route.md)" >&2
 kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n monitoring create secret generic grafana-oidc --from-literal=GRAFANA_OIDC_SECRET="$GRAFANA_OIDC_SECRET" --dry-run=client -o yaml | kubectl apply -f -
-helm upgrade --install grafana grafana-community/grafana --namespace monitoring --create-namespace -f "$(dirname "$0")/values/grafana.yaml"
+helm upgrade --install grafana grafana-community/grafana --namespace monitoring --create-namespace -f "$(dirname "$0")/values/grafana.yaml" --set ingress.enabled=true --set ingress.ingressClassName=traefik --set 'ingress.hosts[0]=grafana.boutique.fr'
 
 # OpenBao
 helm upgrade --install openbao openbao/openbao --namespace openbao --create-namespace

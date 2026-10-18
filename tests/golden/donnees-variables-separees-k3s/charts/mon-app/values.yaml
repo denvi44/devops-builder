@@ -25,3 +25,7 @@ database:
     storage: 1Gi
     createSecret: true
     password: ''
+ingress:
+  enabled: true
+  className: traefik
+  host: mon-app.example.com

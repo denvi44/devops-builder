@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: mon-app-staging
 resources:
 - ../../base
+- ingress.yaml
 - externalsecrets.yaml
 images:
 - name: mon-app

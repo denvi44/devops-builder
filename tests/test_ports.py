@@ -217,12 +217,13 @@ def test_adresse_publique_par_environnement():
     assert "- Développement : `dev.boutique.fr`" in runbook and "- Production : `boutique.fr`" in runbook
 
 
-def test_adresse_publique_sans_objet_sur_kubernetes():
+def test_adresse_publique_sur_kubernetes():
+    """Sur Kubernetes, le chart crée l'Ingress : l'adresse publique s'applique aussi (avant 0.21 : hôte Docker seul)."""
     p = Project(name="k", target="kubernetes", environments=env_preset("prod"))
     for t in ("github", "github-actions", "buildkit", "ghcr", "k3s", "helm", "traefik"):
         p.add(t, CATALOG[t].stage)
-    assert not any("Adresse publique" in d.message for d in ENGINE.evaluate(p))
-    assert not CATALOG["traefik"].param_schema["app_hostname"].applies_to(p)
+    assert any("Adresse publique" in d.message for d in ENGINE.evaluate(p))
+    assert CATALOG["traefik"].param_schema["app_hostname"].applies_to(p)
 
 
 def test_adresse_publique_avec_ansible():

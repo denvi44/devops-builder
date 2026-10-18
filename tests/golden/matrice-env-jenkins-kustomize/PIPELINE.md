@@ -80,8 +80,11 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `deploy/kustomize/base/deployment.yaml`
 - `deploy/kustomize/base/kustomization.yaml`
 - `deploy/kustomize/base/service.yaml`
+- `deploy/kustomize/overlays/dev/ingress.yaml`
 - `deploy/kustomize/overlays/dev/kustomization.yaml`
+- `deploy/kustomize/overlays/production/ingress.yaml`
 - `deploy/kustomize/overlays/production/kustomization.yaml`
+- `deploy/kustomize/overlays/staging/ingress.yaml`
 - `deploy/kustomize/overlays/staging/kustomization.yaml`
 - `devops-builder.yaml`
 - `docs/mise-en-route.md`

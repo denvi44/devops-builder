@@ -2,3 +2,5 @@
 replicaCount: 1
 image:
   tag: latest
+ingress:
+  host: dev.mon-app.example.com

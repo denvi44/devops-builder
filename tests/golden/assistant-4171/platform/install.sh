@@ -18,7 +18,7 @@ helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manag
 helm upgrade --install argo-cd argo/argo-cd --namespace argocd --create-namespace
 
 # Gitea
-helm upgrade --install gitea gitea-charts/gitea --namespace gitea --create-namespace
+helm upgrade --install gitea gitea-charts/gitea --namespace gitea --create-namespace --set ingress.enabled=true --set ingress.className=traefik --set 'ingress.hosts[0].host=gitea.example.com' --set 'ingress.hosts[0].paths[0].path=/'
 
 # Harbor
 helm upgrade --install harbor harbor/harbor --namespace harbor --create-namespace
@@ -26,7 +26,7 @@ helm upgrade --install harbor harbor/harbor --namespace harbor --create-namespac
 # SonarQube — PostgreSQL externe requis en production.
 kubectl create namespace sonarqube --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n sonarqube get secret sonarqube-monitoring >/dev/null 2>&1 || kubectl -n sonarqube create secret generic sonarqube-monitoring --from-literal=passcode="$(openssl rand -hex 16)"
-helm upgrade --install sonarqube sonarqube/sonarqube --namespace sonarqube --create-namespace --set community.enabled=true --set monitoringPasscodeSecretName=sonarqube-monitoring --set monitoringPasscodeSecretKey=passcode
+helm upgrade --install sonarqube sonarqube/sonarqube --namespace sonarqube --create-namespace --set community.enabled=true --set monitoringPasscodeSecretName=sonarqube-monitoring --set monitoringPasscodeSecretKey=passcode --set ingress.enabled=true --set 'ingress.hosts[0].name=sonarqube.example.com' --set ingress.ingressClassName=traefik
 
 # Traefik
 helm upgrade --install traefik traefik/traefik --namespace traefik --create-namespace

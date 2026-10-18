@@ -14,3 +14,6 @@ resources:
     memory: 128Mi
   limits:
     memory: 256Mi
+ingress:
+  enabled: true
+  host: api.example.com

@@ -24,9 +24,12 @@ Ctrl+N ouvre l'assistant :
 Le pipeline compte seize briques. k3s est installé sans son Traefik intégré, puisque Traefik est déjà dans
 le pipeline (voir `infra/cluster/install-k3s.sh`) ; cert-manager fournit les certificats.
 
-## 2. Désigner le dépôt GitOps
+## 2. Désigner le dépôt GitOps et l'adresse de l'application
 
-Un avertissement R34 signale le paramètre « Dépôt GitOps » d'**Argo CD**, resté à sa valeur d'exemple.
+Deux avertissements R34. Le premier signale le paramètre « Adresse publique de l'application » de **Traefik** :
+c'est le nom d'hôte de l'Ingress que le chart crée (`api-commandes.example.com` tant qu'il n'est pas changé ; les
+autres environnements reçoivent un préfixe). Le second signale le paramètre « Dépôt GitOps » d'**Argo CD**, resté
+à sa valeur d'exemple.
 Sélectionner Argo CD (étape Déploiement) et saisir l'adresse du dépôt qu'Argo CD surveillera, par exemple
 `https://github.com/mon-organisation/api-commandes.git` : le dépôt de l'application convient (les commits de la
 CI y portent `[skip ci]`), un dépôt dédié aussi.
