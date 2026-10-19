@@ -13,6 +13,7 @@
 
 - id: sonarqube
   name: SonarQube
+  multi: true
   stage: test
   extra_stages: [security]
   roles: [code-quality]

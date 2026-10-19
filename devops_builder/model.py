@@ -138,6 +138,8 @@ class Tool(BaseModel):
     license: str = "Apache-2.0"
     # Dépôt source, s'il n'est pas déjà connu par le Landscape ; "" = brique générique sans dépôt
     repo: str | None = None
+    # Plusieurs instances de l'outil peuvent coexister dans un pipeline (chacune avec son nom)
+    multi: bool = False
     # Où l'outil peut tourner : kubernetes, docker-host, vm, saas, ci, cli
     hosting: list[str] = Field(default_factory=lambda: ["docker-host", "vm", "kubernetes"])
     provides: list[str] = Field(default_factory=list)
@@ -244,6 +246,14 @@ class BrickInstance(BaseModel):
     uid: str = Field(default_factory=lambda: uuid.uuid4().hex[:8])
     tool: str
     params: dict[str, Any] = Field(default_factory=dict)
+    # Nom de l'instance quand le pipeline en compte plusieurs d'un même outil (« equipe-b ») ; vide : l'instance
+    # principale, dont l'identifiant de service est celui de l'outil
+    instance: str = ""
+
+    @property
+    def service_id(self) -> str:
+        """Identifiant du service Compose, de la release Helm et de la clé de surcharge d'environnement."""
+        return f"{self.tool}-{self.instance}" if self.instance else self.tool
 
 
 class AppSettings(BaseModel):
@@ -379,9 +389,10 @@ class Project(BaseModel):
     def bricks_for(self, tool_id: str) -> list[BrickInstance]:
         return [b for _, b in self.all_bricks() if b.tool == tool_id]
 
-    def add(self, tool_id: str, stage: str, index: int | None = None, **params: Any) -> BrickInstance:
+    def add(self, tool_id: str, stage: str, index: int | None = None, instance: str = "",
+            **params: Any) -> BrickInstance:
         self.ensure_stages()
-        brick = BrickInstance(tool=tool_id, params=dict(params))
+        brick = BrickInstance(tool=tool_id, params=dict(params), instance=instance)
         lst = self.stages[stage]
         lst.insert(len(lst) if index is None else index, brick)
         return brick
@@ -409,6 +420,10 @@ class Project(BaseModel):
         if not data.get("stages", {}).get("data"):
             # étape ajoutée en 0.8 : omise quand elle est vide, le fichier reste lisible par la 0.7
             data.get("stages", {}).pop("data", None)
+        for bricks in data.get("stages", {}).values():
+            for b in bricks:   # champ ajouté en 0.21 : omis pour l'instance principale
+                if not b.get("instance"):
+                    b.pop("instance", None)
         for env in data.get("environments", []):
             # champs ajoutés en 0.6 : omis quand ils ne servent pas, le fichier reste lisible par la 0.5
             for key, default in (("host", ""), ("port_offset", None)):

@@ -254,42 +254,66 @@ def external_vault(ir: IR, tool_id: str) -> bool:
     return tool_id in ("vault", "openbao") and ir.has(tool_id) and bool(ir.params(tool_id).get("address"))
 
 
-def _behind_traefik(ir: IR, services: dict[str, dict]) -> dict[str, dict]:
+def _instance_service(ir: IR, brick, svc: dict) -> dict:
+    """Copie du service pour une instance nommée : volumes propres, ports publiés décalés par rang."""
+    if not brick.instance:
+        return svc
+    from ..instances import HOST_PORT_STEP, rank
+    out = dict(svc)
+    if svc.get("volumes"):
+        out["volumes"] = [v if v.startswith("/") else f"{v.split(':')[0]}-{brick.instance}:{v.split(':', 1)[1]}"
+                          for v in svc["volumes"]]
+    if svc.get("ports"):
+        shift = rank(ir.project, brick) * HOST_PORT_STEP
+        out["ports"] = [f"{int(str(p).split(':')[0]) + shift}:{str(p).split(':')[1]}" if ":" in str(p) else p
+                        for p in svc["ports"]]
+    return out
+
+
+def _behind_traefik(ir: IR, services: dict[str, dict], bricks: dict) -> dict[str, dict]:
     """Avec Traefik : les interfaces web passent derrière lui (HTTPS, nom d'hôte) au lieu d'être publiées sur
     l'hôte ; Prometheus et Loki, sans authentification, ne sont plus publiés du tout."""
     from ..ports import INTERNAL_TOOLS, ROUTED_TOOLS, routed_hostname
     out = dict(services)
-    for tid, svc in services.items():
+    for sid, svc in services.items():
+        tid, brick = bricks[sid]
         if tid in INTERNAL_TOOLS:
-            out[tid] = {k: v for k, v in svc.items() if k != "ports"}
+            out[sid] = {k: v for k, v in svc.items() if k != "ports"}
         elif tid in ROUTED_TOOLS:
             port = ROUTED_TOOLS[tid][0]
             kept = [p for p in svc.get("ports", []) if int(str(p).split(":")[-1]) != port]
             new = {k: v for k, v in svc.items() if k != "ports"}
             if kept:
                 new["ports"] = kept
-            name = ROUTED_TOOLS[tid][1]
+            name = sid if brick.instance else ROUTED_TOOLS[tid][1]
             new["labels"] = ["traefik.enable=true",
-                             f"traefik.http.routers.{name}.rule=Host(`{routed_hostname(ir.project, tid)}`)",
+                             f"traefik.http.routers.{name}.rule=Host(`{routed_hostname(ir.project, tid, brick)}`)",
                              f"traefik.http.routers.{name}.entrypoints=websecure",
                              f"traefik.http.services.{name}.loadbalancer.server.port={port}"]
-            out[tid] = new
+            out[sid] = new
     return out
 
 
 def compose_platform_services(ir: IR) -> dict[str, dict]:
-    services = {t: COMPOSE_SERVICES[t] for t in COMPOSE_SERVICES if ir.has(t) and not external_vault(ir, t)}
+    services: dict[str, dict] = {}
+    bricks: dict[str, tuple[str, object]] = {}
+    for t in COMPOSE_SERVICES:
+        if external_vault(ir, t):
+            continue
+        for brick in ir.project.bricks_for(t):
+            services[brick.service_id] = _instance_service(ir, brick, COMPOSE_SERVICES[t])
+            bricks[brick.service_id] = (t, brick)
     # seulement une adresse saisie : la valeur d'exemple (example.com) ferait refuser le compte par Let's Encrypt
     email = next((str(b.params.get("acme_email") or "") for b in ir.project.bricks_for("traefik")), "")
     if email and "traefik" in services:  # adresse de contact du compte Let's Encrypt (facultative)
         services["traefik"] = {**services["traefik"], "command": [
             *services["traefik"]["command"], f"--certificatesresolvers.letsencrypt.acme.email={email}"]}
     if ir.has("traefik"):
-        services = _behind_traefik(ir, services)
+        services = _behind_traefik(ir, services, bricks)
     for t in ("vault", "openbao"):
         if external_vault(ir, t):
             ir.cover(t)  # coffre existant : lu par la CI (scripts/secrets-fetch.sh)
-    ir.cover(*services)
+    ir.cover(*(tid for tid, _ in bricks.values()))
     return services
 
 

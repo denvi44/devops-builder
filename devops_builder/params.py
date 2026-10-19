@@ -53,7 +53,7 @@ def effective_params(tool: Tool, brick: BrickInstance | None, project: Project |
             if value not in (None, ""):
                 out[key] = value
     if env is not None and project is not None:
-        overrides = env.overrides.get(tool.id, {})
+        overrides = env.overrides.get(brick.service_id if brick else tool.id, {})
         for key, spec in tool.param_schema.items():
             if spec.per_env and key not in overrides and isinstance(out.get(key), str):
                 out[key] = out[key] + project.env_suffix(env)

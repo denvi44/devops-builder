@@ -19,6 +19,10 @@ import yaml
 
 from .catalog import Catalog
 from .databases import DATABASE_TOOLS, databases
+from .instances import HOST_PORT_STEP
+from .instances import chart_namespace as instance_namespace
+from .instances import label as instance_label
+from .instances import rank as instance_rank
 from .model import PORT_OFFSET_STEP, Environment, Project
 
 PORTS_FILE = Path(__file__).parent / "data" / "ports.yaml"
@@ -46,6 +50,7 @@ class PortEntry:
     host_group: str             # hôte Docker partagé, ou l'environnement lui-même
     variable: str = ""          # variable Compose quand les ports sont décalés
     conflict: str = ""
+    tool_id: str = ""           # outil de la brique quand component_id est un identifiant d'instance
 
 
 # ------------------------------------------------------------------ décalages
@@ -99,12 +104,17 @@ def tools_domain(project: Project) -> str:
     return "example.com"
 
 
-def routed_hostname(project: Project, tool: str) -> str:
-    """Adresse servie par Traefik : paramètre « hostname » de la brique, sinon <sous-domaine>.<domaine des outils>."""
+def routed_hostname(project: Project, tool: str, brick=None) -> str:
+    """Adresse servie par Traefik : paramètre « hostname » de la brique, sinon <sous-domaine>.<domaine des outils>
+    (<sous-domaine>-<instance>.<domaine> pour une instance nommée)."""
     key = "url" if tool in ("zot", "distribution", "harbor") else "hostname"
-    given = next((str(b.params.get(key)).split(":")[0] for _, b in project.all_bricks()
-                  if b.tool == tool and (b.params or {}).get(key)), "")
+    if brick is None:
+        brick = next((b for _, b in project.all_bricks() if b.tool == tool and not b.instance), None) \
+            or next((b for _, b in project.all_bricks() if b.tool == tool), None)
+    given = str((brick.params.get(key) if brick else "") or "").split(":")[0]
     sub = (ROUTED_TOOLS.get(tool) or KUBE_ROUTED[tool])[1]
+    if brick is not None and brick.instance:
+        sub = f"{sub}-{brick.instance}"
     return given or f"{sub}.{tools_domain(project)}"
 
 
@@ -147,9 +157,11 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
         group = env.host.strip() or f"(hôte de {env.display})"
         offset = env_offset(project, env)
 
-        def add(cid: str, label: str, container: int, host: int | None, usage: str, exposure: str) -> None:
+        def add(cid: str, label: str, container: int, host: int | None, usage: str, exposure: str,
+                tool_id: str = "") -> None:
             var = port_variable(cid, container) if host is not None and parametrized(project) else ""
-            entries.append(PortEntry(env.id, env.display, cid, label, container, host, usage, exposure, group, var))
+            entries.append(PortEntry(env.id, env.display, cid, label, container, host, usage, exposure, group, var,
+                                     tool_id=tool_id))
 
         def add_databases(kube: bool, compose: bool = True) -> None:
             for db in databases(project, catalog):
@@ -174,15 +186,20 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
                 if tid not in present:
                     continue
                 tool = catalog.get(tid)
-                for host, container in _compose_ports(COMPOSE_SERVICES[tid].get("ports", [])):
-                    usage = ports.get(tid, {}).get(container, "")
-                    label = tool.name if tool else tid
-                    if "traefik" in present and tid in INTERNAL_TOOLS:
-                        add(tid, label, container, None, usage, "réseau interne Compose, non publié")
-                    elif "traefik" in present and ROUTED_TOOLS.get(tid, (0,))[0] == container:
-                        add(tid, label, container, None, usage, f"via Traefik, hôte {routed_hostname(project, tid)}")
-                    else:
-                        add(tid, label, container, host + offset, usage, "publié sur l'hôte Docker")
+                for brick in project.bricks_for(tid):
+                    if tid in ("vault", "openbao") and (brick.params or {}).get("address"):
+                        continue
+                    sid, shift = brick.service_id, instance_rank(project, brick) * HOST_PORT_STEP
+                    label = instance_label(tool, brick)
+                    for host, container in _compose_ports(COMPOSE_SERVICES[tid].get("ports", [])):
+                        usage = ports.get(tid, {}).get(container, "")
+                        if "traefik" in present and tid in INTERNAL_TOOLS:
+                            add(sid, label, container, None, usage, "réseau interne Compose, non publié", tid)
+                        elif "traefik" in present and ROUTED_TOOLS.get(tid, (0,))[0] == container:
+                            add(sid, label, container, None, usage,
+                                f"via Traefik, hôte {routed_hostname(project, tid, brick)}", tid)
+                        else:
+                            add(sid, label, container, host + shift + offset, usage, "publié sur l'hôte Docker", tid)
             # services écrits par leur propre générateur (identité, Zabbix) : derrière Traefik, sinon publiés
             for tid, container, usage in WEB_SERVICES:
                 if tid not in present:
@@ -206,14 +223,15 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
                 exposure += f", exposé par {ingress}, hôte {app_hostname(project, env)}"
             add("app", name, app_port, None, "application", exposure)
             add_databases(True)
-            for tid in present:
+            for tid in dict.fromkeys(present):
                 if tid in PLATFORM_CHARTS and tid in ports and tid not in DATABASE_TOOLS:
                     tool = catalog.get(tid)
-                    for container, usage in ports[tid].items():
-                        where = f"Service Kubernetes, espace de noms {PLATFORM_CHARTS[tid].namespace}"
-                        if ingress and tid in KUBE_ROUTED and KUBE_ROUTED[tid][0] == container:
-                            where += f", exposé par {ingress}, hôte {routed_hostname(project, tid)}"
-                        add(tid, tool.name if tool else tid, container, None, usage, where)
+                    for brick in project.bricks_for(tid):
+                        for container, usage in ports[tid].items():
+                            where = f"Service Kubernetes, espace de noms {instance_namespace(tid, brick)}"
+                            if ingress and tid in KUBE_ROUTED and KUBE_ROUTED[tid][0] == container:
+                                where += f", exposé par {ingress}, hôte {routed_hostname(project, tid, brick)}"
+                            add(brick.service_id, instance_label(tool, brick), container, None, usage, where, tid)
         else:
             service = next((SERVERLESS[t] for t in present if t in SERVERLESS), None)
             add("app", name, app_port, None, "application",

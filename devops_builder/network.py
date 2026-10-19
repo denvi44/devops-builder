@@ -103,8 +103,8 @@ def build_graph(project: Project, catalog: Catalog, engine: RuleEngine, env_id: 
     kube = project.target in KUBERNETES_TARGETS
     db_ids = {d.id for d in databases(project, catalog)}
 
-    def bricks_of(tool_id: str) -> list[str]:
-        return [b.uid for b in project.bricks_for(tool_id)]
+    def bricks_of(service_id: str) -> list[str]:
+        return [b.uid for _, b in project.all_bricks() if b.service_id == service_id]
 
     graph.nodes.append(NetNode("internet", "Internet", "internet", "internet", "utilisateurs, navigateurs"))
     name = project.app.image_name or "app"
@@ -131,9 +131,11 @@ def build_graph(project: Project, catalog: Catalog, engine: RuleEngine, env_id: 
         if e.component_id != "app" and e.component_id != ingress:   # l'entrée a son propre plan
             by_component.setdefault(e.component_id, []).append(e)
     for cid, comp in by_component.items():
-        tool = catalog.get(cid)
+        base = comp[0].tool_id or cid   # l'identifiant d'une instance nommée n'est pas celui de l'outil
+        tool = catalog.get(base)
         is_db = cid in db_ids
-        node = NetNode(cid, tool.name if tool else cid, "donnees" if is_db else "application",
+        node = NetNode(cid, comp[0].component if comp[0].tool_id else (tool.name if tool else cid),
+                       "donnees" if is_db else "application",
                        "database" if is_db else "service", comp[0].usage,
                        sorted({str(e.container_port) for e in comp}), bricks_of(cid))
         graph.nodes.append(node)
@@ -147,7 +149,7 @@ def build_graph(project: Project, catalog: Catalog, engine: RuleEngine, env_id: 
         if published:
             graph.edges.append(NetEdge("internet", cid, ":" + ", ".join(str(e.host_port) for e in published),
                                        public=True, secure=False))
-            hint = ADMIN_PORT_HINT.get(cid)
+            hint = ADMIN_PORT_HINT.get(base)
             if not via_ingress and (hint or ingress):
                 e = published[0]
                 graph.findings.append(Finding(

@@ -14,6 +14,7 @@
 
 - id: zot
   name: zot
+  multi: true
   stage: artifacts
   roles: [registry]
   description: Registre OCI natif, léger.
@@ -24,6 +25,7 @@
 
 - id: distribution
   name: Distribution (registry)
+  multi: true
   stage: artifacts
   roles: [registry]
   description: Registre OCI de référence (image registry:2).
@@ -543,6 +545,7 @@
 
 - id: minio
   name: MinIO
+  multi: true
   stage: infrastructure
   extra_stages: [platform]
   roles: [object-storage]

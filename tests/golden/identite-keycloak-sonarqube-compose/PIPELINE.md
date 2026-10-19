@@ -19,6 +19,7 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
 | Prometheus | — | 9090 | interface et API | réseau interne Compose, non publié |
 | Grafana | — | 3000 | interface web | via Traefik, hôte grafana.boutique.fr |
+| Grafana | — | 3000 | interface web | via Traefik, hôte grafana.boutique.fr |
 | SonarQube | — | 9000 | interface web | via Traefik, hôte sonarqube.boutique.fr |
 | Keycloak | — | 8080 | interface et OIDC | via Traefik, hôte auth.boutique.fr |
 
@@ -83,6 +84,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 ## Diagnostics restants
 
 - **Avertissement** (R34) — Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « mon-app.example.com » sera écrite dans les fichiers.
+- **Avertissement** (R55) — Deux briques portent le même identifiant « grafana » : donner un nom d'instance différent à chacune (une seule est générée).
 
 ## Notes
 

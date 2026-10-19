@@ -1,0 +1,6 @@
+id: R55
+title: Instances d'une même brique
+family: catalogue
+severity: avertissement
+type: instances
+message: "{detail}"

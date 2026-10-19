@@ -949,6 +949,38 @@ def h_backup_plugin(rule: Rule, ctx: Context) -> list[Diagnostic]:
     return [_diag(rule, rule.message, [placed[0].brick.uid], _add_actions(ctx, ["cert-manager"]))]
 
 
+@handler("instances")
+def h_instances(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    """Plusieurs briques du même outil : seuls les outils « multi » les acceptent, chacune avec un nom unique."""
+    from .instances import check_name, duplicates
+    out: list[Diagnostic] = []
+    by_tool: dict[str, list] = {}
+    for p in ctx.placed:
+        by_tool.setdefault(p.tool.id, []).append(p)
+    for placed in by_tool.values():
+        tool = placed[0].tool
+        if len(placed) > 1 and not tool.multi:
+            extra = [p.brick.uid for p in placed[1:]]
+            out.append(_diag(rule, _fmt(rule.message, detail=f"{tool.name} est posé {len(placed)} fois, mais une seule "
+                                        "instance est générée : retirer les autres (ou choisir un outil qui accepte "
+                                        "plusieurs instances)."), extra,
+                             [Action("remove_bricks", f"Retirer les {len(extra)} brique(s) en trop",
+                                     {"uids": extra})]))
+    for p in ctx.placed:
+        problem = check_name(p.brick.instance)
+        if problem:
+            out.append(_diag(rule, _fmt(rule.message, detail=f"{p.tool.name} : nom d'instance « {p.brick.instance} » "
+                                        f"invalide ({problem})."), [p.brick.uid], [], Severity.BLOCKING))
+    for sid, bricks in duplicates(ctx.project).items():
+        if ctx.catalog.get(bricks[0].tool) and ctx.catalog[bricks[0].tool].multi:
+            extra = [b.uid for b in bricks[1:]]
+            out.append(_diag(rule, _fmt(rule.message, detail=f"Deux briques portent le même identifiant « {sid} » : "
+                                        "donner un nom d'instance différent à chacune (une seule est générée)."),
+                             extra, [Action("remove_bricks", f"Retirer la brique en double ({len(extra)})",
+                                            {"uids": extra})], Severity.WARNING))
+    return out
+
+
 @handler("ingress_without_tls")
 def h_ingress_without_tls(rule: Rule, ctx: Context) -> list[Diagnostic]:
     """Contrôleur d'entrée Kubernetes sans cert-manager : l'entrée reste en HTTP."""
