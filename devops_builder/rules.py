@@ -981,6 +981,22 @@ def h_instances(rule: Rule, ctx: Context) -> list[Diagnostic]:
     return out
 
 
+@handler("ip_address")
+def h_ip_address(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    """Adresse publique, application ou domaine des outils saisis comme une IP : l'entrée exige un nom DNS."""
+    from .addresses import ip_addresses
+    out = []
+    for uid, tool_id, _key, value in ip_addresses(ctx.project):
+        tool = ctx.catalog.get(tool_id)
+        name = tool.name if tool else tool_id
+        out.append(_diag(rule, _fmt(rule.message, detail=(
+            f"{name} : « {value} » est une adresse IP. Un Ingress ou une Gateway Kubernetes la refuse, Traefik ne peut "
+            "pas y obtenir de certificat Let's Encrypt, et les outils ne peuvent pas partager une IP sous des noms "
+            "différents. Utiliser un nom DNS (entrée dans le DNS local, /etc/hosts ou un domaine en .nip.io).")),
+            [uid], []))
+    return out
+
+
 @handler("ingress_without_tls")
 def h_ingress_without_tls(rule: Rule, ctx: Context) -> list[Diagnostic]:
     """Contrôleur d'entrée Kubernetes sans cert-manager : l'entrée reste en HTTP."""

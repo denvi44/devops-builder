@@ -34,6 +34,13 @@ catalogue, et des variantes sans Kubernetes ; un écran d'accueil qui dit par o�
   changer et un avertissement R34 de plus (adresse d'exemple).
 
 ### Ajouté
+- **Adresses IP** : la règle **R56** avertit quand l'adresse publique d'un outil, celle de l'application ou le
+  domaine des outils est une adresse IP (refusée par un Ingress, sans certificat Let's Encrypt, une IP ne pouvant
+  pas porter plusieurs noms). Les registres, eux, peuvent être une IP.
+- **Registre auto-hébergé en HTTP simple** (Harbor, Zot, Distribution sur une IP ou `localhost`) : les hôtes Docker
+  déployés par Ansible reçoivent `insecure-registries` (`/etc/docker/daemon.json` fusionné sans perte, Docker
+  redémarré si le fichier change), k3s reçoit `deploy/registries.yaml`, et une note explique le réglage à faire
+  côté CI (Docker, BuildKit, Kaniko, podman).
 - **Plusieurs instances d'un même outil** : deux Grafana, deux Gitea, deux SonarQube… Chaque brique d'un outil
   « multi » porte un nom d'instance (champ `instance`, propriétés de la brique, demande à l'ajout). L'instance
   nommée a son service Compose (`grafana-equipe-b`) ou sa release Helm, ses volumes, son adresse, ses ports

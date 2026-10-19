@@ -78,6 +78,8 @@ def ansible(ir: IR) -> dict[str, str]:
                           "ansible.builtin.copy": {"src": "../deploy/env/{{ deploy_env }}.env",
                                                    "dest": "{{ app_dir }}/.env", "mode": "0644"}})
         tasks += _ansible_db_tasks(ir)
+    from . import registre
+    tasks += registre.ansible_tasks(ir)
     if host_registry(ir) is not None:
         tasks.append({
             "name": "Se connecter au registre d'images",

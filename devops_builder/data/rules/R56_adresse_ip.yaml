@@ -1,0 +1,6 @@
+id: R56
+title: Adresse d'entrée saisie comme une IP
+family: parametres
+severity: avertissement
+type: ip_address
+message: "{detail}"
