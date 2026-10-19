@@ -58,7 +58,7 @@ de police du système.
 
 Reste avant la 1.0, et qui demande des ressources hors de ce dépôt :
 
-- `apply` puis `destroy` sur un vrai compte cloud (le modèle AWS EC2 passe déjà sur l'émulateur Floci, jusqu'au déploiement par Ansible) (modèles et identités de CI à droits réduits) ;
+- `apply` puis `destroy` sur un vrai compte cloud (le modèle AWS EC2 passe déjà sur l'émulateur Floci, jusqu'au déploiement par Ansible ; la pile du modèle ECS passe aussi, sans la suppression de la base RDS) ; les modèles et les identités de CI à droits réduits restent à éprouver ;
 - signature des exécutables (Authenticode, notarisation Apple) ;
 - sessions d'écoute NVDA, Orca, VoiceOver ; suivi du contraste élevé et de la taille de police du système ;
 - clés `--set` des charts Helm et noms de Service des instances supplémentaires, à confirmer sur un cluster réel ;
@@ -66,8 +66,9 @@ Reste avant la 1.0, et qui demande des ressources hors de ce dépôt :
 
 ## Après la 1.0
 
-- 1.1 : pile Elastic sur hôte Docker (Elasticsearch, Kibana, Logstash), comme Zabbix ; schéma d'architecture
-  en 2D exporté (SVG, PNG) depuis l'interface et la ligne de commande.
+- 1.1 : services des fournisseurs cloud, par capacités (voir plus bas) ; pile Elastic sur hôte Docker
+  (Elasticsearch, Kibana, Logstash), comme Zabbix ; schéma d'architecture en 2D exporté (SVG, PNG) depuis
+  l'interface et la ligne de commande.
 - 1.2 : CircleCI ; schéma isométrique (vue en relief des environnements, hôtes et services).
 - Puppet, Chef, Burp Suite et Drone restent des fiches sans générateur : Ansible, ZAP et Woodpecker couvrent
   leur usage.
@@ -76,3 +77,46 @@ Reste avant la 1.0, et qui demande des ressources hors de ce dépôt :
 
 Bêta publique de quelques semaines avec des projets pilotes, puis versionnage sémantique : les 1.x ajoutent
 sans rompre le format, les 1.x.y corrigent et rafraîchissent le catalogue.
+
+## 1.1 — Services des fournisseurs cloud, par capacités
+
+Les catalogues des fournisseurs sont bien plus larges que le nôtre (Azure en liste environ 370), mais la plupart
+des services (IA, IoT, médias, analytique) ne changent rien à un pipeline. Trois règles pour ne pas noyer les
+utilisateurs :
+
+1. Une brique doit changer les fichiers générés (ressources OpenTofu, variables de la CI, configuration de
+   l'application). Sinon, elle n'a pas sa place.
+2. Des capacités plutôt que des produits : une seule brique, par exemple « Cache managé », qui devient le service du
+   cloud du projet. Huit capacités couvrent les six clouds, au lieu d'une cinquantaine de fiches.
+3. La palette ne montre que ce que le cloud du projet sait faire. À vérifier d'abord : ce que la palette filtre déjà.
+
+| Capacité | AWS | Google Cloud | Azure | Scaleway | OVHcloud | Outscale |
+|---|---|---|---|---|---|---|
+| 1. Réseau privé | VPC | VPC | Réseau virtuel | VPC, réseau privé | Private Network (vRack) | VPC |
+| 2. Répartiteur de charge | ALB | Cloud Load Balancing | Load Balancer, Application Gateway | Load Balancer | Load Balancer | LBU |
+| 3. DNS | Route 53 | Cloud DNS | Azure DNS | Domaines | hors Public Cloud | — |
+| 4. Cache managé | ElastiCache | Memorystore | Azure Cache for Redis | Managed Redis | Valkey | — |
+| 5. File de messages | SQS | Pub/Sub | Service Bus | Queues | Kafka | — |
+| 6. Fonctions serverless | Lambda | Cloud Run functions | Functions | Serverless Functions | annoncé « bientôt » | — |
+| 7. Chiffrement (KMS) | KMS | Cloud KMS | Key Vault (clés) | Key Manager | KMS | — |
+| 8. CDN et pare-feu applicatif | CloudFront, WAF | Cloud CDN, Cloud Armor | Front Door, WAF | Edge Services, WAF | — | — |
+
+Ce que chaque capacité ajoute aux fichiers générés :
+
+1. **Réseau privé** : créé une fois, puis rattaché aux machines, bases et clusters ; remplace les identifiants de
+   réseau saisis à la main (ce qui bloquait l'`apply` sur Floci).
+2. **Répartiteur de charge** : devant les machines ou le cluster, avec sa sonde de santé ; adresse publique en sortie.
+3. **DNS** : la zone et l'enregistrement vers le répartiteur.
+4. **Cache managé** : le cache, et son adresse de connexion rangée dans les secrets comme la base de données.
+5. **File de messages** : la file, et son adresse transmise à l'application.
+6. **Fonctions serverless** : la fonction, son déclencheur HTTP et son déploiement par la CI.
+7. **Chiffrement** : une clé, utilisée pour l'état OpenTofu, les disques et les secrets.
+8. **CDN et pare-feu** : le CDN devant l'application, avec le pare-feu applicatif.
+
+Ordre de travail : le réseau privé d'abord, puis le répartiteur et le DNS, puis le cache et les files, enfin les
+fonctions, le chiffrement et le CDN. Le Secret Manager et l'IAM d'OVHcloud, absents du catalogue, s'y ajoutent.
+
+À confirmer au développement : le nom exact des ressources dans chaque fournisseur OpenTofu et leurs options, et ce
+que la documentation d'Outscale détaille au-delà de sa page des services (Net, sous-réseaux, DNS, KMS). Sources :
+pages produits d'AWS, Google Cloud, Azure, Scaleway et OVHcloud, et page des services d'Outscale, consultées le
+20 octobre 2026.
