@@ -923,6 +923,27 @@ def _ec2_steps(out: Path, ir) -> list[Step]:
     ]
 
 
+def _ecs_steps(out: Path, ir) -> list[Step]:
+    """Pile du modèle AWS ECS Fargate (ECR, RDS PostgreSQL, Secrets Manager, ECS) jouée sur Floci : plan, apply puis
+    destroy par scripts/tf-floci.sh, avec les journaux de l'émulateur pour comprendre un refus."""
+    from devops_builder.ir import FLOCI_IMAGE
+    env = {"FLOCI_ENDPOINT": "http://localhost:4566", "TF_IN_AUTOMATION": "1"}
+    return [
+        Step("Floci démarré (émulateur AWS)",
+             "docker pull ubuntu:24.04\n"
+             "docker tag ubuntu:24.04 public.ecr.aws/docker/library/ubuntu:24.04\n"
+             f"docker run -d --name e2e-floci -p 4566:4566 -u root -v /var/run/docker.sock:/var/run/docker.sock "
+             f"-e FLOCI_DEFAULT_REGION=eu-west-3 {FLOCI_IMAGE}\n"
+             "for _ in $(seq 1 60); do curl -fsS http://localhost:4566/_localstack/health >/dev/null && exit 0; "
+             "sleep 1; done; exit 1"),
+        Step("scripts/tf-floci.sh apply (plan, apply puis destroy)", f"cd {out} && scripts/tf-floci.sh apply",
+             env=env, evidence=True),
+        Step("Journaux de Floci", "docker logs e2e-floci 2>&1 | grep -v -i 'DockerRetry\\|HttpRequestRetryExec' "
+             "| tail -80", always=True),
+        Step("Arrêt de Floci", "docker rm -f e2e-floci || true", always=True),
+    ]
+
+
 def _bases_dediees_steps(out: Path, ir) -> list[Step]:
     """Gitea (PostgreSQL), Grafana (MariaDB) et une deuxième instance de Grafana (PostgreSQL) derrière Traefik :
     chaque outil écrit dans SA base, vérifiée dans la base elle-même (tables créées par l'outil)."""
@@ -1030,6 +1051,11 @@ SCENARIOS = {s.name: s for s in [
                                     "docker-compose", "traefik", "floci"),
                            traefik={"app_hostname": "boutique.test"}),
              _ec2_steps, ("docker", "tofu", "ansible-playbook", "ansible-galaxy", "jq", "curl", "ssh-keygen")),
+    Scenario("aws-ecs-floci", "Modèle AWS ECS Fargate sans compte : ECR, RDS PostgreSQL, Secrets Manager et ECS jouées "
+             "sur Floci par scripts/tf-floci.sh (plan, apply, destroy)",
+             lambda: _project("docker-host", *GH, "ecr", "aws", "opentofu", "s3", "aws-rds", "ecs-fargate",
+                              "aws-secrets-manager", "floci"),
+             _ecs_steps, ("docker", "tofu", "curl")),
     Scenario("gitea-renovate", "Renovate lancé comme le workflow Gitea généré, contre une vraie forge Gitea : "
              "tableau de bord et demandes de fusion sur les images du dépôt",
              _starter(hosting="docker-host", forge="gitea", ci="gitea-actions", database="postgresql"),
