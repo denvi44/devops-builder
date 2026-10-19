@@ -108,3 +108,62 @@ def test_la_creation_precede_l_installation():
 def test_valeur_invalide_refusee():
     spec = CATALOG["gitea"].param_schema["database"]
     assert check_value(spec, "oracle") and check_value(spec, "postgresql") is None
+
+
+# ------------------------------------------------------------------ autres moteurs et Harbor
+@pytest.mark.parametrize("engine,image,port,env", [("mariadb", "mariadb:", 3306, "MARIADB_PASSWORD"),
+                                                   ("mysql", "mysql:", 3306, "MYSQL_PASSWORD")])
+def test_gitea_et_grafana_sur_mariadb_ou_mysql(engine, image, port, env):
+    p = Project(name="t", target="docker-host", environments=env_preset("staging-prod"))
+    for t in ("gitlab", "gitlab-ci", "buildkit", "docker-compose"):
+        p.add(t, CATALOG[t].stage)
+    for t in ("gitea", "grafana"):
+        p.add(t, CATALOG[t].stage, database=engine)
+    r = generate(p, CATALOG)
+    s = yaml.safe_load(r.files["deploy/docker-compose.yml"])["services"]
+    assert s["gitea-db"]["image"].startswith(image)
+    assert s["gitea"]["environment"]["GITEA__database__DB_TYPE"] == "mysql"
+    assert s["gitea"]["environment"]["GITEA__database__HOST"] == f"gitea-db:{port}"
+    assert s["grafana"]["environment"]["GF_DATABASE_TYPE"] == "mysql"
+    assert f"{env}=$GITEA_DB_PASSWORD" in r.files["deploy/secrets.sh"]
+    assert s["gitea-db"]["volumes"] == ["gitea-db-data:/var/lib/mysql"]
+
+
+def test_mariadb_sur_kubernetes_sans_cluster_cnpg():
+    p = project("kubernetes", "cloudnative-pg", dedicated=False)
+    p.bricks_for("gitea")[0].params["database"] = "mariadb"
+    f = generate(p, CATALOG).files
+    kinds = [d["kind"] for d in yaml.safe_load_all(f["platform/db-gitea.yaml"]) if d]
+    assert kinds == ["Service", "StatefulSet"]   # CloudNativePG ne gère que PostgreSQL
+    line = next(ln for ln in f["platform/install.sh"].splitlines() if ln.startswith("helm upgrade --install gitea "))
+    assert "DB_TYPE=mysql" in line and "HOST=gitea-db:3306" in line and "secretKeyRef.name=gitea-db" in line
+
+
+def test_harbor_postgresql_externe():
+    p = Project(name="t", target="kubernetes", environments=env_preset("staging-prod"))
+    for t in ("gitlab", "gitlab-ci", "buildkit", "helm", "k3s", "cloudnative-pg"):
+        p.add(t, CATALOG[t].stage)
+    p.add("harbor", CATALOG["harbor"].stage, url="harbor.boutique.fr", database="postgresql")
+    f = generate(p, CATALOG).files
+    cluster = yaml.safe_load(f["platform/db-harbor.yaml"])
+    assert cluster["kind"] == "Cluster" and cluster["metadata"]["namespace"] == "harbor"
+    line = next(ln for ln in f["platform/install.sh"].splitlines() if ln.startswith("helm upgrade --install harbor "))
+    for part in ("database.type=external", "database.external.host=harbor-pg-rw",
+                 "database.external.existingSecret=harbor-pg-app", "database.external.coreDatabase=harbor"):
+        assert part in line
+
+
+def test_harbor_sans_service_compose():
+    p = Project(name="t", target="docker-host", environments=env_preset("staging-prod"))
+    for t in ("gitlab", "gitlab-ci", "buildkit", "docker-compose"):
+        p.add(t, CATALOG[t].stage)
+    p.add("harbor", CATALOG["harbor"].stage, url="harbor.boutique.fr", database="postgresql")
+    f = generate(p, CATALOG).files
+    assert "HARBOR_DB_PASSWORD" not in f.get("deploy/secrets.sh", "")
+
+
+def test_moteurs_acceptes_par_outil():
+    schema = CATALOG["sonarqube"].param_schema["database"]
+    assert check_value(schema, "mariadb")   # SonarQube : PostgreSQL seulement
+    assert check_value(CATALOG["gitea"].param_schema["database"], "mariadb") is None
+    assert check_value(CATALOG["harbor"].param_schema["database"], "mysql")

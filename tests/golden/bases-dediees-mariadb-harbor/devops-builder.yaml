@@ -1,0 +1,88 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: kubernetes
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: github
+    params: {}
+  - uid: brique002
+    tool: gitea
+    params:
+      database: mariadb
+  build:
+  - uid: brique003
+    tool: github-actions
+    params: {}
+  - uid: brique004
+    tool: buildkit
+    params: {}
+  - uid: brique005
+    tool: dependabot
+    params: {}
+  test:
+  - uid: brique006
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: brique007
+    tool: gitleaks
+    params: {}
+  - uid: brique008
+    tool: trivy
+    params: {}
+  - uid: brique009
+    tool: cosign
+    params: {}
+  artifacts:
+  - uid: brique010
+    tool: ghcr
+    params: {}
+  - uid: brique011
+    tool: harbor
+    params:
+      url: harbor.boutique.fr
+      database: postgresql
+  infrastructure:
+  - uid: brique012
+    tool: k3s
+    params: {}
+  deploy:
+  - uid: brique013
+    tool: helm
+    params: {}
+  platform:
+  - uid: brique014
+    tool: traefik
+    params: {}
+  - uid: brique015
+    tool: cert-manager
+    params: {}
+  observability:
+  - uid: brique016
+    tool: prometheus
+    params: {}
+  - uid: brique017
+    tool: grafana
+    params: {}

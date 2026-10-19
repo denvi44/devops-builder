@@ -254,6 +254,10 @@ def extra_cases(catalog) -> dict[str, Project]:
         for t in ("cloudnative-pg", "gitea", "sonarqube", "grafana"):
             bk.add(t, catalog[t].stage, **(dedicated if t != "cloudnative-pg" else {}))
         out["bases-dediees-k3s"] = bk
+        bm = build_starter(StarterAnswers(forge="github", hosting="kubernetes", envs="staging-prod"), catalog)
+        bm.add("gitea", catalog["gitea"].stage, database="mariadb")
+        bm.add("harbor", "artifacts", url="harbor.boutique.fr", database="postgresql")
+        out["bases-dediees-mariadb-harbor"] = bm
     return out
 
 

@@ -4,6 +4,14 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## 0.24.0 — 2026-10-19 — Bases dédiées : MariaDB, MySQL et Harbor
+
+Le choix « Base de données » s'étend : MariaDB et MySQL pour Gitea et Grafana, et Harbor (Kubernetes) peut utiliser un PostgreSQL à lui.
+
+### Ajouté
+- **Autres moteurs** : Gitea et Grafana acceptent `mariadb` et `mysql` en plus de `postgresql` (service Compose avec l'image, le volume, la sonde de santé et la variable de mot de passe du moteur ; sur Kubernetes, un StatefulSet, CloudNativePG ne gérant que PostgreSQL). SonarQube reste en PostgreSQL seulement.
+- **Harbor** : `postgresql` dédié sur Kubernetes (`database.type=external` dans install.sh, Cluster CloudNativePG ou StatefulSet). Harbor n'a pas de service Compose.
+
 ## 0.23.0 — 2026-10-19 — Une base de données par outil
 
 Gitea, SonarQube et Grafana peuvent avoir leur propre PostgreSQL, sur l'hôte Docker comme sur Kubernetes.
