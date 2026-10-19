@@ -1080,7 +1080,7 @@ def _plateforme_project() -> Project:
     """Les trente charts de plateforme, plus une deuxième instance nommée de chaque outil multiple routé par l'entrée."""
     p = _project("kubernetes", *GH, *PLATFORM_TOOLS,
                  dex={"hostname": "dex.boutique.test", "tools_domain": "boutique.test",
-                      "app_url": "https://boutique.test"})
+                      "app_url": "https://boutique.test"}, harbor={"url": "harbor.boutique.test"})
     catalog = _catalog()
     for tool in ("grafana", "sonarqube", "jenkins", "gitea", "zot", "jaeger"):
         p.add(tool, catalog[tool].stage, instance="equipe-b")
