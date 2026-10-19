@@ -842,6 +842,55 @@ PY
     ]
 
 
+def _bases_dediees_steps(out: Path, ir) -> list[Step]:
+    """Gitea (PostgreSQL), Grafana (MariaDB) et une deuxième instance de Grafana (PostgreSQL) derrière Traefik :
+    chaque outil écrit dans SA base, vérifiée dans la base elle-même (tables créées par l'outil)."""
+    env = {"GITEA_DB_PASSWORD": secrets.token_hex(12), "GRAFANA_DB_PASSWORD": secrets.token_hex(12),
+           "GRAFANA_EQUIPE_B_DB_PASSWORD": secrets.token_hex(12)}
+    host, curlrc, start, end = _compose_host(out, ir, env)
+    cenv = _curl_env(curlrc, "gitea.boutique.test", "grafana.boutique.test", "grafana-b.boutique.test")
+    dc = f"docker compose --project-directory {host} -p {ir.app}"
+    # Gitea écrit sa configuration et crée ses tables au démarrage s'il n'attend pas l'assistant d'installation
+    override = ("services:\n  gitea:\n    environment:\n      GITEA__security__INSTALL_LOCK: \"true\"\n")
+    start = [*start[:3], Step("Gitea sans assistant d'installation (réglage du test seulement)",
+                              f"printf '{override}' > {host}/docker-compose.override.yml"), *start[3:]]
+
+    denv = {**env, "IMAGE": f"devops-builder.local/{ir.app}:e2e"}
+
+    def pg(service: str, table: str) -> str:   # requête par l'entrée standard : pas de guillemets imbriqués
+        return (f"{dc} exec -T {service} sh -c 'psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" -tA' <<'SQL' | grep -qx 1\n"
+                f"select count(*) from information_schema.tables where table_name = '{table}';\nSQL")
+
+    def wait(url: str, expr: str) -> str:
+        return (f"for _ in $(seq 1 60); do curl -fsS {url} | jq -e '{expr}' && exit 0; sleep 5; done; exit 1")
+    return [
+        *start,
+        Step("Gitea : connexion à sa base (/api/healthz)", wait("https://gitea.boutique.test/api/healthz",
+             '.checks["database:ping"][0].status == "pass"'), env=cenv, evidence=True),
+        Step("Grafana (MariaDB) : base jointe", wait("https://grafana.boutique.test/api/health", '.database == "ok"'),
+             env=cenv, evidence=True),
+        Step("Grafana équipe-b (PostgreSQL) : base jointe", wait("https://grafana-b.boutique.test/api/health",
+             '.database == "ok"'), env=cenv, evidence=True),
+        Step("Tables de Gitea dans gitea-db (PostgreSQL)", pg("gitea-db", "repository"), env=denv, evidence=True),
+        Step("Tables de Grafana dans grafana-db (MariaDB)",
+             f"{dc} exec -T grafana-db sh -c 'mariadb -u\"$MARIADB_USER\" -p\"$MARIADB_PASSWORD\" "
+             "\"$MARIADB_DATABASE\" -e \"show tables\"' | grep -qx dashboard", env=denv, evidence=True),
+        Step("Tables de Grafana équipe-b dans grafana-equipe-b-db (PostgreSQL)",
+             pg("grafana-equipe-b-db", "dashboard"), env=denv, evidence=True),
+        *end,
+    ]
+
+
+def _bases_project() -> Project:
+    p = _project("docker-host", *GH, "docker-compose", "traefik")
+    catalog = _catalog()
+    for tool, instance, engine, name in (("gitea", "", "postgresql", "gitea.boutique.test"),
+                                         ("grafana", "", "mariadb", "grafana.boutique.test"),
+                                         ("grafana", "equipe-b", "postgresql", "grafana-b.boutique.test")):
+        p.add(tool, catalog[tool].stage, instance=instance, database=engine, hostname=name)
+    return p
+
+
 def _check_db(ctx: str, ns: str, app: str) -> str:
     return f"""
 kubectl --context {ctx} -n {ns} port-forward service/{app} 18081:80 >/tmp/pf-db.log 2>&1 &
@@ -889,6 +938,11 @@ SCENARIOS = {s.name: s for s in [
                            dex={"hostname": "dex.boutique.test", "tools_domain": "boutique.test",
                                 "app_url": "https://boutique.test"}),
              _dex_steps, ("docker", "curl", "jq")),
+    Scenario("compose-bases-dediees", "Hôte Docker : Gitea sur PostgreSQL, Grafana sur MariaDB et une deuxième "
+             "instance de Grafana sur PostgreSQL, derrière Traefik ; les tables créées par chaque outil sont "
+             "relues dans sa propre base",
+             lambda: _bases_project(),
+             _bases_dediees_steps, ("docker", "curl", "jq")),
     Scenario("gitea-renovate", "Renovate lancé comme le workflow Gitea généré, contre une vraie forge Gitea : "
              "tableau de bord et demandes de fusion sur les images du dépôt",
              _starter(hosting="docker-host", forge="gitea", ci="gitea-actions", database="postgresql"),

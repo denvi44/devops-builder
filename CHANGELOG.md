@@ -4,6 +4,15 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## 0.25.0 — 2026-10-19 — Préparation de la 1.0
+
+### Ajouté
+- **Scénario de bout en bout `compose-bases-dediees`** : Gitea sur PostgreSQL, Grafana sur MariaDB et une seconde instance de Grafana sur PostgreSQL, derrière Traefik en HTTPS ; santé de l'application et tables créées dans chaque base vérifiées chaque nuit.
+- **Exécutable macOS Intel** (`macos-x86_64`) dans les publications, avec attestation et somme SHA-256.
+
+### Modifié
+- Feuille de route : état des versions 0.21 à 0.25 et liste de ce qui reste avant la 1.0.
+
 ## 0.24.0 — 2026-10-19 — Bases dédiées : MariaDB, MySQL et Harbor
 
 Le choix « Base de données » s'étend : MariaDB et MySQL pour Gitea et Grafana, et Harbor (Kubernetes) peut utiliser un PostgreSQL à lui.

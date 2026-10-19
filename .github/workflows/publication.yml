@@ -131,6 +131,8 @@ jobs:
             os: windows-2025
           - cible: macos-arm64
             os: macos-15
+          - cible: macos-x86_64
+            os: macos-15-intel
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
