@@ -18,11 +18,11 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction | mon-app | — | 8000 | application | via Traefik, hôte staging.mon-app.example.com |
 | Préproduction | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Préproduction | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Préproduction | SonarQube | 9002 | 9000 | interface web | publié sur l'hôte Docker |
+| Préproduction | SonarQube | — | 9000 | interface web | via Traefik, hôte sonarqube.example.com |
 | Production | mon-app | — | 8000 | application | via Traefik, hôte mon-app.example.com |
 | Production | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Production | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Production | SonarQube | 9002 | 9000 | interface web | publié sur l'hôte Docker |
+| Production | SonarQube | — | 9000 | interface web | via Traefik, hôte sonarqube.example.com |
 
 ## Dimensionnement
 

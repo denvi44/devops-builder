@@ -12,7 +12,7 @@ helm repo update
 helm upgrade --install flux fluxcd-community/flux2 --namespace flux-system --create-namespace
 
 # Gitea
-helm upgrade --install gitea gitea-charts/gitea --namespace gitea --create-namespace
+helm upgrade --install gitea gitea-charts/gitea --namespace gitea --create-namespace --set ingress.enabled=true --set ingress.className=traefik --set 'ingress.hosts[0].host=gitea.example.com' --set 'ingress.hosts[0].paths[0].path=/'
 
 # zot
-helm upgrade --install zot project-zot/zot --namespace zot --create-namespace
+helm upgrade --install zot project-zot/zot --namespace zot --create-namespace --set ingress.enabled=true --set ingress.className=traefik --set 'ingress.hosts[0].host=registry.example.com' --set 'ingress.hosts[0].paths[0].path=/'

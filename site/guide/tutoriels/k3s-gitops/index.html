@@ -425,6 +425,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reseau/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Le schéma réseau
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../hote-docker/" class="md-nav__link">
         
   
@@ -524,10 +552,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-designer-le-depot-gitops" class="md-nav__link">
+  <a href="#2-designer-le-depot-gitops-et-ladresse-de-lapplication" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Désigner le dépôt GitOps
+        2. Désigner le dépôt GitOps et l'adresse de l'application
       
     </span>
   </a>
@@ -913,10 +941,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-designer-le-depot-gitops" class="md-nav__link">
+  <a href="#2-designer-le-depot-gitops-et-ladresse-de-lapplication" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Désigner le dépôt GitOps
+        2. Désigner le dépôt GitOps et l'adresse de l'application
       
     </span>
   </a>
@@ -1007,8 +1035,11 @@ Cosign, registre de GitHub, k3s, Helm, Argo CD, Traefik, cert-manager, Prometheu
 </ol>
 <p>Le pipeline compte seize briques. k3s est installé sans son Traefik intégré, puisque Traefik est déjà dans
 le pipeline (voir <code>infra/cluster/install-k3s.sh</code>) ; cert-manager fournit les certificats.</p>
-<h2 id="2-designer-le-depot-gitops">2. Désigner le dépôt GitOps<a class="headerlink" href="#2-designer-le-depot-gitops" title="Permanent link">&para;</a></h2>
-<p>Un avertissement R34 signale le paramètre « Dépôt GitOps » d'<strong>Argo CD</strong>, resté à sa valeur d'exemple.
+<h2 id="2-designer-le-depot-gitops-et-ladresse-de-lapplication">2. Désigner le dépôt GitOps et l'adresse de l'application<a class="headerlink" href="#2-designer-le-depot-gitops-et-ladresse-de-lapplication" title="Permanent link">&para;</a></h2>
+<p>Deux avertissements R34. Le premier signale le paramètre « Adresse publique de l'application » de <strong>Traefik</strong> :
+c'est le nom d'hôte de l'Ingress que le chart crée (<code>api-commandes.example.com</code> tant qu'il n'est pas changé ; les
+autres environnements reçoivent un préfixe). Le second signale le paramètre « Dépôt GitOps » d'<strong>Argo CD</strong>, resté
+à sa valeur d'exemple.
 Sélectionner Argo CD (étape Déploiement) et saisir l'adresse du dépôt qu'Argo CD surveillera, par exemple
 <code>https://github.com/mon-organisation/api-commandes.git</code> : le dépôt de l'application convient (les commits de la
 CI y portent <code>[skip ci]</code>), un dépôt dédié aussi.</p>

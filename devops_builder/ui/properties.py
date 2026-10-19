@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QLineEdit,
     QPushButton,
     QScrollArea,
     QTableWidget,
@@ -22,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..catalog import Catalog
+from ..instances import label as instance_label
 from ..model import STAGE_LABELS, SUPPORT, BrickInstance, Project, Tool
 from . import theme
 from .widgets import FlowRow, chip, icon, muted, plain, section_title
@@ -36,6 +38,7 @@ class PropertiesPanel(QScrollArea):
     paramsChanged = Signal(str, dict)   # uid, params
     overridesChanged = Signal(str, str, dict)  # env_id, tool_id, params
     removeRequested = Signal(str)
+    instanceChanged = Signal(str, str)  # uid, nom d'instance
     addRequested = Signal(str)          # tool_id (fiche affichée depuis la palette)
     ficheRequested = Signal(str)        # créer une fiche depuis le Landscape ou modifier une fiche personnelle
 
@@ -75,7 +78,7 @@ class PropertiesPanel(QScrollArea):
         w, lay = self._container()
 
         head = QHBoxLayout()
-        title = QLabel(tool.name)
+        title = QLabel(instance_label(tool, brick) if brick else tool.name)
         title.setObjectName("heroTitle")
         title.setWordWrap(True)
         head.addWidget(title, 1)
@@ -176,9 +179,9 @@ class PropertiesPanel(QScrollArea):
         lay.addStretch(1)
         self.setWidget(w)
 
-    def _ports_section(self, lay: QVBoxLayout, tool: Tool, project: Project) -> None:
+    def _ports_section(self, lay: QVBoxLayout, tool: Tool, project: Project, brick: BrickInstance | None = None) -> None:
         from ..ports import port_plan
-        mine = [e for e in port_plan(project, self.catalog) if e.component_id == tool.id]
+        mine = [e for e in port_plan(project, self.catalog) if e.component_id == (brick.service_id if brick else tool.id)]
         if not mine:
             return
         lay.addWidget(section_title("Ports"))
@@ -206,6 +209,18 @@ class PropertiesPanel(QScrollArea):
     # ------------------------------------------------------------- brique posée
     def _brick_section(self, lay: QVBoxLayout, tool: Tool, brick: BrickInstance, project: Project | None) -> None:
         pal = theme.current()
+        if tool.multi:
+            lay.addWidget(section_title("Instance"))
+            self.instance_edit = QLineEdit(brick.instance)
+            self.instance_edit.setPlaceholderText("vide : instance principale")
+            self.instance_edit.setAccessibleName("Nom de l'instance")
+            self.instance_edit.setToolTip("Lettres minuscules, chiffres et tirets. Identifiant généré : "
+                                          f"{tool.id}-<nom>")
+            self.instance_edit.editingFinished.connect(
+                lambda uid=brick.uid: self.instanceChanged.emit(uid, self.instance_edit.text().strip()))
+            lay.addWidget(self.instance_edit)
+            lay.addWidget(muted("Plusieurs briques du même outil : chacune garde son nom, ses volumes, son adresse "
+                                "et ses ports."))
         if tool.param_schema:
             from .param_form import ParamForm
             lay.addWidget(section_title("Paramètres de la brique"))
@@ -215,7 +230,7 @@ class PropertiesPanel(QScrollArea):
                 self.env_combo.setAccessibleName("Environnement des paramètres")
                 self.env_combo.addItem("Tous les environnements", "")
                 for e in project.environments:
-                    count = len(e.overrides.get(tool.id, {}))
+                    count = len(e.overrides.get(brick.service_id, {}))
                     self.env_combo.addItem(e.display + (f" ({count} surcharge{'s' if count > 1 else ''})" if count else ""), e.id)
                 if self._env_id and project.env(self._env_id):
                     self.env_combo.setCurrentIndex(self.env_combo.findData(self._env_id))
@@ -231,7 +246,7 @@ class PropertiesPanel(QScrollArea):
                 self.form.changed.connect(lambda params, uid=brick.uid: self.paramsChanged.emit(uid, params))
             else:
                 self.form.changed.connect(
-                    lambda params, eid=env.id, tid=tool.id: self.overridesChanged.emit(eid, tid, params))
+                    lambda params, eid=env.id, tid=brick.service_id: self.overridesChanged.emit(eid, tid, params))
             lay.addWidget(self.form)
         else:
             lay.addWidget(section_title("Paramètres de la brique"))
@@ -262,7 +277,7 @@ class PropertiesPanel(QScrollArea):
             row.addStretch(1)
             lay.addLayout(row)
         if project is not None:
-            self._ports_section(lay, tool, project)
+            self._ports_section(lay, tool, project, brick)
             self._connection_section(lay, tool, project)
         delete = QPushButton(icon("mdi6.delete", pal.blocking), "Retirer la brique du pipeline")
         delete.setProperty("class", "danger")

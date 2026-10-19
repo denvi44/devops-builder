@@ -72,6 +72,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `PIPELINE.md`
 - `charts/mon-app/Chart.yaml`
 - `charts/mon-app/templates/deployment.yaml`
+- `charts/mon-app/templates/ingress.yaml`
 - `charts/mon-app/templates/service.yaml`
 - `charts/mon-app/values-dev.yaml`
 - `charts/mon-app/values-production.yaml`

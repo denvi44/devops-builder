@@ -16,7 +16,7 @@ On pose des briques du CNCF Landscape dans les étapes d'un pipeline ; l'applica
 les fichiers à committer.
 
 - **Part de l'application** : analyse du dossier (langage, port, Dockerfile, CI, bases, migrations) et briques proposées en conséquence ; assistant de démarrage pour un projet neuf.
-- **Contrôle continu** : 54 règles signalent les combinaisons incohérentes, chacune avec sa correction en un clic.
+- **Contrôle continu** : 56 règles signalent les combinaisons incohérentes, chacune avec sa correction en un clic.
 - **Génère** la CI (GitLab CI, GitHub et Gitea Actions, Jenkins, Woodpecker, Tekton, Azure Pipelines, CodeBuild, Cloud Build), le déploiement (Compose, Helm, Kustomize, Ansible, Argo CD, Flux), l'infrastructure Terraform / OpenTofu sur six clouds et la plateforme Kubernetes.
 - **Environnements** : chaîne de promotion avec approbation de la production, ports et surcharges par environnement.
 - **Données et secrets** : bases autogérées, opérateur ou managées, sauvegardes ; secrets par variables CI, SOPS, Vault / OpenBao ou coffre du cloud.
@@ -82,7 +82,8 @@ devops-builder                     # ou : python -m devops_builder
 | Nouveau projet | Ctrl+N : assistant, qui commence par le dossier de l'application ; Ctrl+Maj+N : projet vide |
 | Application | Ctrl+Maj+A, ou la carte de l'application dans la barre du projet : dossier, analyse, langage, port |
 | Paramètres du projet | F2 : cible, langage, SecNumCloud, OIDC, politique de licence ; onglet Environnements (type, cluster, hôte Docker partagé, décalage des ports) |
-| Ports | Ctrl+Maj+P, ou le bouton « Ports » de la barre du projet |
+| Réseau (2D, 3D isométrique) | Ctrl+Maj+R, ou le bouton « Vues » de la barre du projet |
+| Ports | Ctrl+Maj+P, ou le bouton « Vues » de la barre du projet |
 | Surcharger un paramètre | Sélectionner la brique, choisir l'environnement au-dessus du formulaire ; un champ vide hérite de la valeur commune |
 | Générer | Ctrl+G : aperçu des fichiers, puis export vers Git, dans un dossier (avec différences) ou en .zip |
 | Valider | Ctrl+Maj+V : contrôles locaux, puis test dans kind |

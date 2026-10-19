@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: mon-app
 resources:
 - ../../base
+- ingress.yaml
 images:
 - name: mon-app
   newName: registry.example.com/mon-app/mon-app

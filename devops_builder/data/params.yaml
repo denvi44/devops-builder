@@ -13,9 +13,33 @@ _registry_url: &registry_url
     pattern: '[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?'
     pattern_hint: "nom d'hôte sans schéma ni chemin, ex. registry.example.com ou registry.local:5000"
 
+_hostname: &hostname
+  label: Adresse publique
+  description: >-
+    Nom d'hôte servi en HTTPS par Traefik (sans schéma). Laissé vide : <sous-domaine>.<domaine des outils>.
+    Sans Traefik, le port de l'interface est publié sur l'hôte.
+  pattern: '[a-z0-9]([a-z0-9.-]*[a-z0-9])?'
+  pattern_hint: "nom d'hôte sans schéma, ex. grafana.example.com"
+
 harbor: *registry_url
 zot: *registry_url
 distribution: *registry_url
+grafana:
+  hostname: *hostname
+sonarqube:
+  hostname: *hostname
+jenkins:
+  hostname: *hostname
+gitea:
+  hostname: *hostname
+minio:
+  hostname: *hostname
+jaeger:
+  hostname: *hostname
+argo-workflows:
+  hostname: *hostname
+chaos-mesh:
+  hostname: *hostname
 nexus:
   url:
     label: Adresse du registre Docker de Nexus
@@ -385,26 +409,36 @@ keycloak:
     pattern_hint: "version, ex. 26.8"
   tools_domain: *tools_domain
   app_url: *app_url
+_acme_email: &acme_email
+  label: Contact Let's Encrypt
+  description: >-
+    Adresse du compte ACME (facultative). Sur un hôte Docker, Traefik obtient seul le certificat de chaque nom
+    d'hôte servi (challenge TLS sur le port 443, qui doit être joignable depuis Internet). Sur Kubernetes avec
+    cert-manager, c'est le contact du ClusterIssuer Let's Encrypt (platform/cluster-issuer.yaml).
+  example: ops@example.com
+  pattern: '[^@\s]+@[^@\s]+\.[^@\s]+'
+  pattern_hint: "adresse électronique"
+
+_app_hostname: &app_hostname
+  label: Adresse publique de l'application
+  description: >-
+    Nom d'hôte de l'application pour la production (HTTPS). Les autres environnements reçoivent un préfixe
+    (staging.boutique.fr), sauf surcharge par environnement ; chaque nom doit pointer vers l'hôte de son
+    environnement pour obtenir le certificat.
+  example: "{app}.example.com"
+  required: true
+  pattern: '[a-z0-9]([a-z0-9.-]*[a-z0-9])?'
+  pattern_hint: "nom d'hôte sans schéma, ex. boutique.fr"
+
+ingress-nginx:
+  app_hostname: *app_hostname
+  acme_email: *acme_email
+envoy-gateway:
+  app_hostname: *app_hostname
+  acme_email: *acme_email
 traefik:
-  app_hostname:
-    label: Adresse publique de l'application
-    description: >-
-      Nom d'hôte servi en HTTPS par Traefik pour la production. Les autres environnements reçoivent un préfixe
-      (staging.boutique.fr), sauf surcharge par environnement ; chaque nom doit pointer vers l'hôte de son
-      environnement pour que Traefik obtienne le certificat.
-    example: "{app}.example.com"
-    required: true
-    targets: [docker-host, vm]   # sur Kubernetes, le service n'est pas exposé par une règle Traefik générée
-    pattern: '[a-z0-9]([a-z0-9.-]*[a-z0-9])?'
-    pattern_hint: "nom d'hôte sans schéma, ex. boutique.fr"
-  acme_email:
-    label: Contact Let's Encrypt
-    description: >-
-      Adresse du compte ACME (facultative) ; sur un hôte Docker, Traefik obtient seul le certificat de chaque nom
-      d'hôte servi (challenge TLS sur le port 443, qui doit être joignable depuis Internet).
-    example: ops@example.com
-    pattern: '[^@\s]+@[^@\s]+\.[^@\s]+'
-    pattern_hint: "adresse électronique"
+  app_hostname: *app_hostname
+  acme_email: *acme_email
 
 zabbix:
   hostname:
@@ -437,6 +471,7 @@ _gitops_repo: &gitops_repo
   pattern_hint: "https://hôte/groupe/depot.git, sans identifiant"
 argo-cd:
   repo_url: *gitops_repo
+  hostname: *hostname
 flux:
   repo_url: *gitops_repo
 

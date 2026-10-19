@@ -17,7 +17,7 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | mon-app | — | 8000 | application | via Traefik, hôte mon-app.example.com |
 | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| SonarQube | 9002 | 9000 | interface web | publié sur l'hôte Docker |
+| SonarQube | — | 9000 | interface web | via Traefik, hôte sonarqube.example.com |
 
 ## Dimensionnement
 

@@ -16,33 +16,33 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 
 | Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
 | --- | --- | --- | --- | --- | --- |
-| Développement | api | — | 3000 | application | Service api port 80, espace de noms api-dev, exposé par Envoy Gateway |
-| Développement | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Développement | api | — | 3000 | application | Service api port 80, espace de noms api-dev, exposé par Envoy Gateway, hôte dev.api.example.com |
+| Développement | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd, exposé par Envoy Gateway, hôte argocd.example.com |
 | Développement | Envoy Gateway | — | 80 | HTTP | Service Kubernetes, espace de noms envoy-gateway-system |
 | Développement | Envoy Gateway | — | 443 | HTTPS | Service Kubernetes, espace de noms envoy-gateway-system |
 | Développement | OpenBao | — | 8200 | API et interface | Service Kubernetes, espace de noms openbao |
 | Développement | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
-| Développement | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring |
+| Développement | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring, exposé par Envoy Gateway, hôte grafana.example.com |
 | Développement | OpenTelemetry Collector | — | 4317 | OTLP gRPC | Service Kubernetes, espace de noms observability |
 | Développement | OpenTelemetry Collector | — | 4318 | OTLP HTTP | Service Kubernetes, espace de noms observability |
 | Développement | Grafana Tempo | — | 3200 | API HTTP | Service Kubernetes, espace de noms monitoring |
-| Préproduction | api | — | 3000 | application | Service api port 80, espace de noms api-staging, exposé par Envoy Gateway |
-| Préproduction | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Préproduction | api | — | 3000 | application | Service api port 80, espace de noms api-staging, exposé par Envoy Gateway, hôte staging.api.example.com |
+| Préproduction | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd, exposé par Envoy Gateway, hôte argocd.example.com |
 | Préproduction | Envoy Gateway | — | 80 | HTTP | Service Kubernetes, espace de noms envoy-gateway-system |
 | Préproduction | Envoy Gateway | — | 443 | HTTPS | Service Kubernetes, espace de noms envoy-gateway-system |
 | Préproduction | OpenBao | — | 8200 | API et interface | Service Kubernetes, espace de noms openbao |
 | Préproduction | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
-| Préproduction | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring |
+| Préproduction | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring, exposé par Envoy Gateway, hôte grafana.example.com |
 | Préproduction | OpenTelemetry Collector | — | 4317 | OTLP gRPC | Service Kubernetes, espace de noms observability |
 | Préproduction | OpenTelemetry Collector | — | 4318 | OTLP HTTP | Service Kubernetes, espace de noms observability |
 | Préproduction | Grafana Tempo | — | 3200 | API HTTP | Service Kubernetes, espace de noms monitoring |
-| Production | api | — | 3000 | application | Service api port 80, espace de noms api, exposé par Envoy Gateway |
-| Production | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Production | api | — | 3000 | application | Service api port 80, espace de noms api, exposé par Envoy Gateway, hôte api.example.com |
+| Production | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd, exposé par Envoy Gateway, hôte argocd.example.com |
 | Production | Envoy Gateway | — | 80 | HTTP | Service Kubernetes, espace de noms envoy-gateway-system |
 | Production | Envoy Gateway | — | 443 | HTTPS | Service Kubernetes, espace de noms envoy-gateway-system |
 | Production | OpenBao | — | 8200 | API et interface | Service Kubernetes, espace de noms openbao |
 | Production | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
-| Production | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring |
+| Production | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring, exposé par Envoy Gateway, hôte grafana.example.com |
 | Production | OpenTelemetry Collector | — | 4317 | OTLP gRPC | Service Kubernetes, espace de noms observability |
 | Production | OpenTelemetry Collector | — | 4318 | OTLP HTTP | Service Kubernetes, espace de noms observability |
 | Production | Grafana Tempo | — | 3200 | API HTTP | Service Kubernetes, espace de noms monitoring |
@@ -101,11 +101,14 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 ## Diagnostics restants
 
 - **Avertissement** (R34) — Argo CD : « Dépôt GitOps » non renseigné : la valeur d'exemple « https://git.example.com/groupe/gitops.git » sera écrite dans les fichiers.
+- **Avertissement** (R34) — Envoy Gateway : « Adresse publique de l'application » non renseigné : la valeur d'exemple « api.example.com » sera écrite dans les fichiers.
 
 ## Notes
 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
+- Envoy Gateway : platform/gateway.yaml déclare la GatewayClass, la Gateway (HTTP, port 80, un listener HTTPS par nom d'hôte, certificats cert-manager) et une route par interface web ; vérifier le nom des Services (kubectl -n <espace> get svc).
+- HTTPS Kubernetes : platform/cluster-issuer.yaml (Let's Encrypt, challenge HTTP-01) ; chaque nom d'hôte doit pointer vers l'adresse publique du contrôleur d'entrée avant l'émission du certificat. Envoy Gateway : cert-manager est installé avec la Gateway API activée.
 - External Secrets : le ClusterSecretStore « api » (platform/external-secrets/cluster-secret-store.yaml, appliqué par platform/install.sh) lit OpenBao et les ExternalSecret de l'application s'y réfèrent ; scripts/vault-setup.sh configure la connexion Kubernetes et le rôle « external-secrets ».
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
 - `scripts/ci-variables.sh` déclare les 2 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
@@ -117,6 +120,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `PIPELINE.md`
 - `charts/api/Chart.yaml`
 - `charts/api/templates/deployment.yaml`
+- `charts/api/templates/httproute.yaml`
 - `charts/api/templates/service.yaml`
 - `charts/api/values-dev.yaml`
 - `charts/api/values-production.yaml`
@@ -126,7 +130,9 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `devops-builder.yaml`
 - `docs/mise-en-route.md`
 - `infra/cluster/install-k3s.sh`
+- `platform/cluster-issuer.yaml`
 - `platform/external-secrets/cluster-secret-store.yaml`
+- `platform/gateway.yaml`
 - `platform/install.sh`
 - `scripts/ci-variables.sh`
 - `scripts/test-kind.sh`

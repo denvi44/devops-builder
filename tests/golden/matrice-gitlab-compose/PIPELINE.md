@@ -17,7 +17,7 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | mon-app | — | 8000 | application | via Traefik, hôte mon-app.example.com |
 | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
+| Prometheus | — | 9090 | interface et API | réseau interne Compose, non publié |
 
 ## Dimensionnement
 

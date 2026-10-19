@@ -17,10 +17,10 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | site-web | — | 8000 | application | via Traefik, hôte site-web.example.com |
 | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Prometheus | 9090 | 9090 | interface et API | publié sur l'hôte Docker |
-| Grafana | 3000 | 3000 | interface web | publié sur l'hôte Docker |
-| Grafana Loki | 3100 | 3100 | API HTTP (ingestion et requêtes) | publié sur l'hôte Docker |
-| SonarQube | 9002 | 9000 | interface web | publié sur l'hôte Docker |
+| Prometheus | — | 9090 | interface et API | réseau interne Compose, non publié |
+| Grafana | — | 3000 | interface web | via Traefik, hôte grafana.example.com |
+| Grafana Loki | — | 3100 | API HTTP (ingestion et requêtes) | réseau interne Compose, non publié |
+| SonarQube | — | 9000 | interface web | via Traefik, hôte sonarqube.example.com |
 
 ## Dimensionnement
 

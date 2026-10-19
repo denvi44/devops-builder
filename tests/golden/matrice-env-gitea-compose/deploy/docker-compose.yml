@@ -32,15 +32,22 @@ services:
     - traefik-letsencrypt:/letsencrypt
   zot:
     image: ghcr.io/project-zot/zot-linux-amd64:latest
-    ports:
-    - 5000:5000
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.registry.rule=Host(`registry.example.com`)
+    - traefik.http.routers.registry.entrypoints=websecure
+    - traefik.http.services.registry.loadbalancer.server.port=5000
   gitea:
     image: gitea/gitea:latest
-    ports:
-    - 3001:3000
-    - '2222:22'
     volumes:
     - gitea-data:/data
+    ports:
+    - '2222:22'
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.gitea.rule=Host(`gitea.example.com`)
+    - traefik.http.routers.gitea.entrypoints=websecure
+    - traefik.http.services.gitea.loadbalancer.server.port=3000
 volumes:
   gitea-data: {}
   traefik-letsencrypt: {}

@@ -1,0 +1,6 @@
+id: R54
+title: Entrée Kubernetes sans cert-manager
+family: dependance
+severity: info
+type: ingress_without_tls
+message: "{tool} sert l'application et les interfaces web en HTTP simple : ajouter cert-manager au pipeline pour obtenir des certificats Let's Encrypt (platform/cluster-issuer.yaml)."

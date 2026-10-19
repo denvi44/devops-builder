@@ -10,15 +10,18 @@ helm repo add traefik https://traefik.github.io/charts
 helm repo update
 
 # cert-manager
-helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set crds.enabled=true
+helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set crds.enabled=true --wait
 
 # Harbor
-helm upgrade --install harbor harbor/harbor --namespace harbor --create-namespace
+helm upgrade --install harbor harbor/harbor --namespace harbor --create-namespace --set externalURL=https://harbor.example.com --set expose.ingress.hosts.core=harbor.example.com --set expose.ingress.className=traefik --set 'expose.ingress.annotations.cert-manager\.io/cluster-issuer=letsencrypt' --set expose.tls.certSource=secret --set expose.tls.secret.secretName=harbor-tls
 
 # SonarQube — PostgreSQL externe requis en production.
 kubectl create namespace sonarqube --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n sonarqube get secret sonarqube-monitoring >/dev/null 2>&1 || kubectl -n sonarqube create secret generic sonarqube-monitoring --from-literal=passcode="$(openssl rand -hex 16)"
-helm upgrade --install sonarqube sonarqube/sonarqube --namespace sonarqube --create-namespace --set community.enabled=true --set monitoringPasscodeSecretName=sonarqube-monitoring --set monitoringPasscodeSecretKey=passcode
+helm upgrade --install sonarqube sonarqube/sonarqube --namespace sonarqube --create-namespace --set community.enabled=true --set monitoringPasscodeSecretName=sonarqube-monitoring --set monitoringPasscodeSecretKey=passcode --set ingress.enabled=true --set 'ingress.hosts[0].name=sonarqube.example.com' --set ingress.ingressClassName=traefik --set 'ingress.annotations.cert-manager\.io/cluster-issuer=letsencrypt' --set 'ingress.tls[0].secretName=sonarqube-tls' --set 'ingress.tls[0].hosts[0]=sonarqube.example.com'
 
 # Traefik
 helm upgrade --install traefik traefik/traefik --namespace traefik --create-namespace
+
+# ClusterIssuer Let's Encrypt (HTTPS de l'entrée, cert-manager)
+kubectl apply -f "$(dirname "$0")/cluster-issuer.yaml"

@@ -8,7 +8,7 @@ helm repo add jenkins https://charts.jenkins.io
 helm repo update
 
 # Harbor
-helm upgrade --install harbor harbor/harbor --namespace harbor --create-namespace
+helm upgrade --install harbor harbor/harbor --namespace harbor --create-namespace --set externalURL=https://harbor.example.com --set expose.ingress.hosts.core=harbor.example.com --set expose.ingress.className=traefik
 
 # Jenkins
-helm upgrade --install jenkins jenkins/jenkins --namespace jenkins --create-namespace
+helm upgrade --install jenkins jenkins/jenkins --namespace jenkins --create-namespace --set controller.ingress.enabled=true --set controller.ingress.ingressClassName=traefik --set controller.ingress.hostName=jenkins.example.com

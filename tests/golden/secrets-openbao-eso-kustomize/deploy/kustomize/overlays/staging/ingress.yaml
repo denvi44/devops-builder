@@ -1,0 +1,24 @@
+# Généré par DevOps Builder — à relire avant usage.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mon-app
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: staging.mon-app.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: mon-app
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - staging.mon-app.example.com
+    secretName: mon-app-tls

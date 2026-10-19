@@ -15,20 +15,20 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 
 | Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
 | --- | --- | --- | --- | --- | --- |
-| Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging, exposé par Traefik |
+| Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging, exposé par Traefik, hôte staging.mon-app.example.com |
 | Préproduction | MariaDB | — | 3306 | MariaDB | Service mon-app-mariadb, espace de noms mon-app-staging, interne au cluster |
 | Préproduction | Valkey | — | 6379 | Valkey | Service mon-app-valkey, espace de noms mon-app-staging, interne au cluster |
 | Préproduction | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
 | Préproduction | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
 | Préproduction | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
-| Préproduction | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring |
-| Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app, exposé par Traefik |
+| Préproduction | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring, exposé par Traefik, hôte grafana.example.com |
+| Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app, exposé par Traefik, hôte mon-app.example.com |
 | Production | MariaDB | — | 3306 | MariaDB | Service mon-app-mariadb, espace de noms mon-app, interne au cluster |
 | Production | Valkey | — | 6379 | Valkey | Service mon-app-valkey, espace de noms mon-app, interne au cluster |
 | Production | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
 | Production | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
 | Production | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
-| Production | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring |
+| Production | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring, exposé par Traefik, hôte grafana.example.com |
 
 ## Données
 
@@ -88,6 +88,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Diagnostics restants
 
+- **Avertissement** (R34) — Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « mon-app.example.com » sera écrite dans les fichiers.
 - **Avertissement** (R40) — MariaDB tourne dans le cluster et sert « Production », mais rien ne sauvegarde ses données : ajouter Velero, des instantanés de volumes ou les sauvegardes de l'opérateur, et tester la restauration.
 - **Avertissement** (R41) — MariaDB est déployé en StatefulSet à une seule instance pour « Production » : ni réplication ni bascule. En production, préférer un opérateur ou un service managé.
 
@@ -95,6 +96,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
+- HTTPS Kubernetes : platform/cluster-issuer.yaml (Let's Encrypt, challenge HTTP-01) ; chaque nom d'hôte doit pointer vers l'adresse publique du contrôleur d'entrée avant l'émission du certificat.
 - Poste de développement : `docker compose -f dev/db/compose.yaml up -d` lance les bases du projet (même version), `dev/db/app.env` donne leurs variables de connexion.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
 - `scripts/ci-variables.sh` déclare les 6 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
@@ -106,6 +108,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `PIPELINE.md`
 - `charts/mon-app/Chart.yaml`
 - `charts/mon-app/templates/deployment.yaml`
+- `charts/mon-app/templates/ingress.yaml`
 - `charts/mon-app/templates/mariadb.yaml`
 - `charts/mon-app/templates/service.yaml`
 - `charts/mon-app/templates/valkey.yaml`
@@ -118,6 +121,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `devops-builder.yaml`
 - `docs/mise-en-route.md`
 - `infra/cluster/install-k3s.sh`
+- `platform/cluster-issuer.yaml`
 - `platform/install.sh`
 - `scripts/ci-variables.sh`
 - `scripts/test-kind.sh`

@@ -92,6 +92,11 @@ class IR:
         bricks = self.project.bricks_for(tool_id)
         return effective_params(tool, bricks[0] if bricks else None, self.project, env)
 
+    def brick_params(self, brick, env: Environment | None = None) -> dict[str, Any]:
+        """Paramètres effectifs d'une instance précise (voir `params` pour l'instance principale)."""
+        tool = self.catalog.get(brick.tool)
+        return effective_params(tool, brick, self.project, env) if tool else {}
+
     # ------------------------------------------------------------ environnements
     @property
     def envs(self) -> list[Environment]:

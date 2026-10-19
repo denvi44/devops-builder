@@ -15,22 +15,22 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 
 | Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
 | --- | --- | --- | --- | --- | --- |
-| Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging, exposé par Traefik |
+| Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging, exposé par Traefik, hôte staging.mon-app.example.com |
 | Préproduction | MongoDB | — | 27017 | MongoDB | Service mon-app-mongodb, espace de noms mon-app-staging, interne au cluster |
 | Préproduction | Valkey | — | 6379 | Valkey | Service mon-app-valkey, espace de noms mon-app-staging, interne au cluster |
-| Préproduction | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Préproduction | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd, exposé par Traefik, hôte argocd.example.com |
 | Préproduction | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
 | Préproduction | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
 | Préproduction | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
-| Préproduction | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring |
-| Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app, exposé par Traefik |
+| Préproduction | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring, exposé par Traefik, hôte grafana.example.com |
+| Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app, exposé par Traefik, hôte mon-app.example.com |
 | Production | MongoDB | — | 27017 | MongoDB | Service mon-app-mongodb, espace de noms mon-app, interne au cluster |
 | Production | Valkey | — | 6379 | Valkey | Service mon-app-valkey, espace de noms mon-app, interne au cluster |
-| Production | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Production | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd, exposé par Traefik, hôte argocd.example.com |
 | Production | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
 | Production | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
 | Production | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
-| Production | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring |
+| Production | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring, exposé par Traefik, hôte grafana.example.com |
 
 ## Données
 
@@ -88,6 +88,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 ## Diagnostics restants
 
 - **Avertissement** (R34) — Argo CD : « Dépôt GitOps » non renseigné : la valeur d'exemple « https://git.example.com/groupe/gitops.git » sera écrite dans les fichiers.
+- **Avertissement** (R34) — Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « mon-app.example.com » sera écrite dans les fichiers.
 - **Avertissement** (R40) — MongoDB tourne dans le cluster et sert « Production », mais rien ne sauvegarde ses données : ajouter Velero, des instantanés de volumes ou les sauvegardes de l'opérateur, et tester la restauration.
 - **Avertissement** (R41) — MongoDB est déployé en StatefulSet à une seule instance pour « Production » : ni réplication ni bascule. En production, préférer un opérateur ou un service managé.
 - **Info** (R24) — MongoDB est sous licence SSPL-1.0.
@@ -97,6 +98,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
 - Bases de données avec GitOps : la CI ne touche pas au cluster ; créer dans chaque espace de noms le Secret « mon-app-mongodb » (clés password et url), « mon-app-valkey » (clés password et url), par External Secrets ou SOPS.
+- HTTPS Kubernetes : platform/cluster-issuer.yaml (Let's Encrypt, challenge HTTP-01) ; chaque nom d'hôte doit pointer vers l'adresse publique du contrôleur d'entrée avant l'émission du certificat.
 - Poste de développement : `docker compose -f dev/db/compose.yaml up -d` lance les bases du projet (même version), `dev/db/app.env` donne leurs variables de connexion.
 - MongoDB : l'application se connecte avec le compte administrateur initial ; créer un compte dédié aux droits limités avant la production.
 - Renovate : job « renovate » de .gitlab-ci.yml, lancé par une planification de pipeline portant la variable RENOVATE=1 (docs/mise-en-route.md) ; les autres jobs ne tournent pas dans ces pipelines.
@@ -113,7 +115,9 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `deploy/kustomize/base/mongodb.yaml`
 - `deploy/kustomize/base/service.yaml`
 - `deploy/kustomize/base/valkey.yaml`
+- `deploy/kustomize/overlays/production/ingress.yaml`
 - `deploy/kustomize/overlays/production/kustomization.yaml`
+- `deploy/kustomize/overlays/staging/ingress.yaml`
 - `deploy/kustomize/overlays/staging/kustomization.yaml`
 - `dev/db/app.env`
 - `dev/db/compose.yaml`
@@ -121,6 +125,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `devops-builder.yaml`
 - `docs/mise-en-route.md`
 - `infra/cluster/install-k3s.sh`
+- `platform/cluster-issuer.yaml`
 - `platform/install.sh`
 - `renovate.json`
 - `scripts/ci-variables.sh`

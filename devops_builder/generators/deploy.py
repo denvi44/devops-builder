@@ -102,6 +102,8 @@ def helm_chart(ir: IR) -> dict[str, str]:
     }
     db_values, db_templates, db_env, db_init = data.helm_parts(ir)
     values.update(db_values)
+    from . import entree
+    values.update(entree.helm_values(ir))
     deployment = f"""apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -154,7 +156,8 @@ spec:
     if ir.multi_env:
         for env in ir.envs:
             env_files[ir.helm_values(env)] = dump_yaml(
-                {"replicaCount": REPLICAS[env.kind], "image": {"tag": "latest"}, **data.helm_env_values(ir, env)},
+                {"replicaCount": REPLICAS[env.kind], "image": {"tag": "latest"}, **data.helm_env_values(ir, env),
+                 **entree.helm_env_values(ir, env)},
                 f"{HEADER} Valeurs propres à l'environnement « {env.display} ».")
     data.gitops_note(ir)
     return {
@@ -164,6 +167,7 @@ spec:
         f"{base}/templates/deployment.yaml": deployment,
         f"{base}/templates/service.yaml": service,
         **{f"{base}/{k}": v for k, v in db_templates.items()},
+        **{f"{base}/{k}": v for k, v in entree.helm_templates(ir).items()},
     }
 
 
@@ -220,6 +224,11 @@ def kustomize(ir: IR) -> dict[str, str]:
         patches = data.kustomize_patches(ir, env)
         if patches:
             overlay["patches"] = patches
+        from . import entree
+        route = entree.kustomize_resource(ir, env)
+        if route:
+            overlay["resources"].append("ingress.yaml")
+            files[f"{ir.overlay(env)}/ingress.yaml"] = dump_yaml(route)
         store = data.kustomize_object_store(ir, env)
         if store:
             overlay["resources"].append("objectstore.yaml")

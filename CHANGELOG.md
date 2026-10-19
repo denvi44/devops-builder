@@ -4,12 +4,41 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
-## 0.21.0 — 2026-10-18 — Pipelines types par fournisseur et accueil
+## 0.21.0 — 2026-10-18 — Pipelines types, accueil et vue Réseau
 
 Douze pipelines complets, prêts à ouvrir et à ajuster : un Kubernetes managé pour chacun des six fournisseurs du
-catalogue, et des variantes sans Kubernetes ; un écran d'accueil qui dit par où commencer. Les fichiers générés des projets existants ne changent pas.
+catalogue, et des variantes sans Kubernetes ; un écran d'accueil qui dit par où commencer. Avec Traefik sur hôte Docker, les interfaces web passent derrière lui : les fichiers générés de ces projets changent (voir « Modifié »).
+
+### Modifié
+- **Outils derrière Traefik** (hôte Docker avec Traefik) : Grafana, SonarQube, Jenkins, Gitea, console MinIO,
+  interface Jaeger et registres Zot / Distribution ne publient plus leur port sur l'hôte ; ils sont servis en HTTPS
+  par Traefik, à l'adresse `<outil>.<domaine des outils>` ou au paramètre « Adresse publique » (`hostname`) de la
+  brique. Prometheus et Loki, sans authentification, ne sont plus publiés du tout (Grafana les interroge sur le
+  réseau Compose). Restent publiés les ports « machine » : OTLP (Jaeger, collecteur), SSH de Gitea, API S3 de
+  MinIO. Sans Traefik, rien ne change. Le plan de ports, R39 et la vue Réseau suivent.
+
+- **Entrée Kubernetes** (Traefik, ingress-nginx, Envoy Gateway) : jusqu'ici, le contrôleur d'entrée était installé
+  mais rien n'était routé. Le chart Helm (`templates/ingress.yaml`) et les overlays Kustomize (`ingress.yaml`)
+  créent désormais l'Ingress de l'application, un nom d'hôte par environnement (paramètre « Adresse publique de
+  l'application », maintenant aussi sur Kubernetes et sur ingress-nginx et Envoy Gateway), et `platform/install.sh`
+  place Grafana, SonarQube, Jenkins, Gitea, Zot, Harbor, Argo CD, Argo Workflows et Chaos Mesh derrière le contrôleur (classe `traefik` ou `nginx`). Avec Envoy
+  Gateway, qui n'a pas d'Ingress : une HTTPRoute par application (chart ou overlay) et `platform/gateway.yaml`
+  (GatewayClass, Gateway HTTP, routes des briques). Jaeger, dont le chart n'a pas de réglage d'Ingress fiable, a le
+  sien dans `platform/ingress.yaml`. Argo CD derrière l'entrée parle en clair (`configs.params.server.insecure`).
+  **HTTPS** quand cert-manager est dans le pipeline : `platform/cluster-issuer.yaml` (ClusterIssuer Let's Encrypt,
+  challenge HTTP-01 ; contact facultatif : paramètre « Contact Let's Encrypt »), Ingress de l'application et des
+  briques avec `tls` et l'annotation cert-manager, et, avec Envoy Gateway, un listener HTTPS par nom d'hôte sur la
+  Gateway (cert-manager installé avec la Gateway API activée). **R54** (information) propose d'ajouter cert-manager
+  à une entrée Kubernetes restée en HTTP. Chaque nom d'hôte doit pointer vers l'entrée avant l'émission (cert-manager) ; noms des Services à vérifier.
+  Le contrôleur embarqué de k3s est reconnu. Les projets Kubernetes avec un contrôleur voient donc leurs fichiers
+  changer et un avertissement R34 de plus (adresse d'exemple).
 
 ### Ajouté
+- **Plusieurs instances d'un même outil** : deux Grafana, deux Gitea, deux SonarQube… Chaque brique d'un outil
+  « multi » porte un nom d'instance (champ `instance`, propriétés de la brique, demande à l'ajout). L'instance
+  nommée a son service Compose (`grafana-equipe-b`) ou sa release Helm, ses volumes, son adresse, ses ports
+  décalés sans entrée, son Ingress ou sa HTTPRoute et son certificat. Plan de ports et vue Réseau suivent. Règle
+  R55 (nom invalide, doublon, outil à instance unique). Les projets existants ne changent pas.
 - **Modèles de pipeline par fournisseur** (`devops_builder/modeles.py`) : AWS (EKS, ECS Fargate, EC2), Google
   Cloud (GKE, Cloud Run), Azure (AKS, machines virtuelles), OVHcloud (Managed Kubernetes, instances), Scaleway
   (Kapsule, instance Docker) et Outscale (SecNumCloud, machines). Chacun réunit les services du fournisseur
@@ -22,6 +51,11 @@ catalogue, et des variantes sans Kubernetes ; un écran d'accueil qui dit par o�
   l'application, génération). Audité dans les deux thèmes et à 200 %.
 - Guide : page « Pipelines types par fournisseur cloud ». Douze projets de référence ajoutés aux tests, et le
   corpus de compatibilité des fichiers projet de la 0.20.
+
+- **Vue Réseau** (Vues › Réseau, Ctrl+Maj+R) : le schéma d'un environnement en plan 2D ou en isométrique 3D, avec
+  les flux et leurs ports, et les erreurs posées sur les composants (pastille de forme distincte par gravité, texte
+  dans la liste « Composants et constats », correction applicable, accès à la brique) ; constats propres au réseau :
+  service publié sans passer par l'entrée, application en HTTP simple, cluster sans point d'entrée ; export PNG.
 
 ### Corrigé
 - L'anneau de focus suit le contrôle quand le pipeline (ou tout parent) défile, et est rogné par la zone visible, au lieu de rester en l'air.

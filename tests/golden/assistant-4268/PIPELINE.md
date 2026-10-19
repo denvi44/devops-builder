@@ -15,28 +15,28 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 
 | Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
 | --- | --- | --- | --- | --- | --- |
-| Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging, exposé par Traefik |
-| Préproduction | Gitea | — | 3000 | interface web | Service Kubernetes, espace de noms gitea |
+| Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging, exposé par Traefik, hôte staging.mon-app.example.com |
+| Préproduction | Gitea | — | 3000 | interface web | Service Kubernetes, espace de noms gitea, exposé par Traefik, hôte gitea.example.com |
 | Préproduction | Gitea | — | 22 | SSH Git | Service Kubernetes, espace de noms gitea |
-| Préproduction | SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube |
-| Préproduction | Harbor | — | 80 | HTTP | Service Kubernetes, espace de noms harbor |
+| Préproduction | SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube, exposé par Traefik, hôte sonarqube.example.com |
+| Préproduction | Harbor | — | 80 | HTTP | Service Kubernetes, espace de noms harbor, exposé par Traefik, hôte harbor.example.com |
 | Préproduction | Harbor | — | 443 | HTTPS (portail et registre) | Service Kubernetes, espace de noms harbor |
-| Préproduction | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Préproduction | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd, exposé par Traefik, hôte argocd.example.com |
 | Préproduction | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
 | Préproduction | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
 | Préproduction | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
-| Préproduction | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring |
-| Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app, exposé par Traefik |
-| Production | Gitea | — | 3000 | interface web | Service Kubernetes, espace de noms gitea |
+| Préproduction | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring, exposé par Traefik, hôte grafana.example.com |
+| Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app, exposé par Traefik, hôte mon-app.example.com |
+| Production | Gitea | — | 3000 | interface web | Service Kubernetes, espace de noms gitea, exposé par Traefik, hôte gitea.example.com |
 | Production | Gitea | — | 22 | SSH Git | Service Kubernetes, espace de noms gitea |
-| Production | SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube |
-| Production | Harbor | — | 80 | HTTP | Service Kubernetes, espace de noms harbor |
+| Production | SonarQube | — | 9000 | interface web | Service Kubernetes, espace de noms sonarqube, exposé par Traefik, hôte sonarqube.example.com |
+| Production | Harbor | — | 80 | HTTP | Service Kubernetes, espace de noms harbor, exposé par Traefik, hôte harbor.example.com |
 | Production | Harbor | — | 443 | HTTPS (portail et registre) | Service Kubernetes, espace de noms harbor |
-| Production | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd |
+| Production | Argo CD | — | 8080 | API et interface (service 80/443) | Service Kubernetes, espace de noms argocd, exposé par Traefik, hôte argocd.example.com |
 | Production | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
 | Production | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
 | Production | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
-| Production | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring |
+| Production | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring, exposé par Traefik, hôte grafana.example.com |
 
 ## Briques
 
@@ -85,11 +85,13 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - **Avertissement** (R34) — Harbor : « Adresse du registre » non renseigné : la valeur d'exemple « registry.example.com » sera écrite dans les fichiers.
 - **Avertissement** (R34) — Argo CD : « Dépôt GitOps » non renseigné : la valeur d'exemple « https://git.example.com/groupe/gitops.git » sera écrite dans les fichiers.
+- **Avertissement** (R34) — Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « mon-app.example.com » sera écrite dans les fichiers.
 
 ## Notes
 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
+- HTTPS Kubernetes : platform/cluster-issuer.yaml (Let's Encrypt, challenge HTTP-01) ; chaque nom d'hôte doit pointer vers l'adresse publique du contrôleur d'entrée avant l'émission du certificat.
 - Renovate : workflow .gitea/workflows/renovate.yml, chaque jour ouvré à 4 h (UTC).
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
 - `scripts/ci-variables.sh` déclare les 7 variable(s) à renseigner avec Gitea (API), sans écrire leurs valeurs dans le dépôt.
@@ -101,6 +103,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `PIPELINE.md`
 - `charts/mon-app/Chart.yaml`
 - `charts/mon-app/templates/deployment.yaml`
+- `charts/mon-app/templates/ingress.yaml`
 - `charts/mon-app/templates/service.yaml`
 - `charts/mon-app/values-production.yaml`
 - `charts/mon-app/values-staging.yaml`
@@ -109,6 +112,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `devops-builder.yaml`
 - `docs/mise-en-route.md`
 - `infra/cluster/install-k3s.sh`
+- `platform/cluster-issuer.yaml`
 - `platform/install.sh`
 - `renovate.json`
 - `scripts/ci-variables.sh`

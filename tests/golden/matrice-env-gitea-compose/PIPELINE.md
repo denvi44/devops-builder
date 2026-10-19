@@ -18,14 +18,14 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction | mon-app | — | 8000 | application | via Traefik, hôte staging.mon-app.example.com |
 | Préproduction | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Préproduction | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Préproduction | zot | 5000 | 5000 | registre OCI | publié sur l'hôte Docker |
-| Préproduction | Gitea | 3001 | 3000 | interface web | publié sur l'hôte Docker |
+| Préproduction | zot | — | 5000 | registre OCI | via Traefik, hôte registry.example.com |
+| Préproduction | Gitea | — | 3000 | interface web | via Traefik, hôte gitea.example.com |
 | Préproduction | Gitea | 2222 | 22 | SSH Git | publié sur l'hôte Docker |
 | Production | mon-app | — | 8000 | application | via Traefik, hôte mon-app.example.com |
 | Production | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Production | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
-| Production | zot | 5000 | 5000 | registre OCI | publié sur l'hôte Docker |
-| Production | Gitea | 3001 | 3000 | interface web | publié sur l'hôte Docker |
+| Production | zot | — | 5000 | registre OCI | via Traefik, hôte registry.example.com |
+| Production | Gitea | — | 3000 | interface web | via Traefik, hôte gitea.example.com |
 | Production | Gitea | 2222 | 22 | SSH Git | publié sur l'hôte Docker |
 
 ## Dimensionnement

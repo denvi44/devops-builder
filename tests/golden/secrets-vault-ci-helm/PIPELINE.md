@@ -75,6 +75,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - `PIPELINE.md`
 - `charts/boutique/Chart.yaml`
 - `charts/boutique/templates/deployment.yaml`
+- `charts/boutique/templates/ingress.yaml`
 - `charts/boutique/templates/postgresql.yaml`
 - `charts/boutique/templates/service.yaml`
 - `charts/boutique/values.yaml`

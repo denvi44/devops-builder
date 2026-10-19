@@ -134,7 +134,8 @@ COMPOSE_SERVICES: dict[str, dict] = {
 
 
 def install_script(ir: IR) -> dict[str, str]:
-    from . import identity, secrets
+    from ..instances import chart_namespace as instance_namespace
+    from . import entree, identity, secrets
     from .data import cnpg_backup
     from .extras import embedded_components
 
@@ -167,30 +168,38 @@ def install_script(ir: IR) -> dict[str, str]:
     if idp_lines and not after_cnpg:  # le fournisseur d'identité avant les outils qui s'y branchent
         lines += idp_lines
         idp_lines = []
-    for t in present:
+    units = [(t, b) for t in present for b in entree.instances_of(ir, t)]
+    for t, brick in units:
         c = PLATFORM_CHARTS[t]
         tool = ir.catalog[t]
-        lines.append(f"# {tool.name}" + (f" — {c.note}" if c.note else ""))
+        release, ns = brick.service_id, instance_namespace(t, brick)
+        lines.append(f"# {tool.name}" + (f" (instance {brick.instance})" if brick.instance else "")
+                     + (f" — {c.note}" if c.note else ""))
         if t == "istio":
             lines.append("helm upgrade --install istio-base istio/base --namespace istio-system --create-namespace")
         if t == "linkerd":
             lines.append("helm upgrade --install linkerd-crds linkerd-edge/linkerd-crds --namespace linkerd --create-namespace")
         args = f" {c.args}" if c.args else ""
         if t == "sonarqube":  # le chart exige l'édition et un code de sonde (sinon il refuse de s'installer)
-            lines += ["kubectl create namespace sonarqube --dry-run=client -o yaml | kubectl apply -f -",
-                      "kubectl -n sonarqube get secret sonarqube-monitoring >/dev/null 2>&1 || kubectl -n sonarqube "
-                      'create secret generic sonarqube-monitoring --from-literal=passcode="$(openssl rand -hex 16)"']
-            args += (" --set community.enabled=true --set monitoringPasscodeSecretName=sonarqube-monitoring"
+            secret = f"{release}-monitoring"
+            lines += [f"kubectl create namespace {ns} --dry-run=client -o yaml | kubectl apply -f -",
+                      f"kubectl -n {ns} get secret {secret} >/dev/null 2>&1 || kubectl -n {ns} "
+                      f'create secret generic {secret} --from-literal=passcode="$(openssl rand -hex 16)"']
+            args += (f" --set community.enabled=true --set monitoringPasscodeSecretName={secret}"
                      " --set monitoringPasscodeSecretKey=passcode")
-        pre_idp, idp_args = identity.chart_args(ir, t)
-        lines += pre_idp
-        args += idp_args
+        if not brick.instance:   # connexion unique : seule l'instance principale est branchée au fournisseur
+            pre_idp, idp_args = identity.chart_args(ir, t)
+            lines += pre_idp
+            args += idp_args
+        args += entree.chart_args(ir, t, brick)
+        if t == "cert-manager":
+            args += entree.cert_manager_args(ir)
         store_file = t == "external-secrets" and secrets.eso(ir)
         if store_file:
             pre, extra = secrets.eso_helm_args(ir)
             lines += pre
             args += extra + " --wait"  # CRD et webhook prêts avant le ClusterSecretStore
-        lines.append(f"helm upgrade --install {t} {c.chart} --namespace {c.namespace} --create-namespace{args}")
+        lines.append(f"helm upgrade --install {release} {c.chart} --namespace {ns} --create-namespace{args}")
         if store_file:
             lines.append(f'kubectl apply -f "$(dirname "$0")/{secrets.STORE_FILE.split("/", 1)[1]}"')
         if t == "cloudnative-pg" and after_cnpg:
@@ -203,7 +212,13 @@ def install_script(ir: IR) -> dict[str, str]:
                          "--wait")
         lines.append("")
     lines += idp_lines
-    return {"platform/install.sh": "\n".join(lines)}
+    files = {**entree.gateway_file(ir, present), **entree.ingress_file(ir, present), **entree.issuer_file(ir)}
+    for name, label in (("gateway.yaml", "Gateway API : GatewayClass, Gateway et routes (Envoy Gateway)"),
+                        ("cluster-issuer.yaml", "ClusterIssuer Let's Encrypt (HTTPS de l'entrée, cert-manager)"),
+                        ("ingress.yaml", "Ingress des briques dont le chart n'en gère pas")):
+        if f"platform/{name}" in files:   # les espaces de noms existent une fois les charts installés
+            lines += [f"# {label}", f'kubectl apply -f "$(dirname "$0")/{name}"', ""]
+    return {"platform/install.sh": "\n".join(lines), **files}
 
 
 VAULT_CONFIG = """ui            = true
@@ -245,17 +260,66 @@ def external_vault(ir: IR, tool_id: str) -> bool:
     return tool_id in ("vault", "openbao") and ir.has(tool_id) and bool(ir.params(tool_id).get("address"))
 
 
+def _instance_service(ir: IR, brick, svc: dict) -> dict:
+    """Copie du service pour une instance nommée : volumes propres, ports publiés décalés par rang."""
+    if not brick.instance:
+        return svc
+    from ..instances import HOST_PORT_STEP, rank
+    out = dict(svc)
+    if svc.get("volumes"):
+        out["volumes"] = [v if v.startswith("/") else f"{v.split(':')[0]}-{brick.instance}:{v.split(':', 1)[1]}"
+                          for v in svc["volumes"]]
+    if svc.get("ports"):
+        shift = rank(ir.project, brick) * HOST_PORT_STEP
+        out["ports"] = [f"{int(str(p).split(':')[0]) + shift}:{str(p).split(':')[1]}" if ":" in str(p) else p
+                        for p in svc["ports"]]
+    return out
+
+
+def _behind_traefik(ir: IR, services: dict[str, dict], bricks: dict) -> dict[str, dict]:
+    """Avec Traefik : les interfaces web passent derrière lui (HTTPS, nom d'hôte) au lieu d'être publiées sur
+    l'hôte ; Prometheus et Loki, sans authentification, ne sont plus publiés du tout."""
+    from ..ports import INTERNAL_TOOLS, ROUTED_TOOLS, routed_hostname
+    out = dict(services)
+    for sid, svc in services.items():
+        tid, brick = bricks[sid]
+        if tid in INTERNAL_TOOLS:
+            out[sid] = {k: v for k, v in svc.items() if k != "ports"}
+        elif tid in ROUTED_TOOLS:
+            port = ROUTED_TOOLS[tid][0]
+            kept = [p for p in svc.get("ports", []) if int(str(p).split(":")[-1]) != port]
+            new = {k: v for k, v in svc.items() if k != "ports"}
+            if kept:
+                new["ports"] = kept
+            name = sid if brick.instance else ROUTED_TOOLS[tid][1]
+            new["labels"] = ["traefik.enable=true",
+                             f"traefik.http.routers.{name}.rule=Host(`{routed_hostname(ir.project, tid, brick)}`)",
+                             f"traefik.http.routers.{name}.entrypoints=websecure",
+                             f"traefik.http.services.{name}.loadbalancer.server.port={port}"]
+            out[sid] = new
+    return out
+
+
 def compose_platform_services(ir: IR) -> dict[str, dict]:
-    services = {t: COMPOSE_SERVICES[t] for t in COMPOSE_SERVICES if ir.has(t) and not external_vault(ir, t)}
+    services: dict[str, dict] = {}
+    bricks: dict[str, tuple[str, object]] = {}
+    for t in COMPOSE_SERVICES:
+        if external_vault(ir, t):
+            continue
+        for brick in ir.project.bricks_for(t):
+            services[brick.service_id] = _instance_service(ir, brick, COMPOSE_SERVICES[t])
+            bricks[brick.service_id] = (t, brick)
     # seulement une adresse saisie : la valeur d'exemple (example.com) ferait refuser le compte par Let's Encrypt
     email = next((str(b.params.get("acme_email") or "") for b in ir.project.bricks_for("traefik")), "")
     if email and "traefik" in services:  # adresse de contact du compte Let's Encrypt (facultative)
         services["traefik"] = {**services["traefik"], "command": [
             *services["traefik"]["command"], f"--certificatesresolvers.letsencrypt.acme.email={email}"]}
+    if ir.has("traefik"):
+        services = _behind_traefik(ir, services, bricks)
     for t in ("vault", "openbao"):
         if external_vault(ir, t):
             ir.cover(t)  # coffre existant : lu par la CI (scripts/secrets-fetch.sh)
-    ir.cover(*services)
+    ir.cover(*(tid for tid, _ in bricks.values()))
     return services
 
 

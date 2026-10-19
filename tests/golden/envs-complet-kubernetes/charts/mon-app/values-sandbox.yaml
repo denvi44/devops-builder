@@ -2,3 +2,5 @@
 replicaCount: 1
 image:
   tag: latest
+ingress:
+  host: sandbox.mon-app.example.com

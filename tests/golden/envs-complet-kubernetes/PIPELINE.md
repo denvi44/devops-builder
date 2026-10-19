@@ -18,31 +18,31 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 
 | Environnement | Composant | Port publié | Port du conteneur | Usage | Exposition |
 | --- | --- | --- | --- | --- | --- |
-| Bac à sable | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-sandbox, exposé par Traefik |
+| Bac à sable | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-sandbox, exposé par Traefik, hôte sandbox.mon-app.example.com |
 | Bac à sable | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
 | Bac à sable | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
 | Bac à sable | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
-| Bac à sable | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring |
-| Développement | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-dev, exposé par Traefik |
+| Bac à sable | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring, exposé par Traefik, hôte grafana.example.com |
+| Développement | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-dev, exposé par Traefik, hôte dev.mon-app.example.com |
 | Développement | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
 | Développement | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
 | Développement | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
-| Développement | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring |
-| Recette | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-recette, exposé par Traefik |
+| Développement | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring, exposé par Traefik, hôte grafana.example.com |
+| Recette | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-recette, exposé par Traefik, hôte recette.mon-app.example.com |
 | Recette | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
 | Recette | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
 | Recette | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
-| Recette | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring |
-| Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging, exposé par Traefik |
+| Recette | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring, exposé par Traefik, hôte grafana.example.com |
+| Préproduction | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app-staging, exposé par Traefik, hôte staging.mon-app.example.com |
 | Préproduction | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
 | Préproduction | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
 | Préproduction | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
-| Préproduction | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring |
-| Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app, exposé par Traefik |
+| Préproduction | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring, exposé par Traefik, hôte grafana.example.com |
+| Production | mon-app | — | 8000 | application | Service mon-app port 80, espace de noms mon-app, exposé par Traefik, hôte mon-app.example.com |
 | Production | Traefik | — | 80 | HTTP | Service Kubernetes, espace de noms traefik |
 | Production | Traefik | — | 443 | HTTPS | Service Kubernetes, espace de noms traefik |
 | Production | Prometheus | — | 9090 | interface et API | Service Kubernetes, espace de noms monitoring |
-| Production | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring |
+| Production | Grafana | — | 3000 | interface web | Service Kubernetes, espace de noms monitoring, exposé par Traefik, hôte grafana.example.com |
 
 ## Briques
 
@@ -93,12 +93,13 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Diagnostics restants
 
-Aucun.
+- **Avertissement** (R34) — Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « mon-app.example.com » sera écrite dans les fichiers.
 
 ## Notes
 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : le job attend un déclenchement manuel dans GitLab ; protéger l'environnement (Settings › CI/CD › Protected environments) pour restreindre qui peut le lancer.
+- HTTPS Kubernetes : platform/cluster-issuer.yaml (Let's Encrypt, challenge HTTP-01) ; chaque nom d'hôte doit pointer vers l'adresse publique du contrôleur d'entrée avant l'émission du certificat.
 - Renovate : job « renovate » de .gitlab-ci.yml, lancé par une planification de pipeline portant la variable RENOVATE=1 (docs/mise-en-route.md) ; les autres jobs ne tournent pas dans ces pipelines.
 - `scripts/test-kind.sh` déploie le pipeline dans un cluster kind jetable (chart Helm) : utile avant la première mise en production.
 - `scripts/ci-variables.sh` déclare les 6 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
@@ -109,6 +110,7 @@ Aucun.
 - `PIPELINE.md`
 - `charts/mon-app/Chart.yaml`
 - `charts/mon-app/templates/deployment.yaml`
+- `charts/mon-app/templates/ingress.yaml`
 - `charts/mon-app/templates/service.yaml`
 - `charts/mon-app/values-dev.yaml`
 - `charts/mon-app/values-production.yaml`
@@ -119,6 +121,7 @@ Aucun.
 - `devops-builder.yaml`
 - `docs/mise-en-route.md`
 - `infra/cluster/install-k3s.sh`
+- `platform/cluster-issuer.yaml`
 - `platform/install.sh`
 - `renovate.json`
 - `scripts/ci-variables.sh`

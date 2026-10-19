@@ -29,6 +29,7 @@
 
 - id: gitea
   name: Gitea
+  multi: true
   stage: source
   roles: [scm]
   description: Forge Git légère autohébergée ; Gitea Actions reprend la syntaxe GitHub Actions.
@@ -130,6 +131,7 @@
 
 - id: jenkins
   name: Jenkins
+  multi: true
   stage: build
   roles: [ci]
   description: Serveur d'intégration continue autohébergé (Jenkinsfile déclaratif).

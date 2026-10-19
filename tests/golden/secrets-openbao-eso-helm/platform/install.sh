@@ -12,14 +12,14 @@ helm repo add traefik https://traefik.github.io/charts
 helm repo update
 
 # cert-manager
-helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set crds.enabled=true
+helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set crds.enabled=true --wait
 
 # External Secrets Operator
 helm upgrade --install external-secrets external-secrets/external-secrets --namespace external-secrets --create-namespace --wait
 kubectl apply -f "$(dirname "$0")/external-secrets/cluster-secret-store.yaml"
 
 # Grafana — Déjà inclus si kube-prometheus-stack est installé.
-helm upgrade --install grafana grafana-community/grafana --namespace monitoring --create-namespace
+helm upgrade --install grafana grafana-community/grafana --namespace monitoring --create-namespace --set ingress.enabled=true --set ingress.ingressClassName=traefik --set 'ingress.hosts[0]=grafana.example.com' --set 'ingress.annotations.cert-manager\.io/cluster-issuer=letsencrypt' --set 'ingress.tls[0].secretName=grafana-tls' --set 'ingress.tls[0].hosts[0]=grafana.example.com'
 
 # OpenBao
 helm upgrade --install openbao openbao/openbao --namespace openbao --create-namespace
@@ -29,3 +29,6 @@ helm upgrade --install prometheus prometheus-community/kube-prometheus-stack --n
 
 # Traefik
 helm upgrade --install traefik traefik/traefik --namespace traefik --create-namespace
+
+# ClusterIssuer Let's Encrypt (HTTPS de l'entrée, cert-manager)
+kubectl apply -f "$(dirname "$0")/cluster-issuer.yaml"

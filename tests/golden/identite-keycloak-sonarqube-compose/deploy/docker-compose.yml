@@ -34,14 +34,10 @@ services:
     - traefik-letsencrypt:/letsencrypt
   prometheus:
     image: prom/prometheus:latest
-    ports:
-    - 9090:9090
     volumes:
     - prometheus-data:/prometheus
   grafana:
     image: grafana/grafana:latest
-    ports:
-    - 3000:3000
     volumes:
     - grafana-data:/var/lib/grafana
     labels:
@@ -64,8 +60,6 @@ services:
     - secrets/grafana.env
   sonarqube:
     image: sonarqube:community
-    ports:
-    - 9002:9000
     volumes:
     - sonarqube-data:/opt/sonarqube/data
     environment:

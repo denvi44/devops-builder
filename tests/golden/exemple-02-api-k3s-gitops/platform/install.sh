@@ -18,10 +18,10 @@ helm repo update
 helm upgrade --install cilium cilium/cilium --namespace kube-system --create-namespace
 
 # cert-manager
-helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set crds.enabled=true
+helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set crds.enabled=true --set config.apiVersion=controller.config.cert-manager.io/v1alpha1 --set config.kind=ControllerConfiguration --set config.enableGatewayAPI=true --wait
 
 # Argo CD
-helm upgrade --install argo-cd argo/argo-cd --namespace argocd --create-namespace
+helm upgrade --install argo-cd argo/argo-cd --namespace argocd --create-namespace --set configs.params.server.insecure=true
 
 # Envoy Gateway
 helm upgrade --install envoy-gateway oci://docker.io/envoyproxy/gateway-helm --namespace envoy-gateway-system --create-namespace
@@ -47,3 +47,9 @@ helm upgrade --install prometheus prometheus-community/kube-prometheus-stack --n
 
 # Grafana Tempo
 helm upgrade --install tempo grafana-community/tempo --namespace monitoring --create-namespace
+
+# Gateway API : GatewayClass, Gateway et routes (Envoy Gateway)
+kubectl apply -f "$(dirname "$0")/gateway.yaml"
+
+# ClusterIssuer Let's Encrypt (HTTPS de l'entrée, cert-manager)
+kubectl apply -f "$(dirname "$0")/cluster-issuer.yaml"
