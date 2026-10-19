@@ -14,7 +14,7 @@ devops-builder
 ```
 
 Sans Python : télécharger l'exécutable de son système sur la
-[page des publications](https://github.com/denvi44/devops-builder/releases) (Linux, Windows, macOS Apple Silicon),
+[page des publications](https://github.com/denvi44/devops-builder/releases) (Linux, Windows, macOS Apple Silicon ou Intel),
 le décompresser et le lancer. Les exécutables ne sont pas encore signés : le
 [README](https://github.com/denvi44/devops-builder#installation) explique comment passer l'avertissement de
 Windows et de macOS, et comment vérifier leur provenance.

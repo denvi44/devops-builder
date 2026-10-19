@@ -39,6 +39,7 @@ jobs:
           - compose-sops
           - compose-zap
           - compose-dex
+          - compose-bases-dediees
           - gitea-renovate
           - compose-identite-keycloak
           - kind-argocd

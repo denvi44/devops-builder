@@ -46,7 +46,7 @@ sous Python 3.15. Sous Linux, Qt a besoin des bibliothèques système habituelle
 
 **Sans Python** : chaque [publication](https://github.com/denvi44/devops-builder/releases) porte un exécutable
 pour Linux x86-64 (`.tar.gz`, glibc 2.35 ou plus, Ubuntu 22.04 et suivantes), Windows x86-64 (`.zip`) et macOS
-Apple Silicon (`.zip` contenant `DevOps Builder.app`). Décompresser, puis lancer `devops-builder` (Linux),
+Apple Silicon ou Intel (`.zip` contenant `DevOps Builder.app`). Décompresser, puis lancer `devops-builder` (Linux),
 `devops-builder.exe` (Windows) ou l'application. Les exécutables ne sont **pas signés** pour l'instant :
 
 - Windows : SmartScreen avertit au premier lancement (« Informations complémentaires » → « Exécuter quand même ») ;

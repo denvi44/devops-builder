@@ -33,8 +33,8 @@ Reste : éprouver les droits réduits de la CI sur un vrai compte cloud.
 (Apple Silicon) et Linux avec attestation de provenance et sommes SHA-256 ; workflow de publication qui crée
 l'étiquette, publie sur PyPI sans secret stocké et rédige la publication depuis le journal ; CI complète
 (OpenTofu et son miroir de providers, kubeconform, sops, Ansible) où aucun test n'est sauté.
-Reste : signer les exécutables (certificat Authenticode, compte Apple Developer pour la notarisation) et un
-exécutable macOS Intel.
+Reste : signer les exécutables (certificat Authenticode, compte Apple Developer pour la notarisation). Un
+exécutable macOS Intel s'y ajoute en 0.25.
 
 ## 0.20 — Qualité produit (publiée le 17 octobre)
 
@@ -46,11 +46,23 @@ fois plus rapide sur un gros projet).
 Reste : une session d'écoute complète avec NVDA, Orca et VoiceOver ; suivre le mode contraste élevé et la taille
 de police du système.
 
-## 0.21 — Pipelines types par fournisseur (en préparation)
+## 0.21 à 0.25 — Pipelines types, instances, entrée, adresses, bases dédiées (publiées jusqu'à la 0.24)
 
-Douze modèles (Kubernetes managé, serverless ou machines) pour AWS, Google Cloud, Azure, OVHcloud, Scaleway et
-Outscale, ouverts depuis le menu Fichier ou `devops-builder template`.
-Reste : les éprouver sur un vrai compte cloud (apply, destroy).
+- 0.21 : douze modèles de pipeline par fournisseur (AWS, Google Cloud, Azure, OVHcloud, Scaleway, Outscale).
+- 0.22 : plusieurs instances d'un même outil (Compose, ports, Helm, interface, règle R55) ; entrée Ingress ou
+  Gateway API en HTTPS (cert-manager).
+- 0.23 : adresses IP acceptées partout (règle R56), registre HTTP déclaré automatiquement ; base de données
+  dédiée par outil (PostgreSQL pour Gitea, SonarQube, Grafana).
+- 0.24 : choix étendu à MariaDB et MySQL, Harbor sur PostgreSQL externe.
+- 0.25 : scénario de bout en bout `compose-bases-dediees`, exécutable macOS Intel.
+
+Reste avant la 1.0, et qui demande des ressources hors de ce dépôt :
+
+- `apply` puis `destroy` sur un vrai compte cloud (modèles et identités de CI à droits réduits) ;
+- signature des exécutables (Authenticode, notarisation Apple) ;
+- sessions d'écoute NVDA, Orca, VoiceOver ; suivi du contraste élevé et de la taille de police du système ;
+- clés `--set` des charts Helm et noms de Service des instances supplémentaires, à confirmer sur un cluster réel ;
+- Dex exécuté sur Kubernetes ; connexion unique des instances nommées (seule l'instance principale est câblée).
 
 ## Après la 1.0
 
