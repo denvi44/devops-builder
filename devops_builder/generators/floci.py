@@ -137,6 +137,10 @@ def floci_files(ir: IR) -> dict[str, str]:
                       'data "aws_subnets" "floci" {}\n\n'
                       'resource "aws_db_subnet_group" "floci" {\n  name       = "floci"\n'
                       '  subnet_ids = data.aws_subnets.floci.ids\n}\nEOF')
+        if ir.has("aws-rds"):   # Floci : une base jetable ; la protection et l'instantané final empêcheraient le destroy
+            prereq += ("\ncat >> \"$WORK/floci_override.tf\" <<'EOF'\n\n"
+                       'resource "aws_db_instance" "db" {\n  deletion_protection = false\n'
+                       '  skip_final_snapshot = true\n  multi_az            = false\n}\nEOF')
         width = max(len(e) for e in ENDPOINTS)
         endpoints = "\n".join(f"    {e.ljust(width)} = \"$FLOCI_ENDPOINT\"" for e in ENDPOINTS)
         files[TF_SCRIPT] = (_TF.replace("@HEADER@", HEADER).replace("@TF@", ir.iac_cmd)

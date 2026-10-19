@@ -96,6 +96,14 @@ resource "aws_db_subnet_group" "floci" {
   subnet_ids = data.aws_subnets.floci.ids
 }
 EOF
+cat >> "$WORK/floci_override.tf" <<'EOF'
+
+resource "aws_db_instance" "db" {
+  deletion_protection = false
+  skip_final_snapshot = true
+  multi_az            = false
+}
+EOF
 cd "$WORK"
 echo "==> $TF_BIN init"
 "$TF_BIN" init -input=false -no-color >/dev/null

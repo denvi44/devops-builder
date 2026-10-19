@@ -936,8 +936,13 @@ def _ecs_steps(out: Path, ir) -> list[Step]:
              f"-e FLOCI_DEFAULT_REGION=eu-west-3 {FLOCI_IMAGE}\n"
              "for _ in $(seq 1 60); do curl -fsS http://localhost:4566/_localstack/health >/dev/null && exit 0; "
              "sleep 1; done; exit 1"),
-        Step("scripts/tf-floci.sh apply (plan, apply puis destroy)", f"cd {out} && scripts/tf-floci.sh apply",
-             env=env, evidence=True),
+        Step("scripts/tf-floci.sh apply (KEEP=1 : plan et apply, ressources gardées)",
+             f"date +%T; cd {out} && KEEP=1 scripts/tf-floci.sh apply | tee {out.parent}/floci.log; date +%T\n"
+             f"sed -n 's/^==> Dossier de travail conservé : //p' {out.parent}/floci.log > {out.parent}/tfdir\n"
+             f"test -s {out.parent}/tfdir", env=env, evidence=True),
+        Step("tofu destroy des ressources gardées",
+             f"date +%T; tofu -chdir=\"$(cat {out.parent}/tfdir)\" destroy -input=false -no-color -auto-approve; "
+             "date +%T", env=env, evidence=True),
         Step("Journaux de Floci", "docker logs e2e-floci 2>&1 | grep -v -i 'DockerRetry\\|HttpRequestRetryExec' "
              "| tail -80", always=True),
         Step("Arrêt de Floci", "docker rm -f e2e-floci || true", always=True),
