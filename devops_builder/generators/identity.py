@@ -193,8 +193,8 @@ def grafana_secret(ir: IR) -> list[ComposeSecret]:
 
 def all_compose_secrets(ir: IR) -> list[ComposeSecret]:
     """Secrets de tous les services de plateforme sur l'hôte Docker : identité, Grafana, Zabbix."""
-    from . import zabbix
-    return compose_secrets(ir) + grafana_secret(ir) + zabbix.compose_secrets(ir)
+    from . import outildb, zabbix
+    return compose_secrets(ir) + grafana_secret(ir) + zabbix.compose_secrets(ir) + outildb.compose_secrets(ir)
 
 
 # ------------------------------------------------------------------ Compose

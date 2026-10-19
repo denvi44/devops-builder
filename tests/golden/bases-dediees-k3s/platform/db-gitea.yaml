@@ -1,0 +1,14 @@
+# Généré par DevOps Builder — à relire avant usage.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: gitea-pg
+  namespace: gitea
+spec:
+  instances: 1
+  storage:
+    size: 5Gi
+  bootstrap:
+    initdb:
+      database: gitea
+      owner: gitea

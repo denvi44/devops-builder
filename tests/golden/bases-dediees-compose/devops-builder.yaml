@@ -1,0 +1,81 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: docker-host
+environments:
+- id: production
+  label: ''
+  kind: production
+  approval: false
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: gitlab
+    params: {}
+  - uid: brique002
+    tool: gitea
+    params:
+      database: postgresql
+  - uid: brique003
+    tool: gitea
+    params:
+      database: postgresql
+    instance: equipe-b
+  build:
+  - uid: brique004
+    tool: gitlab-ci
+    params: {}
+  - uid: brique005
+    tool: buildkit
+    params: {}
+  - uid: brique006
+    tool: renovate
+    params: {}
+  test:
+  - uid: brique007
+    tool: unit-tests
+    params: {}
+  - uid: brique008
+    tool: sonarqube
+    params:
+      database: postgresql
+  security:
+  - uid: brique009
+    tool: gitleaks
+    params: {}
+  - uid: brique010
+    tool: trivy
+    params: {}
+  - uid: brique011
+    tool: cosign
+    params: {}
+  artifacts: []
+  infrastructure: []
+  deploy:
+  - uid: brique012
+    tool: docker-compose
+    params: {}
+  platform:
+  - uid: brique013
+    tool: traefik
+    params: {}
+  observability:
+  - uid: brique014
+    tool: prometheus
+    params: {}
+  - uid: brique015
+    tool: grafana
+    params: {}
+  - uid: brique016
+    tool: grafana
+    params:
+      database: postgresql

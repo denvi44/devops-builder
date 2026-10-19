@@ -243,6 +243,17 @@ def extra_cases(catalog) -> dict[str, Project]:
         out["identite-dex-compose-github"] = brick(build_starter(StarterAnswers(
             forge="github", hosting="vm", envs="staging-prod", identity="dex"), catalog), "dex",
             hostname="dex.boutique.fr")
+    # 0.22 : base PostgreSQL dédiée à chaque outil (Compose, puis Kubernetes avec l'opérateur CloudNativePG)
+    if "database" in (catalog.get("gitea").param_schema if catalog.get("gitea") else {}):
+        dedicated = {"database": "postgresql"}
+        bd = build_starter(StarterAnswers(forge="gitlab", hosting="docker-host", envs="prod"), catalog)
+        for t, inst in (("gitea", ""), ("gitea", "equipe-b"), ("sonarqube", ""), ("grafana", "")):
+            bd.add(t, catalog[t].stage, instance=inst, **dedicated)
+        out["bases-dediees-compose"] = bd
+        bk = build_starter(StarterAnswers(forge="github", hosting="kubernetes", envs="staging-prod"), catalog)
+        for t in ("cloudnative-pg", "gitea", "sonarqube", "grafana"):
+            bk.add(t, catalog[t].stage, **(dedicated if t != "cloudnative-pg" else {}))
+        out["bases-dediees-k3s"] = bk
     return out
 
 

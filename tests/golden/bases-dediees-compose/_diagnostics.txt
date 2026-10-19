@@ -1,0 +1,2 @@
+avertissement R34 Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « mon-app.example.com » sera écrite dans les fichiers.
+avertissement R55 Deux briques portent le même identifiant « grafana » : donner un nom d'instance différent à chacune (une seule est générée).
