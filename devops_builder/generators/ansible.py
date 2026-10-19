@@ -131,7 +131,7 @@ def ansible(ir: IR) -> dict[str, str]:
 
 
 def _site(ir: IR) -> list[dict]:
-    debian_repo = "https://download.docker.com/linux/{{ ansible_distribution | lower }}"
+    debian_repo = "https://download.docker.com/linux/{{ ansible_facts['distribution'] | lower }}"
     site: list[dict] = [{
         "name": "Préparer les hôtes Docker",
         "hosts": "app",
@@ -141,11 +141,11 @@ def _site(ir: IR) -> list[dict]:
              "ansible.builtin.stat": {"path": "/usr/bin/docker"},
              "register": "docker_bin"},
             {"name": "Prérequis (Debian, Ubuntu)",
-             "when": "ansible_os_family == 'Debian'",
+             "when": "ansible_facts['os_family'] == 'Debian'",
              "ansible.builtin.apt": {"name": ["ca-certificates", "curl", "python3-yaml"], "update_cache": True,
                                      "cache_valid_time": 3600}},
             {"name": "Docker sur Debian et Ubuntu",
-             "when": "ansible_os_family == 'Debian' and not docker_bin.stat.exists",
+             "when": "ansible_facts['os_family'] == 'Debian' and not docker_bin.stat.exists",
              "block": [
                  {"name": "Clé du dépôt Docker",
                   "ansible.builtin.get_url": {"url": f"{debian_repo}/gpg", "dest": "/etc/apt/keyrings/docker.asc",
@@ -153,18 +153,18 @@ def _site(ir: IR) -> list[dict]:
                  {"name": "Dépôt Docker",
                   "ansible.builtin.deb822_repository": {
                       "name": "docker", "types": ["deb"], "uris": [debian_repo],
-                      "suites": ["{{ ansible_distribution_release }}"], "components": ["stable"],
+                      "suites": ["{{ ansible_facts['distribution_release'] }}"], "components": ["stable"],
                       "signed_by": "/etc/apt/keyrings/docker.asc"}},
                  {"name": "Paquets Docker",
                   "ansible.builtin.apt": {"name": DOCKER_PACKAGES, "update_cache": True}},
              ]},
             {"name": "Docker sur RHEL, Rocky, Alma et Fedora",
-             "when": "ansible_os_family == 'RedHat' and not docker_bin.stat.exists",
+             "when": "ansible_facts['os_family'] == 'RedHat' and not docker_bin.stat.exists",
              "block": [
                  {"name": "Dépôt Docker",
                   "ansible.builtin.get_url": {
                       "url": "https://download.docker.com/linux/"
-                             "{{ 'fedora' if ansible_distribution == 'Fedora' else 'rhel' }}/docker-ce.repo",
+                             "{{ 'fedora' if ansible_facts['distribution'] == 'Fedora' else 'rhel' }}/docker-ce.repo",
                       "dest": "/etc/yum.repos.d/docker-ce.repo", "mode": "0644"}},
                  {"name": "Paquets Docker",
                   "ansible.builtin.dnf": {"name": [*DOCKER_PACKAGES, "python3-pyyaml"], "state": "present"}},

@@ -853,12 +853,13 @@ def _ec2_steps(out: Path, ir) -> list[Step]:
     host = "boutique.test"
     env = {"ANSIBLE_CONFIG": str(out / "ansible" / "ansible.cfg"), "ANSIBLE_PRIVATE_KEY_FILE": str(key),
            "FLOCI_ENDPOINT": "http://localhost:4566", "TF_IN_AUTOMATION": "1"}
-    play = f"cd {out} && ansible-playbook -i ansible/inventories/staging.ini"
+    play = f"cd {out} && ansible-playbook -i ansible/inventory.ini"
     password = secrets.token_hex(12)
     curlrc = work / "curl"
     curlrc.mkdir(parents=True, exist_ok=True)
     cenv = _curl_env(str(curlrc), host)
-    deploy_args = f"ansible/deploy.yml -e image={image} -e app_host={host}"
+    deploy_args = (f"ansible/deploy.yml -e image={image} -e project={ir.app} -e deploy_env=production "
+                   f"-e app_host={host}")
     return [
         Step("Registre local et image de l'application",
              f"docker build -t {image} {APP_DIR}\n"
@@ -866,6 +867,10 @@ def _ec2_steps(out: Path, ir) -> list[Step]:
              f"for _ in $(seq 1 30); do curl -fsS http://localhost:5000/v2/ >/dev/null && break; sleep 1; done\n"
              f"docker push {image}"),
         Step("Floci démarré (émulateur AWS)",
+             # Floci lance chaque instance EC2 dans un conteneur Ubuntu tiré de l'ECR public, dont la limite de débit
+             # refuse les runners : l'image est tirée de Docker Hub et étiquetée sous le nom que Floci cherche
+             "docker pull ubuntu:24.04\n"
+             "docker tag ubuntu:24.04 public.ecr.aws/docker/library/ubuntu:24.04\n"
              f"docker run -d --name e2e-floci -p 4566:4566 -u root -v /var/run/docker.sock:/var/run/docker.sock "
              f"-e FLOCI_DEFAULT_REGION=eu-west-3 {FLOCI_IMAGE}\n"
              "for _ in $(seq 1 60); do curl -fsS http://localhost:4566/_localstack/health >/dev/null && exit 0; "
@@ -874,10 +879,14 @@ def _ec2_steps(out: Path, ir) -> list[Step]:
              f"cd {out} && KEEP=1 scripts/tf-floci.sh apply | tee {work}/floci.log\n"
              f"sed -n 's/^==> Dossier de travail conservé : //p' {work}/floci.log > {tfdir}\n"
              f"test -s {tfdir}", env=env, evidence=True),
-        Step("scripts/tf-inventory.sh staging relit l'état (TF_DIR)",
-             f"cd {out} && TF_DIR=\"$(cat {tfdir})\" scripts/tf-inventory.sh staging\n"
-             "cat ansible/inventories/staging.ini\n"
-             "grep -qx 127.0.0.1 ansible/inventories/staging.ini", env=env, evidence=True),
+        Step("scripts/tf-inventory.sh production relit l'état (TF_DIR)",
+             f"cd {out} && TF_DIR=\"$(cat {tfdir})\" scripts/tf-inventory.sh production\n"
+             "cat ansible/inventory.ini\n"
+             "grep -qE '^[0-9]+([.][0-9]+){3}$' ansible/inventory.ini\n"   # l'adresse que Floci donne à la machine
+             # cette adresse (réseau Docker de Floci) n'est pas jointe par SSH depuis le poste : le poste de test
+             # prend la place de la machine
+             "sed -i -E 's/^[0-9]+([.][0-9]+){3}$/127.0.0.1/' ansible/inventory.ini\n"
+             "grep -qx 127.0.0.1 ansible/inventory.ini", env=env, evidence=True),
         Step("Poste de test joué en machine : sshd, utilisateur deploy, sudo, groupe docker",
              "sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends openssh-server\n"
              "sudo mkdir -p /run/sshd\n"
@@ -900,7 +909,8 @@ def _ec2_steps(out: Path, ir) -> list[Step]:
              f"curl -fsS https://{host}/db", retries=20, env=cenv, evidence=True),
         Step("ansible/deploy.yml rejoué : sans échec ni hôte injoignable",
              f"{play} {deploy_args} | tee {work}/replay.log\n"
-             f"grep -E 'ok=[0-9]+ .*failed=0 .*unreachable=0' {work}/replay.log", env=env, evidence=True),
+             f"grep -E 'ok=[0-9]+ .*unreachable=0 +failed=0' {work}/replay.log", env=env, evidence=True),
+        Step("Journaux de Floci", "docker logs e2e-floci 2>&1 | grep -v -i 'DockerRetry\\|HttpRequestRetryExec' | tail -60; docker logs --tail=0 e2e-floci 2>&1 || true", always=True),
         Step("Journaux des services", f"sudo docker compose --project-directory {app_dir} -p {ir.app} ps -a; "
              f"sudo docker compose --project-directory {app_dir} -p {ir.app} logs --tail=25", always=True),
         Step("Arrêt de l'application et suppression des volumes",

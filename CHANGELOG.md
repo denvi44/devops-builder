@@ -10,6 +10,9 @@ mineure peut changer les fichiers générés ; chaque changement voulu est relu 
 - **Scénario `aws-ec2-chaine`** : le modèle AWS EC2 joué sans compte cloud. La pile OpenTofu est appliquée sur Floci, `scripts/tf-inventory.sh` relit l'état gardé pour écrire l'inventaire, puis `site.yml` et `deploy.yml` d'Ansible s'exécutent par SSH, l'application répond derrière Traefik et se rejoue sans échec, avant le `destroy`.
 - **`TF_DIR`** pour `scripts/tf-inventory.sh` : lire la pile d'un autre dossier que `infra/terraform`.
 
+### Corrigé
+- **ansible/site.yml** n'utilise plus les variables de faits injectées (`ansible_os_family`, `ansible_distribution`…), dépréciées depuis ansible-core 2.19 et retirées plus tard : `ansible_facts['os_family']` à la place. Relevé par le scénario `aws-ec2-chaine`.
+
 ### Modifié
 - `KEEP=1 scripts/tf-floci.sh apply` garde aussi le dossier de travail (l'état local) et l'indique.
 
