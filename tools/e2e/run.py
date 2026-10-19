@@ -853,12 +853,13 @@ def _ec2_steps(out: Path, ir) -> list[Step]:
     host = "boutique.test"
     env = {"ANSIBLE_CONFIG": str(out / "ansible" / "ansible.cfg"), "ANSIBLE_PRIVATE_KEY_FILE": str(key),
            "FLOCI_ENDPOINT": "http://localhost:4566", "TF_IN_AUTOMATION": "1"}
-    play = f"cd {out} && ansible-playbook -i ansible/inventories/production.ini"
+    play = f"cd {out} && ansible-playbook -i ansible/inventory.ini"
     password = secrets.token_hex(12)
     curlrc = work / "curl"
     curlrc.mkdir(parents=True, exist_ok=True)
     cenv = _curl_env(str(curlrc), host)
-    deploy_args = f"ansible/deploy.yml -e image={image} -e app_host={host}"
+    deploy_args = (f"ansible/deploy.yml -e image={image} -e project={ir.app} -e deploy_env=production "
+                   f"-e app_host={host}")
     return [
         Step("Registre local et image de l'application",
              f"docker build -t {image} {APP_DIR}\n"
@@ -880,8 +881,12 @@ def _ec2_steps(out: Path, ir) -> list[Step]:
              f"test -s {tfdir}", env=env, evidence=True),
         Step("scripts/tf-inventory.sh production relit l'état (TF_DIR)",
              f"cd {out} && TF_DIR=\"$(cat {tfdir})\" scripts/tf-inventory.sh production\n"
-             "cat ansible/inventories/production.ini\n"
-             "grep -qx 127.0.0.1 ansible/inventories/production.ini", env=env, evidence=True),
+             "cat ansible/inventory.ini\n"
+             "grep -qE '^[0-9]+([.][0-9]+){3}$' ansible/inventory.ini\n"   # l'adresse que Floci donne à la machine
+             # cette adresse (réseau Docker de Floci) n'est pas jointe par SSH depuis le poste : le poste de test
+             # prend la place de la machine
+             "sed -i -E 's/^[0-9]+([.][0-9]+){3}$/127.0.0.1/' ansible/inventory.ini\n"
+             "grep -qx 127.0.0.1 ansible/inventory.ini", env=env, evidence=True),
         Step("Poste de test joué en machine : sshd, utilisateur deploy, sudo, groupe docker",
              "sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends openssh-server\n"
              "sudo mkdir -p /run/sshd\n"
