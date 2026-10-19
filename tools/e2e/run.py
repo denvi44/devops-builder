@@ -909,7 +909,7 @@ def _ec2_steps(out: Path, ir) -> list[Step]:
              f"curl -fsS https://{host}/db", retries=20, env=cenv, evidence=True),
         Step("ansible/deploy.yml rejoué : sans échec ni hôte injoignable",
              f"{play} {deploy_args} | tee {work}/replay.log\n"
-             f"grep -E 'ok=[0-9]+ .*failed=0 .*unreachable=0' {work}/replay.log", env=env, evidence=True),
+             f"grep -E 'ok=[0-9]+ .*unreachable=0 +failed=0' {work}/replay.log", env=env, evidence=True),
         Step("Journaux de Floci", "docker logs e2e-floci 2>&1 | grep -v -i 'DockerRetry\\|HttpRequestRetryExec' | tail -60; docker logs --tail=0 e2e-floci 2>&1 || true", always=True),
         Step("Journaux des services", f"sudo docker compose --project-directory {app_dir} -p {ir.app} ps -a; "
              f"sudo docker compose --project-directory {app_dir} -p {ir.app} logs --tail=25", always=True),
