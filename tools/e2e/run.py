@@ -715,6 +715,12 @@ if [ "${1:-}" = upgrade ] && [ "${2:-}" = --install ]; then
   printf '%s\n' "${sets[@]:-}" > "$RENDER_DIR/${args[0]}.sets"
   "$HELM_REAL" show values "${args[1]}" "${vers[@]}" > "$RENDER_DIR/${args[0]}.values" 2>/dev/null || true
   echo "rendu : ${args[0]} ($(grep -c '^kind:' "$RENDER_DIR/${args[0]}.yaml") ressources)"
+  # CRD du chart posées dans le cluster : les ressources que le script applique ensuite (ClusterIssuer…) s'y rattachent
+  python3 -c "
+import sys, yaml
+docs = [d for d in yaml.safe_load_all(open(sys.argv[1])) if d and d.get('kind') == 'CustomResourceDefinition']
+sys.stdout.write(yaml.safe_dump_all(docs))
+" "$RENDER_DIR/${args[0]}.yaml" | kubectl apply --server-side --force-conflicts -f - >/dev/null 2>&1 || true
   exit 0
 fi
 exec "$HELM_REAL" "$@"
