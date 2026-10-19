@@ -8,9 +8,11 @@ mineure peut changer les fichiers générés ; chaque changement voulu est relu 
 
 ### Ajouté
 - **Scénario `aws-ec2-chaine`** : le modèle AWS EC2 joué sans compte cloud. La pile OpenTofu est appliquée sur Floci, `scripts/tf-inventory.sh` relit l'état gardé pour écrire l'inventaire, puis `site.yml` et `deploy.yml` d'Ansible s'exécutent par SSH, l'application répond derrière Traefik et se rejoue sans échec, avant le `destroy`.
+- **Scénario `aws-ecs-floci`** : la pile du modèle AWS ECS Fargate (ECR, RDS PostgreSQL, Secrets Manager) appliquée sur Floci. La suppression de la base RDS ne se termine pas dans Floci : le scénario borne le `destroy` à quatre minutes.
 - **`TF_DIR`** pour `scripts/tf-inventory.sh` : lire la pile d'un autre dossier que `infra/terraform`.
 
 ### Corrigé
+- **scripts/tf-floci.sh** crée le groupe de sous-réseaux RDS que la pile suppose existant, et rend la base jetable (sans protection contre la suppression ni instantané final) : l'`apply` d'une pile avec RDS passe sur Floci.
 - **ansible/site.yml** n'utilise plus les variables de faits injectées (`ansible_os_family`, `ansible_distribution`…), dépréciées depuis ansible-core 2.19 et retirées plus tard : `ansible_facts['os_family']` à la place. Relevé par le scénario `aws-ec2-chaine`.
 
 ### Modifié
