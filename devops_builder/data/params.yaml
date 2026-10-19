@@ -13,6 +13,15 @@ _registry_url: &registry_url
     pattern: '[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?'
     pattern_hint: "nom d'hôte sans schéma ni chemin, ex. registry.example.com ou registry.local:5000"
 
+_tool_database: &tool_database
+  label: Base de données
+  description: >-
+    integree : la base intégrée de l'outil (SQLite pour Gitea et Grafana, H2 pour SonarQube, à éviter en
+    production). postgresql : un PostgreSQL dédié à cette brique, avec son volume et son mot de passe
+    (service Compose, ou Cluster CloudNativePG / StatefulSet sur Kubernetes).
+  default: integree
+  choices: [integree, postgresql]
+
 _hostname: &hostname
   label: Adresse publique
   description: >-
@@ -26,12 +35,15 @@ zot: *registry_url
 distribution: *registry_url
 grafana:
   hostname: *hostname
+  database: *tool_database
 sonarqube:
   hostname: *hostname
+  database: *tool_database
 jenkins:
   hostname: *hostname
 gitea:
   hostname: *hostname
+  database: *tool_database
 minio:
   hostname: *hostname
 jaeger:

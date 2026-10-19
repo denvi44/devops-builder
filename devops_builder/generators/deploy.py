@@ -59,6 +59,8 @@ def compose(ir: IR) -> dict[str, str]:
         grafana["environment"] = {**grafana.get("environment", {}), **identity.grafana_compose_env(ir)}
         grafana["env_file"] = ["secrets/grafana.env"]
         services["grafana"] = grafana
+    from . import outildb
+    services = outildb.apply_compose(ir, services)
     files: dict[str, str] = {}
     if parametrized(ir.project):
         for tid, svc in services.items():

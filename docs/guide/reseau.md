@@ -47,6 +47,16 @@ Sur Kubernetes, l'instance nommée est installée dans l'espace de noms du chart
 montre un nœud « Grafana (equipe-b) » par instance. La règle R55 signale un nom invalide ou en double, et un outil
 qui n'accepte qu'une instance. Limites : la connexion unique (SSO) n'est branchée qu'à l'instance principale.
 
+## Une base de données par outil
+
+Gitea, SonarQube et Grafana démarrent par défaut sur leur base intégrée (SQLite, H2 pour SonarQube), pratique pour
+essayer mais pas pour la production. Dans les propriétés de la brique, « Base de données » = `postgresql` leur donne
+un PostgreSQL à eux, une par instance (deux Gitea, deux bases). Sur un hôte Docker, le service `<outil>-db` a son
+volume et son mot de passe (variable `<OUTIL>_DB_PASSWORD`, écrite par `deploy/secrets.sh`) ; la base n'est jamais
+publiée sur l'hôte. Sur Kubernetes, `platform/db-<outil>.yaml` crée un Cluster CloudNativePG (ajouter la brique
+CloudNativePG) ou, sans l'opérateur, un StatefulSet, et `platform/install.sh` règle le chart de l'outil. Les clés
+Helm viennent de la documentation des charts : à vérifier à la première installation.
+
 ## Adresses : noms DNS et adresses IP
 
 Les registres peuvent être désignés par une IP (`192.168.1.20:5000`). Sans HTTPS, Docker, BuildKit et k3s refusent

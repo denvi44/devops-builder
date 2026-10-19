@@ -1,0 +1,194 @@
+# Généré par DevOps Builder — à relire avant usage.
+name: mon-app
+services:
+  mon-app:
+    image: ${IMAGE:-$CI_REGISTRY_IMAGE:latest}
+    restart: unless-stopped
+    environment:
+      PORT: '8000'
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.mon-app.rule=Host(`${APP_HOST:-mon-app.example.com}`)
+    - traefik.http.routers.mon-app.entrypoints=websecure
+    - traefik.http.services.mon-app.loadbalancer.server.port=8000
+  traefik:
+    image: traefik:v3.1
+    command:
+    - --providers.docker=true
+    - --providers.docker.exposedbydefault=false
+    - --entrypoints.web.address=:80
+    - --entrypoints.web.http.redirections.entrypoint.to=websecure
+    - --entrypoints.web.http.redirections.entrypoint.scheme=https
+    - --entrypoints.websecure.address=:443
+    - --entrypoints.websecure.http.tls=true
+    - --entrypoints.websecure.http.tls.certresolver=letsencrypt
+    - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+    - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+    ports:
+    - 80:80
+    - 443:443
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    - traefik-letsencrypt:/letsencrypt
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+    - prometheus-data:/prometheus
+  grafana:
+    image: grafana/grafana:latest
+    volumes:
+    - grafana-data:/var/lib/grafana
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.grafana.rule=Host(`grafana.example.com`)
+    - traefik.http.routers.grafana.entrypoints=websecure
+    - traefik.http.services.grafana.loadbalancer.server.port=3000
+    environment:
+      GF_DATABASE_TYPE: postgres
+      GF_DATABASE_HOST: grafana-db:5432
+      GF_DATABASE_NAME: grafana
+      GF_DATABASE_USER: grafana
+    env_file:
+    - secrets/grafana.env
+    depends_on:
+      grafana-db:
+        condition: service_healthy
+  gitea:
+    image: gitea/gitea:latest
+    volumes:
+    - gitea-data:/data
+    ports:
+    - '2222:22'
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.gitea.rule=Host(`gitea.example.com`)
+    - traefik.http.routers.gitea.entrypoints=websecure
+    - traefik.http.services.gitea.loadbalancer.server.port=3000
+    environment:
+      GITEA__database__DB_TYPE: postgres
+      GITEA__database__HOST: gitea-db:5432
+      GITEA__database__NAME: gitea
+      GITEA__database__USER: gitea
+    env_file:
+    - secrets/gitea.env
+    depends_on:
+      gitea-db:
+        condition: service_healthy
+  gitea-equipe-b:
+    image: gitea/gitea:latest
+    volumes:
+    - gitea-data-equipe-b:/data
+    ports:
+    - '2322:22'
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.gitea-equipe-b.rule=Host(`gitea-equipe-b.example.com`)
+    - traefik.http.routers.gitea-equipe-b.entrypoints=websecure
+    - traefik.http.services.gitea-equipe-b.loadbalancer.server.port=3000
+    environment:
+      GITEA__database__DB_TYPE: postgres
+      GITEA__database__HOST: gitea-equipe-b-db:5432
+      GITEA__database__NAME: gitea
+      GITEA__database__USER: gitea
+    env_file:
+    - secrets/gitea-equipe-b.env
+    depends_on:
+      gitea-equipe-b-db:
+        condition: service_healthy
+  sonarqube:
+    image: sonarqube:community
+    volumes:
+    - sonarqube-data:/opt/sonarqube/data
+    environment:
+      SONAR_SEARCH_JAVAADDITIONALOPTS: -Dnode.store.allow_mmap=false
+      SONAR_JDBC_URL: jdbc:postgresql://sonarqube-db:5432/sonarqube
+      SONAR_JDBC_USERNAME: sonarqube
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.sonarqube.rule=Host(`sonarqube.example.com`)
+    - traefik.http.routers.sonarqube.entrypoints=websecure
+    - traefik.http.services.sonarqube.loadbalancer.server.port=9000
+    env_file:
+    - secrets/sonarqube.env
+    depends_on:
+      sonarqube-db:
+        condition: service_healthy
+  gitea-db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gitea
+      POSTGRES_DB: gitea
+    env_file:
+    - secrets/gitea-db.env
+    volumes:
+    - gitea-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  gitea-equipe-b-db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gitea
+      POSTGRES_DB: gitea
+    env_file:
+    - secrets/gitea-equipe-b-db.env
+    volumes:
+    - gitea-equipe-b-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  sonarqube-db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sonarqube
+      POSTGRES_DB: sonarqube
+    env_file:
+    - secrets/sonarqube-db.env
+    volumes:
+    - sonarqube-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  grafana-db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: grafana
+      POSTGRES_DB: grafana
+    env_file:
+    - secrets/grafana-db.env
+    volumes:
+    - grafana-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+volumes:
+  gitea-data: {}
+  gitea-data-equipe-b: {}
+  gitea-db-data: {}
+  gitea-equipe-b-db-data: {}
+  grafana-data: {}
+  grafana-db-data: {}
+  prometheus-data: {}
+  sonarqube-data: {}
+  sonarqube-db-data: {}
+  traefik-letsencrypt: {}

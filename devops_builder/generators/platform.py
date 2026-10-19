@@ -135,7 +135,7 @@ COMPOSE_SERVICES: dict[str, dict] = {
 
 def install_script(ir: IR) -> dict[str, str]:
     from ..instances import chart_namespace as instance_namespace
-    from . import entree, identity, secrets
+    from . import entree, identity, outildb, secrets
     from .data import cnpg_backup
     from .extras import embedded_components
 
@@ -192,6 +192,9 @@ def install_script(ir: IR) -> dict[str, str]:
             lines += pre_idp
             args += idp_args
         args += entree.chart_args(ir, t, brick)
+        db_pre, db_args = outildb.kube_install(ir, t, brick)
+        lines += db_pre
+        args += db_args
         if t == "cert-manager":
             args += entree.cert_manager_args(ir)
         store_file = t == "external-secrets" and secrets.eso(ir)
@@ -212,7 +215,7 @@ def install_script(ir: IR) -> dict[str, str]:
                          "--wait")
         lines.append("")
     lines += idp_lines
-    files = {**entree.gateway_file(ir, present), **entree.ingress_file(ir, present), **entree.issuer_file(ir)}
+    files = {**outildb.kube_files(ir), **entree.gateway_file(ir, present), **entree.ingress_file(ir, present), **entree.issuer_file(ir)}
     for name, label in (("gateway.yaml", "Gateway API : GatewayClass, Gateway et routes (Envoy Gateway)"),
                         ("cluster-issuer.yaml", "ClusterIssuer Let's Encrypt (HTTPS de l'entrée, cert-manager)"),
                         ("ingress.yaml", "Ingress des briques dont le chart n'en gère pas")):
