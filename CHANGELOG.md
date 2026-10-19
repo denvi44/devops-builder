@@ -4,12 +4,18 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
-## 0.22.0 — 2026-10-19 — Adresses, registres en HTTP et bases dédiées
+## 0.23.0 — 2026-10-19 — Une base de données par outil
 
-Les adresses IP sont signalées là où elles ne marchent pas, un registre auto-hébergé sans HTTPS est déclaré sur les clients qui le refusent par défaut, et Gitea, SonarQube et Grafana peuvent avoir leur propre PostgreSQL.
+Gitea, SonarQube et Grafana peuvent avoir leur propre PostgreSQL, sur l'hôte Docker comme sur Kubernetes.
 
 ### Ajouté
 - **Base PostgreSQL dédiée par outil** : paramètre « Base de données » (`integree` par défaut, `postgresql`) sur Gitea, SonarQube et Grafana, par instance. Hôte Docker : un service `<outil>-db` avec son volume, son mot de passe dans `deploy/secrets.sh` (variable `<OUTIL>_DB_PASSWORD`) et une dépendance « healthy ». Kubernetes : `platform/db-<outil>.yaml` (Cluster CloudNativePG avec l'opérateur, sinon StatefulSet et Secret tiré à l'installation) et les options Helm qui branchent le chart sur cette base. Sans ce choix, rien ne change. Les clés Helm suivent la documentation des charts et sont à vérifier à la première installation.
+
+## 0.22.0 — 2026-10-19 — Adresses et registres en HTTP
+
+Les adresses IP sont signalées là où elles ne marchent pas, et un registre auto-hébergé sans HTTPS est déclaré sur les clients qui le refusent par défaut.
+
+### Ajouté
 - **Adresses IP** : la règle **R56** avertit quand l'adresse publique d'un outil, celle de l'application ou le
   domaine des outils est une adresse IP (refusée par un Ingress, sans certificat Let's Encrypt, une IP ne pouvant
   pas porter plusieurs noms). Les registres, eux, peuvent être une IP.
