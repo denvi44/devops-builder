@@ -41,6 +41,7 @@ jobs:
           - compose-dex
           - compose-bases-dediees
           - aws-ec2-chaine
+          - aws-ecs-floci
           - gitea-renovate
           - compose-identite-keycloak
           - kind-argocd
@@ -73,7 +74,7 @@ jobs:
           go install github.com/yannh/kubeconform/cmd/kubeconform@v0.8.0
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
-        if: contains(matrix.scenario, 'identite') || contains(matrix.scenario, 'ec2')
+        if: contains(matrix.scenario, 'identite') || contains(matrix.scenario, 'ec2') || contains(matrix.scenario, 'ecs')
         with:
           tofu_wrapper: false
       - name: Ansible (déploiement par SSH)

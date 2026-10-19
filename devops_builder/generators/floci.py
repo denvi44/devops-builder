@@ -83,9 +83,14 @@ provider "aws" {
 }
 EOF
 @TFVARS@
+@PREREQ@
 cd "$WORK"
 echo "==> $TF_BIN init"
 "$TF_BIN" init -input=false -no-color >/dev/null
+if [ "$ACTION" = apply ] && [ -f "$WORK/floci_prereq.tf" ]; then
+  echo "==> $TF_BIN apply (groupe de sous-réseaux de la base, que la pile suppose existant)"
+  "$TF_BIN" apply -input=false -no-color -auto-approve -target=aws_db_subnet_group.floci
+fi
 echo "==> $TF_BIN plan"
 "$TF_BIN" plan -input=false -no-color -out=floci.tfplan
 if [ "$ACTION" = apply ]; then
@@ -126,11 +131,22 @@ def floci_files(ir: IR) -> dict[str, str]:
         if tvs:
             tfvars = ("cat > \"$WORK/floci.auto.tfvars\" <<'EOF'\n"
                       + "".join(f"{tv.name} = {tv.dummy}\n" for tv in tvs) + "EOF")
+        prereq = ""
+        if any(tv.name == "db_subnet_group" for tv in tvs):   # la pile suppose un groupe de sous-réseaux existant
+            prereq = ("cat > \"$WORK/floci_prereq.tf\" <<'EOF'\n"
+                      'data "aws_subnets" "floci" {}\n\n'
+                      'resource "aws_db_subnet_group" "floci" {\n  name       = "floci"\n'
+                      '  subnet_ids = data.aws_subnets.floci.ids\n}\nEOF')
+        if ir.has("aws-rds"):   # Floci : une base jetable ; la protection et l'instantané final empêcheraient le destroy
+            prereq += ("\ncat >> \"$WORK/floci_override.tf\" <<'EOF'\n\n"
+                       'resource "aws_db_instance" "db" {\n  deletion_protection = false\n'
+                       '  skip_final_snapshot = true\n  multi_az            = false\n}\nEOF')
         width = max(len(e) for e in ENDPOINTS)
         endpoints = "\n".join(f"    {e.ljust(width)} = \"$FLOCI_ENDPOINT\"" for e in ENDPOINTS)
         files[TF_SCRIPT] = (_TF.replace("@HEADER@", HEADER).replace("@TF@", ir.iac_cmd)
                             .replace("@REGION@", region).replace("@IMAGE@", FLOCI_IMAGE)
-                            .replace("@ENDPOINTS@", endpoints).replace("@TFVARS@", tfvars))
+                            .replace("@ENDPOINTS@", endpoints).replace("@TFVARS@", tfvars)
+                            .replace("@PREREQ@", prereq))
     notes = [f"Floci : `docker compose -f {COMPOSE} up -d` lance l'émulateur AWS sur le port 4566 ; "
              f"`{ENV_FILE}` y pointe les SDK et la CLI (identifiants factices test/test)."]
     if floci_in_ci(ir):

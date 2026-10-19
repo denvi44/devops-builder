@@ -88,9 +88,29 @@ subnet_ids = ["subnet-0f10c1a", "subnet-0f10c1b"]
 db_subnet_group = "floci"
 db_security_group_ids = ["sg-0f10c1"]
 EOF
+cat > "$WORK/floci_prereq.tf" <<'EOF'
+data "aws_subnets" "floci" {}
+
+resource "aws_db_subnet_group" "floci" {
+  name       = "floci"
+  subnet_ids = data.aws_subnets.floci.ids
+}
+EOF
+cat >> "$WORK/floci_override.tf" <<'EOF'
+
+resource "aws_db_instance" "db" {
+  deletion_protection = false
+  skip_final_snapshot = true
+  multi_az            = false
+}
+EOF
 cd "$WORK"
 echo "==> $TF_BIN init"
 "$TF_BIN" init -input=false -no-color >/dev/null
+if [ "$ACTION" = apply ] && [ -f "$WORK/floci_prereq.tf" ]; then
+  echo "==> $TF_BIN apply (groupe de sous-réseaux de la base, que la pile suppose existant)"
+  "$TF_BIN" apply -input=false -no-color -auto-approve -target=aws_db_subnet_group.floci
+fi
 echo "==> $TF_BIN plan"
 "$TF_BIN" plan -input=false -no-color -out=floci.tfplan
 if [ "$ACTION" = apply ]; then
