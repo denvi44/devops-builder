@@ -49,13 +49,17 @@ qui n'accepte qu'une instance. Limites : la connexion unique (SSO) n'est branch�
 
 ## Une base de données par outil
 
-Gitea, SonarQube et Grafana démarrent par défaut sur leur base intégrée (SQLite, H2 pour SonarQube), pratique pour
+Gitea, SonarQube, Grafana et Harbor (Kubernetes) démarrent par défaut sur leur base intégrée (SQLite, H2 pour SonarQube), pratique pour
 essayer mais pas pour la production. Dans les propriétés de la brique, « Base de données » = `postgresql` leur donne
 un PostgreSQL à eux, une par instance (deux Gitea, deux bases). Sur un hôte Docker, le service `<outil>-db` a son
 volume et son mot de passe (variable `<OUTIL>_DB_PASSWORD`, écrite par `deploy/secrets.sh`) ; la base n'est jamais
 publiée sur l'hôte. Sur Kubernetes, `platform/db-<outil>.yaml` crée un Cluster CloudNativePG (ajouter la brique
 CloudNativePG) ou, sans l'opérateur, un StatefulSet, et `platform/install.sh` règle le chart de l'outil. Les clés
 Helm viennent de la documentation des charts : à vérifier à la première installation.
+
+Moteurs : PostgreSQL pour les quatre ; Gitea et Grafana acceptent aussi MariaDB et MySQL (SonarQube et Harbor
+n'utilisent que PostgreSQL). CloudNativePG ne gère que PostgreSQL : MariaDB et MySQL passent par un StatefulSet sur
+Kubernetes.
 
 ## Adresses : noms DNS et adresses IP
 

@@ -16,9 +16,18 @@ _registry_url: &registry_url
 _tool_database: &tool_database
   label: Base de données
   description: >-
-    integree : la base intégrée de l'outil (SQLite pour Gitea et Grafana, H2 pour SonarQube, à éviter en
-    production). postgresql : un PostgreSQL dédié à cette brique, avec son volume et son mot de passe
+    integree : la base intégrée de l'outil (SQLite pour Gitea et Grafana, H2 pour SonarQube, PostgreSQL du chart pour
+    Harbor), à éviter en production. Un moteur : une base dédiée à cette brique, avec son volume et son mot de passe
     (service Compose, ou Cluster CloudNativePG / StatefulSet sur Kubernetes).
+  default: integree
+  choices: [integree, postgresql, mariadb, mysql]
+
+_tool_database_pg: &tool_database_pg
+  label: Base de données
+  description: >-
+    integree : la base intégrée de l'outil (H2 pour SonarQube, PostgreSQL du chart pour Harbor), à éviter en
+    production. postgresql : un PostgreSQL dédié à cette brique, avec son volume et son mot de passe (service Compose,
+    ou Cluster CloudNativePG / StatefulSet sur Kubernetes).
   default: integree
   choices: [integree, postgresql]
 
@@ -30,7 +39,9 @@ _hostname: &hostname
   pattern: '[a-z0-9]([a-z0-9.-]*[a-z0-9])?'
   pattern_hint: "nom d'hôte sans schéma, ex. grafana.example.com"
 
-harbor: *registry_url
+harbor:
+  <<: *registry_url
+  database: *tool_database_pg
 zot: *registry_url
 distribution: *registry_url
 grafana:
@@ -38,7 +49,7 @@ grafana:
   database: *tool_database
 sonarqube:
   hostname: *hostname
-  database: *tool_database
+  database: *tool_database_pg
 jenkins:
   hostname: *hostname
 gitea:

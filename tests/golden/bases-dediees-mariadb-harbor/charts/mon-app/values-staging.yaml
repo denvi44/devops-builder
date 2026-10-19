@@ -1,0 +1,6 @@
+# Généré par DevOps Builder — à relire avant usage. Valeurs propres à l'environnement « Préproduction ».
+replicaCount: 1
+image:
+  tag: latest
+ingress:
+  host: staging.mon-app.example.com

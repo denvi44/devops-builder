@@ -102,7 +102,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Approbation (« Production ») : déclarer des relecteurs obligatoires sur l'environnement du dépôt (Settings › Environments › Required reviewers), sinon le déploiement part sans attendre.
-- Bases dédiées : une base PostgreSQL par outil dans platform/db-<instance>.yaml (Cluster CloudNativePG avec l'opérateur, sinon StatefulSet). Les réglages Helm qui branchent l'outil sur sa base (clés --set de install.sh) suivent la documentation de chaque chart : les vérifier à la première installation.
+- Bases dédiées : une base par outil dans platform/db-<instance>.yaml (Cluster CloudNativePG pour PostgreSQL avec l'opérateur, sinon StatefulSet). Les réglages Helm qui branchent l'outil sur sa base (clés --set de install.sh) suivent la documentation de chaque chart : les vérifier à la première installation.
 - HTTPS Kubernetes : platform/cluster-issuer.yaml (Let's Encrypt, challenge HTTP-01) ; chaque nom d'hôte doit pointer vers l'adresse publique du contrôleur d'entrée avant l'émission du certificat.
 - Poste de développement : `docker compose -f dev/db/compose.yaml up -d` lance les bases du projet (même version), `dev/db/app.env` donne leurs variables de connexion.
 - CloudNativePG : l'opérateur est installé par platform/install.sh ; le Cluster crée le Secret « <cluster>-app » (clés uri, jdbc-uri, host, user, password) lu par l'application. Sauvegardes : renseigner « Destination des sauvegardes » dans la brique (plugin Barman Cloud), ou des instantanés de volumes.
