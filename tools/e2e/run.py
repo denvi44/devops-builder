@@ -845,7 +845,8 @@ PY
 def _ec2_steps(out: Path, ir) -> list[Step]:
     """Chaîne d'un modèle de machines, sans compte cloud : la pile OpenTofu jouée sur Floci, l'inventaire Ansible
     relu dans son état par scripts/tf-inventory.sh, puis site.yml et deploy.yml exécutés par SSH sur le poste de
-    test (Floci rend 127.0.0.1 comme adresse des machines), l'image venant d'un registre local."""
+    test (Floci rend 127.0.0.1 comme adresse des machines), l'image venant d'un registre local. Floci tourne sans
+    socket Docker, comme dans la CI générée : avec elle il lance de vrais conteneurs pour les instances EC2."""
     from devops_builder.ir import FLOCI_IMAGE
     work = out.parent
     key, tfdir, app_dir = work / "deploy_key", work / "tfdir", f"/opt/{ir.app}"
@@ -866,8 +867,7 @@ def _ec2_steps(out: Path, ir) -> list[Step]:
              f"for _ in $(seq 1 30); do curl -fsS http://localhost:5000/v2/ >/dev/null && break; sleep 1; done\n"
              f"docker push {image}"),
         Step("Floci démarré (émulateur AWS)",
-             f"docker run -d --name e2e-floci -p 4566:4566 -u root -v /var/run/docker.sock:/var/run/docker.sock "
-             f"-e FLOCI_DEFAULT_REGION=eu-west-3 {FLOCI_IMAGE}\n"
+             f"docker run -d --name e2e-floci -p 4566:4566 -e FLOCI_DEFAULT_REGION=eu-west-3 {FLOCI_IMAGE}\n"
              "for _ in $(seq 1 60); do curl -fsS http://localhost:4566/_localstack/health >/dev/null && exit 0; "
              "sleep 1; done; exit 1"),
         Step("scripts/tf-floci.sh apply (KEEP=1 : ressources et état gardés)",
@@ -901,6 +901,7 @@ def _ec2_steps(out: Path, ir) -> list[Step]:
         Step("ansible/deploy.yml rejoué : sans échec ni hôte injoignable",
              f"{play} {deploy_args} | tee {work}/replay.log\n"
              f"grep -E 'ok=[0-9]+ .*failed=0 .*unreachable=0' {work}/replay.log", env=env, evidence=True),
+        Step("Journaux de Floci", "docker logs --tail=60 e2e-floci 2>&1 || true", always=True),
         Step("Journaux des services", f"sudo docker compose --project-directory {app_dir} -p {ir.app} ps -a; "
              f"sudo docker compose --project-directory {app_dir} -p {ir.app} logs --tail=25", always=True),
         Step("Arrêt de l'application et suppression des volumes",
