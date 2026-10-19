@@ -25,7 +25,8 @@ _TF = r"""#!/usr/bin/env bash
 # ni compte AWS, ni identifiants, ni état distant (un backend local temporaire le remplace).
 #
 #   scripts/tf-floci.sh plan     init et plan (ce que fait la CI)
-#   scripts/tf-floci.sh apply    plan, apply puis destroy ; KEEP=1 garde les ressources
+#   scripts/tf-floci.sh apply    plan, apply puis destroy ; KEEP=1 garde les ressources et le dossier de travail
+#                                (l'état local, que TF_DIR=<dossier> scripts/tf-inventory.sh peut relire)
 #
 # FLOCI_ENDPOINT=http://hote:4566  Floci déjà lancé ; sinon le script le démarre avec Docker
 # TF=tofu|terraform                outil à utiliser (défaut : @TF@)
@@ -40,7 +41,7 @@ command -v "$TF_BIN" >/dev/null 2>&1 || { echo "Outil manquant : $TF_BIN" >&2; e
 STARTED=""
 WORK="$(mktemp -d)"
 cleanup() {
-  rm -rf "$WORK"
+  if [ "$ACTION" = apply ] && [ "${KEEP:-0}" = 1 ]; then echo "==> Dossier de travail conservé : $WORK"; else rm -rf "$WORK"; fi
   if [ -n "$STARTED" ]; then docker rm -f devops-builder-floci >/dev/null 2>&1 || true; fi
 }
 trap cleanup EXIT

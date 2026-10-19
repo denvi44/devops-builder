@@ -4,6 +4,15 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## 0.25.1 — 2026-10-19 — Chaîne des machines éprouvée sur Floci
+
+### Ajouté
+- **Scénario `aws-ec2-chaine`** : le modèle AWS EC2 joué sans compte cloud. La pile OpenTofu est appliquée sur Floci, `scripts/tf-inventory.sh` relit l'état gardé pour écrire l'inventaire, puis `site.yml` et `deploy.yml` d'Ansible s'exécutent par SSH, l'application répond derrière Traefik et se rejoue sans échec, avant le `destroy`.
+- **`TF_DIR`** pour `scripts/tf-inventory.sh` : lire la pile d'un autre dossier que `infra/terraform`.
+
+### Modifié
+- `KEEP=1 scripts/tf-floci.sh apply` garde aussi le dossier de travail (l'état local) et l'indique.
+
 ## 0.25.0 — 2026-10-19 — Préparation de la 1.0
 
 ### Ajouté

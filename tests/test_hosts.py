@@ -115,6 +115,28 @@ def test_script_d_inventaire(tmp_path):
         assert sc.returncode == 0, sc.stdout
 
 
+def test_inventaire_lit_un_autre_dossier_de_pile(tmp_path):
+    """TF_DIR : l'état gardé par KEEP=1 scripts/tf-floci.sh apply sert d'inventaire (scénario aws-ec2-chaine)."""
+    if not shutil.which("jq"):
+        pytest.skip("jq absent")
+    generate(starter("vm", "aws"), CATALOG, ENGINE).write(tmp_path)
+    fake = tmp_path / "bin" / "tofu"
+    fake.parent.mkdir()
+    fake.write_text("#!/bin/sh\nif [ \"$1\" = output ]; then echo \"{\\\"recette\\\": [\\\"$(basename \"$PWD\")\\\"]}\"; fi\n")
+    fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+    (tmp_path / "gardee" / ".terraform").mkdir(parents=True)
+    env = {**os.environ, "PATH": f"{fake.parent}:{os.environ['PATH']}", "TF_DIR": str(tmp_path / "gardee")}
+    r = subprocess.run(["bash", "scripts/tf-inventory.sh", "recette"], cwd=tmp_path, env=env, capture_output=True,
+                       text=True)
+    assert r.returncode == 0, r.stderr
+    assert "[app]\ngardee\n" in (tmp_path / "ansible/inventories/recette.ini").read_text()
+
+
+def test_floci_garde_le_dossier_de_travail_avec_keep():
+    from devops_builder.generators.floci import _TF
+    assert 'if [ "$ACTION" = apply ] && [ "${KEEP:-0}" = 1 ]' in _TF and "Dossier de travail conservé" in _TF
+
+
 def test_hotes_preparation_n_ecrase_pas_docker():
     site = yaml.safe_load(generate(starter("vm", "aws"), CATALOG, ENGINE).files["ansible/site.yml"])
     tasks = site[0]["tasks"]
