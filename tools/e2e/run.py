@@ -703,8 +703,13 @@ HELM_TEMPLATE = r"""#!/usr/bin/env bash
 set -euo pipefail
 if [ "${1:-}" = upgrade ] && [ "${2:-}" = --install ]; then
   shift 2
-  args=()
-  for a in "$@"; do case "$a" in --wait|--create-namespace|--atomic) ;; *) args+=("$a") ;; esac; done
+  args=(); prev=""
+  for a in "$@"; do
+    case "$a" in --wait|--create-namespace|--atomic) ;; *) args+=("$a") ;; esac
+    # l'espace de noms que helm créerait : le script y applique ensuite ses manifestes (Ingress, ClusterIssuer…)
+    case "$prev" in -n|--namespace) kubectl create namespace "$a" --dry-run=client -o yaml | kubectl apply -f - >/dev/null ;; esac
+    prev="$a"
+  done
   "$HELM_REAL" template "${args[@]}" > "$RENDER_DIR/${args[0]}.yaml" 2> >(sed "s/^/[${args[0]}] /" >&2)
   # options --set / --set-string de la commande, et valeurs par défaut du chart (version comprise) : contrôle des clés
   sets=(); vers=(); prev=""
