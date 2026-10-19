@@ -940,9 +940,12 @@ def _ecs_steps(out: Path, ir) -> list[Step]:
              f"date +%T; cd {out} && KEEP=1 scripts/tf-floci.sh apply | tee {out.parent}/floci.log; date +%T\n"
              f"sed -n 's/^==> Dossier de travail conservé : //p' {out.parent}/floci.log > {out.parent}/tfdir\n"
              f"test -s {out.parent}/tfdir", env=env, evidence=True),
-        Step("tofu destroy des ressources gardées",
-             f"date +%T; tofu -chdir=\"$(cat {out.parent}/tfdir)\" destroy -input=false -no-color -auto-approve; "
-             "date +%T", env=env, evidence=True),
+        Step("tofu destroy des ressources gardées (au plus 4 minutes : la suppression d'une base RDS ne se termine pas "
+             "dans Floci)",
+             f"date +%T; timeout 240 tofu -chdir=\"$(cat {out.parent}/tfdir)\" destroy -input=false -no-color "
+             "-auto-approve && echo 'destroy terminé' || echo 'destroy non terminé (limite connue de Floci : "
+             "suppression de la base RDS) ; le conteneur Floci est supprimé ensuite'; date +%T", env=env,
+             evidence=True),
         Step("Journaux de Floci", "docker logs e2e-floci 2>&1 | grep -v -i 'DockerRetry\\|HttpRequestRetryExec' "
              "| tail -80", always=True),
         Step("Arrêt de Floci", "docker rm -f e2e-floci || true", always=True),
