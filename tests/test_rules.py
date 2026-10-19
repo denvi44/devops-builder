@@ -90,6 +90,7 @@ CASES = [
     ("R52", lambda: _undersized(), Severity.WARNING),
     ("R53", lambda: make("mars"), Severity.BLOCKING),
     ("R54", lambda: put(make("kubernetes"), "k3s", "helm", "ingress-nginx"), Severity.INFO),
+    ("R56", lambda: _ip_host(), Severity.WARNING),
     ("R55", lambda: put(make("docker-host"), "grafana", "grafana"), Severity.WARNING),
     ("R47", lambda: with_params(put(make("kubernetes"), "k3s", "helm", "cloudnative-pg"), "cloudnative-pg",
                                 backup_destination="s3://sauvegardes"), Severity.WARNING),
@@ -98,6 +99,12 @@ CASES = [
 
 def with_params(p: Project, tool_id: str, **params) -> Project:
     p.bricks_for(tool_id)[0].params.update(params)
+    return p
+
+
+def _ip_host() -> Project:
+    p = put(make("docker-host"), "grafana")
+    p.bricks_for("grafana")[0].params["hostname"] = "192.168.1.20"
     return p
 
 

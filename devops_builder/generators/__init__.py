@@ -77,6 +77,8 @@ def render(project: Project, catalog: Catalog) -> tuple[dict[str, str], IR]:
         files.update(deploy.ansible(ir))
     if ir.iac and ir.iac.id in ("terraform", "opentofu") or ir.providers:
         files.update(iac.terraform(ir))
+    from . import registre
+    files.update(registre.files(ir))
     files.update(platform.platform_files(ir))
     files.update(floci.floci_files(ir))
     files.update(hosts.inventory_script(ir))

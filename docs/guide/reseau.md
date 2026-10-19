@@ -47,6 +47,19 @@ Sur Kubernetes, l'instance nommée est installée dans l'espace de noms du chart
 montre un nœud « Grafana (equipe-b) » par instance. La règle R55 signale un nom invalide ou en double, et un outil
 qui n'accepte qu'une instance. Limites : la connexion unique (SSO) n'est branchée qu'à l'instance principale.
 
+## Adresses : noms DNS et adresses IP
+
+Les registres peuvent être désignés par une IP (`192.168.1.20:5000`). Sans HTTPS, Docker, BuildKit et k3s refusent
+par défaut de s'y connecter : pour Harbor, Zot et Distribution sur une IP ou `localhost`, les fichiers générés
+déclarent le registre (Ansible : `insecure-registries` ; k3s : `deploy/registries.yaml` à copier dans
+`/etc/rancher/k3s/registries.yaml` sur chaque nœud) et une note décrit le réglage de la CI.
+
+Les adresses publiques des outils (Grafana, Gitea, l'application…) et le domaine des outils doivent être des
+noms DNS : un Ingress ou une Gateway Kubernetes refuse une IP, Let's Encrypt ne délivre pas de certificat pour
+elle avec la configuration générée, et une IP ne peut pas porter plusieurs noms. La règle R56 le signale. En réseau
+local, déclarer un nom dans le DNS de la box, dans un Pi-hole ou dans `/etc/hosts`, ou utiliser un domaine
+`nip.io` / `sslip.io` (`grafana.192.168.1.20.nip.io` pointe sur `192.168.1.20`), en restant en HTTP.
+
 ## Lire les erreurs sur le schéma
 
 Une pastille sur un composant dit qu'un constat le concerne : **disque barré** pour une erreur bloquante,

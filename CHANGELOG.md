@@ -4,6 +4,19 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## 0.22.0 — 2026-10-19 — Adresses et registres en HTTP
+
+Les adresses IP sont signalées là où elles ne marchent pas, et un registre auto-hébergé sans HTTPS est déclaré sur les clients qui le refusent par défaut.
+
+### Ajouté
+- **Adresses IP** : la règle **R56** avertit quand l'adresse publique d'un outil, celle de l'application ou le
+  domaine des outils est une adresse IP (refusée par un Ingress, sans certificat Let's Encrypt, une IP ne pouvant
+  pas porter plusieurs noms). Les registres, eux, peuvent être une IP.
+- **Registre auto-hébergé en HTTP simple** (Harbor, Zot, Distribution sur une IP ou `localhost`) : les hôtes Docker
+  déployés par Ansible reçoivent `insecure-registries` (`/etc/docker/daemon.json` fusionné sans perte, Docker
+  redémarré si le fichier change), k3s reçoit `deploy/registries.yaml`, et une note explique le réglage à faire
+  côté CI (Docker, BuildKit, Kaniko, podman).
+
 ## 0.21.0 — 2026-10-18 — Pipelines types, accueil et vue Réseau
 
 Douze pipelines complets, prêts à ouvrir et à ajuster : un Kubernetes managé pour chacun des six fournisseurs du
