@@ -19,7 +19,7 @@ CLASSES = {"traefik": "traefik", "ingress-nginx": "nginx", "envoy-gateway": None
 # Service Kubernetes de l'interface web des charts installés par platform/install.sh : (nom, port)
 CHART_SERVICES = {"grafana": ("grafana", 80), "sonarqube": ("sonarqube", 9000), "jenkins": ("jenkins", 8080),
                   "gitea": ("gitea-http", 3000), "zot": ("zot", 5000), "harbor": ("harbor", 80),
-                  "argo-cd": ("argo-cd-server", 80), "argo-workflows": ("argo-workflows-server", 2746),
+                  "argo-cd": ("argo-cd-argocd-server", 80), "argo-workflows": ("argo-workflows-server", 2746),
                   "chaos-mesh": ("chaos-dashboard", 2333), "jaeger": ("jaeger", 16686)}
 # Charts dont les valeurs d'Ingress ne sont pas fiables : l'Ingress est écrit dans platform/ingress.yaml
 MANIFEST_ROUTED = ("jaeger",)

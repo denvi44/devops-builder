@@ -54,6 +54,7 @@ class Step:
     retries: int = 1                     # tentatives (attente d'un service)
     always: bool = False                 # nettoyage : exécutée même après un échec
     evidence: bool = False               # sa sortie prouve le résultat : publiée en annotation GitHub
+    tail: int = 6                        # lignes de cette sortie publiées en annotation
 
 
 @dataclass
@@ -808,10 +809,10 @@ def _platform_steps(out: Path, ir) -> list[Step]:
                    evidence=True)
     from devops_builder.generators import entree
     expected = {b.service_id: entree.service_name(t, b) for t in entree.CHART_SERVICES
-                for b in entree.instances_of(ir, t) if ir.has(t)}
+                for b in entree.instances_of(ir, t) if ir.has(t) and (t != "harbor" or entree.gateway_api(ir))}
     keys = Step("Clés --set présentes dans les valeurs du chart ; Service de chaque instance (nom de la release)",
                 f"cat > {work}/check_helm.py <<'PY'\n{CHECK_HELM}PY\n"
-                f"python3 {work}/check_helm.py {render} '{json.dumps(expected)}'", evidence=True)
+                f"python3 {work}/check_helm.py {render} '{json.dumps(expected)}'", evidence=True, tail=70)
     return [start[0], prep, run, check, keys, conform, *end]
 
 
@@ -1228,7 +1229,7 @@ def annotations(scenario: Scenario, results: list[Result]) -> list[str]:
     for r in results:
         if r.step.evidence or not r.ok or (failed and r.step.always):
             lines = r.output.strip().splitlines()
-            text = "\n".join(lines[-40:] if (failed and r.step.always) else lines[-6:])[:3500] or "(sans sortie)"
+            text = "\n".join(lines[-40:] if (failed and r.step.always) else lines[-r.step.tail:])[:3500] or "(sans sortie)"
             level = "notice" if r.ok else "error"
             out.append(f"::{level} title={_escape(f'{scenario.name} — {r.step.name}', prop=True)}::{_escape(text)}")
     return out
