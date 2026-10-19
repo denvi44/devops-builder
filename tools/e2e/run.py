@@ -866,6 +866,10 @@ def _ec2_steps(out: Path, ir) -> list[Step]:
              f"for _ in $(seq 1 30); do curl -fsS http://localhost:5000/v2/ >/dev/null && break; sleep 1; done\n"
              f"docker push {image}"),
         Step("Floci démarré (émulateur AWS)",
+             # Floci lance chaque instance EC2 dans un conteneur Ubuntu tiré de l'ECR public, dont la limite de débit
+             # refuse les runners : l'image est tirée de Docker Hub et étiquetée sous le nom que Floci cherche
+             "docker pull ubuntu:24.04\n"
+             "docker tag ubuntu:24.04 public.ecr.aws/docker/library/ubuntu:24.04\n"
              f"docker run -d --name e2e-floci -p 4566:4566 -u root -v /var/run/docker.sock:/var/run/docker.sock "
              f"-e FLOCI_DEFAULT_REGION=eu-west-3 {FLOCI_IMAGE}\n"
              "for _ in $(seq 1 60); do curl -fsS http://localhost:4566/_localstack/health >/dev/null && exit 0; "
