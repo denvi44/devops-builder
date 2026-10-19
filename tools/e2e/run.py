@@ -845,8 +845,7 @@ PY
 def _ec2_steps(out: Path, ir) -> list[Step]:
     """Chaîne d'un modèle de machines, sans compte cloud : la pile OpenTofu jouée sur Floci, l'inventaire Ansible
     relu dans son état par scripts/tf-inventory.sh, puis site.yml et deploy.yml exécutés par SSH sur le poste de
-    test (Floci rend 127.0.0.1 comme adresse des machines), l'image venant d'un registre local. Floci tourne sans
-    socket Docker, comme dans la CI générée : avec elle il lance de vrais conteneurs pour les instances EC2."""
+    test (Floci rend 127.0.0.1 comme adresse des machines), l'image venant d'un registre local."""
     from devops_builder.ir import FLOCI_IMAGE
     work = out.parent
     key, tfdir, app_dir = work / "deploy_key", work / "tfdir", f"/opt/{ir.app}"
@@ -854,7 +853,7 @@ def _ec2_steps(out: Path, ir) -> list[Step]:
     host = "boutique.test"
     env = {"ANSIBLE_CONFIG": str(out / "ansible" / "ansible.cfg"), "ANSIBLE_PRIVATE_KEY_FILE": str(key),
            "FLOCI_ENDPOINT": "http://localhost:4566", "TF_IN_AUTOMATION": "1"}
-    play = f"cd {out} && ansible-playbook -i ansible/inventories/staging.ini"
+    play = f"cd {out} && ansible-playbook -i ansible/inventories/production.ini"
     password = secrets.token_hex(12)
     curlrc = work / "curl"
     curlrc.mkdir(parents=True, exist_ok=True)
@@ -867,17 +866,18 @@ def _ec2_steps(out: Path, ir) -> list[Step]:
              f"for _ in $(seq 1 30); do curl -fsS http://localhost:5000/v2/ >/dev/null && break; sleep 1; done\n"
              f"docker push {image}"),
         Step("Floci démarré (émulateur AWS)",
-             f"docker run -d --name e2e-floci -p 4566:4566 -e FLOCI_DEFAULT_REGION=eu-west-3 {FLOCI_IMAGE}\n"
+             f"docker run -d --name e2e-floci -p 4566:4566 -u root -v /var/run/docker.sock:/var/run/docker.sock "
+             f"-e FLOCI_DEFAULT_REGION=eu-west-3 {FLOCI_IMAGE}\n"
              "for _ in $(seq 1 60); do curl -fsS http://localhost:4566/_localstack/health >/dev/null && exit 0; "
              "sleep 1; done; exit 1"),
         Step("scripts/tf-floci.sh apply (KEEP=1 : ressources et état gardés)",
              f"cd {out} && KEEP=1 scripts/tf-floci.sh apply | tee {work}/floci.log\n"
              f"sed -n 's/^==> Dossier de travail conservé : //p' {work}/floci.log > {tfdir}\n"
              f"test -s {tfdir}", env=env, evidence=True),
-        Step("scripts/tf-inventory.sh staging relit l'état (TF_DIR)",
-             f"cd {out} && TF_DIR=\"$(cat {tfdir})\" scripts/tf-inventory.sh staging\n"
-             "cat ansible/inventories/staging.ini\n"
-             "grep -qx 127.0.0.1 ansible/inventories/staging.ini", env=env, evidence=True),
+        Step("scripts/tf-inventory.sh production relit l'état (TF_DIR)",
+             f"cd {out} && TF_DIR=\"$(cat {tfdir})\" scripts/tf-inventory.sh production\n"
+             "cat ansible/inventories/production.ini\n"
+             "grep -qx 127.0.0.1 ansible/inventories/production.ini", env=env, evidence=True),
         Step("Poste de test joué en machine : sshd, utilisateur deploy, sudo, groupe docker",
              "sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends openssh-server\n"
              "sudo mkdir -p /run/sshd\n"
@@ -901,7 +901,7 @@ def _ec2_steps(out: Path, ir) -> list[Step]:
         Step("ansible/deploy.yml rejoué : sans échec ni hôte injoignable",
              f"{play} {deploy_args} | tee {work}/replay.log\n"
              f"grep -E 'ok=[0-9]+ .*failed=0 .*unreachable=0' {work}/replay.log", env=env, evidence=True),
-        Step("Journaux de Floci", "docker logs --tail=60 e2e-floci 2>&1 || true", always=True),
+        Step("Journaux de Floci", "docker logs e2e-floci 2>&1 | grep -v -i 'DockerRetry\\|HttpRequestRetryExec' | tail -60; docker logs --tail=0 e2e-floci 2>&1 || true", always=True),
         Step("Journaux des services", f"sudo docker compose --project-directory {app_dir} -p {ir.app} ps -a; "
              f"sudo docker compose --project-directory {app_dir} -p {ir.app} logs --tail=25", always=True),
         Step("Arrêt de l'application et suppression des volumes",
