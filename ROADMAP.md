@@ -58,7 +58,7 @@ de police du système.
 
 Reste avant la 1.0, et qui demande des ressources hors de ce dépôt :
 
-- `apply` puis `destroy` sur un vrai compte cloud (modèles et identités de CI à droits réduits) ;
+- `apply` puis `destroy` sur un vrai compte cloud (le modèle AWS EC2 passe déjà sur l'émulateur Floci, jusqu'au déploiement par Ansible) (modèles et identités de CI à droits réduits) ;
 - signature des exécutables (Authenticode, notarisation Apple) ;
 - sessions d'écoute NVDA, Orca, VoiceOver ; suivi du contraste élevé et de la taille de police du système ;
 - clés `--set` des charts Helm et noms de Service des instances supplémentaires, à confirmer sur un cluster réel ;

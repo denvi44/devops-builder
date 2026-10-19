@@ -40,6 +40,7 @@ jobs:
           - compose-zap
           - compose-dex
           - compose-bases-dediees
+          - aws-ec2-chaine
           - gitea-renovate
           - compose-identite-keycloak
           - kind-argocd
@@ -72,9 +73,12 @@ jobs:
           go install github.com/yannh/kubeconform/cmd/kubeconform@v0.8.0
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
-        if: contains(matrix.scenario, 'identite')
+        if: contains(matrix.scenario, 'identite') || contains(matrix.scenario, 'ec2')
         with:
           tofu_wrapper: false
+      - name: Ansible (déploiement par SSH)
+        if: contains(matrix.scenario, 'ec2') && (inputs.scenario == '' || inputs.scenario == matrix.scenario)
+        run: pipx install ansible-core==2.19.4 && ansible-playbook --version | head -1
       - name: age (SOPS)
         if: contains(matrix.scenario, 'sops')
         # sops du poste de l'opérateur (secrets-seed.sh) ; la CI générée installe le sien, vérifié, dans $HOME

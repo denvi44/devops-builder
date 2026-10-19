@@ -7,6 +7,7 @@
 #   scripts/tf-inventory.sh --first <environnement>  affiche la première adresse (déploiement SSH)
 #
 # Environnements : dev, recette, production. TF=tofu|terraform (défaut : tofu). Il faut jq et l'accès à l'état distant.
+# TF_DIR=<dossier>  lit la pile d'un autre dossier (par exemple celui que garde KEEP=1 scripts/tf-floci.sh apply).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -21,7 +22,7 @@ case "$ENV_ID" in
   *) echo "Environnement inconnu : $ENV_ID (attendu : dev, recette, production)" >&2; exit 2 ;;
 esac
 
-cd "$ROOT/infra/terraform"
+cd "${TF_DIR:-$ROOT/infra/terraform}"
 if [ ! -d .terraform ]; then "$TF_BIN" init -input=false >/dev/null; fi
 mapfile -t HOSTS < <("$TF_BIN" output -json hosts | jq -r --arg g "$GROUP" '.[$g][]? // empty')
 if [ "${#HOSTS[@]}" -eq 0 ]; then

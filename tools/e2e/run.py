@@ -842,6 +842,77 @@ PY
     ]
 
 
+def _ec2_steps(out: Path, ir) -> list[Step]:
+    """Chaîne d'un modèle de machines, sans compte cloud : la pile OpenTofu jouée sur Floci, l'inventaire Ansible
+    relu dans son état par scripts/tf-inventory.sh, puis site.yml et deploy.yml exécutés par SSH sur le poste de
+    test (Floci rend 127.0.0.1 comme adresse des machines), l'image venant d'un registre local."""
+    from devops_builder.ir import FLOCI_IMAGE
+    work = out.parent
+    key, tfdir, app_dir = work / "deploy_key", work / "tfdir", f"/opt/{ir.app}"
+    image = f"localhost:5000/{ir.app}:e2e"
+    host = "boutique.test"
+    env = {"ANSIBLE_CONFIG": str(out / "ansible" / "ansible.cfg"), "ANSIBLE_PRIVATE_KEY_FILE": str(key),
+           "FLOCI_ENDPOINT": "http://localhost:4566", "TF_IN_AUTOMATION": "1"}
+    play = f"cd {out} && ansible-playbook -i ansible/inventories/staging.ini"
+    password = secrets.token_hex(12)
+    curlrc = work / "curl"
+    curlrc.mkdir(parents=True, exist_ok=True)
+    cenv = _curl_env(str(curlrc), host)
+    deploy_args = f"ansible/deploy.yml -e image={image} -e app_host={host}"
+    return [
+        Step("Registre local et image de l'application",
+             f"docker build -t {image} {APP_DIR}\n"
+             "docker run -d --name e2e-registry -p 5000:5000 registry:3\n"
+             f"for _ in $(seq 1 30); do curl -fsS http://localhost:5000/v2/ >/dev/null && break; sleep 1; done\n"
+             f"docker push {image}"),
+        Step("Floci démarré (émulateur AWS)",
+             f"docker run -d --name e2e-floci -p 4566:4566 -u root -v /var/run/docker.sock:/var/run/docker.sock "
+             f"-e FLOCI_DEFAULT_REGION=eu-west-3 {FLOCI_IMAGE}\n"
+             "for _ in $(seq 1 60); do curl -fsS http://localhost:4566/_localstack/health >/dev/null && exit 0; "
+             "sleep 1; done; exit 1"),
+        Step("scripts/tf-floci.sh apply (KEEP=1 : ressources et état gardés)",
+             f"cd {out} && KEEP=1 scripts/tf-floci.sh apply | tee {work}/floci.log\n"
+             f"sed -n 's/^==> Dossier de travail conservé : //p' {work}/floci.log > {tfdir}\n"
+             f"test -s {tfdir}", env=env, evidence=True),
+        Step("scripts/tf-inventory.sh staging relit l'état (TF_DIR)",
+             f"cd {out} && TF_DIR=\"$(cat {tfdir})\" scripts/tf-inventory.sh staging\n"
+             "cat ansible/inventories/staging.ini\n"
+             "grep -qx 127.0.0.1 ansible/inventories/staging.ini", env=env, evidence=True),
+        Step("Poste de test joué en machine : sshd, utilisateur deploy, sudo, groupe docker",
+             "sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends openssh-server\n"
+             "sudo mkdir -p /run/sshd\n"
+             "id deploy >/dev/null 2>&1 || sudo useradd -m -s /bin/bash deploy\n"
+             "sudo usermod -aG docker deploy\n"
+             "echo 'deploy ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/deploy >/dev/null\n"
+             f"rm -f {key} {key}.pub && ssh-keygen -q -t ed25519 -N '' -f {key}\n"
+             "sudo install -d -m 700 -o deploy -g deploy /home/deploy/.ssh\n"
+             f"sudo install -m 600 -o deploy -g deploy {key}.pub /home/deploy/.ssh/authorized_keys\n"
+             "sudo systemctl restart ssh\n"
+             f"for _ in $(seq 1 20); do ssh -i {key} -o StrictHostKeyChecking=accept-new deploy@127.0.0.1 true "
+             "&& exit 0; sleep 1; done; exit 1"),
+        Step("Collections Ansible (requirements.yml)",
+             f"ansible-galaxy collection install -r {out}/ansible/requirements.yml", env=env),
+        Step("ansible/site.yml : hôte préparé", f"{play} ansible/site.yml", env=env, evidence=True),
+        Step("deploy/secrets.sh : secrets lus par deploy.yml (.secrets)",
+             f"cd {out} && POSTGRESQL_PASSWORD={password} sh deploy/secrets.sh .secrets", env=env),
+        Step("ansible/deploy.yml : application déployée", f"{play} {deploy_args}", env=env, evidence=True),
+        Step("L'application répond derrière Traefik et joint sa base (/db)",
+             f"curl -fsS https://{host}/db", retries=20, env=cenv, evidence=True),
+        Step("ansible/deploy.yml rejoué : sans échec ni hôte injoignable",
+             f"{play} {deploy_args} | tee {work}/replay.log\n"
+             f"grep -E 'ok=[0-9]+ .*failed=0 .*unreachable=0' {work}/replay.log", env=env, evidence=True),
+        Step("Journaux des services", f"sudo docker compose --project-directory {app_dir} -p {ir.app} ps -a; "
+             f"sudo docker compose --project-directory {app_dir} -p {ir.app} logs --tail=25", always=True),
+        Step("Arrêt de l'application et suppression des volumes",
+             f"sudo docker compose --project-directory {app_dir} -p {ir.app} down -v --remove-orphans; "
+             f"sudo rm -rf {app_dir}", always=True),
+        Step("tofu destroy des ressources gardées sur Floci",
+             f"d=\"$(cat {tfdir} 2>/dev/null || true)\"; [ -n \"$d\" ] && tofu -chdir=\"$d\" destroy "
+             "-input=false -no-color -auto-approve; true", always=True, env=env),
+        Step("Arrêt de Floci et du registre local", "docker rm -f e2e-floci e2e-registry || true", always=True),
+    ]
+
+
 def _bases_dediees_steps(out: Path, ir) -> list[Step]:
     """Gitea (PostgreSQL), Grafana (MariaDB) et une deuxième instance de Grafana (PostgreSQL) derrière Traefik :
     chaque outil écrit dans SA base, vérifiée dans la base elle-même (tables créées par l'outil)."""
@@ -943,6 +1014,12 @@ SCENARIOS = {s.name: s for s in [
              "relues dans sa propre base",
              lambda: _bases_project(),
              _bases_dediees_steps, ("docker", "curl", "jq")),
+    Scenario("aws-ec2-chaine", "Modèle AWS EC2 sans compte : pile OpenTofu sur Floci, inventaire relu dans son état, "
+             "site.yml et deploy.yml d'Ansible par SSH, application derrière Traefik, puis destroy",
+             lambda: _with(_project("vm", *GH, "aws", "ansible", "aws-ec2", "opentofu", "s3", "postgresql",
+                                    "docker-compose", "traefik", "floci"),
+                           traefik={"app_hostname": "boutique.test"}),
+             _ec2_steps, ("docker", "tofu", "ansible-playbook", "ansible-galaxy", "jq", "curl", "ssh-keygen")),
     Scenario("gitea-renovate", "Renovate lancé comme le workflow Gitea généré, contre une vraie forge Gitea : "
              "tableau de bord et demandes de fusion sur les images du dépôt",
              _starter(hosting="docker-host", forge="gitea", ci="gitea-actions", database="postgresql"),
