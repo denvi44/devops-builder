@@ -35,13 +35,13 @@ class ParamForm(QWidget):
         super().__init__(parent)
         self.tool, self.brick, self.project, self.env = tool, brick, project, env
         # Mode brique : valeurs communes ; mode environnement : surcharges de cet environnement.
-        self.source: dict[str, Any] = dict(env.overrides.get(tool.id, {}) if env else brick.params)
+        self.source: dict[str, Any] = dict(env.overrides.get(brick.service_id, {}) if env else brick.params)
         self.editors: dict[str, QWidget] = {}
         self.errors: dict[str, QLabel] = {}
         self.unknown: dict[str, Any] = {k: v for k, v in self.source.items() if k not in tool.param_schema}
         self.inherited: dict[str, Any] = {}
         if env is not None:
-            bare = env.model_copy(update={"overrides": {k: v for k, v in env.overrides.items() if k != tool.id}})
+            bare = env.model_copy(update={"overrides": {k: v for k, v in env.overrides.items() if k != brick.service_id}})
             self.inherited = effective_params(tool, brick, project, bare)
 
         lay = QVBoxLayout(self)

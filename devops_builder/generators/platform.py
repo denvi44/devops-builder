@@ -134,6 +134,7 @@ COMPOSE_SERVICES: dict[str, dict] = {
 
 
 def install_script(ir: IR) -> dict[str, str]:
+    from ..instances import chart_namespace as instance_namespace
     from . import entree, identity, secrets
     from .data import cnpg_backup
     from .extras import embedded_components
@@ -167,25 +168,30 @@ def install_script(ir: IR) -> dict[str, str]:
     if idp_lines and not after_cnpg:  # le fournisseur d'identité avant les outils qui s'y branchent
         lines += idp_lines
         idp_lines = []
-    for t in present:
+    units = [(t, b) for t in present for b in entree.instances_of(ir, t)]
+    for t, brick in units:
         c = PLATFORM_CHARTS[t]
         tool = ir.catalog[t]
-        lines.append(f"# {tool.name}" + (f" — {c.note}" if c.note else ""))
+        release, ns = brick.service_id, instance_namespace(t, brick)
+        lines.append(f"# {tool.name}" + (f" (instance {brick.instance})" if brick.instance else "")
+                     + (f" — {c.note}" if c.note else ""))
         if t == "istio":
             lines.append("helm upgrade --install istio-base istio/base --namespace istio-system --create-namespace")
         if t == "linkerd":
             lines.append("helm upgrade --install linkerd-crds linkerd-edge/linkerd-crds --namespace linkerd --create-namespace")
         args = f" {c.args}" if c.args else ""
         if t == "sonarqube":  # le chart exige l'édition et un code de sonde (sinon il refuse de s'installer)
-            lines += ["kubectl create namespace sonarqube --dry-run=client -o yaml | kubectl apply -f -",
-                      "kubectl -n sonarqube get secret sonarqube-monitoring >/dev/null 2>&1 || kubectl -n sonarqube "
-                      'create secret generic sonarqube-monitoring --from-literal=passcode="$(openssl rand -hex 16)"']
-            args += (" --set community.enabled=true --set monitoringPasscodeSecretName=sonarqube-monitoring"
+            secret = f"{release}-monitoring"
+            lines += [f"kubectl create namespace {ns} --dry-run=client -o yaml | kubectl apply -f -",
+                      f"kubectl -n {ns} get secret {secret} >/dev/null 2>&1 || kubectl -n {ns} "
+                      f'create secret generic {secret} --from-literal=passcode="$(openssl rand -hex 16)"']
+            args += (f" --set community.enabled=true --set monitoringPasscodeSecretName={secret}"
                      " --set monitoringPasscodeSecretKey=passcode")
-        pre_idp, idp_args = identity.chart_args(ir, t)
-        lines += pre_idp
-        args += idp_args
-        args += entree.chart_args(ir, t)
+        if not brick.instance:   # connexion unique : seule l'instance principale est branchée au fournisseur
+            pre_idp, idp_args = identity.chart_args(ir, t)
+            lines += pre_idp
+            args += idp_args
+        args += entree.chart_args(ir, t, brick)
         if t == "cert-manager":
             args += entree.cert_manager_args(ir)
         store_file = t == "external-secrets" and secrets.eso(ir)
@@ -193,7 +199,7 @@ def install_script(ir: IR) -> dict[str, str]:
             pre, extra = secrets.eso_helm_args(ir)
             lines += pre
             args += extra + " --wait"  # CRD et webhook prêts avant le ClusterSecretStore
-        lines.append(f"helm upgrade --install {t} {c.chart} --namespace {c.namespace} --create-namespace{args}")
+        lines.append(f"helm upgrade --install {release} {c.chart} --namespace {ns} --create-namespace{args}")
         if store_file:
             lines.append(f'kubectl apply -f "$(dirname "$0")/{secrets.STORE_FILE.split("/", 1)[1]}"')
         if t == "cloudnative-pg" and after_cnpg:

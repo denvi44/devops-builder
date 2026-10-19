@@ -105,3 +105,51 @@ def test_suggest_name():
     p = compose()
     assert suggest_name(p, "gitea") == "3"
     assert suggest_name(p, "grafana") == "2"
+
+
+def kube(ingress: str = "traefik") -> Project:
+    p = Project(name="t", target="kubernetes", environments=env_preset("staging-prod"))
+    for t in ("gitlab", "gitlab-ci", "buildkit", "helm", "k3s", ingress, "grafana", "gitea", "jaeger", "cert-manager"):
+        p.add(t, CATALOG[t].stage)
+    for t, name in (("grafana", "equipe-b"), ("gitea", "2"), ("jaeger", "perf")):
+        p.add(t, CATALOG[t].stage, instance=name)
+    return p
+
+
+def install(p: Project) -> list[str]:
+    return generate(p, CATALOG).files["platform/install.sh"].splitlines()
+
+
+def test_helm_une_release_par_instance():
+    lines = install(kube())
+    releases = [ln.split()[3] for ln in lines if ln.startswith("helm upgrade --install")]
+    assert {"grafana", "grafana-equipe-b", "gitea", "gitea-2"} <= set(releases)
+    b = next(ln for ln in lines if ln.startswith("helm upgrade --install grafana-equipe-b "))
+    assert "--namespace monitoring-equipe-b" in b or "-equipe-b" in b.split("--namespace")[1].split()[0]
+    assert "grafana-equipe-b.example.com" in b
+    assert "grafana.example.com" in next(ln for ln in lines if ln.startswith("helm upgrade --install grafana "))
+
+
+def test_helm_https_par_instance():
+    b = next(ln for ln in install(kube()) if ln.startswith("helm upgrade --install grafana-equipe-b "))
+    assert "grafana-equipe-b-tls" in b
+
+
+def test_ingress_manifeste_par_instance():
+    f = generate(kube(), CATALOG).files
+    docs = list(yaml.safe_load_all(f["platform/ingress.yaml"]))
+    by_name = {d["metadata"]["name"]: d for d in docs}
+    assert {"jaeger", "jaeger-perf"} <= set(by_name)
+    assert by_name["jaeger-perf"]["metadata"]["namespace"] != by_name["jaeger"]["metadata"]["namespace"]
+    assert by_name["jaeger-perf"]["spec"]["rules"][0]["host"] == "jaeger-perf.example.com"
+    assert by_name["jaeger-perf"]["spec"]["rules"][0]["http"]["paths"][0]["backend"]["service"]["name"] == "jaeger-perf"
+
+
+def test_gateway_routes_par_instance():
+    f = generate(kube("envoy-gateway"), CATALOG).files
+    docs = list(yaml.safe_load_all(f["platform/gateway.yaml"]))
+    routes = {d["metadata"]["name"]: d for d in docs if d["kind"] == "HTTPRoute"}
+    assert {"grafana", "grafana-equipe-b", "gitea-2"} <= set(routes)
+    assert routes["grafana-equipe-b"]["spec"]["hostnames"] == ["grafana-equipe-b.example.com"]
+    gateway = next(d for d in docs if d["kind"] == "Gateway")
+    assert any(ln.get("hostname") == "grafana-equipe-b.example.com" for ln in gateway["spec"]["listeners"])

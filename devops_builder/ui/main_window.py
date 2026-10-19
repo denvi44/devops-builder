@@ -206,6 +206,7 @@ class MainWindow(QMainWindow):
         self.properties = PropertiesPanel(self.catalog)
         self.properties.paramsChanged.connect(self.set_params)
         self.properties.overridesChanged.connect(self.set_overrides)
+        self.properties.instanceChanged.connect(self.set_instance)
         self.properties.removeRequested.connect(self.remove_brick)
         self.properties.addRequested.connect(lambda tid: self.add_tool(None, tid, -1))
         self.properties.ficheRequested.connect(self.edit_fiche)
@@ -501,6 +502,9 @@ class MainWindow(QMainWindow):
         if tool is None:
             return
         existing = self.project.bricks_for(tool_id)
+        if existing and tool.multi:
+            self._add_instance(tool, stage, index)
+            return
         if existing:
             self.selected = existing[0].uid
             self.statusBar().showMessage(f"{tool.name} est déjà dans le pipeline.", 4000)
@@ -519,6 +523,48 @@ class MainWindow(QMainWindow):
         self.mutate(f"Ajouter {tool.name}", do)
         self.statusBar().showMessage(f"{tool.name} ajouté à l'étape {STAGE_LABELS[target_stage]} — {self.summary.text()}",
                                      5000)
+
+    def _add_instance(self, tool, stage: str | None, index: int) -> None:
+        """Outil déjà posé et qui accepte plusieurs instances : demander le nom de la nouvelle."""
+        from PySide6.QtWidgets import QInputDialog
+
+        from ..instances import check_name, suggest_name
+        taken = {b.service_id for b in self.project.bricks_for(tool.id)}
+        name, ok = QInputDialog.getText(
+            self, f"Nouvelle instance de {tool.name}",
+            f"{tool.name} est déjà dans le pipeline. Nom de la nouvelle instance (lettres minuscules, chiffres, "
+            "tirets) :", text=suggest_name(self.project, tool.id))
+        name = name.strip()
+        if not ok:
+            return
+        problem = check_name(name) or ("un nom est requis" if not name else None)
+        if problem is None and f"{tool.id}-{name}" in taken:
+            problem = "une instance porte déjà ce nom"
+        if problem:
+            self.statusBar().showMessage(f"Nom d'instance refusé : {problem}.", 5000)
+            return
+        self.add_instance(tool.id, name, stage, index)
+
+    def add_instance(self, tool_id: str, name: str, stage: str | None = None, index: int = -1) -> None:
+        tool = self.catalog[tool_id]
+        target_stage = stage or tool.stage
+        if not tool.can_go_in(target_stage):
+            self._explain_refusal(tool_id, target_stage)
+            return
+
+        def do(p: Project) -> None:
+            b = p.add(tool_id, target_stage, None if index is None or index < 0 else index, instance=name)
+            self.selected = b.uid
+
+        self.mutate(f"Ajouter {tool.name} ({name})", do)
+        self.statusBar().showMessage(f"{tool.name} ({name}) ajouté à l'étape {STAGE_LABELS[target_stage]}.", 5000)
+
+    def set_instance(self, uid: str, name: str) -> None:
+        def do(p: Project) -> None:
+            f = p.find(uid)
+            if f:
+                f[2].instance = name
+        self.mutate("Renommer l'instance", do)
 
     def move_brick(self, uid: str, stage: str, index: int) -> None:
         found = self.project.find(uid)

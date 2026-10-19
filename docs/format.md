@@ -68,6 +68,7 @@ de briques :
 | `uid` | texte | Identifiant de la brique dans le projet (8 caractères) |
 | `tool` | texte | Identifiant de la fiche du catalogue, ou d'une entrée du Landscape (`lsc-…`) |
 | `params` | dictionnaire | Paramètres de la brique ; leur liste et leur type sont donnés par la fiche |
+| `instance` | texte | Nom de l'instance (0.21, non écrit si vide) : plusieurs briques du même outil se distinguent par ce nom. Identifiant de service : `<outil>-<nom>` ; lettres minuscules, chiffres et tirets |
 
 ## Migrations
 

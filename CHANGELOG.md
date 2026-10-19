@@ -34,6 +34,11 @@ catalogue, et des variantes sans Kubernetes ; un écran d'accueil qui dit par o�
   changer et un avertissement R34 de plus (adresse d'exemple).
 
 ### Ajouté
+- **Plusieurs instances d'un même outil** : deux Grafana, deux Gitea, deux SonarQube… Chaque brique d'un outil
+  « multi » porte un nom d'instance (champ `instance`, propriétés de la brique, demande à l'ajout). L'instance
+  nommée a son service Compose (`grafana-equipe-b`) ou sa release Helm, ses volumes, son adresse, ses ports
+  décalés sans entrée, son Ingress ou sa HTTPRoute et son certificat. Plan de ports et vue Réseau suivent. Règle
+  R55 (nom invalide, doublon, outil à instance unique). Les projets existants ne changent pas.
 - **Modèles de pipeline par fournisseur** (`devops_builder/modeles.py`) : AWS (EKS, ECS Fargate, EC2), Google
   Cloud (GKE, Cloud Run), Azure (AKS, machines virtuelles), OVHcloud (Managed Kubernetes, instances), Scaleway
   (Kapsule, instance Docker) et Outscale (SecNumCloud, machines). Chacun réunit les services du fournisseur

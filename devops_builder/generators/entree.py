@@ -25,6 +25,24 @@ CHART_SERVICES = {"grafana": ("grafana", 80), "sonarqube": ("sonarqube", 9000), 
 MANIFEST_ROUTED = ("jaeger",)
 
 
+def instances_of(ir: IR, tool: str) -> list:
+    """Briques à installer pour un outil : toutes celles d'un outil « multi », la première sinon."""
+    bricks = ir.project.bricks_for(tool)
+    return bricks if ir.catalog[tool].multi else bricks[:1]
+
+
+def service_name(tool: str, brick) -> str:
+    """Nom du Service Kubernetes : celui du chart, dont le préfixe est le nom de la release."""
+    svc = CHART_SERVICES[tool][0]
+    return svc.replace(tool, brick.service_id, 1) if brick is not None and svc.startswith(tool) else svc
+
+
+def namespace_of(tool: str, brick) -> str:
+    from ..instances import chart_namespace
+    from .platform import PLATFORM_CHARTS
+    return chart_namespace(tool, brick) if brick is not None else PLATFORM_CHARTS[tool].namespace
+
+
 def controller(ir: IR) -> tuple[str, str | None] | None:
     """(brique, classe d'Ingress) du contrôleur d'entrée ; classe None pour la Gateway API."""
     from .identity import kube_target
@@ -150,8 +168,9 @@ def kustomize_resource(ir: IR, env) -> dict | None:
 ANNOTATION = "cert-manager\\.io/cluster-issuer=" + ISSUER   # point échappé : clé Helm --set
 
 
-def _tls_args(tool: str, host: str) -> str:
+def _tls_args(tool: str, host: str, release: str = "") -> str:
     """Options Helm qui demandent un certificat à cert-manager pour l'Ingress d'une brique."""
+    release = release or tool
     prefix = {"jenkins": "controller.ingress", "argo-workflows": "server.ingress"}.get(tool, "ingress")
     if tool == "argo-cd":
         return f" --set server.ingress.tls=true --set 'server.ingress.annotations.{ANNOTATION}'"
@@ -161,24 +180,24 @@ def _tls_args(tool: str, host: str) -> str:
     if tool == "harbor":
         return (f" --set 'expose.ingress.annotations.{ANNOTATION}' --set expose.tls.certSource=secret"
                 " --set expose.tls.secret.secretName=harbor-tls")
-    return (f" --set '{prefix}.annotations.{ANNOTATION}' --set '{prefix}.tls[0].secretName={tool}-tls'"
+    return (f" --set '{prefix}.annotations.{ANNOTATION}' --set '{prefix}.tls[0].secretName={release}-tls'"
             f" --set '{prefix}.tls[0].hosts[0]={host}'")
 
 
-def chart_args(ir: IR, tool: str) -> str:
+def chart_args(ir: IR, tool: str, brick=None) -> str:
     """Options Helm qui placent l'interface web d'une brique derrière le contrôleur."""
-    args = _routing_args(ir, tool)
+    args = _routing_args(ir, tool, brick)
     c = controller(ir)
     if args and c and c[1] and https(ir):
-        args += _tls_args(tool, routed_hostname(ir.project, tool))
+        args += _tls_args(tool, routed_hostname(ir.project, tool, brick), brick.service_id if brick else "")
     return args
 
 
-def _routing_args(ir: IR, tool: str) -> str:
+def _routing_args(ir: IR, tool: str, brick=None) -> str:
     c = controller(ir)
     if not c or tool not in KUBE_ROUTED or tool in MANIFEST_ROUTED:
         return ""
-    cls, host = c[1], routed_hostname(ir.project, tool)
+    cls, host = c[1], routed_hostname(ir.project, tool, brick)
     if cls is None:   # Gateway API : la route est dans platform/gateway.yaml ; réglages du chart pour être derrière elle
         return {"argo-cd": " --set configs.params.server.insecure=true",
                 "harbor": f" --set expose.type=clusterIP --set expose.tls.enabled=false --set externalURL=https://{host}"
@@ -242,21 +261,21 @@ def ingress_file(ir: IR, present: list[str]) -> dict[str, str]:
     c = controller(ir)
     if not c or not c[1]:
         return {}
-    from .platform import PLATFORM_CHARTS
     docs = []
-    for tool in present:
+    for tool, brick in ((t, b) for t in present for b in instances_of(ir, t)):
         if tool in MANIFEST_ROUTED and tool in CHART_SERVICES:
-            svc, port = CHART_SERVICES[tool]
-            host = routed_hostname(ir.project, tool)
+            port = CHART_SERVICES[tool][1]
+            svc, name = service_name(tool, brick), brick.service_id
+            host = routed_hostname(ir.project, tool, brick)
             ingress: dict = {"apiVersion": "networking.k8s.io/v1", "kind": "Ingress",
-                             "metadata": {"name": tool, "namespace": PLATFORM_CHARTS[tool].namespace},
+                             "metadata": {"name": name, "namespace": namespace_of(tool, brick)},
                              "spec": {"ingressClassName": c[1],
                                       "rules": [{"host": host, "http": {"paths": [{
                                           "path": "/", "pathType": "Prefix",
                                           "backend": {"service": {"name": svc, "port": {"number": port}}}}]}}]}}
             if https(ir):
                 ingress["metadata"]["annotations"] = {"cert-manager.io/cluster-issuer": ISSUER}
-                ingress["spec"]["tls"] = [{"hosts": [host], "secretName": f"{tool}-tls"}]
+                ingress["spec"]["tls"] = [{"hosts": [host], "secretName": f"{name}-tls"}]
             docs.append(ingress)
     if not docs:
         return {}
@@ -269,7 +288,6 @@ def gateway_file(ir: IR, present: list[str]) -> dict[str, str]:
     """Gateway et routes des briques de plateforme avec Envoy Gateway (platform/gateway.yaml)."""
     if not gateway_api(ir):
         return {}
-    from .platform import PLATFORM_CHARTS
     listeners: list[dict] = [{"name": "http", "protocol": "HTTP", "port": 80,
                               "allowedRoutes": {"namespaces": {"from": "All"}}}]
     gateway: dict = {"apiVersion": "gateway.networking.k8s.io/v1", "kind": "Gateway",
@@ -278,7 +296,8 @@ def gateway_file(ir: IR, present: list[str]) -> dict[str, str]:
     if https(ir):   # un listener HTTPS par nom d'hôte ; cert-manager (Gateway API activée) y dépose le certificat
         gateway["metadata"]["annotations"] = {"cert-manager.io/cluster-issuer": ISSUER}
         hosts = [(f"app-{e.id}", app_hostname(ir.project, e)) for e in ir.envs]
-        hosts += [(t, routed_hostname(ir.project, t)) for t in present if t in KUBE_ROUTED and t in CHART_SERVICES]
+        hosts += [(b.service_id, routed_hostname(ir.project, t, b)) for t in present
+                  if t in KUBE_ROUTED and t in CHART_SERVICES for b in instances_of(ir, t)]
         for name, host in dict.fromkeys(hosts):
             listeners.append({"name": f"https-{name}", "protocol": "HTTPS", "port": 443, "hostname": host,
                               "tls": {"mode": "Terminate", "certificateRefs": [{"name": f"{name}-tls"}]},
@@ -286,13 +305,13 @@ def gateway_file(ir: IR, present: list[str]) -> dict[str, str]:
     docs: list[dict] = [
         {"apiVersion": "gateway.networking.k8s.io/v1", "kind": "GatewayClass", "metadata": {"name": "eg"},
          "spec": {"controllerName": "gateway.envoyproxy.io/gatewayclass-controller"}}, gateway]
-    for tool in present:
+    for tool, brick in ((t, b) for t in present for b in instances_of(ir, t)):
         if tool in KUBE_ROUTED and tool in CHART_SERVICES:
-            svc, port = CHART_SERVICES[tool]
+            svc, port = service_name(tool, brick), CHART_SERVICES[tool][1]
             docs.append({"apiVersion": "gateway.networking.k8s.io/v1", "kind": "HTTPRoute",
-                         "metadata": {"name": tool, "namespace": PLATFORM_CHARTS[tool].namespace},
+                         "metadata": {"name": brick.service_id, "namespace": namespace_of(tool, brick)},
                          "spec": {"parentRefs": [{"name": GATEWAY, "namespace": GATEWAY_NS}],
-                                  "hostnames": [routed_hostname(ir.project, tool)],
+                                  "hostnames": [routed_hostname(ir.project, tool, brick)],
                                   "rules": [{"backendRefs": [{"name": svc, "port": port}]}]}})
     ir.notes.append("Envoy Gateway : platform/gateway.yaml déclare la GatewayClass, la Gateway (HTTP, port 80"
                     + (", un listener HTTPS par nom d'hôte, certificats cert-manager" if https(ir) else

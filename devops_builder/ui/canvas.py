@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..catalog import Catalog
+from ..instances import label as instance_label
 from ..model import STAGES, SUPPORT, Project
 from . import theme
 from .a11y import DecorativeIcon
@@ -368,7 +369,7 @@ class PipelineCanvas(QScrollArea):
             for b in bricks:
                 t = catalog.get(b.tool)
                 item = QListWidgetItem()
-                name = t.name if t else b.tool
+                name = instance_label(t, b)
                 item.setData(R_UID, b.uid)
                 item.setData(R_TOOL, b.tool)
                 item.setData(R_NAME, name)

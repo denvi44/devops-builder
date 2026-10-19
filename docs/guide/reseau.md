@@ -35,6 +35,18 @@ schéma tire une flèche de l'entrée vers chacun. Avec cert-manager dans le pip
 les interfaces en HTTPS (certificats Let's Encrypt, `platform/cluster-issuer.yaml`) ; sans lui, elle reste en HTTP
 et la règle R54 propose de l'ajouter.
 
+## Plusieurs instances d'un même outil
+
+Les outils qui s'y prêtent (Grafana, Gitea, SonarQube, Jenkins, Zot, MinIO, Prometheus, Loki, Jaeger, Tempo,
+OpenSearch, collecteur OpenTelemetry…) peuvent être posés plusieurs fois. Dans l'application : ajoutez l'outil une
+deuxième fois (glisser-déposer ou double-clic dans la palette), saisissez le nom de la nouvelle instance, ou
+renommez une brique dans ses propriétés (champ « Nom de l'instance »). Chaque instance reçoit son identifiant
+(`grafana-equipe-b`), son service Compose ou sa release Helm, ses volumes, sa configuration d'environnement, son
+adresse (`grafana-equipe-b.<domaine>` derrière l'entrée) et, sans entrée, ses ports publiés décalés de 100 par rang.
+Sur Kubernetes, l'instance nommée est installée dans l'espace de noms du chart suffixé de son nom. Le schéma
+montre un nœud « Grafana (equipe-b) » par instance. La règle R55 signale un nom invalide ou en double, et un outil
+qui n'accepte qu'une instance. Limites : la connexion unique (SSO) n'est branchée qu'à l'instance principale.
+
 ## Lire les erreurs sur le schéma
 
 Une pastille sur un composant dit qu'un constat le concerne : **disque barré** pour une erreur bloquante,

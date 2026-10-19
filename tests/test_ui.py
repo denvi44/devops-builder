@@ -12,6 +12,7 @@ pytest.importorskip("PySide6")
 
 from devops_builder.catalog import DATA_DIR  # noqa: E402
 from devops_builder.model import Project  # noqa: E402
+from devops_builder.ui.canvas import R_NAME  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -658,3 +659,42 @@ def test_fenetre_tient_sur_un_ecran_de_portable(win):
     """Régression 0.5 : la fenêtre imposait 1 776 px de large, plus que l'écran d'un MacBook."""
     win._load(Project.load(DATA_DIR / "examples" / "02-api-k3s-gitops.devops.yaml"), None)
     assert win.minimumSizeHint().width() <= 1280
+
+
+def test_plusieurs_instances_d_un_outil(win, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog
+    win._load(Project(name="t"), None)
+    win.add_tool(None, "grafana", -1)
+    monkeypatch.setattr(QInputDialog, "getText", staticmethod(lambda *a, **k: ("equipe-b", True)))
+    win.add_tool(None, "grafana", -1)   # outil « multi » déjà posé : une deuxième instance, nommée
+    assert [b.service_id for b in win.project.bricks_for("grafana")] == ["grafana", "grafana-equipe-b"]
+    col = win.canvas.columns[win.catalog["grafana"].stage].list
+    assert [col.item(i).data(R_NAME) for i in range(col.count())] == ["Grafana", "Grafana (equipe-b)"]
+    win.undo_stack.undo()
+    assert len(win.project.bricks_for("grafana")) == 1
+
+
+def test_nom_d_instance_refuse(win, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog
+    win._load(Project(name="t"), None)
+    win.add_tool(None, "grafana", -1)
+    monkeypatch.setattr(QInputDialog, "getText", staticmethod(lambda *a, **k: ("Mauvais Nom", True)))
+    win.add_tool(None, "grafana", -1)
+    assert len(win.project.bricks_for("grafana")) == 1
+
+
+def test_outil_non_multi_pas_de_deuxieme_exemplaire(win):
+    win._load(Project(name="t"), None)
+    win.add_tool(None, "harbor", -1)
+    win.add_tool(None, "harbor", -1)
+    assert len(win.project.bricks_for("harbor")) == 1
+
+
+def test_renommer_une_instance_depuis_les_proprietes(win):
+    win._load(Project(name="t"), None)
+    win.add_tool(None, "grafana", -1)
+    uid = win.project.bricks_for("grafana")[0].uid
+    win.set_instance(uid, "equipe-a")
+    assert win.project.bricks_for("grafana")[0].service_id == "grafana-equipe-a"
+    win.undo_stack.undo()
+    assert win.project.bricks_for("grafana")[0].service_id == "grafana"
