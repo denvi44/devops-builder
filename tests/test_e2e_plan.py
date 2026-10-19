@@ -29,6 +29,8 @@ def test_scenario_genere_et_planifie(name, capsys, tmp_path):
         assert "test-kind.sh" in plan or "platform/install.sh" in plan
     elif name == "gitea-renovate":   # forge jetable, toujours arrêtée ; workflow généré relu par le scénario
         assert "Arrêt de Gitea (toujours)" in plan and (out / ".gitea" / "workflows" / "renovate.yml").exists()
+    elif name == "aws-ecs-floci":   # pile OpenTofu seule, jouée par le script généré
+        assert "scripts/tf-floci.sh apply" in plan and (out / "scripts" / "tf-floci.sh").exists()
     else:
         assert "docker-compose.yml" in {p.name for p in (out / "deploy").iterdir()}
         if "secrets.sh" in plan:
