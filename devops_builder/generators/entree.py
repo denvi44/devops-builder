@@ -17,7 +17,7 @@ INGRESS_FILE = "platform/ingress.yaml"
 ISSUER, ISSUER_FILE = "letsencrypt", "platform/cluster-issuer.yaml"
 CLASSES = {"traefik": "traefik", "ingress-nginx": "nginx", "envoy-gateway": None}
 # Service Kubernetes de l'interface web des charts installés par platform/install.sh : (nom, port)
-CHART_SERVICES = {"grafana": ("grafana", 80), "sonarqube": ("sonarqube", 9000), "jenkins": ("jenkins", 8080),
+CHART_SERVICES = {"grafana": ("grafana", 80), "sonarqube": ("sonarqube-sonarqube", 9000), "jenkins": ("jenkins", 8080),
                   "gitea": ("gitea-http", 3000), "zot": ("zot", 5000), "harbor": ("harbor", 80),
                   "argo-cd": ("argo-cd-argocd-server", 80), "argo-workflows": ("argo-workflows-server", 2746),
                   "chaos-mesh": ("chaos-dashboard", 2333), "jaeger": ("jaeger", 16686)}
@@ -199,7 +199,7 @@ def _routing_args(ir: IR, tool: str, brick=None) -> str:
         return ""
     cls, host = c[1], routed_hostname(ir.project, tool, brick)
     if cls is None:   # Gateway API : la route est dans platform/gateway.yaml ; réglages du chart pour être derrière elle
-        return {"argo-cd": " --set configs.params.server.insecure=true",
+        return {"argo-cd": " --set 'configs.params.server\\.insecure=true'",
                 "harbor": f" --set expose.type=clusterIP --set expose.tls.enabled=false --set externalURL=https://{host}"
                 }.get(tool, "")
     if tool == "grafana":
@@ -211,7 +211,7 @@ def _routing_args(ir: IR, tool: str, brick=None) -> str:
                 f" --set controller.ingress.hostName={host}")
     if tool == "argo-cd":   # TLS terminé à l'entrée : le serveur parle en clair
         return (f" --set server.ingress.enabled=true --set server.ingress.ingressClassName={cls}"
-                f" --set server.ingress.hostname={host} --set configs.params.server.insecure=true")
+                f" --set server.ingress.hostname={host} --set 'configs.params.server\\.insecure=true'")
     if tool == "argo-workflows":
         return (f" --set server.ingress.enabled=true --set server.ingress.ingressClassName={cls}"
                 f" --set 'server.ingress.hosts[0]={host}'")

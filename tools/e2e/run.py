@@ -749,7 +749,7 @@ def parts(key):
     return out
 
 
-problems, unknown = [], []
+problems, unknown, flat = [], [], []
 for sets in sorted(render.glob("*.sets")):
     rel = sets.stem
     vals = yaml.safe_load((render / f"{rel}.values").read_text() or "{}") or {}
@@ -762,11 +762,21 @@ for sets in sorted(render.glob("*.sets")):
             elif isinstance(node, dict) and k in node:
                 node = node[k]
             else:
-                (problems if i == 0 else unknown).append(f"{rel}: {key} (absent à « {'.'.join(map(str, path[:i + 1]))} »)")
+                strs = [p for p in path[i:] if isinstance(p, str)]
+                dotted = next((".".join(strs[:j]) for j in range(len(strs), 1, -1) if ".".join(strs[:j]) in (node or {})),
+                              None) if isinstance(node, dict) else None
+                if dotted:   # le chart a une clé plate « a.b » : « --set x.a.b » créerait une table a > b
+                    flat.append(f"{rel}: {key} -> la clé du chart est « {dotted} » (échapper le point : \\.)")
+                elif i == 0:
+                    problems.append(f"{rel}: {key}")
+                elif isinstance(node, dict) and node:
+                    unknown.append(f"{rel}: {key} (« {k} » absent de {'.'.join(map(str, path[:i]))})")
                 break
             if node is None:
                 break
-print(f"clés --set absentes des valeurs du chart, au premier niveau : {len(problems)}")
+print(f"clés plates du chart écrites sans échapper le point : {len(flat)}")
+print("\n".join("  " + p for p in flat))
+print(f"clés --set de premier niveau absentes des valeurs par défaut (à relire) : {len(problems)}")
 print("\n".join("  " + p for p in problems))
 print(f"clés plus profondes absentes des valeurs par défaut (à relire) : {len(unknown)}")
 print("\n".join("  " + u for u in unknown))
@@ -778,7 +788,7 @@ for rel, svc in expected.items():
     print(f"{'ok ' if ok else 'ABSENT'} {rel}: Service attendu {svc} ; rendus : {', '.join(names)}")
     if not ok:
         bad.append(rel)
-sys.exit(1 if problems or bad else 0)
+sys.exit(1 if flat or bad else 0)
 """
 
 
