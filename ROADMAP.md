@@ -88,7 +88,8 @@ utilisateurs :
    l'application). Sinon, elle n'a pas sa place.
 2. Des capacités plutôt que des produits : une seule brique, par exemple « Cache managé », qui devient le service du
    cloud du projet. Huit capacités couvrent les six clouds, au lieu d'une cinquantaine de fiches.
-3. La palette ne montre que ce que le cloud du projet sait faire. À vérifier d'abord : ce que la palette filtre déjà.
+3. La palette ne montre que ce que le cloud du projet sait faire. Vérifié : elle écarte déjà tout service d'un autre
+   fournisseur que celui du projet (`compat.incompatibility`) ; une nouvelle brique n'a rien à ajouter.
 
 | Capacité | AWS | Google Cloud | Azure | Scaleway | OVHcloud | Outscale |
 |---|---|---|---|---|---|---|
@@ -105,6 +106,7 @@ Ce que chaque capacité ajoute aux fichiers générés :
 
 1. **Réseau privé** : créé une fois, puis rattaché aux machines, bases et clusters ; remplace les identifiants de
    réseau saisis à la main (ce qui bloquait l'`apply` sur Floci).
+   *Fait dans la 0.26.0* : une brique par cloud ; OVHcloud (instances et bases) reste à rattacher.
 2. **Répartiteur de charge** : devant les machines ou le cluster, avec sa sonde de santé ; adresse publique en sortie.
 3. **DNS** : la zone et l'enregistrement vers le répartiteur.
 4. **Cache managé** : le cache, et son adresse de connexion rangée dans les secrets comme la base de données.

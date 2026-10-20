@@ -258,6 +258,18 @@ def extra_cases(catalog) -> dict[str, Project]:
         bm.add("gitea", catalog["gitea"].stage, database="mariadb")
         bm.add("harbor", "artifacts", url="harbor.boutique.fr", database="postgresql")
         out["bases-dediees-mariadb-harbor"] = bm
+    # 1.1 : réseau privé — cluster managé et base du cloud, puis machines, rattachés au réseau créé par la pile
+    if catalog.get("aws-vpc"):
+        for cloud in ("aws", "gcp", "azure", "scaleway", "ovhcloud"):
+            p = build_starter(StarterAnswers(forge="gitlab", hosting="kubernetes-managed", cloud=cloud, envs="staging-prod",
+                                             database="mysql" if cloud == "azure" else "postgresql"), catalog)
+            p.add(catalog[cloud].services["network"], "infrastructure")
+            out[f"reseau-prive-cluster-{cloud}"] = p
+        for cloud in ("aws", "gcp", "azure", "scaleway", "ovhcloud", "outscale"):
+            p = build_starter(StarterAnswers(forge="gitlab", hosting="vm", cloud=cloud, envs="dev-recette-prod",
+                                             shared_host=True, secnumcloud=cloud == "outscale"), catalog)
+            p.add(catalog[cloud].services["network"], "infrastructure")
+            out[f"reseau-prive-machines-{cloud}"] = p
     return out
 
 

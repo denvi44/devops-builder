@@ -1,0 +1,148 @@
+# Mise en route — Mon projet
+
+<!-- Généré par DevOps Builder — à relire avant usage. -->
+
+Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque section se vérifie avant de passer à la suivante.
+
+## Valeurs à adapter
+
+À poser une fois dans le terminal ; les commandes suivantes les reprennent.
+
+```bash
+export REPO="groupe/projet"   # dépôt de l'application sur la forge
+export AWS_ACCOUNT_ID="123456789012"
+```
+
+## 1. État Terraform
+
+Le stockage de l'état (Amazon S3) se crée avant le premier `init` : la pile ne le crée pas, elle s'en sert.
+
+```bash
+aws s3api create-bucket --bucket mon-projet-tfstate --region eu-west-3 --create-bucket-configuration LocationConstraint=eu-west-3
+aws s3api put-bucket-versioning --bucket mon-projet-tfstate --versioning-configuration Status=Enabled
+aws s3api put-public-access-block --bucket mon-projet-tfstate --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+```
+
+## 2. Connexion de la CI au cloud
+
+La CI s'authentifie par jeton OIDC (GitLab), sans clé statique, avec deux identités : celle des jobs d'infrastructure (plan, apply), aux droits étendus parce que la pile crée réseaux, clusters et rôles, et celle des autres jobs, limitée à ce qu'ils font. GitLab ne distingue pas les jobs dans son jeton : la séparation tient aux variables, à protéger (branche main seulement). Une fois par cloud :
+
+**AWS** — fournisseur d'identité OIDC et rôles assumés par la CI ; les ARN affichés vont dans les variables CI. Un refus « AccessDenied » au déploiement nomme l'action manquante, à ajouter à la politique `deploiement`.
+
+```bash
+aws iam create-open-id-connect-provider --url https://gitlab.com --client-id-list sts.amazonaws.com
+# déploiement : pousser l'image, obtenir l'accès au cluster
+cat > /tmp/trust-ci.json <<EOF
+{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Federated": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/gitlab.com"}, "Action": "sts:AssumeRoleWithWebIdentity", "Condition": {"StringEquals": {"gitlab.com:aud": "sts.amazonaws.com", "gitlab.com:sub": "project_path:${REPO}:ref_type:branch:ref:main"}}}]}
+EOF
+cat > /tmp/policy-ci.json <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EcrConnexion",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "EcrImage",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:BatchGetImage",
+        "ecr:CompleteLayerUpload",
+        "ecr:DescribeImages",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:InitiateLayerUpload",
+        "ecr:PutImage",
+        "ecr:UploadLayerPart"
+      ],
+      "Resource": "arn:aws:ecr:eu-west-3:${AWS_ACCOUNT_ID}:repository/mon-app"
+    },
+    {
+      "Sid": "EksKubeconfig",
+      "Effect": "Allow",
+      "Action": "eks:DescribeCluster",
+      "Resource": [
+        "arn:aws:eks:eu-west-3:${AWS_ACCOUNT_ID}:cluster/mon-cluster"
+      ]
+    }
+  ]
+}
+EOF
+aws iam create-role --role-name mon-app-ci --assume-role-policy-document file:///tmp/trust-ci.json
+aws iam put-role-policy --role-name mon-app-ci --policy-name deploiement --policy-document file:///tmp/policy-ci.json
+echo "AWS_ROLE_ARN=arn:aws:iam::$AWS_ACCOUNT_ID:role/mon-app-ci"
+# infrastructure : la pile crée des rôles IAM (EKS, External Secrets) et des réseaux
+cat > /tmp/trust-infra.json <<EOF
+{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Federated": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/gitlab.com"}, "Action": "sts:AssumeRoleWithWebIdentity", "Condition": {"StringEquals": {"gitlab.com:aud": "sts.amazonaws.com", "gitlab.com:sub": "project_path:${REPO}:ref_type:branch:ref:main"}}}]}
+EOF
+aws iam create-role --role-name mon-app-ci-infra --assume-role-policy-document file:///tmp/trust-infra.json
+aws iam attach-role-policy --role-name mon-app-ci-infra --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+echo "AWS_INFRA_ROLE_ARN=arn:aws:iam::$AWS_ACCOUNT_ID:role/mon-app-ci-infra"
+```
+
+## 3. Premier apply
+
+Le premier passage se fait depuis le poste (ou par le job manuel de la CI) ; les suivants passent par la CI.
+
+```bash
+tofu -chdir=infra/terraform init
+tofu -chdir=infra/terraform plan -out=plan.tfplan
+tofu -chdir=infra/terraform apply plan.tfplan
+tofu -chdir=infra/terraform output
+```
+
+EKS donne l'administration du cluster à l'identité qui applique la pile : celle du poste au premier apply, puis le rôle d'infrastructure de la CI. Pour garder l'accès, déclarer son rôle IAM dans `cluster_admin_arns` (terraform.tfvars) ; le rôle de déploiement de la CI y entre par `ci_deploy_role_arn`.
+
+## 4. Cluster et plateforme
+
+Avec le kubeconfig du cluster, une fois :
+
+```bash
+kubectl config current-context
+bash platform/install.sh
+kubectl get pods -A | grep -v Running   # rien ne doit rester en attente
+```
+
+## 5. Secrets de l'application
+
+Valeurs dans des variables CI, une par environnement : `scripts/ci-variables.sh` les déclare (section Variables CI). Générer chaque mot de passe avec `openssl rand -hex 24`.
+
+## 6. Variables CI
+
+6 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :
+
+```bash
+bash scripts/ci-variables.sh --dry-run   # ce qui serait déclaré
+bash scripts/ci-variables.sh
+```
+
+## 7. Premier déploiement
+
+Pousser sur la branche principale : chaque environnement se déploie dans l'ordre, la production après approbation.
+
+```bash
+kubectl -n mon-app rollout status deployment/mon-app
+kubectl -n mon-app get pods
+```
+
+## 8. Poste de développement
+
+Les mêmes bases qu'en production, en version identique, sur le poste (ports liés à 127.0.0.1, mot de passe `dev`). Les fichiers de `dev/db/init/<base>/` sont joués à la création :
+
+```bash
+docker compose -f dev/db/compose.yaml up -d --wait
+set -a && . dev/db/app.env && set +a   # variables de connexion pour l'application lancée sur le poste
+docker compose -f dev/db/compose.yaml --profile outils up -d adminer   # http://127.0.0.1:8081
+```
+
+## 9. Entretien
+
+- Renovate : le job `renovate` tourne dans une planification de pipeline qui porte la variable `RENOVATE=1` (Build › Pipeline schedules, ou par l'API ci-dessous, jeton `api` dans `GITLAB_TOKEN`) ; `RENOVATE_TOKEN` : jeton de projet avec les droits `api` et `write_repository`.
+
+```bash
+sid=$(curl -fsS -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -d description=Renovate -d ref=main --data-urlencode "cron=0 4 * * 1-5" "${CI_SERVER_URL:-https://gitlab.com}/api/v4/projects/$(printf %s "$REPO" | jq -sRr @uri)/pipeline_schedules" | jq -r .id)
+curl -fsS -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -d key=RENOVATE -d value=1 "${CI_SERVER_URL:-https://gitlab.com}/api/v4/projects/$(printf %s "$REPO" | jq -sRr @uri)/pipeline_schedules/$sid/variables" >/dev/null
+```

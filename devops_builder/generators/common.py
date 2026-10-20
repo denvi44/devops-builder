@@ -113,3 +113,30 @@ def full_script(ir: IR, step, token_vars: dict[str, str] | None) -> list[str]:
         tv = token_vars.get(cloud) if token_vars else None
         lines += cloud_auth_lines(ir, cloud, tv, infra=step.stage == "infra")
     return lines + list(step.script)
+
+
+def align_attrs(text: str) -> str:
+    """Aligne les « = » des attributs consécutifs d'un même niveau, comme `tofu fmt`."""
+    import re
+    attr = re.compile(r"^(\s*)([A-Za-z_][\w-]*)(\s*)=\s(.*)$")
+    lines = text.split("\n")
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        m = attr.match(lines[i])
+        if not m or m.group(4).rstrip().endswith(("{", "[", "(", "<<-EOT", "<<EOT")):
+            out.append(lines[i])
+            i += 1
+            continue
+        run = []
+        while i < len(lines):
+            m = attr.match(lines[i])
+            if not m or (run and m.group(1) != run[0].group(1)):
+                break
+            if m.group(4).rstrip().endswith(("{", "[", "(", "<<-EOT", "<<EOT")):
+                break
+            run.append(m)
+            i += 1
+        width = max(len(r.group(2)) for r in run)
+        out += [f"{r.group(1)}{r.group(2).ljust(width)} = {r.group(4)}" for r in run]
+    return "\n".join(out)

@@ -15,7 +15,8 @@ import shlex
 from dataclasses import dataclass
 
 from ..ir import IR
-from .common import HEADER
+from . import network
+from .common import HEADER, align_attrs
 
 COMPUTE = {"aws-ec2": "aws", "gce": "gcp", "azure-vm": "azure", "scaleway-instance": "scaleway",
            "ovh-instance": "ovhcloud", "outscale-vm": "outscale"}
@@ -127,6 +128,9 @@ def _count(g: HostGroup) -> int:
 
 # ------------------------------------------------------------------ fournisseurs
 def _aws(ir: IR, gs: list[HostGroup]):
+    vpc = "\n  vpc_id      = aws_vpc.main.id" if network.present(ir, "aws-vpc") else ""
+    subnet = ("\n  subnet_id              = aws_subnet.public[count.index % 2].id"
+              if network.present(ir, "aws-vpc") else "")
     ingress = "\n\n".join(
         f'  ingress {{\n    description = "{d}"\n    from_port   = {p}\n    to_port     = {p}\n    protocol    = "tcp"\n'
         f"    cidr_blocks = {c}\n  }}"
@@ -148,7 +152,7 @@ resource "aws_key_pair" "deploy" {{
 
 resource "aws_security_group" "hosts" {{
   name        = "{ir.app}-hosts"
-  description = "SSH depuis local.ssh_cidrs, web depuis Internet"
+  description = "SSH depuis local.ssh_cidrs, web depuis Internet"{vpc}
 
 {ingress}
 
@@ -166,7 +170,7 @@ resource "aws_security_group" "hosts" {{
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "{g.params.get("instance_type", "t3.small")}"
   key_name               = aws_key_pair.deploy.key_name
-  vpc_security_group_ids = [aws_security_group.hosts.id]
+  vpc_security_group_ids = [aws_security_group.hosts.id]{subnet}
   user_data              = local.cloud_init
 
   metadata_options {{
@@ -189,9 +193,13 @@ resource "aws_security_group" "hosts" {{
 
 def _gce(ir: IR, gs: list[HostGroup]):
     ports = ", ".join(f'"{p}"' for p in _web_ports(ir))
+    vpc = network.present(ir, "gcp-vpc")
+    net = "google_compute_network.main.name" if vpc else '"default"'
+    nic = ("    network    = google_compute_network.main.id\n    subnetwork = google_compute_subnetwork.main.id"
+           if vpc else '    network = "default"')
     shared = f'''resource "google_compute_firewall" "ssh" {{
   name          = "{ir.app}-ssh"
-  network       = "default"
+  network       = {net}
   source_ranges = local.ssh_cidrs
   target_tags   = ["{ir.app}"]
 
@@ -203,7 +211,7 @@ def _gce(ir: IR, gs: list[HostGroup]):
 
 resource "google_compute_firewall" "web" {{
   name          = "{ir.app}-web"
-  network       = "default"
+  network       = {net}
   source_ranges = ["0.0.0.0/0"]
   target_tags   = ["{ir.app}"]
 
@@ -230,7 +238,7 @@ resource "google_compute_firewall" "web" {{
   }}
 
   network_interface {{
-    network = "default"
+{nic}
     access_config {{}}
   }}
 
@@ -248,7 +256,7 @@ resource "google_compute_firewall" "web" {{
 
 def _azure(ir: IR, gs: list[HostGroup]):
     web = ", ".join(f'"{p}"' for p in _web_ports(ir))
-    shared = f'''resource "azurerm_virtual_network" "hosts" {{
+    vnet = f'''resource "azurerm_virtual_network" "hosts" {{
   name                = "vnet-{ir.app}"
   address_space       = ["10.20.0.0/16"]
   location            = azurerm_resource_group.main.location
@@ -261,7 +269,10 @@ resource "azurerm_subnet" "hosts" {{
   virtual_network_name = azurerm_virtual_network.hosts.name
   address_prefixes     = ["10.20.1.0/24"]
 }}
-
+'''
+    if network.present(ir, "azure-vnet"):
+        vnet = ""   # le réseau et le sous-réseau « hosts » viennent de la brique Azure Virtual Network
+    shared = vnet + f'''
 resource "azurerm_network_security_group" "hosts" {{
   name                = "nsg-{ir.app}-hosts"
   location            = azurerm_resource_group.main.location
@@ -296,6 +307,7 @@ resource "azurerm_subnet_network_security_group_association" "hosts" {{
   subnet_id                 = azurerm_subnet.hosts.id
   network_security_group_id = azurerm_network_security_group.hosts.id
 }}'''
+    shared = shared.lstrip("\n")
     user = deploy_user(ir)
 
     def per_group(g: HostGroup) -> str:
@@ -377,6 +389,9 @@ resource "scaleway_instance_security_group" "hosts" {{
 {web}
 }}'''
 
+    pn = ("\n\n  private_network {\n    pn_id = scaleway_vpc_private_network.main.id\n  }"
+          if network.present(ir, "scaleway-vpc") else "")
+
     def per_group(g: HostGroup) -> str:
         c = _count(g)
         return f'''resource "scaleway_instance_ip" "{g.label}" {{
@@ -389,7 +404,7 @@ resource "scaleway_instance_server" "{g.label}" {{
   type              = "{g.params.get("instance_type", "PLAY2-NANO")}"
   image             = "ubuntu_noble"
   ip_id             = scaleway_instance_ip.{g.label}[count.index].id
-  security_group_id = scaleway_instance_security_group.hosts.id
+  security_group_id = scaleway_instance_security_group.hosts.id{pn}
   user_data = {{
     cloud-init = local.cloud_init
   }}
@@ -453,6 +468,8 @@ data "ovh_cloud_project_flavors" "hosts" {{
 
 def _outscale(ir: IR, gs: list[HostGroup]):
     region = ir.params("outscale").get("region", "eu-west-2")
+    vpc = network.present(ir, "outscale-net")
+    sg_net = "\n  net_id              = outscale_net.main.net_id" if vpc else ""
     web = "\n\n".join(f'  rules {{\n    from_port_range = {p}\n    to_port_range   = {p}\n    ip_protocol     = "tcp"\n'
                       f'    ip_ranges       = ["0.0.0.0/0"]\n  }}' for p in _web_ports(ir))
     shared = f'''data "outscale_images" "ubuntu" {{
@@ -474,7 +491,7 @@ resource "outscale_keypair" "deploy" {{
 
 resource "outscale_security_group" "hosts" {{
   security_group_name = "{ir.app}-hosts"
-  description         = "SSH depuis local.ssh_cidrs, web depuis Internet"
+  description         = "SSH depuis local.ssh_cidrs, web depuis Internet"{sg_net}
 }}
 
 resource "outscale_security_group_rule" "ssh" {{
@@ -496,15 +513,19 @@ resource "outscale_security_group_rule" "web" {{
 {web}
 }}'''
 
+    placement = ("  subnet_id                = outscale_subnet.main.subnet_id" if vpc
+                 else f'  placement_subregion_name = "{region}a"')
+    link_after = "\n\n  depends_on = [outscale_route.internet]" if vpc else ""
+
     def per_group(g: HostGroup) -> str:
         c = _count(g)
-        return f'''resource "outscale_vm" "{g.label}" {{
+        return align_attrs(f'''resource "outscale_vm" "{g.label}" {{
   count                    = {c}
   image_id                 = data.outscale_images.ubuntu.images[0].image_id
   vm_type                  = "{g.params.get("instance_type", "tinav6.c2r4p2")}"
   keypair_name             = outscale_keypair.deploy.keypair_name
   security_group_ids       = [outscale_security_group.hosts.security_group_id]
-  placement_subregion_name = "{region}a"
+{placement}
   user_data                = base64encode(local.cloud_init)
 
   block_device_mappings {{
@@ -528,8 +549,8 @@ resource "outscale_public_ip" "{g.label}" {{
 resource "outscale_public_ip_link" "{g.label}" {{
   count     = {c}
   vm_id     = outscale_vm.{g.label}[count.index].vm_id
-  public_ip = outscale_public_ip.{g.label}[count.index].public_ip
-}}'''
+  public_ip = outscale_public_ip.{g.label}[count.index].public_ip{link_after}
+}}''')
     return shared, per_group, lambda g: f"outscale_public_ip.{g.label}[*].public_ip"
 
 

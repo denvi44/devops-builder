@@ -21,7 +21,8 @@ from ..databases import (
     migration_command,
 )
 from ..ir import IR
-from .common import HEADER, dump_yaml, dump_yaml_docs
+from . import network
+from .common import HEADER, align_attrs, dump_yaml, dump_yaml_docs
 
 SECRETS_SCRIPT = "deploy/secrets.sh"
 BACKUP_SCRIPT = "scripts/db-backup.sh"
@@ -904,6 +905,7 @@ def _managed(ir: IR, db: Database, label: str, p: dict, prod: bool) -> tuple[str
     engine = str(p.get("engine") or "postgres")
     name = p.get("instance")
     user, dbname = db.user, db.name
+    net_aws = network.present(ir, "aws-vpc")
     if db.id == "aws-rds":
         version = p.get("version") or ENGINE_VERSIONS["aws-rds"].get(engine, "17")
         snapshot = (f'  skip_final_snapshot         = false\n  final_snapshot_identifier   = "{name}-final"'
@@ -919,8 +921,8 @@ def _managed(ir: IR, db: Database, label: str, p: dict, prod: bool) -> tuple[str
   db_name                     = "{dbname}"
   username                    = "{user}"
   manage_master_user_password = true
-  db_subnet_group_name        = var.db_subnet_group
-  vpc_security_group_ids      = var.db_security_group_ids
+  db_subnet_group_name        = {"aws_db_subnet_group.main.name" if net_aws else "var.db_subnet_group"}
+  vpc_security_group_ids      = {"[aws_security_group.db.id]" if net_aws else "var.db_security_group_ids"}
   multi_az                    = {str(prod).lower()}
   backup_retention_period     = {7 if prod else 1}
   deletion_protection         = {str(prod).lower()}
@@ -936,6 +938,11 @@ def _managed(ir: IR, db: Database, label: str, p: dict, prod: bool) -> tuple[str
         region = ir.params("gcp").get("region", "europe-west9")
         backup = ("      point_in_time_recovery_enabled = true" if engine == "postgres"
                   else "      binary_log_enabled             = true")
+        sql_ip = sql_dep = ""
+        if network.present(ir, "gcp-vpc"):   # adresse privée sur le réseau du projet, sans adresse publique
+            sql_ip = ("\n\n    ip_configuration {\n      ipv4_enabled    = false\n"
+                      "      private_network = google_compute_network.main.id\n    }")
+            sql_dep = "\n\n  depends_on = [google_service_networking_connection.private_services]"
         res = f'''resource "google_sql_database_instance" "{label}" {{
   name                = "{name}"
   database_version    = "{db_version}"
@@ -945,13 +952,13 @@ def _managed(ir: IR, db: Database, label: str, p: dict, prod: bool) -> tuple[str
   settings {{
     edition           = "ENTERPRISE"
     tier              = "{p.get("tier", "db-custom-1-3840")}"
-    availability_type = "{"REGIONAL" if prod else "ZONAL"}"
+    availability_type = "{"REGIONAL" if prod else "ZONAL"}"{sql_ip}
 
     backup_configuration {{
       enabled                        = true
 {backup}
     }}
-  }}
+  }}{sql_dep}
 }}
 
 resource "google_sql_database" "{label}" {{
@@ -979,7 +986,12 @@ resource "google_sql_user" "{label}" {{
         else:
             server, database = "azurerm_mysql_flexible_server", "azurerm_mysql_flexible_database"
             charset, collation, storage = "utf8mb4", "utf8mb4_unicode_ci", ""
-        res = f'''{_password(label)}
+        az_net = ""
+        if network.present(ir, "azure-vnet"):   # serveur flexible dans le sous-réseau délégué, sans accès public
+            az_net = ("\n  delegated_subnet_id    = azurerm_subnet.data.id\n"
+                      "  private_dns_zone_id    = azurerm_private_dns_zone.data.id\n\n"
+                      "  depends_on = [azurerm_private_dns_zone_virtual_network_link.data]")
+        res = align_attrs(f'''{_password(label)}
 
 resource "{server}" "{label}" {{
   name                   = "{name}"
@@ -989,16 +1001,18 @@ resource "{server}" "{label}" {{
   administrator_login    = "{user}"
   administrator_password = random_password.{label}.result
   sku_name               = "{sku}"
-{storage}  backup_retention_days  = {14 if prod else 7}
+{storage}  backup_retention_days  = {14 if prod else 7}{az_net}
 }}
 
 resource "{database}" "{label}" {{
 {_azure_db_body(engine, server, label, dbname, charset, collation)}
-}}'''
+}}''')
         outs = [f'output "{label}_host" {{\n  value = {server}.{label}.fqdn\n}}',
                 f'output "{label}_password" {{\n  value     = random_password.{label}.result\n  sensitive = true\n}}']
         return res, outs
     if db.id == "scaleway-rdb":
+        sw_pn = ("\n\n  private_network {\n    pn_id = scaleway_vpc_private_network.main.id\n  }"
+                 if network.present(ir, "scaleway-vpc") else "")
         res = f'''{_password(label)}
 
 resource "scaleway_rdb_instance" "{label}" {{
@@ -1011,7 +1025,7 @@ resource "scaleway_rdb_instance" "{label}" {{
   backup_schedule_retention = {14 if prod else 7}
   encryption_at_rest        = true
   user_name                 = "{user}"
-  password                  = random_password.{label}.result
+  password                  = random_password.{label}.result{sw_pn}
 }}
 
 resource "scaleway_rdb_database" "{label}" {{

@@ -1,0 +1,90 @@
+# Capacité « réseau privé » : une brique par cloud, qui crée le réseau une fois puis le rattache aux machines,
+# aux bases et aux clusters du projet. Vérifiées le 2026-10-20.
+
+- id: aws-vpc
+  name: Amazon VPC
+  kind: service
+  stage: infrastructure
+  roles: [network, private-network]
+  description: "Réseau privé AWS : VPC, sous-réseaux publics et privés sur deux zones, routage Internet, passerelle NAT au besoin."
+  homepage: https://aws.amazon.com/vpc/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [private-network]
+  provider: aws
+  verified: "2026-10-20"
+
+- id: gcp-vpc
+  name: Google Cloud VPC
+  kind: service
+  stage: infrastructure
+  roles: [network, private-network]
+  description: "Réseau privé Google Cloud : réseau VPC, sous-réseau régional, Cloud NAT au besoin, accès privé à Cloud SQL."
+  homepage: https://cloud.google.com/vpc
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [private-network]
+  provider: gcp
+  verified: "2026-10-20"
+
+- id: azure-vnet
+  name: Azure Virtual Network
+  kind: service
+  stage: infrastructure
+  roles: [network, private-network]
+  description: "Réseau privé Azure : réseau virtuel et sous-réseaux (machines, AKS, bases) dans le groupe de ressources du projet."
+  homepage: https://azure.microsoft.com/products/virtual-network
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [private-network]
+  provider: azure
+  verified: "2026-10-20"
+
+- id: scaleway-vpc
+  name: Scaleway VPC
+  kind: service
+  stage: infrastructure
+  roles: [network, private-network]
+  description: "Réseau privé Scaleway (Private Network) rattaché aux instances, au cluster Kapsule et aux bases managées."
+  homepage: https://www.scaleway.com/en/vpc/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [private-network]
+  provider: scaleway
+  verified: "2026-10-20"
+
+- id: ovh-private-network
+  name: OVHcloud Private Network
+  kind: service
+  stage: infrastructure
+  roles: [network, private-network]
+  description: "Réseau privé OVHcloud Public Cloud (vRack) avec son sous-réseau, rattaché au cluster Managed Kubernetes."
+  homepage: https://www.ovhcloud.com/fr/public-cloud/private-network/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [private-network]
+  provider: ovhcloud
+  support: experimental
+  support_note: "Rattaché au cluster Managed Kubernetes seulement : les instances et les bases restent sur le réseau public (à rattacher à la main). Non essayé sur un compte OVHcloud."
+  verified: "2026-10-20"
+
+- id: outscale-net
+  name: Outscale Net
+  kind: service
+  stage: infrastructure
+  roles: [network, private-network]
+  description: "Réseau privé Outscale : Net, sous-réseau, service Internet et table de routage pour les machines."
+  homepage: https://docs.outscale.com/fr/userguide/About-Nets.html
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [private-network]
+  provider: outscale
+  support: experimental
+  support_note: "Net, sous-réseau et routage Internet pour les machines Outscale ; non essayé sur un compte Outscale."
+  verified: "2026-10-20"
