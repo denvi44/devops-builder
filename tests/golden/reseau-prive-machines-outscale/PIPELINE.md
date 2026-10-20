@@ -101,6 +101,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - **Avertissement** (R34) — Outscale Object Storage (OOS) : « Bucket de l'état Terraform » non renseigné : la valeur d'exemple « mon-projet-tfstate » sera écrite dans les fichiers.
 - **Avertissement** (R34) — Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « mon-app.example.com » sera écrite dans les fichiers.
 - **Avertissement** (R52) — Outscale VM : tinav6.c2r4p2 (2 vCPU, 4 Gio) pour Développement, Recette, alors que les services de l'hôte demandent environ 2 vCPU, 5,8 Gio.
+- **Info** (R50) — Outscale Net est expérimental : net, sous-réseau et routage Internet pour les machines Outscale ; non essayé sur un compte Outscale.
 
 ## Notes
 
