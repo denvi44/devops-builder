@@ -72,7 +72,7 @@ def test_interfaces_web_des_briques_derriere_le_controleur(ingress):
         assert expected in line, tool
     assert "grafana.example.com" in install and "registry.example.com" in install
     assert "argocd.example.com" in install and "chaos.example.com" in install
-    assert "configs.params.server.insecure=true" in install, "Argo CD derrière l'entrée parle en clair"
+    assert "configs.params.server\\.insecure=true" in install, "Argo CD derrière l'entrée parle en clair"
     ingress_file = list(yaml.safe_load_all(files(kube(ingress))["platform/ingress.yaml"]))
     assert [d["metadata"]["name"] for d in ingress_file] == ["jaeger"] and ingress_file[0]["spec"]["ingressClassName"] == cls
     assert 'kubectl apply -f "$(dirname "$0")/ingress.yaml"' in install

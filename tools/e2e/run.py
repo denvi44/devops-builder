@@ -17,6 +17,7 @@ dans le résumé du job ($GITHUB_STEP_SUMMARY). Code de sortie : 0 si tout passe
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import secrets
@@ -53,6 +54,7 @@ class Step:
     retries: int = 1                     # tentatives (attente d'un service)
     always: bool = False                 # nettoyage : exécutée même après un échec
     evidence: bool = False               # sa sortie prouve le résultat : publiée en annotation GitHub
+    tail: int = 6                        # lignes de cette sortie publiées en annotation
 
 
 @dataclass
@@ -702,13 +704,91 @@ HELM_TEMPLATE = r"""#!/usr/bin/env bash
 set -euo pipefail
 if [ "${1:-}" = upgrade ] && [ "${2:-}" = --install ]; then
   shift 2
-  args=()
-  for a in "$@"; do case "$a" in --wait|--create-namespace|--atomic) ;; *) args+=("$a") ;; esac; done
+  args=(); prev=""
+  for a in "$@"; do
+    case "$a" in --wait|--create-namespace|--atomic) ;; *) args+=("$a") ;; esac
+    # l'espace de noms que helm créerait : le script y applique ensuite ses manifestes (Ingress, ClusterIssuer…)
+    case "$prev" in -n|--namespace) kubectl create namespace "$a" --dry-run=client -o yaml | kubectl apply -f - >/dev/null ;; esac
+    prev="$a"
+  done
   "$HELM_REAL" template "${args[@]}" > "$RENDER_DIR/${args[0]}.yaml" 2> >(sed "s/^/[${args[0]}] /" >&2)
+  # options --set / --set-string de la commande, et valeurs par défaut du chart (version comprise) : contrôle des clés
+  sets=(); vers=(); prev=""
+  for a in "${args[@]:2}"; do
+    case "$prev" in --set|--set-string) sets+=("$a") ;; --version) vers+=(--version "$a") ;; esac
+    prev="$a"
+  done
+  printf '%s\n' "${sets[@]:-}" > "$RENDER_DIR/${args[0]}.sets"
+  "$HELM_REAL" show values "${args[1]}" "${vers[@]}" > "$RENDER_DIR/${args[0]}.values" 2>/dev/null || true
   echo "rendu : ${args[0]} ($(grep -c '^kind:' "$RENDER_DIR/${args[0]}.yaml") ressources)"
+  # CRD du chart posées dans le cluster : les ressources que le script applique ensuite (ClusterIssuer…) s'y rattachent
+  python3 -c "
+import sys, yaml
+docs = [d for d in yaml.safe_load_all(open(sys.argv[1])) if d and d.get('kind') == 'CustomResourceDefinition']
+sys.stdout.write(yaml.safe_dump_all(docs))
+" "$RENDER_DIR/${args[0]}.yaml" | kubectl apply --server-side --force-conflicts -f - >/dev/null 2>&1 || true
   exit 0
 fi
 exec "$HELM_REAL" "$@"
+"""
+
+CHECK_HELM = r"""
+import json, re, sys
+from pathlib import Path
+import yaml
+render = Path(sys.argv[1]); expected = json.loads(sys.argv[2])   # {release: nom de Service attendu}
+
+
+def parts(key):
+    out = []
+    for seg in re.split(r"(?<!\\)[.]", key):
+        seg = seg.replace("\\.", ".")
+        m = re.fullmatch(r"(.*?)((?:\[\d+\])*)", seg)
+        out.append(m.group(1))
+        out += [int(i) for i in re.findall(r"\[(\d+)\]", m.group(2))]
+    return out
+
+
+problems, unknown, flat = [], [], []
+for sets in sorted(render.glob("*.sets")):
+    rel = sets.stem
+    vals = yaml.safe_load((render / f"{rel}.values").read_text() or "{}") or {}
+    for line in filter(None, sets.read_text().splitlines()):
+        key = line.split("=", 1)[0]
+        node, path = vals, parts(key)
+        for i, k in enumerate(path):
+            if isinstance(k, int):
+                node = node[k] if isinstance(node, list) and k < len(node) else None
+            elif isinstance(node, dict) and k in node:
+                node = node[k]
+            else:
+                strs = [p for p in path[i:] if isinstance(p, str)]
+                dotted = next((".".join(strs[:j]) for j in range(len(strs), 1, -1) if ".".join(strs[:j]) in (node or {})),
+                              None) if isinstance(node, dict) else None
+                if dotted:   # le chart a une clé plate « a.b » : « --set x.a.b » créerait une table a > b
+                    flat.append(f"{rel}: {key} -> la clé du chart est « {dotted} » (échapper le point : \\.)")
+                elif i == 0:
+                    problems.append(f"{rel}: {key}")
+                elif isinstance(node, dict) and node:
+                    unknown.append(f"{rel}: {key} (« {k} » absent de {'.'.join(map(str, path[:i]))})")
+                break
+            if node is None:
+                break
+print(f"clés plates du chart écrites sans échapper le point : {len(flat)}")
+print("\n".join("  " + p for p in flat))
+print(f"clés --set de premier niveau absentes des valeurs par défaut (à relire) : {len(problems)}")
+print("\n".join("  " + p for p in problems))
+print(f"clés plus profondes absentes des valeurs par défaut (à relire) : {len(unknown)}")
+print("\n".join("  " + u for u in unknown))
+bad = []
+for rel, svc in expected.items():
+    f = render / f"{rel}.yaml"
+    names = [d["metadata"]["name"] for d in yaml.safe_load_all(f.read_text()) if d and d.get("kind") == "Service"]
+    ok = svc in names
+    print(f"{'ok ' if ok else 'ABSENT'} {rel}: Service attendu {svc} ; rendus : {', '.join(names)}")
+    if not ok:
+        bad.append(rel)
+sys.exit(1 if flat or bad else 0)
 """
 
 
@@ -737,7 +817,13 @@ def _platform_steps(out: Path, ir) -> list[Step]:
                    "> /tmp/kubeconform.txt || true\ncat /tmp/kubeconform.txt\n"
                    "! grep ' is invalid' /tmp/kubeconform.txt | grep -v 'subschemas 0, 1 matched'",
                    evidence=True)
-    return [start[0], prep, run, check, conform, *end]
+    from devops_builder.generators import entree
+    expected = {b.service_id: entree.service_name(t, b) for t in entree.CHART_SERVICES
+                for b in entree.instances_of(ir, t) if ir.has(t) and (t != "harbor" or entree.gateway_api(ir))}
+    keys = Step("Clés --set présentes dans les valeurs du chart ; Service de chaque instance (nom de la release)",
+                f"cat > {work}/check_helm.py <<'PY'\n{CHECK_HELM}PY\n"
+                f"python3 {work}/check_helm.py {render} '{json.dumps(expected)}'", evidence=True, tail=70)
+    return [start[0], prep, run, check, keys, conform, *end]
 
 
 def _sops_steps(out: Path, ir) -> list[Step]:
@@ -1001,6 +1087,17 @@ def _bases_project() -> Project:
     return p
 
 
+def _plateforme_project() -> Project:
+    """Les trente charts de plateforme, plus une deuxième instance nommée de chaque outil multiple routé par l'entrée."""
+    p = _project("kubernetes", *GH, *PLATFORM_TOOLS,
+                 dex={"hostname": "dex.boutique.test", "tools_domain": "boutique.test",
+                      "app_url": "https://boutique.test"}, harbor={"url": "harbor.boutique.test"})
+    catalog = _catalog()
+    for tool in ("grafana", "sonarqube", "jenkins", "gitea", "zot", "jaeger"):
+        p.add(tool, catalog[tool].stage, instance="equipe-b")
+    return p
+
+
 def _check_db(ctx: str, ns: str, app: str) -> str:
     return f"""
 kubectl --context {ctx} -n {ns} port-forward service/{app} 18081:80 >/tmp/pf-db.log 2>&1 &
@@ -1082,9 +1179,7 @@ SCENARIOS = {s.name: s for s in [
              _argocd_steps, ("docker", "kind", "kubectl", "helm", "curl", "jq", "git")),
     Scenario("kind-plateforme", "platform/install.sh d'un projet à trente charts : chacun rendu avec les options "
              "générées (helm template), kubectl contre un vrai cluster, kubeconform",
-             lambda: _project("kubernetes", *GH, *PLATFORM_TOOLS,
-                              dex={"hostname": "dex.boutique.test", "tools_domain": "boutique.test",
-                                   "app_url": "https://boutique.test"}),
+             lambda: _plateforme_project(),
              _platform_steps, ("docker", "kind", "kubectl", "helm", "kubeconform")),
     Scenario("kind-coffre-openbao", "OpenBao initialisé et configuré par les scripts générés, External Secrets, "
              "Valkey lu dans le coffre, PostgreSQL par CloudNativePG",
@@ -1144,7 +1239,7 @@ def annotations(scenario: Scenario, results: list[Result]) -> list[str]:
     for r in results:
         if r.step.evidence or not r.ok or (failed and r.step.always):
             lines = r.output.strip().splitlines()
-            text = "\n".join(lines[-40:] if (failed and r.step.always) else lines[-6:])[:3500] or "(sans sortie)"
+            text = "\n".join(lines[-40:] if (failed and r.step.always) else lines[-r.step.tail:])[:3500] or "(sans sortie)"
             level = "notice" if r.ok else "error"
             out.append(f"::{level} title={_escape(f'{scenario.name} — {r.step.name}', prop=True)}::{_escape(text)}")
     return out

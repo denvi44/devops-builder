@@ -61,7 +61,7 @@ Reste avant la 1.0, et qui demande des ressources hors de ce dépôt :
 - `apply` puis `destroy` sur un vrai compte cloud (le modèle AWS EC2 passe déjà sur l'émulateur Floci, jusqu'au déploiement par Ansible ; la pile du modèle ECS passe aussi, sans la suppression de la base RDS) ; les modèles et les identités de CI à droits réduits restent à éprouver ;
 - signature des exécutables (Authenticode, notarisation Apple) ;
 - sessions d'écoute NVDA, Orca, VoiceOver ; suivi du contraste élevé et de la taille de police du système ;
-- clés `--set` des charts Helm et noms de Service des instances supplémentaires, à confirmer sur un cluster réel ;
+- clés `--set` des charts Helm : contrôlées contre les valeurs des charts par le scénario `kind-plateforme` (deux défauts corrigés) ; reste à les éprouver à l'installation réelle sur un cluster ;
 - Dex exécuté sur Kubernetes ; connexion unique des instances nommées (seule l'instance principale est câblée).
 
 ## Après la 1.0

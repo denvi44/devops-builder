@@ -15,7 +15,7 @@ helm repo update
 helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set crds.enabled=true --wait
 
 # Argo CD
-helm upgrade --install argo-cd argo/argo-cd --namespace argocd --create-namespace --set server.ingress.enabled=true --set server.ingress.ingressClassName=traefik --set server.ingress.hostname=argocd.example.com --set configs.params.server.insecure=true --set server.ingress.tls=true --set 'server.ingress.annotations.cert-manager\.io/cluster-issuer=letsencrypt'
+helm upgrade --install argo-cd argo/argo-cd --namespace argocd --create-namespace --set server.ingress.enabled=true --set server.ingress.ingressClassName=traefik --set server.ingress.hostname=argocd.example.com --set 'configs.params.server\.insecure=true' --set server.ingress.tls=true --set 'server.ingress.annotations.cert-manager\.io/cluster-issuer=letsencrypt'
 
 # Gitea
 helm upgrade --install gitea gitea-charts/gitea --namespace gitea --create-namespace --set ingress.enabled=true --set ingress.className=traefik --set 'ingress.hosts[0].host=gitea.example.com' --set 'ingress.hosts[0].paths[0].path=/' --set 'ingress.annotations.cert-manager\.io/cluster-issuer=letsencrypt' --set 'ingress.tls[0].secretName=gitea-tls' --set 'ingress.tls[0].hosts[0]=gitea.example.com'

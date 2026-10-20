@@ -4,15 +4,25 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## 0.26.0 — non publié — Clés Helm et noms de Service éprouvés
+
+### Ajouté
+- **Scénario `aws-ecs-floci`** : la pile du modèle AWS ECS Fargate (ECR, RDS PostgreSQL, Secrets Manager) appliquée sur Floci. La suppression de la base RDS ne se termine pas dans Floci : le scénario borne le `destroy` à quatre minutes.
+- **Scénario `kind-plateforme`** : une deuxième instance nommée de Grafana, SonarQube, Jenkins, Gitea, Zot et Jaeger ; chaque option `--set` est contrôlée contre les valeurs du chart (clé plate à point non échappée), et le Service rendu de chaque instance contre celui qu'attend le routage.
+
+### Corrigé
+- **Argo CD derrière l'entrée** : l'option `configs.params.server.insecure` n'avait aucun effet, la clé du chart étant plate (`server.insecure`) ; elle est écrite `configs.params.server\.insecure`.
+- **SonarQube** : le Service du chart est `<release>-sonarqube` (et non `sonarqube`), ce qui concerne la route Gateway API.
+- **Argo CD** : le Service du chart est `argo-cd-argocd-server`, pour la route Gateway API.
+- **scripts/tf-floci.sh** crée le groupe de sous-réseaux RDS que la pile suppose existant, et rend la base jetable (sans protection contre la suppression ni instantané final) : l'`apply` d'une pile avec RDS passe sur Floci.
+
 ## 0.25.1 — 2026-10-19 — Chaîne des machines éprouvée sur Floci
 
 ### Ajouté
 - **Scénario `aws-ec2-chaine`** : le modèle AWS EC2 joué sans compte cloud. La pile OpenTofu est appliquée sur Floci, `scripts/tf-inventory.sh` relit l'état gardé pour écrire l'inventaire, puis `site.yml` et `deploy.yml` d'Ansible s'exécutent par SSH, l'application répond derrière Traefik et se rejoue sans échec, avant le `destroy`.
-- **Scénario `aws-ecs-floci`** : la pile du modèle AWS ECS Fargate (ECR, RDS PostgreSQL, Secrets Manager) appliquée sur Floci. La suppression de la base RDS ne se termine pas dans Floci : le scénario borne le `destroy` à quatre minutes.
 - **`TF_DIR`** pour `scripts/tf-inventory.sh` : lire la pile d'un autre dossier que `infra/terraform`.
 
 ### Corrigé
-- **scripts/tf-floci.sh** crée le groupe de sous-réseaux RDS que la pile suppose existant, et rend la base jetable (sans protection contre la suppression ni instantané final) : l'`apply` d'une pile avec RDS passe sur Floci.
 - **ansible/site.yml** n'utilise plus les variables de faits injectées (`ansible_os_family`, `ansible_distribution`…), dépréciées depuis ansible-core 2.19 et retirées plus tard : `ansible_facts['os_family']` à la place. Relevé par le scénario `aws-ec2-chaine`.
 
 ### Modifié
