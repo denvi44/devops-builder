@@ -1,0 +1,20 @@
+# Généré par DevOps Builder — à relire avant usage.
+replicaCount: 2
+image:
+  repository: europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+database:
+  cloud_sql:
+    createSecret: true
+    url: ''

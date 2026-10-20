@@ -15,6 +15,7 @@
   secnumcloud: "no"
   services:
     compute: aws-ec2
+    network: aws-vpc
     database: aws-rds
     k8s.managed: eks
     registry: ecr
@@ -39,6 +40,7 @@
   secnumcloud: "no"
   services:
     compute: gce
+    network: gcp-vpc
     database: cloud-sql
     k8s.managed: gke
     registry: artifact-registry
@@ -63,6 +65,7 @@
   secnumcloud: "no"
   services:
     compute: azure-vm
+    network: azure-vnet
     database: azure-database
     k8s.managed: aks
     registry: acr
@@ -87,6 +90,7 @@
   secnumcloud: partial
   services:
     compute: ovh-instance
+    network: ovh-private-network
     database: ovh-databases
     k8s.managed: ovh-mks
     registry: ovh-registry
@@ -106,6 +110,7 @@
   secnumcloud: "yes"
   services:
     compute: outscale-vm
+    network: outscale-net
     k8s.managed: oks
     object-storage: outscale-oos
   verified: "2026-10-08"
@@ -123,6 +128,7 @@
   secnumcloud: unknown
   services:
     compute: scaleway-instance
+    network: scaleway-vpc
     database: scaleway-rdb
     k8s.managed: kapsule
     registry: scaleway-registry

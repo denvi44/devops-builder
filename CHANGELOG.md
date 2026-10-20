@@ -4,9 +4,17 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
-## 0.26.0 — non publié — Clés Helm et noms de Service éprouvés
+## 0.26.0 — non publié — Réseau privé, clés Helm et noms de Service éprouvés
 
 ### Ajouté
+- **Capacité « réseau privé »** (première de la feuille de route 1.1) : une brique par cloud — Amazon VPC, Google Cloud VPC, Azure Virtual Network, Scaleway VPC, OVHcloud Private Network, Outscale Net — qui crée le réseau une fois dans la pile OpenTofu (sous-réseaux calculés dans la plage choisie) et le rattache aux clusters, aux machines et aux bases du projet. La palette ne propose que la brique du cloud du projet.
+  - AWS : sous-réseaux publics (machines) et privés (EKS, RDS) sur deux zones, passerelle NAT selon le choix (`auto` = seulement avec EKS), groupe de sous-réseaux et groupe de sécurité de la base. Les quatre variables saisies à la main (`vpc_id`, `subnet_ids`, `db_subnet_group`, `db_security_group_ids`) disparaissent.
+  - Google Cloud : réseau et sous-réseau pour GKE et les machines, Cloud NAT au choix, Cloud SQL en adresse privée.
+  - Azure : un seul réseau virtuel pour les machines, AKS (Azure CNI) et le serveur flexible (sous-réseau délégué, zone DNS privée).
+  - Scaleway : réseau privé rattaché à Kapsule, aux instances et à la base managée.
+  - OVHcloud (cluster seulement) et Outscale (machines) : fiches expérimentales, non essayées sur un compte.
+- **Scénarios `aws-ec2-chaine` et `aws-ecs-floci`** : le VPC est créé par la pile jouée sur Floci.
+- Cinq piles de référence avec cluster et base, six avec machines (`reseau-prive-*`), passées à `tofu validate` avec les providers par la CI.
 - **Scénario `aws-ecs-floci`** : la pile du modèle AWS ECS Fargate (ECR, RDS PostgreSQL, Secrets Manager) appliquée sur Floci. La suppression de la base RDS ne se termine pas dans Floci : le scénario borne le `destroy` à quatre minutes.
 - **Scénario `kind-plateforme`** : une deuxième instance nommée de Grafana, SonarQube, Jenkins, Gitea, Zot et Jaeger ; chaque option `--set` est contrôlée contre les valeurs du chart (clé plate à point non échappée), et le Service rendu de chaque instance contre celui qu'attend le routage.
 

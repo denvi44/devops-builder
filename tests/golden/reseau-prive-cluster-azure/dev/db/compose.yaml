@@ -1,0 +1,33 @@
+# Généré par DevOps Builder — à relire avant usage. Bases du poste de développement : docker compose -f dev/db/compose.yaml up -d
+name: mon-app-dev
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    ports:
+    - 127.0.0.1:3306:3306
+    environment:
+      MYSQL_USER: app
+      MYSQL_DATABASE: app
+      MYSQL_RANDOM_ROOT_PASSWORD: 'yes'
+      MYSQL_PASSWORD: dev
+    volumes:
+    - mysql-dev:/var/lib/mysql
+    - ./init/mysql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - mysqladmin ping -h 127.0.0.1 --silent
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  adminer:
+    image: adminer:5
+    profiles:
+    - outils
+    ports:
+    - 127.0.0.1:8081:8080
+    depends_on:
+    - mysql
+volumes:
+  mysql-dev: {}

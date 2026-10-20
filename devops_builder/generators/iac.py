@@ -6,7 +6,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..ir import IR
-from .common import HEADER
+from . import network
+from .common import HEADER, align_attrs
 
 DIR = "infra/terraform"
 
@@ -164,6 +165,26 @@ def cluster_instances(ir: IR, tool_id: str) -> list[tuple[str, dict]]:
     return list(by_name.values())
 
 
+def _pn(tool_id: str, line: str, ir: IR) -> str:
+    """Ligne d'argument qui rattache une ressource au réseau privé, quand la brique est dans le projet."""
+    return f"\n  {line}" if network.present(ir, tool_id) else ""
+
+
+def _gke_network(ir: IR) -> str:
+    if not network.present(ir, "gcp-vpc"):
+        return ""
+    return ("\n\n  network    = google_compute_network.main.id\n  subnetwork = google_compute_subnetwork.main.id\n\n"
+            "  ip_allocation_policy {}")
+
+
+def _ovh_mks_network(ir: IR) -> str:
+    if not network.present(ir, "ovh-private-network"):
+        return ""
+    return (f"\n  private_network_id = {network.OVH_NETWORK_ID}\n"
+            "  nodes_subnet_id    = ovh_cloud_project_network_private_subnet.main.id\n\n"
+            "  depends_on = [ovh_cloud_project_network_private_subnet.main]")
+
+
 def _resource(ir: IR, tool_id: str, p: dict | None = None, sfx: str = "", first: bool = True) -> str | None:
     p = ir.params(tool_id) if p is None else p
     app = ir.app
@@ -184,8 +205,8 @@ def _resource(ir: IR, tool_id: str, p: dict | None = None, sfx: str = "", first:
 
   name               = "{p.get("cluster_name")}"
   kubernetes_version = "{p.get("version", "1.36")}"
-  vpc_id             = var.vpc_id
-  subnet_ids         = var.subnet_ids
+  vpc_id             = {"aws_vpc.main.id" if network.present(ir) else "var.vpc_id"}
+  subnet_ids         = {"aws_subnet.private[*].id" if network.present(ir) else "var.subnet_ids"}
 
   # accès Kubernetes : l'identité qui applique la pile, le rôle de déploiement de la CI et les personnes
   # déclarées dans cluster_admin_arns (l'identité qui applique change après le premier apply depuis le poste)
@@ -230,7 +251,7 @@ def _resource(ir: IR, tool_id: str, p: dict | None = None, sfx: str = "", first:
   location = "{p.get("region", "europe-west9")}"
 
   enable_autopilot    = true
-  deletion_protection = true
+  deletion_protection = true{_gke_network(ir)}
 }}'''
     if tool_id in ("artifact-registry", "gcr"):
         region = ir.params("gcp").get("region", "europe-west9")
@@ -241,15 +262,15 @@ def _resource(ir: IR, tool_id: str, p: dict | None = None, sfx: str = "", first:
     if tool_id in ("aks", "acr", "azure-key-vault", "azure-blob", "azure-container-apps"):
         return _azure(ir, tool_id, p, sfx, first)
     if tool_id == "ovh-mks":
-        return (f'resource "ovh_cloud_project_kube" "main{sfx}" {{\n  service_name = var.ovh_service_name\n'
-                f'  name         = "{p.get("cluster_name")}"\n  region       = "{p.get("region", "GRA11")}"\n}}')
+        return align_attrs(f'resource "ovh_cloud_project_kube" "main{sfx}" {{\n  service_name = var.ovh_service_name\n'
+                f'  name         = "{p.get("cluster_name")}"\n  region       = "{p.get("region", "GRA11")}"{_ovh_mks_network(ir)}\n}}')
     if tool_id == "kapsule":
         latest = ('data "scaleway_k8s_version" "latest" {\n  name = "latest"\n}\n\n' if first else "")
         return latest + f'''resource "scaleway_k8s_cluster" "main{sfx}" {{
   name                        = "{p.get("cluster_name")}"
   version                     = data.scaleway_k8s_version.latest.name
   cni                         = "cilium"
-  delete_additional_resources = false
+  delete_additional_resources = false{_pn("scaleway-vpc", "private_network_id          = scaleway_vpc_private_network.main.id", ir)}
 }}
 
 resource "scaleway_k8s_pool" "default{sfx}" {{
@@ -289,6 +310,11 @@ def _azure(ir: IR, tool_id: str, p: dict, sfx: str = "", first: bool = True) -> 
     loc = ir.params("azure").get("location", "francecentral")
     if tool_id == "aks":
         oms = workspace = ""
+        aks_subnet = aks_profile = ""
+        if network.present(ir, "azure-vnet"):
+            aks_subnet = "\n    vnet_subnet_id = azurerm_subnet.aks.id"
+            aks_profile = ('\n\n  network_profile {\n    network_plugin = "azure"\n    service_cidr   = "172.31.0.0/16"\n'
+                          '    dns_service_ip = "172.31.0.10"\n  }')
         dns = app + sfx.replace("_", "-")
         if ir.has("azure-monitor"):
             oms = ("\n\n  oms_agent {\n    log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id\n  }")
@@ -302,7 +328,7 @@ def _azure(ir: IR, tool_id: str, p: dict, sfx: str = "", first: bool = True) -> 
             ir.cover("azure-monitor")
             if not first:
                 workspace = ""  # un espace Log Analytics partagé par les clusters
-        return f'''resource "azurerm_kubernetes_cluster" "main{sfx}" {{
+        return align_attrs(f'''resource "azurerm_kubernetes_cluster" "main{sfx}" {{
   name                = "{p.get("cluster_name")}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
@@ -311,13 +337,13 @@ def _azure(ir: IR, tool_id: str, p: dict, sfx: str = "", first: bool = True) -> 
   default_node_pool {{
     name       = "default"
     node_count = 2
-    vm_size    = "Standard_D2s_v5"
+    vm_size    = "Standard_D2s_v5"{aks_subnet}
   }}
 
   identity {{
     type = "SystemAssigned"
-  }}{oms}{_aks_workload_identity(ir)}
-}}{workspace}'''
+  }}{aks_profile}{oms}{_aks_workload_identity(ir)}
+}}{workspace}''')
     if tool_id == "acr":
         return (f'resource "azurerm_container_registry" "main" {{\n  name                = "{p.get("registry_name", "monappregistry")}"\n'
                 f'  resource_group_name = azurerm_resource_group.main.name\n  location            = azurerm_resource_group.main.location\n'
@@ -342,7 +368,7 @@ COMMENT_ONLY = {"oks", "azure-container-apps"}
 IAC_RESOURCES = {
     "eks", "ecr", "aws-secrets-manager", "s3", "gke", "artifact-registry", "gcr", "gcp-secret-manager",
     "gcs", "aks", "acr", "azure-key-vault", "azure-blob", "azure-container-apps", "ovh-mks", "kapsule",
-    "scaleway-registry", "oks",
+    "scaleway-registry", "oks", *network.NETWORK,
 }
 
 
@@ -373,7 +399,7 @@ def terraform(ir: IR) -> dict[str, str]:
         loc = ir.params("azure").get("location", "francecentral")
         main_parts.append(f'resource "azurerm_resource_group" "main" {{\n  name     = "{rg}"\n  location = "{loc}"\n}}')
     for _, b in ir.project.all_bricks():
-        if b.tool not in IAC_RESOURCES:
+        if b.tool not in IAC_RESOURCES or b.tool in network.NETWORK:
             continue
         name = ir.catalog[b.tool].name
         if b.tool in CLUSTER_TOOLS:
@@ -392,7 +418,9 @@ def terraform(ir: IR) -> dict[str, str]:
             main_parts.append(f"# --- {name}\n{res}")
             if b.tool not in COMMENT_ONLY:
                 ir.cover(b.tool)
-    main_parts += host_blocks + db_blocks + secret_blocks + eso_blocks
+    net_blocks, net_outputs = network.terraform_blocks(ir)
+    network.host_note(ir)
+    main_parts += net_blocks + host_blocks + db_blocks + secret_blocks + eso_blocks
     ir.cover(*(p.id for p in ir.providers))
     if backend_tool(ir) in S3_COMPATIBLE:
         ir.cover(backend_tool(ir))  # porte l'état : écrit dans le bloc backend de versions.tf
@@ -423,7 +451,7 @@ def terraform(ir: IR) -> dict[str, str]:
         f"{DIR}/variables.tf": "\n\n".join(variables) + "\n",
         f"{DIR}/.gitignore": GITIGNORE,
     }
-    outputs = _outputs(ir) + host_outputs + db_outputs + eso_outputs
+    outputs = _outputs(ir) + net_outputs + host_outputs + db_outputs + eso_outputs
     if outputs:
         files[f"{DIR}/outputs.tf"] = "\n\n".join([f"# {HEADER}", *outputs]) + "\n"
     tvs = required_vars(ir)
@@ -468,6 +496,8 @@ def required_vars(ir: IR) -> list[TfVar]:
     names: list[str] = []
     if creates_hosts(ir):
         names.append("ssh_public_key")
+    if network.present(ir, "aws-vpc"):   # le réseau est créé par la pile : plus rien à saisir
+        return [TF_VARS[n] for n in names]
     if ir.has("eks"):
         names += ["vpc_id", "subnet_ids"]
     from .data import managed_dbs

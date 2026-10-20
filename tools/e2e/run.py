@@ -1150,16 +1150,16 @@ SCENARIOS = {s.name: s for s in [
              "relues dans sa propre base",
              lambda: _bases_project(),
              _bases_dediees_steps, ("docker", "curl", "jq")),
-    Scenario("aws-ec2-chaine", "Modèle AWS EC2 sans compte : pile OpenTofu sur Floci, inventaire relu dans son état, "
+    Scenario("aws-ec2-chaine", "Modèle AWS EC2 sans compte : VPC et machine dans sa pile OpenTofu sur Floci, inventaire relu dans son état, "
              "site.yml et deploy.yml d'Ansible par SSH, application derrière Traefik, puis destroy",
-             lambda: _with(_project("vm", *GH, "aws", "ansible", "aws-ec2", "opentofu", "s3", "postgresql",
-                                    "docker-compose", "traefik", "floci"),
+             lambda: _with(_project("vm", *GH, "aws", "aws-vpc", "ansible", "aws-ec2", "opentofu", "s3",
+                                    "postgresql", "docker-compose", "traefik", "floci"),
                            traefik={"app_hostname": "boutique.test"}),
              _ec2_steps, ("docker", "tofu", "ansible-playbook", "ansible-galaxy", "jq", "curl", "ssh-keygen")),
-    Scenario("aws-ecs-floci", "Modèle AWS ECS Fargate sans compte : ECR, RDS PostgreSQL, Secrets Manager et ECS jouées "
+    Scenario("aws-ecs-floci", "Modèle AWS ECS Fargate sans compte : VPC, ECR, RDS PostgreSQL, Secrets Manager et ECS jouées "
              "sur Floci par scripts/tf-floci.sh (plan, apply, destroy)",
-             lambda: _project("docker-host", *GH, "ecr", "aws", "opentofu", "s3", "aws-rds", "ecs-fargate",
-                              "aws-secrets-manager", "floci"),
+             lambda: _project("docker-host", *GH, "ecr", "aws", "aws-vpc", "opentofu", "s3", "aws-rds",
+                              "ecs-fargate", "aws-secrets-manager", "floci"),
              _ecs_steps, ("docker", "tofu", "curl")),
     Scenario("gitea-renovate", "Renovate lancé comme le workflow Gitea généré, contre une vraie forge Gitea : "
              "tableau de bord et demandes de fusion sur les images du dépôt",

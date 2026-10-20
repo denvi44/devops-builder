@@ -1,0 +1,20 @@
+# Généré par DevOps Builder — à relire avant usage.
+replicaCount: 2
+image:
+  repository: $AWS_ACCOUNT_ID.dkr.ecr.eu-west-3.amazonaws.com/mon-app
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+database:
+  aws_rds:
+    createSecret: true
+    url: ''
