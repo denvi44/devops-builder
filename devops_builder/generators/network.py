@@ -386,7 +386,7 @@ def _outscale(ir: IR) -> tuple[list[str], list[str]]:
     net = _net(ir, "outscale-net")
     subnet = _subnets(net, 8)[0]
     region = ir.params("outscale").get("region", "eu-west-2")
-    name = '  tags {\n    key   = "name"\n    value = "%s"\n  }' % ir.app
+    name = f'  tags {{\n    key   = "name"\n    value = "{ir.app}"\n  }}'
     blocks = [f'''resource "outscale_net" "main" {{
   ip_range = "{net}"
 

@@ -469,6 +469,7 @@ data "ovh_cloud_project_flavors" "hosts" {{
 def _outscale(ir: IR, gs: list[HostGroup]):
     region = ir.params("outscale").get("region", "eu-west-2")
     vpc = network.present(ir, "outscale-net")
+    sg_net = "\n  net_id              = outscale_net.main.net_id" if vpc else ""
     web = "\n\n".join(f'  rules {{\n    from_port_range = {p}\n    to_port_range   = {p}\n    ip_protocol     = "tcp"\n'
                       f'    ip_ranges       = ["0.0.0.0/0"]\n  }}' for p in _web_ports(ir))
     shared = f'''data "outscale_images" "ubuntu" {{
@@ -490,7 +491,7 @@ resource "outscale_keypair" "deploy" {{
 
 resource "outscale_security_group" "hosts" {{
   security_group_name = "{ir.app}-hosts"
-  description         = "SSH depuis local.ssh_cidrs, web depuis Internet"{"\n  net_id              = outscale_net.main.net_id" if vpc else ""}
+  description         = "SSH depuis local.ssh_cidrs, web depuis Internet"{sg_net}
 }}
 
 resource "outscale_security_group_rule" "ssh" {{
