@@ -988,9 +988,8 @@ resource "google_sql_user" "{label}" {{
             charset, collation, storage = "utf8mb4", "utf8mb4_unicode_ci", ""
         az_net = ""
         if network.present(ir, "azure-vnet"):   # serveur flexible dans le sous-réseau délégué, sans accès public
-            az_net = ("\n  delegated_subnet_id           = azurerm_subnet.data.id\n"
-                      "  private_dns_zone_id           = azurerm_private_dns_zone.data.id\n"
-                      "  public_network_access_enabled = false\n\n"
+            az_net = ("\n  delegated_subnet_id    = azurerm_subnet.data.id\n"
+                      "  private_dns_zone_id    = azurerm_private_dns_zone.data.id\n\n"
                       "  depends_on = [azurerm_private_dns_zone_virtual_network_link.data]")
         res = align_attrs(f'''{_password(label)}
 

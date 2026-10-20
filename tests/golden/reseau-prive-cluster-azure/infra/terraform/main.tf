@@ -101,17 +101,16 @@ resource "random_password" "db_staging" {
 }
 
 resource "azurerm_mysql_flexible_server" "db_staging" {
-  name                          = "mon-app-db-staging"
-  resource_group_name           = azurerm_resource_group.main.name
-  location                      = azurerm_resource_group.main.location
-  version                       = "8.0.21"
-  administrator_login           = "app"
-  administrator_password        = random_password.db_staging.result
-  sku_name                      = "B_Standard_B1ms"
-  backup_retention_days         = 7
-  delegated_subnet_id           = azurerm_subnet.data.id
-  private_dns_zone_id           = azurerm_private_dns_zone.data.id
-  public_network_access_enabled = false
+  name                   = "mon-app-db-staging"
+  resource_group_name    = azurerm_resource_group.main.name
+  location               = azurerm_resource_group.main.location
+  version                = "8.0.21"
+  administrator_login    = "app"
+  administrator_password = random_password.db_staging.result
+  sku_name               = "B_Standard_B1ms"
+  backup_retention_days  = 7
+  delegated_subnet_id    = azurerm_subnet.data.id
+  private_dns_zone_id    = azurerm_private_dns_zone.data.id
 
   depends_on = [azurerm_private_dns_zone_virtual_network_link.data]
 }
@@ -136,17 +135,16 @@ resource "random_password" "db_production" {
 }
 
 resource "azurerm_mysql_flexible_server" "db_production" {
-  name                          = "mon-app-db"
-  resource_group_name           = azurerm_resource_group.main.name
-  location                      = azurerm_resource_group.main.location
-  version                       = "8.0.21"
-  administrator_login           = "app"
-  administrator_password        = random_password.db_production.result
-  sku_name                      = "B_Standard_B1ms"
-  backup_retention_days         = 14
-  delegated_subnet_id           = azurerm_subnet.data.id
-  private_dns_zone_id           = azurerm_private_dns_zone.data.id
-  public_network_access_enabled = false
+  name                   = "mon-app-db"
+  resource_group_name    = azurerm_resource_group.main.name
+  location               = azurerm_resource_group.main.location
+  version                = "8.0.21"
+  administrator_login    = "app"
+  administrator_password = random_password.db_production.result
+  sku_name               = "B_Standard_B1ms"
+  backup_retention_days  = 14
+  delegated_subnet_id    = azurerm_subnet.data.id
+  private_dns_zone_id    = azurerm_private_dns_zone.data.id
 
   depends_on = [azurerm_private_dns_zone_virtual_network_link.data]
 }

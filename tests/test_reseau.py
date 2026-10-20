@@ -104,7 +104,8 @@ def test_gcp_cluster_machines_et_base_sur_le_reseau():
 def test_azure_un_seul_reseau_pour_machines_cluster_et_base():
     main = tf(make("azure", database="mysql"))
     assert "vnet_subnet_id = azurerm_subnet.aks.id" in main
-    assert "delegated_subnet_id           = azurerm_subnet.data.id" in main
+    assert re.search(r"delegated_subnet_id\s+= azurerm_subnet.data.id", main)
+    assert "public_network_access_enabled" not in main   # calculé par le provider avec un sous-réseau délégué
     assert "privatelink.mysql.database.azure.com" in main
     vm = tf(make("azure", "vm"))
     assert vm.count('resource "azurerm_virtual_network"') == 1
