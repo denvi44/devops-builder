@@ -16,6 +16,7 @@ output "queue_staging_url" {
 output "queue_staging_access_key" {
   description = "Identifiant d'accès de l'application"
   value       = scaleway_mnq_sqs_credentials.queue_staging.access_key
+  sensitive   = true
 }
 
 output "queue_staging_secret_key" {
@@ -32,6 +33,7 @@ output "queue_production_url" {
 output "queue_production_access_key" {
   description = "Identifiant d'accès de l'application"
   value       = scaleway_mnq_sqs_credentials.queue_production.access_key
+  sensitive   = true
 }
 
 output "queue_production_secret_key" {

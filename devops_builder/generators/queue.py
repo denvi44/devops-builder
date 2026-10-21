@@ -125,7 +125,7 @@ resource "scaleway_mnq_sqs_queue" "{label}" {{
 }}'''))
         outs.append(_out(f"{label}_url", "Adresse de la file", f"scaleway_mnq_sqs_queue.{label}.url"))
         outs.append(_out(f"{label}_access_key", "Identifiant d'accès de l'application",
-                         f"scaleway_mnq_sqs_credentials.{label}.access_key"))
+                         f"scaleway_mnq_sqs_credentials.{label}.access_key", sensitive=True))
         outs.append(_out(f"{label}_secret_key", "Clé secrète de l'application",
                          f"scaleway_mnq_sqs_credentials.{label}.secret_key", sensitive=True))
     return blocks, outs
@@ -187,8 +187,8 @@ def terraform_blocks(ir: IR) -> tuple[list[str], list[str]]:
                         "sqs:ReceiveMessage et sqs:DeleteMessage sur la file ; chaque file a sa file des messages morts "
                         "(5 réceptions).")
     elif tid == "scaleway-queues":
-        ir.notes.append("Scaleway Queues : la clé secrète de l'application sort de la pile en sortie sensible "
-                        "(queue_<environnement>_secret_key) ; la ranger dans les secrets avant de la donner à l'application.")
+        ir.notes.append("Scaleway Queues : l'identifiant et la clé secrète de l'application sortent de la pile en sortie sensible "
+                        "(queue_<environnement>_access_key et _secret_key) ; les ranger dans les secrets avant de la donner à l'application.")
     elif tid == "ovh-kafka":
         ir.notes.append("OVHcloud Kafka : créer l'utilisateur et ses droits (ACL) et autoriser les adresses de "
                         "l'application dans la console ou par OpenTofu.")

@@ -63,7 +63,7 @@ def test_sqs_a_sa_file_de_messages_morts_et_scaleway_sort_une_cle_sensible():
     m = result(make("aws")).files["infra/terraform/main.tf"]
     assert m.count("deadLetterTargetArn") == 2
     sw = result(make("scaleway")).files["infra/terraform/outputs.tf"]
-    assert "queue_production_secret_key" in sw and "sensitive" in sw
+    assert "queue_production_secret_key" in sw and sw.count("sensitive") == 2 and "sensitive" in sw
 
 
 def test_la_palette_ne_propose_que_la_file_du_cloud_du_projet():
