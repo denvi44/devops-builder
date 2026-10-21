@@ -1,0 +1,3 @@
+avertissement R34 Scaleway Object Storage : « Bucket de l'état Terraform » non renseigné : la valeur d'exemple « mon-projet-tfstate » sera écrite dans les fichiers.
+avertissement R34 Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « mon-app.example.com » sera écrite dans les fichiers.
+info R50 Scaleway Edge Services (CDN et WAF) est expérimental : pipeline créé devant le répartiteur ; domaine public et certificat à régler ensuite. Non essayé sur un compte Scaleway.

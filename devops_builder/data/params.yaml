@@ -1328,3 +1328,84 @@ scaleway-key-manager:
     default: "{app}"
     pattern: '[a-z][a-z0-9-]{0,40}[a-z0-9]'
     pattern_hint: "minuscules, chiffres et tirets, commence par une lettre"
+
+# ------------------------------------------------------------- CDN et pare-feu
+aws-cloudfront:
+  origin:
+    label: Origine
+    description: Nom d'hôte de l'application. Vide, le CDN se place devant le répartiteur de charge ou les machines de la production créés par la pile.
+    default: ""
+    pattern: '([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}|'
+    pattern_hint: "nom d'hôte sans schéma, ex. origine.exemple.fr"
+  cache:
+    label: Mise en cache
+    description: "aucun : tout est renvoyé à l'application (sûr pour une application dynamique) ; standard : le CDN met en cache les contenus statiques."
+    default: aucun
+    choices: [aucun, standard]
+  rate_limit:
+    label: Requêtes par minute et par adresse
+    type: int
+    default: 2000
+  origin_protocol:
+    label: Protocole vers l'origine
+    default: https-only
+    choices: [https-only, http-only]
+gcp-cdn:
+  origin:
+    label: Origine
+    description: Nom d'hôte de l'application. Vide, le CDN se place devant le répartiteur de charge ou les machines de la production créés par la pile.
+    default: ""
+    pattern: '([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}|'
+    pattern_hint: "nom d'hôte sans schéma, ex. origine.exemple.fr"
+  cache:
+    label: Mise en cache
+    description: "aucun : tout est renvoyé à l'application (sûr pour une application dynamique) ; standard : le CDN met en cache les contenus statiques."
+    default: aucun
+    choices: [aucun, standard]
+  rate_limit:
+    label: Requêtes par minute et par adresse
+    type: int
+    default: 2000
+  domain:
+    label: Domaine du site
+    description: Si renseigné, un certificat géré par Google et le port 443 sont ajoutés.
+    default: ""
+    pattern: '([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}|'
+    pattern_hint: "nom de domaine, ex. exemple.fr"
+azure-front-door:
+  origin:
+    label: Origine
+    description: Nom d'hôte de l'application. Vide, le CDN se place devant le répartiteur de charge ou les machines de la production créés par la pile.
+    default: ""
+    pattern: '([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}|'
+    pattern_hint: "nom d'hôte sans schéma, ex. origine.exemple.fr"
+  cache:
+    label: Mise en cache
+    description: "aucun : tout est renvoyé à l'application (sûr pour une application dynamique) ; standard : le CDN met en cache les contenus statiques."
+    default: aucun
+    choices: [aucun, standard]
+  rate_limit:
+    label: Requêtes par minute et par adresse
+    type: int
+    default: 2000
+  sku:
+    label: Offre
+    description: "Premium ajoute les règles gérées Microsoft au pare-feu."
+    default: Standard_AzureFrontDoor
+    choices: [Standard_AzureFrontDoor, Premium_AzureFrontDoor]
+scaleway-edge-services:
+  origin:
+    label: Origine
+    description: Nom d'hôte de l'application. Vide, le CDN se place devant le répartiteur de charge ou les machines de la production créés par la pile.
+    default: ""
+    pattern: '([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}|'
+    pattern_hint: "nom d'hôte sans schéma, ex. origine.exemple.fr"
+  cache:
+    label: Mise en cache
+    description: "aucun : tout est renvoyé à l'application (sûr pour une application dynamique) ; standard : le CDN met en cache les contenus statiques."
+    default: aucun
+    choices: [aucun, standard]
+  rate_limit:
+    label: Requêtes par minute et par adresse
+    type: int
+    default: 2000

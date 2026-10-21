@@ -21,6 +21,7 @@
     message-queue: aws-sqs
     functions: aws-lambda
     kms: aws-kms
+    cdn: aws-cloudfront
     dns: aws-route53
     database: aws-rds
     k8s.managed: eks
@@ -52,6 +53,7 @@
     message-queue: gcp-pubsub
     functions: gcp-functions
     kms: gcp-kms
+    cdn: gcp-cdn
     dns: gcp-dns
     database: cloud-sql
     k8s.managed: gke
@@ -83,6 +85,7 @@
     message-queue: azure-service-bus
     functions: azure-functions
     kms: azure-kms
+    cdn: azure-front-door
     dns: azure-dns
     database: azure-database
     k8s.managed: aks
@@ -156,6 +159,7 @@
     message-queue: scaleway-queues
     functions: scaleway-functions
     kms: scaleway-key-manager
+    cdn: scaleway-edge-services
     dns: scaleway-domains
     database: scaleway-rdb
     k8s.managed: kapsule

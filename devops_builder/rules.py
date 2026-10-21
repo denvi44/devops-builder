@@ -460,6 +460,7 @@ CAP_LABELS = {  # complément de « a besoin … »
     "config-mgmt": "de playbooks Ansible",
     "iac-hcl": "de Terraform ou OpenTofu pour créer les machines",
     "private-network": "d'un réseau privé",
+    "load-balancer": "d'un répartiteur de charge",
 }
 MANAGED_TARGETS = ("kubernetes", "kubernetes-managed")
 
