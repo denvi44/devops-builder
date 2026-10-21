@@ -4,8 +4,8 @@ Fichier produit par `python -m devops_builder.support` ; un test vérifie qu'il 
 
 ## Niveaux
 
-- **Pris en charge** (145) : les fichiers sont générés et passent l'outil de référence dans les tests (linter, schéma, `tofu validate`, ShellCheck) ; aucune limite connue n'empêche le premier déploiement en suivant `docs/mise-en-route.md`.
-- **Expérimental** (10) : les fichiers sont générés, mais une limite connue demande une intervention ou n'a pas été vérifiée ; la règle R50 la rappelle dans le projet.
+- **Pris en charge** (149) : les fichiers sont générés et passent l'outil de référence dans les tests (linter, schéma, `tofu validate`, ShellCheck) ; aucune limite connue n'empêche le premier déploiement en suivant `docs/mise-en-route.md`.
+- **Expérimental** (12) : les fichiers sont générés, mais une limite connue demande une intervention ou n'a pas été vérifiée ; la règle R50 la rappelle dans le projet.
 - **À configurer à la main** (18) : aucun générateur ne produit de fichier ; la brique sert aux règles et à la documentation, elle est listée dans « À configurer à la main » de `PIPELINE.md` (règle R31).
 
 Une entrée du CNCF Landscape sans fiche, ou une fiche personnelle, est toujours à configurer à la main.
@@ -19,7 +19,9 @@ Une entrée du CNCF Landscape sans fiche, ou une fiche personnelle, est toujours
 | Tekton | Build | Pas de porte d'approbation native : la production part d'un déclenchement manuel ; secrets de la CI à déclarer à la main. |
 | Woodpecker CI | Build | Pas de porte d'approbation native : la production part d'un déclenchement manuel ; secrets de la CI à déclarer à la main. |
 | Floci | Tests & qualité | Dans la CI, le plan passe ; EKS, RDS et Lambda ne se créent qu'en local, et un apply échoue sur les réseaux existants. |
+| Outscale Load Balancer Unit | Infrastructure | Non essayé sur un compte Outscale. |
 | Outscale Net | Infrastructure | Net, sous-réseau et routage Internet pour les machines Outscale ; non essayé sur un compte Outscale. |
+| OVHcloud Load Balancer | Infrastructure | Écouteurs et pool créés ; les instances restent hors du réseau privé, leurs adresses privées sont à ajouter au pool à la main. Non essayé sur un compte OVHcloud. |
 | OVHcloud Private Network | Infrastructure | Rattaché au cluster Managed Kubernetes seulement : les instances et les bases restent sur le réseau public (à rattacher à la main). Non essayé sur un compte OVHcloud. |
 | RKE2 | Infrastructure | Le contrôleur d'entrée embarqué dépend de la version : à désactiver à la main si un autre contrôleur est posé. |
 | Azure Container Apps | Déploiement | Aucune ressource Terraform générée : l'application Container Apps se crée à la main, la CI la met ensuite à jour. |
@@ -55,7 +57,7 @@ Une entrée du CNCF Landscape sans fiche, ou une fiche personnelle, est toujours
 - **Tests & qualité** : Chaos Mesh, Infracost, LitmusChaos, Semgrep CE, SonarQube, Tests unitaires, TFLint
 - **Sécurité** : Checkov, Cosign, Gitleaks, Grype, KICS, Kubescape, Snyk, Syft, Trivy, ZAP (OWASP)
 - **Artefacts** : Amazon ECR, Azure Container Registry, Distribution (registry), GitHub Container Registry, Google Artifact Registry, Google Container Registry, Harbor, JFrog Artifactory, Nexus Repository, OVHcloud Managed Private Registry, Scaleway Container Registry, zot
-- **Infrastructure** : Amazon EC2, Amazon EKS, Amazon S3, Amazon VPC, Amazon Web Services, Ansible, Azure Blob Storage, Azure Kubernetes Service, Azure Virtual Machines, Azure Virtual Network, Crossplane, Google Cloud, Google Cloud Storage, Google Cloud VPC, Google Compute Engine, Google Kubernetes Engine, k3s, kind, kubeadm, MicroK8s, Microsoft Azure, minikube, MinIO, OpenTofu, Outscale, Outscale Object Storage (OOS), Outscale VM, OVHcloud, OVHcloud Managed Kubernetes, OVHcloud Object Storage, OVHcloud Public Cloud Instances, Pulumi, Scaleway, Scaleway Instances, Scaleway Kapsule, Scaleway Object Storage, Scaleway VPC, Terraform
+- **Infrastructure** : Amazon EC2, Amazon EKS, Amazon Elastic Load Balancing (NLB), Amazon S3, Amazon VPC, Amazon Web Services, Ansible, Azure Blob Storage, Azure Kubernetes Service, Azure Load Balancer, Azure Virtual Machines, Azure Virtual Network, Crossplane, Google Cloud, Google Cloud Load Balancing, Google Cloud Storage, Google Cloud VPC, Google Compute Engine, Google Kubernetes Engine, k3s, kind, kubeadm, MicroK8s, Microsoft Azure, minikube, MinIO, OpenTofu, Outscale, Outscale Object Storage (OOS), Outscale VM, OVHcloud, OVHcloud Managed Kubernetes, OVHcloud Object Storage, OVHcloud Public Cloud Instances, Pulumi, Scaleway, Scaleway Instances, Scaleway Kapsule, Scaleway Load Balancer, Scaleway Object Storage, Scaleway VPC, Terraform
 - **Données** : Amazon RDS, Azure Database (serveur flexible), CloudNativePG, Google Cloud SQL, MariaDB, Migrations de schéma, MongoDB, MySQL, OVHcloud Public Cloud Databases, PostgreSQL, Redis, Scaleway Managed Database, Valkey
 - **Déploiement** : Amazon ECS (Fargate), Argo CD, Argo Events, Argo Rollouts, Docker Compose, Flux, Google Cloud Run, Helm, Kustomize
 - **Plateforme** : AWS Secrets Manager, Azure Key Vault, Calico, cert-manager, Cilium, Envoy Gateway, External Secrets Operator, Falco, Flannel, Google Secret Manager, ingress-nginx, Istio, KEDA, Keycloak, Kyverno, Linkerd, Longhorn, OPA Gatekeeper, OpenBao, Rook (Ceph), SOPS, Traefik, Vault, Velero

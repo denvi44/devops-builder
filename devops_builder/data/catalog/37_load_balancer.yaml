@@ -1,0 +1,92 @@
+# Capacité « répartiteur de charge » : une brique par cloud, devant les machines créées par la pile.
+# Les clusters Kubernetes gardent le répartiteur que leur Service ou leur entrée demande au cloud.
+# Vérifiées le 2026-10-21.
+
+- id: aws-elb
+  name: Amazon Elastic Load Balancing (NLB)
+  kind: service
+  stage: infrastructure
+  roles: [load-balancer]
+  description: "Répartiteur réseau AWS (TCP) devant les machines du projet : écouteurs sur les ports web, groupes cibles avec sonde TCP, adresse DNS en sortie."
+  homepage: https://aws.amazon.com/elasticloadbalancing/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [load-balancer]
+  provider: aws
+  verified: "2026-10-21"
+
+- id: gcp-lb
+  name: Google Cloud Load Balancing
+  kind: service
+  stage: infrastructure
+  roles: [load-balancer]
+  description: "Répartiteur réseau externe de Google Cloud (TCP) devant les machines : adresse IP réservée, groupe d'instances, sonde TCP, règle de transfert."
+  homepage: https://cloud.google.com/load-balancing
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [load-balancer]
+  provider: gcp
+  verified: "2026-10-21"
+
+- id: azure-lb
+  name: Azure Load Balancer
+  kind: service
+  stage: infrastructure
+  roles: [load-balancer]
+  description: "Répartiteur Standard d'Azure (TCP) devant les machines : adresse IP publique, pool, sonde TCP et règles pour les ports web."
+  homepage: https://azure.microsoft.com/products/load-balancer
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [load-balancer]
+  provider: azure
+  verified: "2026-10-21"
+
+- id: scaleway-lb
+  name: Scaleway Load Balancer
+  kind: service
+  stage: infrastructure
+  roles: [load-balancer]
+  description: "Répartiteur de charge Scaleway (TCP) devant les instances : adresse IP, un frontal et un backend par port web, sonde TCP."
+  homepage: https://www.scaleway.com/en/load-balancer/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [load-balancer]
+  provider: scaleway
+  verified: "2026-10-21"
+
+- id: ovh-load-balancer
+  name: OVHcloud Load Balancer
+  kind: service
+  stage: infrastructure
+  roles: [load-balancer]
+  description: "Répartiteur Public Cloud d'OVHcloud sur le réseau privé du projet, avec son pool TCP et ses écouteurs ; les membres du pool restent à ajouter."
+  homepage: https://www.ovhcloud.com/fr/public-cloud/load-balancer/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [load-balancer]
+  provider: ovhcloud
+  requires: [private-network]
+  support: experimental
+  support_note: "Écouteurs et pool créés ; les instances restent hors du réseau privé, leurs adresses privées sont à ajouter au pool à la main. Non essayé sur un compte OVHcloud."
+  verified: "2026-10-21"
+
+- id: outscale-lbu
+  name: Outscale Load Balancer Unit
+  kind: service
+  stage: infrastructure
+  roles: [load-balancer]
+  description: "Répartiteur Outscale (LBU) internet-facing devant les machines : écouteurs TCP, sonde TCP, machines rattachées."
+  homepage: https://docs.outscale.com/fr/userguide/About-Load-Balancers.html
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [load-balancer]
+  provider: outscale
+  support: experimental
+  support_note: "Non essayé sur un compte Outscale."
+  verified: "2026-10-21"

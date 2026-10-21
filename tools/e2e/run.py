@@ -1150,9 +1150,9 @@ SCENARIOS = {s.name: s for s in [
              "relues dans sa propre base",
              lambda: _bases_project(),
              _bases_dediees_steps, ("docker", "curl", "jq")),
-    Scenario("aws-ec2-chaine", "Modèle AWS EC2 sans compte : VPC et machine dans sa pile OpenTofu sur Floci, inventaire relu dans son état, "
+    Scenario("aws-ec2-chaine", "Modèle AWS EC2 sans compte : VPC, machine et répartiteur dans sa pile OpenTofu sur Floci, inventaire relu dans son état, "
              "site.yml et deploy.yml d'Ansible par SSH, application derrière Traefik, puis destroy",
-             lambda: _with(_project("vm", *GH, "aws", "aws-vpc", "ansible", "aws-ec2", "opentofu", "s3",
+             lambda: _with(_project("vm", *GH, "aws", "aws-vpc", "ansible", "aws-ec2", "aws-elb", "opentofu", "s3",
                                     "postgresql", "docker-compose", "traefik", "floci"),
                            traefik={"app_hostname": "boutique.test"}),
              _ec2_steps, ("docker", "tofu", "ansible-playbook", "ansible-galaxy", "jq", "curl", "ssh-keygen")),
