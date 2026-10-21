@@ -168,14 +168,19 @@ resource "outscale_load_balancer" "hors_production" {
     load_balancer_protocol = "TCP"
   }
 
-  health_check = [{
+}
+
+resource "outscale_load_balancer_attributes" "hors_production" {
+  load_balancer_name = outscale_load_balancer.hors_production.load_balancer_name
+
+  health_check {
     healthy_threshold   = 3
     unhealthy_threshold = 3
     check_interval      = 30
     timeout             = 5
     protocol            = "TCP"
     port                = 80
-  }]
+  }
 }
 
 resource "outscale_load_balancer_vms" "hors_production" {
@@ -202,14 +207,19 @@ resource "outscale_load_balancer" "production" {
     load_balancer_protocol = "TCP"
   }
 
-  health_check = [{
+}
+
+resource "outscale_load_balancer_attributes" "production" {
+  load_balancer_name = outscale_load_balancer.production.load_balancer_name
+
+  health_check {
     healthy_threshold   = 3
     unhealthy_threshold = 3
     check_interval      = 30
     timeout             = 5
     protocol            = "TCP"
     port                = 80
-  }]
+  }
 }
 
 resource "outscale_load_balancer_vms" "production" {
