@@ -4,7 +4,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
-## 0.26.0 — non publié — Réseau privé, répartiteur, DNS, clés Helm et noms de Service éprouvés
+## 0.26.0 — 2026-10-21 — Services des fournisseurs cloud, par capacités (1.1)
 
 ### Ajouté
 - **Capacité « CDN et pare-feu applicatif »** (huitième et dernière de la feuille de route 1.1) : Amazon CloudFront avec AWS WAF, Google Cloud CDN avec Cloud Armor, Azure Front Door avec son pare-feu, Scaleway Edge Services avec son WAF (OVHcloud et Outscale n'ont pas de CDN). Le CDN se place devant le répartiteur de charge du projet, sinon devant les machines de la production, sinon devant l'hôte donné dans la brique (`origin`) ou la variable `cdn_origin`. Le pare-feu bloque les attaques courantes et limite le débit par adresse (réglable) ; la mise en cache est coupée par défaut (`cache` = standard pour l'activer). Chez AWS le pare-feu est créé en us-east-1 par un second fournisseur aliasé ; chez Google un certificat géré s'ajoute si un domaine est donné ; chez Azure les règles gérées Microsoft demandent l'offre Premium ; chez Scaleway la brique exige un répartiteur de charge (règle R29). Quatre piles de référence `cdn-*`.
