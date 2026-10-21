@@ -92,6 +92,8 @@ CASES = [
     ("R54", lambda: put(make("kubernetes"), "k3s", "helm", "ingress-nginx"), Severity.INFO),
     ("R56", lambda: _ip_host(), Severity.WARNING),
     ("R55", lambda: put(make("docker-host"), "grafana", "grafana"), Severity.WARNING),
+    ("R57", lambda: _image("Mon App"), Severity.BLOCKING),
+    ("R58", lambda: _outil_disparu(), Severity.WARNING),
     ("R47", lambda: with_params(put(make("kubernetes"), "k3s", "helm", "cloudnative-pg"), "cloudnative-pg",
                                 backup_destination="s3://sauvegardes"), Severity.WARNING),
 ]
@@ -105,6 +107,18 @@ def with_params(p: Project, tool_id: str, **params) -> Project:
 def _ip_host() -> Project:
     p = put(make("docker-host"), "grafana")
     p.bricks_for("grafana")[0].params["hostname"] = "192.168.1.20"
+    return p
+
+
+def _image(name: str) -> Project:
+    p = make()
+    p.app.image_name = name
+    return p
+
+
+def _outil_disparu() -> Project:
+    p = make()
+    p.add("outil-disparu", "build")
     return p
 
 

@@ -1,0 +1,6 @@
+id: R58
+title: Outil absent du catalogue
+family: catalogue
+severity: avertissement
+type: unknown_tool
+message: "{detail}"

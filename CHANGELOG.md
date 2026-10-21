@@ -4,6 +4,17 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## 0.26.1 — non publié — Robustesse et confort d'usage
+
+### Ajouté
+- Règle **R57** (bloquante) : le nom d'image de l'application doit être un nom OCI valide (minuscules, chiffres, `. _ -`) ; correction en un clic. Le dialogue du projet convertit lui aussi la saisie en nom valide.
+- Règle **R58** (avertissement) : une brique dont l'outil n'existe pas dans le catalogue (fichier modifié à la main, outil retiré) est signalée, avec retrait en un clic ; elle était ignorée en silence.
+
+### Modifié
+- **Recherche du catalogue** : insensible aux accents et à la casse, les mots peuvent venir dans n'importe quel ordre, quelques synonymes français (« répartiteur de charge », « base de données », « pare-feu »…) ; les correspondances sur le nom passent avant celles de la description.
+- `generate` : une sortie impossible (fichier à la place d'un dossier, chemin interdit) donne un message clair et le code 2 au lieu d'une trace d'erreur ; `--force` sur un projet sans environnement ne plante plus.
+- Vue des données : la colonne « Sauvegarde » n'est plus tronquée.
+
 ## 0.26.0 — 2026-10-21 — Services des fournisseurs cloud, par capacités (1.1)
 
 ### Ajouté

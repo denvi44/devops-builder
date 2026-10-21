@@ -230,9 +230,17 @@ def main(argv: list[str] | None = None) -> int:
         return PROBLEM
 
     if args.cmd == "generate":
-        changes = sync.plan(result.files, args.output)
-        _select(changes, args.overwrite)
-        touched = [] if args.dry_run else sync.apply(changes, args.output)
+        try:
+            changes = sync.plan(result.files, args.output)
+            _select(changes, args.overwrite)
+            touched = [] if args.dry_run else sync.apply(changes, args.output)
+        except OSError as exc:
+            message = f"Écriture impossible dans « {args.output} » : {exc.strerror or exc}."
+            if as_json:
+                _emit("generate", False, project=args.project, error=message)
+            else:
+                print(message, file=sys.stderr)
+            return USAGE
         kept = [c.path for c in changes if c.status in (sync.EDITED, sync.FOREIGN) and not c.selected]
         if as_json:
             files = []
