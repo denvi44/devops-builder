@@ -398,7 +398,8 @@ def notes(ir: IR, dbs: list[Database]) -> None:
 
 
 # ------------------------------------------------------------------ Terraform
-TF_MANAGED_DBS = {"aws-rds": "aws", "cloud-sql": "gcp", "azure-database": "azure"}
+TF_MANAGED_DBS = {"aws-rds": "aws", "cloud-sql": "gcp", "azure-database": "azure", "aws-elasticache": "aws",
+                  "gcp-memorystore": "gcp", "azure-redis": "azure"}
 
 
 def tf_store(ir: IR) -> str | None:
@@ -470,6 +471,15 @@ def terraform_blocks(ir: IR, dbs: list[Database]) -> tuple[list[str], bool]:
                     host = f"${{aws_db_instance.{inst}.address}}"
                     pw = (f'${{urlencode(jsondecode(data.aws_secretsmanager_secret_version.{inst}_master'
                           f'.secret_string)["password"])}}')
+                elif db.id == "aws-elasticache":
+                    host = f"${{aws_elasticache_replication_group.{inst}.primary_endpoint_address}}"
+                    pw = f"${{random_password.{inst}.result}}"
+                elif db.id == "gcp-memorystore":
+                    host = f"${{google_redis_instance.{inst}.host}}"
+                    pw = f"${{google_redis_instance.{inst}.auth_string}}"
+                elif db.id == "azure-redis":
+                    host = f"${{azurerm_redis_cache.{inst}.hostname}}"
+                    pw = f"${{urlencode(azurerm_redis_cache.{inst}.primary_access_key)}}"
                 elif db.id == "cloud-sql":
                     host = f"${{google_sql_database_instance.{inst}.first_ip_address}}"
                     pw = f"${{random_password.{inst}.result}}"

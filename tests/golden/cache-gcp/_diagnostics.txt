@@ -1,0 +1,5 @@
+avertissement R34 Google Cloud : « Identifiant du projet » non renseigné : la valeur d'exemple « mon-projet » sera écrite dans les fichiers.
+avertissement R34 Google Cloud Storage : « Bucket de l'état Terraform » non renseigné : la valeur d'exemple « mon-projet-tfstate » sera écrite dans les fichiers.
+avertissement R34 Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « mon-app.example.com » sera écrite dans les fichiers.
+avertissement R52 Google Compute Engine : e2-small (2 vCPU, 2 Gio) pour Production, alors que les services de l'hôte demandent environ 1 vCPU, 3,2 Gio.
+avertissement R52 Google Compute Engine : e2-small (2 vCPU, 2 Gio) pour Préproduction, alors que les services de l'hôte demandent environ 1 vCPU, 3,2 Gio.

@@ -1,0 +1,80 @@
+# Capacité « cache managé » : une brique par cloud qui en propose un (Outscale n'en a pas).
+# Le cache est une base managée de la famille clé-valeur : même contrat de connexion (REDIS_URL, secret de la CI
+# ou du coffre du cloud). Vérifiées le 2026-10-21.
+
+- id: aws-elasticache
+  name: Amazon ElastiCache (Valkey)
+  kind: service
+  stage: data
+  extra_stages: [infrastructure]
+  roles: [database, key-value-store, managed-cache]
+  description: "Cache Valkey managé par AWS : groupe de réplication chiffré, jeton d'authentification généré, sous-réseaux privés du projet."
+  homepage: https://aws.amazon.com/elasticache/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [database, key-value]
+  provider: aws
+  verified: "2026-10-21"
+
+- id: gcp-memorystore
+  name: Google Cloud Memorystore (Redis)
+  kind: service
+  stage: data
+  extra_stages: [infrastructure]
+  roles: [database, key-value-store, managed-cache]
+  description: "Cache Redis managé par Google Cloud : instance avec authentification et chiffrement du transport."
+  homepage: https://cloud.google.com/memorystore
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [database, key-value]
+  provider: gcp
+  verified: "2026-10-21"
+
+- id: azure-redis
+  name: Azure Cache for Redis
+  kind: service
+  stage: data
+  extra_stages: [infrastructure]
+  roles: [database, key-value-store, managed-cache]
+  description: "Cache Redis managé par Azure : accès TLS seulement (port 6380), clé d'accès en sortie."
+  homepage: https://azure.microsoft.com/products/cache
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [database, key-value]
+  provider: azure
+  verified: "2026-10-21"
+
+- id: scaleway-redis
+  name: Scaleway Managed Database for Redis
+  kind: service
+  stage: data
+  extra_stages: [infrastructure]
+  roles: [database, key-value-store, managed-cache]
+  description: "Cache Redis managé par Scaleway : cluster avec TLS et mot de passe généré."
+  homepage: https://www.scaleway.com/en/managed-database-for-redis/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [database, key-value]
+  provider: scaleway
+  verified: "2026-10-21"
+
+- id: ovh-valkey
+  name: OVHcloud Public Cloud Databases for Valkey
+  kind: service
+  stage: data
+  extra_stages: [infrastructure]
+  roles: [database, key-value-store, managed-cache]
+  description: "Cache Valkey managé par OVHcloud, avec son utilisateur applicatif."
+  homepage: https://www.ovhcloud.com/fr/public-cloud/valkey/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [database, key-value]
+  provider: ovhcloud
+  support: experimental
+  support_note: "Instance et utilisateur créés ; droits de l'utilisateur et liste d'adresses autorisées à régler ensuite. Non essayé sur un compte OVHcloud."
+  verified: "2026-10-21"

@@ -13,6 +13,7 @@ import re
 
 from ..databases import (
     HEALTHCHECKS,
+    MANAGED_CACHES,
     MIGRATIONS,
     PASSWORD_HINT,
     Database,
@@ -845,7 +846,7 @@ ENGINE_VERSIONS = {
     "cloud-sql": {"postgres": "17", "mysql": "8_4"},
     "azure-database": {"postgres": "16", "mysql": "8.0.21"},
 }
-RANDOM_PROVIDERS = ("cloud-sql", "azure-database", "scaleway-rdb")
+RANDOM_PROVIDERS = ("cloud-sql", "azure-database", "scaleway-rdb", "aws-elasticache", "scaleway-redis")
 
 
 def managed_dbs(ir: IR) -> list[Database]:
@@ -862,7 +863,8 @@ def _instances(ir: IR, db: Database) -> list[tuple[str, object, dict]]:
     for env in ir.envs:
         params = env_params(db, ir.project, env)
         name = str(params.get("instance"))
-        label = "db" if not ir.multi_env else "db_" + env.id.replace("-", "_")
+        base = "cache_" + db.id.split("-")[0] if db.id in MANAGED_CACHES else "db"
+        label = base if not ir.multi_env else base + "_" + env.id.replace("-", "_")
         if name not in seen:
             seen[name] = (label, env, params)
     return list(seen.values())
@@ -901,11 +903,141 @@ def _azure_db_body(engine: str, server: str, label: str, dbname: str, charset: s
     return "\n".join(f"  {k.ljust(width)} = {v}" for k, v in rows)
 
 
+def _cache_aws(ir: IR, label: str, name: str, p: dict, prod: bool) -> tuple[str, list[str]]:
+    vpc_id, _public, private, cidr = network.aws_refs(ir)
+    res = align_attrs(f'''{_password(label)}
+
+resource "aws_elasticache_subnet_group" "{label}" {{
+  name       = "{name}"
+  subnet_ids = {private}
+}}
+
+resource "aws_security_group" "{label}" {{
+  name        = "{name}-cache"
+  description = "Accès au cache {name} depuis le réseau"
+  vpc_id      = {vpc_id}
+
+  ingress {{
+    from_port   = 6379
+    to_port     = 6379
+    protocol    = "tcp"
+    cidr_blocks = [{cidr}]
+  }}
+}}
+
+resource "aws_elasticache_replication_group" "{label}" {{
+  replication_group_id       = "{name}"
+  description                = "Cache {name}"
+  engine                     = "valkey"
+  engine_version             = "{p.get("version", "8.0")}"
+  node_type                  = "{p.get("node_type", "cache.t4g.micro")}"
+  num_cache_clusters         = {2 if prod else 1}
+  automatic_failover_enabled = {str(prod).lower()}
+  multi_az_enabled           = {str(prod).lower()}
+  at_rest_encryption_enabled = true
+  transit_encryption_enabled = true
+  auth_token                 = random_password.{label}.result
+  subnet_group_name          = aws_elasticache_subnet_group.{label}.name
+  security_group_ids         = [aws_security_group.{label}.id]
+  snapshot_retention_limit   = {7 if prod else 0}
+}}''')
+    outs = [f'output "{label}_endpoint" {{\n  value = aws_elasticache_replication_group.{label}.primary_endpoint_address\n}}',
+            f'output "{label}_password" {{\n  value     = random_password.{label}.result\n  sensitive = true\n}}']
+    return res, outs
+
+
+def _cache_gcp(ir: IR, label: str, name: str, p: dict, prod: bool) -> tuple[str, list[str]]:
+    region = ir.params("gcp").get("region", "europe-west9")
+    net = ("\n  authorized_network      = google_compute_network.main.id"
+           if network.present(ir, "gcp-vpc") else "")
+    res = align_attrs(f'''resource "google_redis_instance" "{label}" {{
+  name                    = "{name}"
+  region                  = "{region}"
+  tier                    = "{"STANDARD_HA" if prod else "BASIC"}"
+  memory_size_gb          = {int(p.get("memory_gb") or 1)}
+  redis_version           = "{p.get("version", "REDIS_7_2")}"
+  auth_enabled            = true
+  transit_encryption_mode = "SERVER_AUTHENTICATION"{net}
+}}''')
+    outs = [f'output "{label}_host" {{\n  value = google_redis_instance.{label}.host\n}}',
+            f'output "{label}_password" {{\n  value     = google_redis_instance.{label}.auth_string\n  sensitive = true\n}}']
+    return res, outs
+
+
+def _cache_azure(ir: IR, label: str, name: str, p: dict, prod: bool) -> tuple[str, list[str]]:
+    res = align_attrs(f'''resource "azurerm_redis_cache" "{label}" {{
+  name                 = "{name}"
+  resource_group_name  = azurerm_resource_group.main.name
+  location             = azurerm_resource_group.main.location
+  capacity             = {int(p.get("capacity") or 0)}
+  family               = "C"
+  sku_name             = "{p.get("sku", "Standard" if prod else "Basic")}"
+  non_ssl_port_enabled = false
+  minimum_tls_version  = "1.2"
+}}''')
+    outs = [f'output "{label}_host" {{\n  value = azurerm_redis_cache.{label}.hostname\n}}',
+            f'output "{label}_password" {{\n  value     = azurerm_redis_cache.{label}.primary_access_key\n  sensitive = true\n}}']
+    return res, outs
+
+
+def _cache_scaleway(ir: IR, label: str, name: str, p: dict, prod: bool) -> tuple[str, list[str]]:
+    pn = ("\n\n  private_network {\n    id = scaleway_vpc_private_network.main.id\n  }"
+          if network.present(ir, "scaleway-vpc") else "")
+    res = align_attrs(f'''{_password(label)}
+
+resource "scaleway_redis_cluster" "{label}" {{
+  name         = "{name}"
+  version      = "{p.get("version", "7.2.11")}"
+  node_type    = "{p.get("node_type", "RED1-MICRO")}"
+  user_name    = "default"
+  password     = random_password.{label}.result
+  cluster_size = {2 if prod else 1}
+  tls_enabled  = true{pn}
+}}''')
+    ip = "private_network[0].ips[0]" if pn else "public_network[0].ips[0]"
+    outs = [f'output "{label}_host" {{\n  value = scaleway_redis_cluster.{label}.{ip}\n}}',
+            f'output "{label}_password" {{\n  value     = random_password.{label}.result\n  sensitive = true\n}}']
+    return res, outs
+
+
+def _cache_ovh(ir: IR, label: str, name: str, p: dict, prod: bool) -> tuple[str, list[str]]:
+    res = f'''resource "ovh_cloud_project_database" "{label}" {{
+  service_name = var.ovh_service_name
+  description  = "{name}"
+  engine       = "valkey"
+  version      = "{p.get("version", "8.0")}"
+  plan         = "{p.get("plan", "essential")}"
+  flavor       = "{p.get("flavor", "db1-4")}"
+
+  nodes {{
+    region = "{p.get("region", "GRA")}"
+  }}
+}}
+
+resource "ovh_cloud_project_database_valkey_user" "{label}" {{
+  service_name = ovh_cloud_project_database.{label}.service_name
+  cluster_id   = ovh_cloud_project_database.{label}.id
+  name         = "{ir.app.replace("-", "_")}"
+}}'''
+    outs = [f'output "{label}_endpoints" {{\n  value = ovh_cloud_project_database.{label}.endpoints\n}}',
+            f'output "{label}_password" {{\n  value     = ovh_cloud_project_database_valkey_user.{label}.password\n  sensitive = true\n}}']
+    return res, outs
+
+
+def _managed_cache(ir: IR, db: Database, label: str, p: dict, prod: bool) -> tuple[str, list[str]]:
+    name = str(p.get("instance"))
+    fn = {"aws": _cache_aws, "gcp": _cache_gcp, "azure": _cache_azure, "scaleway": _cache_scaleway,
+          "ovh": _cache_ovh}[db.id.split("-")[0]]
+    return fn(ir, label, name, p, prod)
+
+
 def _managed(ir: IR, db: Database, label: str, p: dict, prod: bool) -> tuple[str, list[str]]:
     engine = str(p.get("engine") or "postgres")
     name = p.get("instance")
     user, dbname = db.user, db.name
     net_aws = network.present(ir, "aws-vpc")
+    if db.id in MANAGED_CACHES:
+        return _managed_cache(ir, db, label, p, prod)
     if db.id == "aws-rds":
         version = p.get("version") or ENGINE_VERSIONS["aws-rds"].get(engine, "17")
         snapshot = (f'  skip_final_snapshot         = false\n  final_snapshot_identifier   = "{name}-final"'

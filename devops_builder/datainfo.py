@@ -69,7 +69,8 @@ def describe(ir, db: Database, code: bool = True) -> DbInfo:
         badge = "Service managé"
         where = f"{db.tool.name}, une instance par environnement (Terraform)"
         secret = f"variable CI {q}{db.url_ci_var}" + ("_<ENV>" if ir.multi_env else "") + q
-        backup = "service du fournisseur (rétention configurée)"
+        backup = ("cache : données reconstructibles, pas de sauvegarde planifiée" if db.engine.family == "key-value"
+                  else "service du fournisseur (rétention configurée)")
     elif db.mode == "operator":
         badge = "CloudNativePG"
         where = "Cluster CloudNativePG dans l'espace de noms de l'application"
@@ -106,7 +107,7 @@ def infos(project: Project, catalog: Catalog) -> dict[str, DbInfo]:
     return {db.id: describe(ir, db, code=False) for db in dbs}
 
 
-SIZE_KEYS = ("storage", "instance_class", "tier", "sku", "node_type", "flavor", "plan", "storage_gb")
+SIZE_KEYS = ("memory_gb", "capacity", "storage", "instance_class", "tier", "sku", "node_type", "flavor", "plan", "storage_gb")
 
 
 def rows(project: Project, catalog: Catalog, diagnostics=None) -> list[DbRow]:
@@ -131,7 +132,7 @@ def rows(project: Project, catalog: Catalog, diagnostics=None) -> list[DbRow]:
             if db.mode == "operator":
                 size = f"{instances_for(env.kind)} instance(s), {p.get('storage') or '10Gi'}"
             else:
-                size = ", ".join(str(p[k]) + (" Go" if k == "storage_gb" else "") for k in SIZE_KEYS if p.get(k))
+                size = ", ".join(str(p[k]) + (" Go" if k in ("storage_gb", "memory_gb") else "") for k in SIZE_KEYS if p.get(k))
             version = str(p.get("version") or (db.version if db.mode != "managed" else ""))
             engine = p.get("engine")
             if db.mode == "managed" and engine:

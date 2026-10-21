@@ -46,6 +46,26 @@ def aws_nat(ir: IR) -> bool:
     return choice == "oui" or (choice == "auto" and ir.has("eks"))
 
 
+def aws_refs(ir: IR) -> tuple[str, str, str, str]:
+    """(VPC, sous-réseaux publics, sous-réseaux privés, plage) du réseau du projet, ou du réseau par défaut d'AWS."""
+    if present(ir, "aws-vpc"):
+        return "aws_vpc.main.id", "aws_subnet.public[*].id", "aws_subnet.private[*].id", "aws_vpc.main.cidr_block"
+    return ("data.aws_vpc.default.id", "data.aws_subnets.default.ids", "data.aws_subnets.default.ids",
+            "data.aws_vpc.default.cidr_block")
+
+
+def default_data_blocks(ir: IR) -> list[str]:
+    """Lecture du VPC par défaut d'AWS, une fois, pour les ressources qui s'y rattachent sans brique réseau."""
+    from .hosts import creates_hosts
+    if present(ir, "aws-vpc") or not ir.has("aws"):
+        return []
+    if not (ir.has("aws-elasticache") or (ir.has("aws-elb") and creates_hosts(ir))):
+        return []
+    return ['# --- Réseau par défaut du compte AWS (aucune brique Amazon VPC)\n'
+            'data "aws_vpc" "default" {\n  default = true\n}\n\n'
+            'data "aws_subnets" "default" {\n  filter {\n    name   = "vpc-id"\n    values = [data.aws_vpc.default.id]\n  }\n}']
+
+
 def _aws_has_rds(ir: IR) -> bool:
     from .data import managed_dbs
     return any(d.id == "aws-rds" for d in managed_dbs(ir))

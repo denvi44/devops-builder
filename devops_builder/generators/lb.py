@@ -36,11 +36,7 @@ def _probe_port(ports: list[int]) -> int:
 
 
 def _aws(ir: IR, gs, ports):
-    vpc = network.present(ir, "aws-vpc")
-    shared = "" if vpc else ('data "aws_vpc" "default" {\n  default = true\n}\n\n'
-                             'data "aws_subnets" "default" {\n  filter {\n    name   = "vpc-id"\n    values = [data.aws_vpc.default.id]\n  }\n}')
-    vpc_id = "aws_vpc.main.id" if vpc else "data.aws_vpc.default.id"
-    subnets = "aws_subnet.public[*].id" if vpc else "data.aws_subnets.default.ids"
+    vpc_id, subnets, _private, _cidr = network.aws_refs(ir)
     probe = _probe_port(ports)
     out, outs = [], []
     for g in gs:
@@ -85,7 +81,7 @@ resource "aws_lb_listener" "{g.label}_{p}" {{
         out.append(f"# --- {g.key} : répartiteur\n" + "\n\n".join(parts))
         outs.append(f'output "lb_{g.label}" {{\n  description = "Adresse DNS du répartiteur de {g.key}"\n'
                     f'  value       = aws_lb.{g.label}.dns_name\n}}')
-    return ([shared] if shared else []) + out, outs
+    return out, outs
 
 
 def _gcp(ir: IR, gs, ports):

@@ -166,7 +166,7 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
         def add_databases(kube: bool, compose: bool = True) -> None:
             for db in databases(project, catalog):
                 if db.mode == "managed":
-                    add(db.id, db.tool.name, db.engine.port, None, db.engine.label,
+                    add(db.id, db.tool.name, db.port, None, db.engine.label,
                         "service managé, une instance par environnement")
                 elif kube:
                     host = f"{name}-pg-rw" if db.mode == "operator" else f"{name}-{db.id}"

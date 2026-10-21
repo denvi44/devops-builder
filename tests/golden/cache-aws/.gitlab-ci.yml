@@ -1,0 +1,225 @@
+# Généré par DevOps Builder — à relire avant usage.
+stages:
+- test
+- build
+- security
+- publish
+- infra
+- deploy-staging
+- deploy-production
+- renovate
+variables:
+  TAG: $CI_COMMIT_SHORT_SHA
+  IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+  AWS_REGION: eu-west-3
+unit-tests:
+  stage: test
+  image:
+    name: python:3.12-slim
+    entrypoint:
+    - ''
+  script:
+  - pip install -r requirements.txt
+  - pytest -q
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+build-image:
+  stage: build
+  image:
+    name: docker:27
+    entrypoint:
+    - ''
+  services:
+  - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: /certs
+  script:
+  - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  - docker buildx build --tag "$IMAGE" --push .
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+gitleaks:
+  stage: security
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint:
+    - ''
+  script:
+  - gitleaks detect --source . --verbose
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+trivy:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint:
+    - ''
+  variables:
+    TRIVY_USERNAME: $CI_REGISTRY_USER
+    TRIVY_PASSWORD: $CI_REGISTRY_PASSWORD
+  script:
+  - trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+cosign:
+  stage: publish
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  script:
+  - apk add --no-cache cosign
+  - echo "$CI_REGISTRY_PASSWORD" | cosign login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  - cosign sign --yes "$IMAGE"
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+iac-plan:
+  stage: infra
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - 'export AWS_ROLE_ARN="$AWS_INFRA_ROLE_ARN"   # identité des jobs d''infrastructure'
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - cd infra/terraform
+  - tofu fmt -check -recursive
+  - tofu init -input=false
+  - tofu validate
+  - tofu plan -input=false -lock-timeout=5m -out=plan.tfplan
+  artifacts:
+    paths:
+    - infra/terraform/plan.tfplan
+    expire_in: 1 week
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+iac-apply:
+  stage: infra
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  resource_group: terraform
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - 'export AWS_ROLE_ARN="$AWS_INFRA_ROLE_ARN"   # identité des jobs d''infrastructure'
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - cd infra/terraform
+  - tofu init -input=false
+  - tofu apply -input=false -lock-timeout=5m plan.tfplan
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - iac-plan
+deploy-staging:
+  stage: deploy-staging
+  image:
+    name: python:3.12-alpine
+    entrypoint:
+    - ''
+  environment:
+    name: staging
+  variables:
+    ANSIBLE_CONFIG: ansible/ansible.cfg
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - apk add --no-cache openssh-client
+  - pip install --no-cache-dir "ansible-core>=2.21,<2.22" || pipx install "ansible-core>=2.21,<2.22"
+  - ansible-galaxy collection install -r ansible/requirements.yml
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - apk add --no-cache bash jq
+  - bash scripts/tf-inventory.sh staging
+  - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+  - REDIS_URL="$REDIS_URL_STAGING" sh deploy/secrets.sh .secrets
+  - export DEPLOY_REGISTRY="$CI_REGISTRY" DEPLOY_REGISTRY_USER="$CI_REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$CI_REGISTRY_PASSWORD"
+  - ansible-playbook -i ansible/inventories/staging.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app-staging" -e "deploy_env=staging" -e "app_host=staging.mon-app.example.com"
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+deploy-production:
+  stage: deploy-production
+  image:
+    name: python:3.12-alpine
+    entrypoint:
+    - ''
+  environment:
+    name: production
+  variables:
+    ANSIBLE_CONFIG: ansible/ansible.cfg
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  script:
+  - echo "$AWS_OIDC_TOKEN" > /tmp/aws_oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_oidc_token AWS_ROLE_SESSION_NAME=ci
+  - apk add --no-cache openssh-client
+  - pip install --no-cache-dir "ansible-core>=2.21,<2.22" || pipx install "ansible-core>=2.21,<2.22"
+  - ansible-galaxy collection install -r ansible/requirements.yml
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - apk add --no-cache bash jq
+  - bash scripts/tf-inventory.sh production
+  - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+  - REDIS_URL="$REDIS_URL_PRODUCTION" sh deploy/secrets.sh .secrets
+  - export DEPLOY_REGISTRY="$CI_REGISTRY" DEPLOY_REGISTRY_USER="$CI_REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$CI_REGISTRY_PASSWORD"
+  - ansible-playbook -i ansible/inventories/production.ini ansible/deploy.yml -e "image=$IMAGE" -e "project=mon-app" -e "deploy_env=production" -e "app_host=mon-app.example.com"
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - deploy-staging
+renovate:
+  stage: renovate
+  image:
+    name: renovate/renovate:44.164.5
+    entrypoint:
+    - ''
+  rules:
+  - if: $CI_PIPELINE_SOURCE == "schedule" && $RENOVATE == "1"
+  variables:
+    RENOVATE_PLATFORM: gitlab
+    RENOVATE_ENDPOINT: $CI_API_V4_URL
+    RENOVATE_REPOSITORIES: $CI_PROJECT_PATH
+    LOG_LEVEL: info
+  script:
+  - renovate
