@@ -118,6 +118,7 @@ Ce que chaque capacité ajoute aux fichiers générés :
 6. **Fonctions serverless** : la fonction, son déclencheur HTTP et son déploiement par la CI.
    *Fait dans la 0.26.0* pour AWS, Google Cloud et Azure (code déployé par la CI) et Scaleway (fonction sans code) ; OVHcloud attend son offre.
 7. **Chiffrement** : une clé, utilisée pour l'état OpenTofu, les disques et les secrets.
+   *Fait dans la 0.26.0* : la clé existe sur quatre clouds et chiffre disques, RDS, ElastiCache, SQS et secrets chez AWS ; son rattachement chez Google Cloud, Azure et Scaleway, l'état OpenTofu et le KMS d'OVHcloud restent à faire.
 8. **CDN et pare-feu** : le CDN devant l'application, avec le pare-feu applicatif.
 
 Ordre de travail : le réseau privé d'abord, puis le répartiteur et le DNS, puis le cache et les files, enfin les

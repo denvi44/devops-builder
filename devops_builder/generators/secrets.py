@@ -19,7 +19,7 @@ import shlex
 
 from ..databases import Database
 from ..ir import IR
-from .common import HEADER, dump_yaml
+from .common import HEADER, align_attrs, dump_yaml
 
 VAULTS = ("vault", "openbao")
 CLOUD_STORES = {"aws-secrets-manager": "aws", "gcp-secret-manager": "gcp", "azure-key-vault": "azure"}
@@ -493,8 +493,11 @@ def terraform_blocks(ir: IR, dbs: list[Database]) -> tuple[list[str], bool]:
                 value = f'jsonencode({{ url = "{url}" }})' if eso(ir) else f'"{url}"'
             title = f"# --- Secret {key} ({db.tool.name})"
             if st == "aws-secrets-manager":
-                body = (f'  name = "{key}"' if env.kind == "production" else
-                        f'  name                    = "{key}"\n  recovery_window_in_days = 0')
+                rows = [f'  name = "{key}"'] if env.kind == "production" else [
+                    f'  name = "{key}"', "  recovery_window_in_days = 0"]
+                if ir.has("aws-kms"):
+                    rows.append("  kms_key_id = aws_kms_key.main.arn")
+                body = align_attrs("\n".join(rows))
                 res = (f'resource "aws_secretsmanager_secret" "{label}" {{\n{body}\n}}\n\n'
                        f'resource "aws_secretsmanager_secret_version" "{label}" {{\n'
                        f'  secret_id     = aws_secretsmanager_secret.{label}.id\n  secret_string = {value}\n}}')

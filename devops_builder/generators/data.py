@@ -905,6 +905,7 @@ def _azure_db_body(engine: str, server: str, label: str, dbname: str, charset: s
 
 def _cache_aws(ir: IR, label: str, name: str, p: dict, prod: bool) -> tuple[str, list[str]]:
     vpc_id, _public, private, cidr = network.aws_refs(ir)
+    kms_cache = "\n  kms_key_id                 = aws_kms_key.main.arn" if ir.has("aws-kms") else ""
     res = align_attrs(f'''{_password(label)}
 
 resource "aws_elasticache_subnet_group" "{label}" {{
@@ -934,7 +935,7 @@ resource "aws_elasticache_replication_group" "{label}" {{
   num_cache_clusters         = {2 if prod else 1}
   automatic_failover_enabled = {str(prod).lower()}
   multi_az_enabled           = {str(prod).lower()}
-  at_rest_encryption_enabled = true
+  at_rest_encryption_enabled = true{kms_cache}
   transit_encryption_enabled = true
   auth_token                 = random_password.{label}.result
   subnet_group_name          = aws_elasticache_subnet_group.{label}.name
@@ -1039,6 +1040,7 @@ def _managed(ir: IR, db: Database, label: str, p: dict, prod: bool) -> tuple[str
     if db.id in MANAGED_CACHES:
         return _managed_cache(ir, db, label, p, prod)
     if db.id == "aws-rds":
+        kms_rds = "\n  kms_key_id                  = aws_kms_key.main.arn" if ir.has("aws-kms") else ""
         version = p.get("version") or ENGINE_VERSIONS["aws-rds"].get(engine, "17")
         snapshot = (f'  skip_final_snapshot         = false\n  final_snapshot_identifier   = "{name}-final"'
                     if prod else "  skip_final_snapshot         = true")
@@ -1049,7 +1051,7 @@ def _managed(ir: IR, db: Database, label: str, p: dict, prod: bool) -> tuple[str
   instance_class              = "{p.get("instance_class", "db.t4g.micro")}"
   allocated_storage           = {int(p.get("storage_gb") or 20)}
   max_allocated_storage       = {int(p.get("storage_gb") or 20) * 5}
-  storage_encrypted           = true
+  storage_encrypted           = true{kms_rds}
   db_name                     = "{dbname}"
   username                    = "{user}"
   manage_master_user_password = true

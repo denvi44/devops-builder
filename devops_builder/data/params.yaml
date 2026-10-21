@@ -1291,3 +1291,40 @@ scaleway-functions:
     label: Délai maximal (secondes)
     type: int
     default: 30
+
+# ------------------------------------------------------------- Chiffrement (KMS)
+aws-kms:
+  key:
+    label: Nom de la clé
+    default: "{app}"
+    pattern: '[a-z][a-z0-9-]{0,40}[a-z0-9]'
+    pattern_hint: "minuscules, chiffres et tirets, commence par une lettre"
+  deletion_days:
+    label: Délai avant suppression (jours)
+    description: Délai de grâce après une demande de suppression de la clé, de 7 à 30 jours.
+    type: int
+    default: 30
+gcp-kms:
+  key:
+    label: Nom de la clé
+    default: "{app}"
+    pattern: '[a-z][a-z0-9-]{0,40}[a-z0-9]'
+    pattern_hint: "minuscules, chiffres et tirets, commence par une lettre"
+azure-kms:
+  key:
+    label: Nom de la clé
+    default: "{app}"
+    pattern: '[a-z][a-z0-9-]{0,40}[a-z0-9]'
+    pattern_hint: "minuscules, chiffres et tirets, commence par une lettre"
+  vault_name:
+    label: Nom du coffre de clés
+    description: Unique dans tout Azure.
+    default: "kv-{app}-keys"
+    pattern: '[a-zA-Z][a-zA-Z0-9-]{1,22}[a-zA-Z0-9]'
+    pattern_hint: "3 à 24 caractères, lettres, chiffres et tirets, unique dans Azure"
+scaleway-key-manager:
+  key:
+    label: Nom de la clé
+    default: "{app}"
+    pattern: '[a-z][a-z0-9-]{0,40}[a-z0-9]'
+    pattern_hint: "minuscules, chiffres et tirets, commence par une lettre"

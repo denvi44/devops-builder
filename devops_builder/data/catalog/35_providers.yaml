@@ -20,6 +20,7 @@
     cache: aws-elasticache
     message-queue: aws-sqs
     functions: aws-lambda
+    kms: aws-kms
     dns: aws-route53
     database: aws-rds
     k8s.managed: eks
@@ -50,6 +51,7 @@
     cache: gcp-memorystore
     message-queue: gcp-pubsub
     functions: gcp-functions
+    kms: gcp-kms
     dns: gcp-dns
     database: cloud-sql
     k8s.managed: gke
@@ -80,6 +82,7 @@
     cache: azure-redis
     message-queue: azure-service-bus
     functions: azure-functions
+    kms: azure-kms
     dns: azure-dns
     database: azure-database
     k8s.managed: aks
@@ -152,6 +155,7 @@
     cache: scaleway-redis
     message-queue: scaleway-queues
     functions: scaleway-functions
+    kms: scaleway-key-manager
     dns: scaleway-domains
     database: scaleway-rdb
     k8s.managed: kapsule

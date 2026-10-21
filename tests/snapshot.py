@@ -305,6 +305,16 @@ def extra_cases(catalog) -> dict[str, Project]:
                                              envs="staging-prod", shared_host=cloud == "scaleway"), catalog)
             p.add(catalog[cloud].services["functions"], "deploy")
             out[f"fonctions-{cloud}"] = p
+        for cloud in ("aws", "gcp", "azure", "scaleway"):
+            p = build_starter(StarterAnswers(forge="gitlab", hosting="vm", cloud=cloud, envs="staging-prod",
+                                             shared_host=True), catalog)
+            p.add(catalog[cloud].services["kms"], "infrastructure")
+            out[f"kms-{cloud}"] = p
+        p = build_starter(StarterAnswers(forge="gitlab", hosting="vm", cloud="aws", envs="staging-prod",
+                                         shared_host=True), catalog)
+        for t in ("aws-kms", "aws-sqs", "aws-elasticache"):
+            p.add(t, "infrastructure" if t != "aws-elasticache" else "data")
+        out["kms-aws-services"] = p
     return out
 
 

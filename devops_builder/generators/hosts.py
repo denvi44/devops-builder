@@ -178,6 +178,7 @@ resource "aws_security_group" "hosts" {{
 }}'''
 
     def per_group(g: HostGroup) -> str:
+        kms_disk = "\n    kms_key_id  = aws_kms_key.main.arn" if ir.has("aws-kms") else ""
         return f'''resource "aws_instance" "{g.label}" {{
   count                  = {_count(g)}
   ami                    = data.aws_ami.ubuntu.id
@@ -193,7 +194,7 @@ resource "aws_security_group" "hosts" {{
   root_block_device {{
     volume_size = {int(g.params.get("disk_gb") or 30)}
     volume_type = "gp3"
-    encrypted   = true
+    encrypted   = true{kms_disk}
   }}
 
   tags = {{
