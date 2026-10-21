@@ -1,0 +1,60 @@
+# Capacité « chiffrement (KMS) » : une clé par cloud (Outscale : pas de brique ; le KMS d'OVHcloud se commande hors de la pile).
+# Chez AWS la clé est utilisée par les ressources du projet ; ailleurs elle est créée et donnée en sortie. Vérifiées le 2026-10-21.
+
+- id: aws-kms
+  name: AWS Key Management Service (KMS)
+  kind: service
+  stage: infrastructure
+  roles: [kms]
+  description: "Clé de chiffrement à rotation automatique, utilisée pour les disques, Amazon RDS, ElastiCache, SQS et les secrets du projet."
+  homepage: https://aws.amazon.com/kms/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [kms]
+  provider: aws
+  verified: "2026-10-21"
+
+- id: gcp-kms
+  name: Google Cloud KMS
+  kind: service
+  stage: infrastructure
+  roles: [kms]
+  description: "Trousseau et clé de chiffrement à rotation automatique (90 jours)."
+  homepage: https://cloud.google.com/security/products/security-key-management
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [kms]
+  provider: gcp
+  verified: "2026-10-21"
+
+- id: azure-kms
+  name: Azure Key Vault (clés)
+  kind: service
+  stage: infrastructure
+  roles: [kms]
+  description: "Coffre dédié aux clés, clé de chiffrement avec politique de rotation et droits de l'identité qui applique la pile."
+  homepage: https://azure.microsoft.com/products/key-vault
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [kms]
+  provider: azure
+  verified: "2026-10-21"
+
+- id: scaleway-key-manager
+  name: Scaleway Key Manager
+  kind: service
+  stage: infrastructure
+  roles: [kms]
+  description: "Clé de chiffrement symétrique (AES-256-GCM) à rotation automatique."
+  homepage: https://www.scaleway.com/en/key-manager/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [kms]
+  provider: scaleway
+  support: experimental
+  support_note: "Clé créée et donnée en sortie ; aucun service du projet ne l'utilise encore. Non essayé sur un compte Scaleway."
+  verified: "2026-10-21"

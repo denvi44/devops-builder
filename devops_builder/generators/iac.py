@@ -6,7 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..ir import IR
-from . import dns, functions, lb, network, queue
+from . import dns, functions, kms, lb, network, queue
 from .common import HEADER, align_attrs
 
 DIR = "infra/terraform"
@@ -368,7 +368,7 @@ COMMENT_ONLY = {"oks", "azure-container-apps"}
 IAC_RESOURCES = {
     "eks", "ecr", "aws-secrets-manager", "s3", "gke", "artifact-registry", "gcr", "gcp-secret-manager",
     "gcs", "aks", "acr", "azure-key-vault", "azure-blob", "azure-container-apps", "ovh-mks", "kapsule",
-    "scaleway-registry", "oks", *network.NETWORK, *lb.LB, *dns.DNS, *queue.QUEUE, *functions.FUNCTIONS,
+    "scaleway-registry", "oks", *network.NETWORK, *lb.LB, *dns.DNS, *queue.QUEUE, *functions.FUNCTIONS, *kms.KMS,
 }
 
 
@@ -401,7 +401,7 @@ def terraform(ir: IR) -> dict[str, str]:
         loc = ir.params("azure").get("location", "francecentral")
         main_parts.append(f'resource "azurerm_resource_group" "main" {{\n  name     = "{rg}"\n  location = "{loc}"\n}}')
     for _, b in ir.project.all_bricks():
-        if b.tool not in IAC_RESOURCES or b.tool in network.NETWORK or b.tool in lb.LB or b.tool in dns.DNS or b.tool in queue.QUEUE or b.tool in functions.FUNCTIONS:
+        if b.tool not in IAC_RESOURCES or b.tool in network.NETWORK or b.tool in lb.LB or b.tool in dns.DNS or b.tool in queue.QUEUE or b.tool in functions.FUNCTIONS or b.tool in kms.KMS:
             continue
         name = ir.catalog[b.tool].name
         if b.tool in CLUSTER_TOOLS:
@@ -426,7 +426,8 @@ def terraform(ir: IR) -> dict[str, str]:
     dns_blocks, dns_outputs = dns.terraform_blocks(ir)
     queue_blocks, queue_outputs = queue.terraform_blocks(ir)
     fn_blocks, fn_outputs = functions.terraform_blocks(ir)
-    main_parts += network.default_data_blocks(ir) + net_blocks + host_blocks + lb_blocks + dns_blocks + queue_blocks + fn_blocks + db_blocks + secret_blocks + eso_blocks
+    kms_blocks, kms_outputs = kms.terraform_blocks(ir)
+    main_parts += network.default_data_blocks(ir) + kms_blocks + net_blocks + host_blocks + lb_blocks + dns_blocks + queue_blocks + fn_blocks + db_blocks + secret_blocks + eso_blocks
     ir.cover(*(p.id for p in ir.providers))
     if backend_tool(ir) in S3_COMPATIBLE:
         ir.cover(backend_tool(ir))  # porte l'état : écrit dans le bloc backend de versions.tf
@@ -457,7 +458,7 @@ def terraform(ir: IR) -> dict[str, str]:
         f"{DIR}/variables.tf": "\n\n".join(variables) + "\n",
         f"{DIR}/.gitignore": GITIGNORE,
     }
-    outputs = _outputs(ir) + net_outputs + host_outputs + lb_outputs + dns_outputs + queue_outputs + fn_outputs + db_outputs + eso_outputs
+    outputs = _outputs(ir) + net_outputs + host_outputs + lb_outputs + dns_outputs + queue_outputs + fn_outputs + kms_outputs + db_outputs + eso_outputs
     if outputs:
         files[f"{DIR}/outputs.tf"] = "\n\n".join([f"# {HEADER}", *outputs]) + "\n"
     tvs = required_vars(ir)

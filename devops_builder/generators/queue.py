@@ -43,17 +43,18 @@ def _out(label: str, desc: str, value: str, sensitive: bool = False) -> str:
 
 def _aws(ir, p, days):
     blocks, outs = [], []
+    sse = "kms_master_key_id         = aws_kms_key.main.arn" if ir.has("aws-kms") else "sqs_managed_sse_enabled   = true"
     for label, name, _ in _items(ir, p):
         blocks.append(align_attrs(f'''resource "aws_sqs_queue" "{label}_dlq" {{
   name                      = "{name}-dlq"
   message_retention_seconds = 1209600
-  sqs_managed_sse_enabled   = true
+  {sse}
 }}
 
 resource "aws_sqs_queue" "{label}" {{
   name                      = "{name}"
   message_retention_seconds = {days * 86400}
-  sqs_managed_sse_enabled   = true
+  {sse}
   redrive_policy = jsonencode({{
     deadLetterTargetArn = aws_sqs_queue.{label}_dlq.arn
     maxReceiveCount     = 5
