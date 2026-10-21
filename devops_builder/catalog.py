@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -118,8 +119,9 @@ class Catalog:
         maturity: str | None = None,
         target: str | None = None,
     ) -> list[Tool]:
-        needle = text.strip().lower()
+        words = [w for w in re.split(r"[\s']+", _fold(text)) if w and w not in _STOP]
         out: list[Tool] = []
+        ranks: dict[str, int] = {}
         for t in self.tools.values():
             if not t.curated and not include_uncurated:
                 continue
@@ -133,13 +135,34 @@ class Catalog:
                     continue
             if target in ("docker-host", "vm") and t.kubernetes_only:
                 continue
-            if needle:
-                hay = " ".join([t.name, t.id, t.description, " ".join(t.roles)]).lower()
-                if needle not in hay:
+            if words:
+                title = _fold(f"{t.name} {t.id}")
+                hay = _fold(" ".join([t.name, t.id, t.description, " ".join(t.roles), *_ALIASES.get(t.id, ())]))
+                if not all(any(a in hay for a in (w, *_SYNONYMS.get(w, ()))) for w in words):
                     continue
+                if not all(w in title for w in words):
+                    ranks[t.id] = 1
             out.append(t)
-        out.sort(key=lambda t: (not t.curated, STAGE_IDS.index(t.stage), t.name.lower()))
+        out.sort(key=lambda t: (not t.curated, ranks.get(t.id, 0), STAGE_IDS.index(t.stage), t.name.lower()))
         return out
+
+
+# Termes français courants absents des descriptions (en anglais) : mot saisi → équivalents recherchables.
+_SYNONYMS: dict[str, tuple[str, ...]] = {
+    "base": ("database",), "donnees": ("data", "database"), "repartiteur": ("load balancer", "lb"),
+    "surveillance": ("monitoring",), "supervision": ("monitoring",), "sauvegarde": ("backup",),
+    "journaux": ("logs",), "journal": ("log",), "conteneur": ("container",), "conteneurs": ("containers",),
+    "secrets": ("secret", "vault"), "chiffrement": ("encryption", "kms"), "cle": ("key",), "cles": ("keys",),
+    "charge": ("load",), "pare-feu": ("firewall", "waf"), "parefeu": ("firewall", "waf"), "fichiers": ("files", "storage"),
+}
+_STOP = {"de", "du", "des", "la", "le", "les", "un", "une", "d", "l", "et", "pour", "en"}
+_ALIASES: dict[str, tuple[str, ...]] = {}
+
+
+def _fold(text: str) -> str:
+    """Minuscules sans accents : « Répartiteur » et « repartiteur » se valent."""
+    decomposed = unicodedata.normalize("NFD", text.lower())
+    return "".join(c for c in decomposed if not unicodedata.combining(c))
 
 
 def _slug(name: str) -> str:

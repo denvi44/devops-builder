@@ -317,7 +317,8 @@ class ProjectSettingsDialog(QDialog):
         project.target = self.target.currentData()
         project.environments = [e.model_copy(deep=True) for e in self.envs_editor.envs]
         project.app.language = self.language.currentData()
-        project.app.image_name = self.image.text().strip() or "mon-app"
+        from ..appscan import slug
+        project.app.image_name = slug(self.image.text()) or "mon-app"
         project.app.port = self.port.value()
         project.secnumcloud = self.secnum.isChecked()
         project.cloud_auth = self.auth.currentData()

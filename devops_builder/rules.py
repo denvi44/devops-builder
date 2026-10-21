@@ -999,6 +999,36 @@ def h_ip_address(rule: Rule, ctx: Context) -> list[Diagnostic]:
     return out
 
 
+IMAGE_NAME_PATTERN = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*")
+
+
+@handler("image_name")
+def h_image_name(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    """Nom d'image OCI : minuscules, chiffres et séparateurs . _ - ; sinon le build et le déploiement échouent."""
+    from .appscan import slug
+    name = ctx.project.app.image_name
+    if IMAGE_NAME_PATTERN.fullmatch(name or "") and len(name) <= 80:
+        return []
+    shown = repr(name)[:60]
+    return [_diag(rule, _fmt(rule.message, detail=(
+        f"Le nom d'image {shown} n'est pas valide : un registre OCI n'accepte que des minuscules, des chiffres et les "
+        "séparateurs . _ - (sans espace ni majuscule). Le build et le déploiement échoueraient.")), [],
+        [Action("set_app_image", f"Utiliser « {slug(name or '')} »", {"value": slug(name or "")})])]
+
+
+@handler("unknown_tool")
+def h_unknown_tool(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    """Brique dont l'outil n'existe pas dans le catalogue (fichier modifié à la main, outil retiré) : elle est ignorée."""
+    out = []
+    for _stage, brick in ctx.project.all_bricks():
+        if ctx.catalog.get(brick.tool) is None:
+            out.append(_diag(rule, _fmt(rule.message, detail=(
+                f"L'outil « {brick.tool} » est absent du catalogue de cette version : la brique est ignorée à la "
+                "génération.")), [brick.uid],
+                [Action("remove_bricks", "Retirer cette brique", {"uids": [brick.uid]})]))
+    return out
+
+
 @handler("ingress_without_tls")
 def h_ingress_without_tls(rule: Rule, ctx: Context) -> list[Diagnostic]:
     """Contrôleur d'entrée Kubernetes sans cert-manager : l'entrée reste en HTTP."""
@@ -1103,6 +1133,8 @@ def apply_action(project: Project, action: Action, catalog: Catalog) -> None:
         env = project.env(args["env"])
         if env is not None:
             setattr(env, args["field"], args["value"])
+    elif action.op == "set_app_image":
+        project.app.image_name = args["value"]
     elif action.op == "set_app_port":
         project.app.port = int(args["port"])
     elif action.op == "move_brick":

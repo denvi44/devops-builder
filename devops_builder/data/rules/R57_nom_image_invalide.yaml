@@ -1,0 +1,6 @@
+id: R57
+title: Nom d'image de l'application invalide
+family: parametres
+severity: bloquant
+type: image_name
+message: "{detail}"

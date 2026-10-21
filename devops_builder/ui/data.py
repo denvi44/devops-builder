@@ -60,7 +60,7 @@ class DataDialog(QDialog):
         header = self.tree.header()
         for i in range(len(COLUMNS)):
             header.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(len(COLUMNS) - 1, QHeaderView.ResizeMode.Stretch)
+        header.setStretchLastSection(False)   # la dernière colonne (Sauvegarde) garde sa largeur, défilement si besoin
         self.tree.currentItemChanged.connect(self._current)
         self.tree.itemDoubleClicked.connect(self._open)
         lay.addWidget(self.tree, 1)
