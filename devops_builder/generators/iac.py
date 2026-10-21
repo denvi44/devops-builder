@@ -6,7 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..ir import IR
-from . import dns, functions, kms, lb, network, queue
+from . import cdn, dns, functions, kms, lb, network, queue
 from .common import HEADER, align_attrs
 
 DIR = "infra/terraform"
@@ -95,6 +95,8 @@ def _providers_block(ir: IR) -> str:
         params = ir.params(p.id)
         if p.id == "aws":
             lines.append(f'provider "aws" {{\n  region = "{params.get("region", "eu-west-3")}"\n}}')
+            if ir.has("aws-cloudfront"):   # le pare-feu de CloudFront ne peut vivre qu'en us-east-1
+                lines.append('provider "aws" {\n  alias  = "us_east_1"\n  region = "us-east-1"\n}')
         elif p.id == "gcp":
             lines.append(f'provider "google" {{\n  project = var.gcp_project_id\n  region  = "{params.get("region", "europe-west9")}"\n}}')
         elif p.id == "azure":
@@ -368,7 +370,7 @@ COMMENT_ONLY = {"oks", "azure-container-apps"}
 IAC_RESOURCES = {
     "eks", "ecr", "aws-secrets-manager", "s3", "gke", "artifact-registry", "gcr", "gcp-secret-manager",
     "gcs", "aks", "acr", "azure-key-vault", "azure-blob", "azure-container-apps", "ovh-mks", "kapsule",
-    "scaleway-registry", "oks", *network.NETWORK, *lb.LB, *dns.DNS, *queue.QUEUE, *functions.FUNCTIONS, *kms.KMS,
+    "scaleway-registry", "oks", *network.NETWORK, *lb.LB, *dns.DNS, *queue.QUEUE, *functions.FUNCTIONS, *kms.KMS, *cdn.CDN,
 }
 
 
@@ -401,7 +403,7 @@ def terraform(ir: IR) -> dict[str, str]:
         loc = ir.params("azure").get("location", "francecentral")
         main_parts.append(f'resource "azurerm_resource_group" "main" {{\n  name     = "{rg}"\n  location = "{loc}"\n}}')
     for _, b in ir.project.all_bricks():
-        if b.tool not in IAC_RESOURCES or b.tool in network.NETWORK or b.tool in lb.LB or b.tool in dns.DNS or b.tool in queue.QUEUE or b.tool in functions.FUNCTIONS or b.tool in kms.KMS:
+        if b.tool not in IAC_RESOURCES or b.tool in network.NETWORK or b.tool in lb.LB or b.tool in dns.DNS or b.tool in queue.QUEUE or b.tool in functions.FUNCTIONS or b.tool in kms.KMS or b.tool in cdn.CDN:
             continue
         name = ir.catalog[b.tool].name
         if b.tool in CLUSTER_TOOLS:
@@ -427,7 +429,8 @@ def terraform(ir: IR) -> dict[str, str]:
     queue_blocks, queue_outputs = queue.terraform_blocks(ir)
     fn_blocks, fn_outputs = functions.terraform_blocks(ir)
     kms_blocks, kms_outputs = kms.terraform_blocks(ir)
-    main_parts += network.default_data_blocks(ir) + kms_blocks + net_blocks + host_blocks + lb_blocks + dns_blocks + queue_blocks + fn_blocks + db_blocks + secret_blocks + eso_blocks
+    cdn_blocks, cdn_outputs = cdn.terraform_blocks(ir)
+    main_parts += network.default_data_blocks(ir) + kms_blocks + net_blocks + host_blocks + lb_blocks + dns_blocks + queue_blocks + fn_blocks + cdn_blocks + db_blocks + secret_blocks + eso_blocks
     ir.cover(*(p.id for p in ir.providers))
     if backend_tool(ir) in S3_COMPATIBLE:
         ir.cover(backend_tool(ir))  # porte l'état : écrit dans le bloc backend de versions.tf
@@ -452,13 +455,14 @@ def terraform(ir: IR) -> dict[str, str]:
         sid = ir.params("ovhcloud").get("service_name", "<id-projet-public-cloud>")
         variables.append('variable "ovh_service_name" {\n  type        = string\n'
                          f'  description = "Identifiant du projet Public Cloud OVHcloud"\n  default     = "{sid}"\n}}')
+    variables += cdn.variables(ir)
     files = {
         f"{DIR}/versions.tf": versions,
         f"{DIR}/main.tf": "\n\n".join(x for x in main_parts if x) + "\n",
         f"{DIR}/variables.tf": "\n\n".join(variables) + "\n",
         f"{DIR}/.gitignore": GITIGNORE,
     }
-    outputs = _outputs(ir) + net_outputs + host_outputs + lb_outputs + dns_outputs + queue_outputs + fn_outputs + kms_outputs + db_outputs + eso_outputs
+    outputs = _outputs(ir) + net_outputs + host_outputs + lb_outputs + dns_outputs + queue_outputs + fn_outputs + kms_outputs + cdn_outputs + db_outputs + eso_outputs
     if outputs:
         files[f"{DIR}/outputs.tf"] = "\n\n".join([f"# {HEADER}", *outputs]) + "\n"
     tvs = required_vars(ir)

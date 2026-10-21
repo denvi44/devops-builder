@@ -1,0 +1,61 @@
+# Capacité « CDN et pare-feu applicatif » : une brique par cloud (OVHcloud et Outscale n'en ont pas).
+# Le CDN se place devant le répartiteur de charge ou les machines de la production. Vérifiées le 2026-10-21.
+
+- id: aws-cloudfront
+  name: Amazon CloudFront et AWS WAF
+  kind: service
+  stage: infrastructure
+  roles: [cdn, waf]
+  description: "CDN CloudFront devant l'application avec un pare-feu WAF (règles communes AWS, limite de débit par adresse)."
+  homepage: https://aws.amazon.com/cloudfront/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [cdn, waf]
+  provider: aws
+  verified: "2026-10-21"
+
+- id: gcp-cdn
+  name: Google Cloud CDN et Cloud Armor
+  kind: service
+  stage: infrastructure
+  roles: [cdn, waf]
+  description: "Cloud CDN sur un équilibreur HTTP(S) global, avec une politique Cloud Armor (injections SQL, scripts intersites, limite de débit)."
+  homepage: https://cloud.google.com/cdn
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [cdn, waf]
+  provider: gcp
+  verified: "2026-10-21"
+
+- id: azure-front-door
+  name: Azure Front Door et pare-feu WAF
+  kind: service
+  stage: infrastructure
+  roles: [cdn, waf]
+  description: "Front Door devant l'application avec une politique de pare-feu (limite de débit ; règles Microsoft en offre Premium)."
+  homepage: https://azure.microsoft.com/products/frontdoor
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [cdn, waf]
+  provider: azure
+  verified: "2026-10-21"
+
+- id: scaleway-edge-services
+  name: Scaleway Edge Services (CDN et WAF)
+  kind: service
+  stage: infrastructure
+  roles: [cdn, waf]
+  description: "Pipeline Edge Services devant le répartiteur de charge Scaleway : pare-feu WAF puis cache."
+  homepage: https://www.scaleway.com/en/edge-services/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [cdn, waf]
+  provider: scaleway
+  requires: [load-balancer]
+  support: experimental
+  support_note: "Pipeline créé devant le répartiteur ; domaine public et certificat à régler ensuite. Non essayé sur un compte Scaleway."
+  verified: "2026-10-21"

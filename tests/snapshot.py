@@ -315,6 +315,12 @@ def extra_cases(catalog) -> dict[str, Project]:
         for t in ("aws-kms", "aws-sqs", "aws-elasticache"):
             p.add(t, "infrastructure" if t != "aws-elasticache" else "data")
         out["kms-aws-services"] = p
+        for cloud, lbk in (("aws", "aws-elb"), ("gcp", "gcp-lb"), ("azure", "azure-lb"), ("scaleway", "scaleway-lb")):
+            p = build_starter(StarterAnswers(forge="gitlab", hosting="vm", cloud=cloud, envs="staging-prod",
+                                             shared_host=True), catalog)
+            p.add(lbk, "infrastructure")
+            p.add(catalog[cloud].services["cdn"], "infrastructure")
+            out[f"cdn-{cloud}"] = p
     return out
 
 
