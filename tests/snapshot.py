@@ -270,6 +270,15 @@ def extra_cases(catalog) -> dict[str, Project]:
                                              shared_host=True, secnumcloud=cloud == "outscale"), catalog)
             p.add(catalog[cloud].services["network"], "infrastructure")
             out[f"reseau-prive-machines-{cloud}"] = p
+    # 1.1 : répartiteur de charge devant les machines (réseau privé du cloud, sauf Outscale sans Net)
+    if catalog.get("aws-elb"):
+        for cloud in ("aws", "gcp", "azure", "scaleway", "ovhcloud", "outscale"):
+            p = build_starter(StarterAnswers(forge="gitlab", hosting="vm", cloud=cloud, envs="dev-recette-prod",
+                                             shared_host=True, secnumcloud=cloud == "outscale"), catalog)
+            if cloud != "outscale":
+                p.add(catalog[cloud].services["network"], "infrastructure")
+            p.add(catalog[cloud].services["load-balancer"], "infrastructure")
+            out[f"repartiteur-machines-{cloud}"] = p
     return out
 
 

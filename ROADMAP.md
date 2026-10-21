@@ -108,6 +108,7 @@ Ce que chaque capacité ajoute aux fichiers générés :
    réseau saisis à la main (ce qui bloquait l'`apply` sur Floci).
    *Fait dans la 0.26.0* : une brique par cloud ; OVHcloud (instances et bases) reste à rattacher.
 2. **Répartiteur de charge** : devant les machines ou le cluster, avec sa sonde de santé ; adresse publique en sortie.
+   *Fait dans la 0.26.0* devant les machines (TCP, sonde TCP) ; devant un cluster, le Service du cloud s'en charge.
 3. **DNS** : la zone et l'enregistrement vers le répartiteur.
 4. **Cache managé** : le cache, et son adresse de connexion rangée dans les secrets comme la base de données.
 5. **File de messages** : la file, et son adresse transmise à l'application.

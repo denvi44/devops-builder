@@ -4,9 +4,12 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
-## 0.26.0 — non publié — Réseau privé, clés Helm et noms de Service éprouvés
+## 0.26.0 — non publié — Réseau privé, répartiteur de charge, clés Helm et noms de Service éprouvés
 
 ### Ajouté
+- **Capacité « répartiteur de charge »** (deuxième de la feuille de route 1.1) : une brique par cloud — Amazon Elastic Load Balancing (NLB), Google Cloud Load Balancing, Azure Load Balancer, Scaleway Load Balancer, OVHcloud Load Balancer, Outscale LBU — qui place un répartiteur TCP devant chaque groupe de machines créé par la pile (ports web, sonde TCP, Traefik garde le TLS). L'adresse est une sortie `lb_<groupe>` : le DNS pointe vers elle. Sur AWS et Outscale, le répartiteur utilise le réseau privé du projet s'il existe, sinon le réseau par défaut. Sur Kubernetes, aucune ressource n'est écrite : le Service ou l'entrée demande le répartiteur au cloud (une note le dit).
+  - OVHcloud (fiche expérimentale) : répartiteur, pool et écouteurs sur le réseau privé (la règle R29 l'exige) ; les machines ne sont pas encore sur ce réseau, leurs adresses sont à ajouter au pool à la main. Outscale : fiche expérimentale, non essayée sur un compte.
+- Six piles de référence `repartiteur-machines-*`.
 - **Capacité « réseau privé »** (première de la feuille de route 1.1) : une brique par cloud — Amazon VPC, Google Cloud VPC, Azure Virtual Network, Scaleway VPC, OVHcloud Private Network, Outscale Net — qui crée le réseau une fois dans la pile OpenTofu (sous-réseaux calculés dans la plage choisie) et le rattache aux clusters, aux machines et aux bases du projet. La palette ne propose que la brique du cloud du projet.
   - AWS : sous-réseaux publics (machines) et privés (EKS, RDS) sur deux zones, passerelle NAT selon le choix (`auto` = seulement avec EKS), groupe de sous-réseaux et groupe de sécurité de la base. Les quatre variables saisies à la main (`vpc_id`, `subnet_ids`, `db_subnet_group`, `db_security_group_ids`) disparaissent.
   - Google Cloud : réseau et sous-réseau pour GKE et les machines, Cloud NAT au choix, Cloud SQL en adresse privée.

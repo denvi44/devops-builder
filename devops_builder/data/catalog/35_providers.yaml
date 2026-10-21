@@ -16,6 +16,7 @@
   services:
     compute: aws-ec2
     network: aws-vpc
+    load-balancer: aws-elb
     database: aws-rds
     k8s.managed: eks
     registry: ecr
@@ -41,6 +42,7 @@
   services:
     compute: gce
     network: gcp-vpc
+    load-balancer: gcp-lb
     database: cloud-sql
     k8s.managed: gke
     registry: artifact-registry
@@ -66,6 +68,7 @@
   services:
     compute: azure-vm
     network: azure-vnet
+    load-balancer: azure-lb
     database: azure-database
     k8s.managed: aks
     registry: acr
@@ -91,6 +94,7 @@
   services:
     compute: ovh-instance
     network: ovh-private-network
+    load-balancer: ovh-load-balancer
     database: ovh-databases
     k8s.managed: ovh-mks
     registry: ovh-registry
@@ -111,6 +115,7 @@
   services:
     compute: outscale-vm
     network: outscale-net
+    load-balancer: outscale-lbu
     k8s.managed: oks
     object-storage: outscale-oos
   verified: "2026-10-08"
@@ -129,6 +134,7 @@
   services:
     compute: scaleway-instance
     network: scaleway-vpc
+    load-balancer: scaleway-lb
     database: scaleway-rdb
     k8s.managed: kapsule
     registry: scaleway-registry

@@ -20,6 +20,7 @@ from .common import HEADER, align_attrs
 
 COMPUTE = {"aws-ec2": "aws", "gce": "gcp", "azure-vm": "azure", "scaleway-instance": "scaleway",
            "ovh-instance": "ovhcloud", "outscale-vm": "outscale"}
+COMPUTE_PROVIDER = COMPUTE
 INVENTORY_SCRIPT = "scripts/tf-inventory.sh"
 
 
