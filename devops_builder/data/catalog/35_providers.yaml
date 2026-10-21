@@ -17,6 +17,7 @@
     compute: aws-ec2
     network: aws-vpc
     load-balancer: aws-elb
+    dns: aws-route53
     database: aws-rds
     k8s.managed: eks
     registry: ecr
@@ -43,6 +44,7 @@
     compute: gce
     network: gcp-vpc
     load-balancer: gcp-lb
+    dns: gcp-dns
     database: cloud-sql
     k8s.managed: gke
     registry: artifact-registry
@@ -69,6 +71,7 @@
     compute: azure-vm
     network: azure-vnet
     load-balancer: azure-lb
+    dns: azure-dns
     database: azure-database
     k8s.managed: aks
     registry: acr
@@ -135,6 +138,7 @@
     compute: scaleway-instance
     network: scaleway-vpc
     load-balancer: scaleway-lb
+    dns: scaleway-domains
     database: scaleway-rdb
     k8s.managed: kapsule
     registry: scaleway-registry
