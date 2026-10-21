@@ -6,7 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..ir import IR
-from . import dns, lb, network, queue
+from . import dns, functions, lb, network, queue
 from .common import HEADER, align_attrs
 
 DIR = "infra/terraform"
@@ -368,7 +368,7 @@ COMMENT_ONLY = {"oks", "azure-container-apps"}
 IAC_RESOURCES = {
     "eks", "ecr", "aws-secrets-manager", "s3", "gke", "artifact-registry", "gcr", "gcp-secret-manager",
     "gcs", "aks", "acr", "azure-key-vault", "azure-blob", "azure-container-apps", "ovh-mks", "kapsule",
-    "scaleway-registry", "oks", *network.NETWORK, *lb.LB, *dns.DNS, *queue.QUEUE,
+    "scaleway-registry", "oks", *network.NETWORK, *lb.LB, *dns.DNS, *queue.QUEUE, *functions.FUNCTIONS,
 }
 
 
@@ -391,6 +391,8 @@ def terraform(ir: IR) -> dict[str, str]:
         required.append(f'    {PROVIDER_LOCAL.get(p.id, p.id)} = {{\n      source  = "{src}"\n      version = "{ver}"\n    }}')
     if data.needs_random(ir) or secret_random:
         required.append('    random = {\n      source  = "hashicorp/random"\n      version = "~> 3.6"\n    }')
+    if functions.needs_archive(ir):
+        required.append('    archive = {\n      source  = "hashicorp/archive"\n      version = "~> 2.7"\n    }')
     versions = (f"# {HEADER}\nterraform {{\n  required_version = \"{REQUIRED_VERSION}\"\n\n  required_providers {{\n"
                 + "\n".join(required) + "\n  }\n\n" + _backend(ir) + "\n}\n")
     main_parts = [f"# {HEADER}", _providers_block(ir)]
@@ -399,7 +401,7 @@ def terraform(ir: IR) -> dict[str, str]:
         loc = ir.params("azure").get("location", "francecentral")
         main_parts.append(f'resource "azurerm_resource_group" "main" {{\n  name     = "{rg}"\n  location = "{loc}"\n}}')
     for _, b in ir.project.all_bricks():
-        if b.tool not in IAC_RESOURCES or b.tool in network.NETWORK or b.tool in lb.LB or b.tool in dns.DNS or b.tool in queue.QUEUE:
+        if b.tool not in IAC_RESOURCES or b.tool in network.NETWORK or b.tool in lb.LB or b.tool in dns.DNS or b.tool in queue.QUEUE or b.tool in functions.FUNCTIONS:
             continue
         name = ir.catalog[b.tool].name
         if b.tool in CLUSTER_TOOLS:
@@ -423,7 +425,8 @@ def terraform(ir: IR) -> dict[str, str]:
     lb_blocks, lb_outputs = lb.terraform_blocks(ir)
     dns_blocks, dns_outputs = dns.terraform_blocks(ir)
     queue_blocks, queue_outputs = queue.terraform_blocks(ir)
-    main_parts += network.default_data_blocks(ir) + net_blocks + host_blocks + lb_blocks + dns_blocks + queue_blocks + db_blocks + secret_blocks + eso_blocks
+    fn_blocks, fn_outputs = functions.terraform_blocks(ir)
+    main_parts += network.default_data_blocks(ir) + net_blocks + host_blocks + lb_blocks + dns_blocks + queue_blocks + fn_blocks + db_blocks + secret_blocks + eso_blocks
     ir.cover(*(p.id for p in ir.providers))
     if backend_tool(ir) in S3_COMPATIBLE:
         ir.cover(backend_tool(ir))  # porte l'état : écrit dans le bloc backend de versions.tf
@@ -454,7 +457,7 @@ def terraform(ir: IR) -> dict[str, str]:
         f"{DIR}/variables.tf": "\n\n".join(variables) + "\n",
         f"{DIR}/.gitignore": GITIGNORE,
     }
-    outputs = _outputs(ir) + net_outputs + host_outputs + lb_outputs + dns_outputs + queue_outputs + db_outputs + eso_outputs
+    outputs = _outputs(ir) + net_outputs + host_outputs + lb_outputs + dns_outputs + queue_outputs + fn_outputs + db_outputs + eso_outputs
     if outputs:
         files[f"{DIR}/outputs.tf"] = "\n\n".join([f"# {HEADER}", *outputs]) + "\n"
     tvs = required_vars(ir)
@@ -475,6 +478,7 @@ GITIGNORE = """# Généré par DevOps Builder — à relire avant usage.
 *.tfstate
 *.tfstate.*
 *.tfplan
+function-placeholder.zip
 crash.log
 crash.*.log
 terraform.tfvars

@@ -1,0 +1,229 @@
+# Généré par DevOps Builder — à relire avant usage.
+stages:
+- test
+- build
+- security
+- publish
+- infra
+- deploy-staging
+- deploy-production
+- renovate
+variables:
+  TAG: $CI_COMMIT_SHORT_SHA
+  IMAGE: europe-west9-docker.pkg.dev/mon-projet/mon-app/mon-app:$CI_COMMIT_SHORT_SHA
+unit-tests:
+  stage: test
+  image:
+    name: python:3.12-slim
+    entrypoint:
+    - ''
+  script:
+  - pip install -r requirements.txt
+  - pytest -q
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+build-image:
+  stage: build
+  image:
+    name: docker:27
+    entrypoint:
+    - ''
+  services:
+  - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: /certs
+  id_tokens:
+    GCP_OIDC_TOKEN:
+      aud: https://iam.googleapis.com/$GCP_WORKLOAD_IDENTITY_PROVIDER
+  script:
+  - echo "$GCP_OIDC_TOKEN" > /tmp/gcp_oidc_token
+  - echo '{"type":"external_account","audience":"//iam.googleapis.com/'"$GCP_WORKLOAD_IDENTITY_PROVIDER"'","subject_token_type":"urn:ietf:params:oauth:token-type:jwt","token_url":"https://sts.googleapis.com/v1/token","service_account_impersonation_url":"https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/'"$GCP_SERVICE_ACCOUNT"':generateAccessToken","credential_source":{"file":"/tmp/gcp_oidc_token"}}'
+    > /tmp/gcp-cred.json
+  - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-cred.json
+  - if command -v gcloud >/dev/null; then gcloud auth login --cred-file=/tmp/gcp-cred.json --quiet; fi
+  - echo "$REGISTRY_PASSWORD" | docker login "europe-west9-docker.pkg.dev" -u "$REGISTRY_USER" --password-stdin
+  - docker buildx build --tag "$IMAGE" --push .
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+gitleaks:
+  stage: security
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint:
+    - ''
+  script:
+  - gitleaks detect --source . --verbose
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+trivy:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint:
+    - ''
+  id_tokens:
+    GCP_OIDC_TOKEN:
+      aud: https://iam.googleapis.com/$GCP_WORKLOAD_IDENTITY_PROVIDER
+  script:
+  - echo "$GCP_OIDC_TOKEN" > /tmp/gcp_oidc_token
+  - echo '{"type":"external_account","audience":"//iam.googleapis.com/'"$GCP_WORKLOAD_IDENTITY_PROVIDER"'","subject_token_type":"urn:ietf:params:oauth:token-type:jwt","token_url":"https://sts.googleapis.com/v1/token","service_account_impersonation_url":"https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/'"$GCP_SERVICE_ACCOUNT"':generateAccessToken","credential_source":{"file":"/tmp/gcp_oidc_token"}}'
+    > /tmp/gcp-cred.json
+  - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-cred.json
+  - if command -v gcloud >/dev/null; then gcloud auth login --cred-file=/tmp/gcp-cred.json --quiet; fi
+  - trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+cosign:
+  stage: publish
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  id_tokens:
+    GCP_OIDC_TOKEN:
+      aud: https://iam.googleapis.com/$GCP_WORKLOAD_IDENTITY_PROVIDER
+  script:
+  - echo "$GCP_OIDC_TOKEN" > /tmp/gcp_oidc_token
+  - echo '{"type":"external_account","audience":"//iam.googleapis.com/'"$GCP_WORKLOAD_IDENTITY_PROVIDER"'","subject_token_type":"urn:ietf:params:oauth:token-type:jwt","token_url":"https://sts.googleapis.com/v1/token","service_account_impersonation_url":"https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/'"$GCP_SERVICE_ACCOUNT"':generateAccessToken","credential_source":{"file":"/tmp/gcp_oidc_token"}}'
+    > /tmp/gcp-cred.json
+  - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-cred.json
+  - if command -v gcloud >/dev/null; then gcloud auth login --cred-file=/tmp/gcp-cred.json --quiet; fi
+  - apk add --no-cache cosign
+  - echo "$REGISTRY_PASSWORD" | cosign login "europe-west9-docker.pkg.dev" -u "$REGISTRY_USER" --password-stdin
+  - cosign sign --yes "$IMAGE"
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+iac-plan:
+  stage: infra
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  id_tokens:
+    GCP_OIDC_TOKEN:
+      aud: https://iam.googleapis.com/$GCP_WORKLOAD_IDENTITY_PROVIDER
+  script:
+  - 'export GCP_SERVICE_ACCOUNT="$GCP_INFRA_SERVICE_ACCOUNT"   # identité des jobs d''infrastructure'
+  - echo "$GCP_OIDC_TOKEN" > /tmp/gcp_oidc_token
+  - echo '{"type":"external_account","audience":"//iam.googleapis.com/'"$GCP_WORKLOAD_IDENTITY_PROVIDER"'","subject_token_type":"urn:ietf:params:oauth:token-type:jwt","token_url":"https://sts.googleapis.com/v1/token","service_account_impersonation_url":"https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/'"$GCP_SERVICE_ACCOUNT"':generateAccessToken","credential_source":{"file":"/tmp/gcp_oidc_token"}}'
+    > /tmp/gcp-cred.json
+  - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-cred.json
+  - if command -v gcloud >/dev/null; then gcloud auth login --cred-file=/tmp/gcp-cred.json --quiet; fi
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - cd infra/terraform
+  - tofu fmt -check -recursive
+  - tofu init -input=false
+  - tofu validate
+  - tofu plan -input=false -lock-timeout=5m -out=plan.tfplan
+  artifacts:
+    paths:
+    - infra/terraform/plan.tfplan
+    expire_in: 1 week
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+iac-apply:
+  stage: infra
+  image:
+    name: alpine:3.20
+    entrypoint:
+    - ''
+  resource_group: terraform
+  id_tokens:
+    GCP_OIDC_TOKEN:
+      aud: https://iam.googleapis.com/$GCP_WORKLOAD_IDENTITY_PROVIDER
+  script:
+  - 'export GCP_SERVICE_ACCOUNT="$GCP_INFRA_SERVICE_ACCOUNT"   # identité des jobs d''infrastructure'
+  - echo "$GCP_OIDC_TOKEN" > /tmp/gcp_oidc_token
+  - echo '{"type":"external_account","audience":"//iam.googleapis.com/'"$GCP_WORKLOAD_IDENTITY_PROVIDER"'","subject_token_type":"urn:ietf:params:oauth:token-type:jwt","token_url":"https://sts.googleapis.com/v1/token","service_account_impersonation_url":"https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/'"$GCP_SERVICE_ACCOUNT"':generateAccessToken","credential_source":{"file":"/tmp/gcp_oidc_token"}}'
+    > /tmp/gcp-cred.json
+  - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-cred.json
+  - if command -v gcloud >/dev/null; then gcloud auth login --cred-file=/tmp/gcp-cred.json --quiet; fi
+  - apk add --no-cache curl unzip
+  - curl -fsSLo /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v1.13.1/tofu_1.13.1_linux_amd64.zip"
+  - unzip -o -q /tmp/tofu.zip tofu -d /usr/local/bin
+  - cd infra/terraform
+  - tofu init -input=false
+  - tofu apply -input=false -lock-timeout=5m plan.tfplan
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - iac-plan
+deploy-staging:
+  stage: deploy-staging
+  image:
+    name: google/cloud-sdk:slim
+    entrypoint:
+    - ''
+  environment:
+    name: staging
+  id_tokens:
+    GCP_OIDC_TOKEN:
+      aud: https://iam.googleapis.com/$GCP_WORKLOAD_IDENTITY_PROVIDER
+  script:
+  - echo "$GCP_OIDC_TOKEN" > /tmp/gcp_oidc_token
+  - echo '{"type":"external_account","audience":"//iam.googleapis.com/'"$GCP_WORKLOAD_IDENTITY_PROVIDER"'","subject_token_type":"urn:ietf:params:oauth:token-type:jwt","token_url":"https://sts.googleapis.com/v1/token","service_account_impersonation_url":"https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/'"$GCP_SERVICE_ACCOUNT"':generateAccessToken","credential_source":{"file":"/tmp/gcp_oidc_token"}}'
+    > /tmp/gcp-cred.json
+  - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-cred.json
+  - if command -v gcloud >/dev/null; then gcloud auth login --cred-file=/tmp/gcp-cred.json --quiet; fi
+  - gcloud run deploy mon-app-staging --image "$IMAGE" --region europe-west9 --project mon-projet
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+deploy-production:
+  stage: deploy-production
+  image:
+    name: google/cloud-sdk:slim
+    entrypoint:
+    - ''
+  environment:
+    name: production
+  id_tokens:
+    GCP_OIDC_TOKEN:
+      aud: https://iam.googleapis.com/$GCP_WORKLOAD_IDENTITY_PROVIDER
+  script:
+  - echo "$GCP_OIDC_TOKEN" > /tmp/gcp_oidc_token
+  - echo '{"type":"external_account","audience":"//iam.googleapis.com/'"$GCP_WORKLOAD_IDENTITY_PROVIDER"'","subject_token_type":"urn:ietf:params:oauth:token-type:jwt","token_url":"https://sts.googleapis.com/v1/token","service_account_impersonation_url":"https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/'"$GCP_SERVICE_ACCOUNT"':generateAccessToken","credential_source":{"file":"/tmp/gcp_oidc_token"}}'
+    > /tmp/gcp-cred.json
+  - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-cred.json
+  - if command -v gcloud >/dev/null; then gcloud auth login --cred-file=/tmp/gcp-cred.json --quiet; fi
+  - gcloud run deploy mon-app --image "$IMAGE" --region europe-west9 --project mon-projet
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+  needs:
+  - deploy-staging
+renovate:
+  stage: renovate
+  image:
+    name: renovate/renovate:44.164.5
+    entrypoint:
+    - ''
+  rules:
+  - if: $CI_PIPELINE_SOURCE == "schedule" && $RENOVATE == "1"
+  variables:
+    RENOVATE_PLATFORM: gitlab
+    RENOVATE_ENDPOINT: $CI_API_V4_URL
+    RENOVATE_REPOSITORIES: $CI_PROJECT_PATH
+    LOG_LEVEL: info
+  script:
+  - renovate

@@ -564,6 +564,10 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
             f'az containerapp update --name {ir.params("azure-container-apps", env).get("app", app)} '
             f'--resource-group {a.get("resource_group", "rg-mon-projet")} --image "$IMAGE"'],
             tool="azure-container-apps", cloud=["azure"])
+    from .generators import functions as fngen
+    fn = fngen.deploy_script(ir, env)
+    if fn:
+        return Step("deploy", "Déploiement de la fonction", "deploy", fn[0], fn[1], tool=fngen.tool(ir), cloud=[fn[2]])
     if ir.has("ansible") and target in ("vm", "docker-host"):
         return _ansible_step(ir, env, ns, [], "Déploiement Ansible")
     return None
