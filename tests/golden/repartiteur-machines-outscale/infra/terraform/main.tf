@@ -168,7 +168,7 @@ resource "outscale_load_balancer" "hors_production" {
     load_balancer_protocol = "TCP"
   }
 
-  health_check {
+  health_check = {
     healthy_threshold   = 3
     unhealthy_threshold = 3
     check_interval      = 30
@@ -202,7 +202,7 @@ resource "outscale_load_balancer" "production" {
     load_balancer_protocol = "TCP"
   }
 
-  health_check {
+  health_check = {
     healthy_threshold   = 3
     unhealthy_threshold = 3
     check_interval      = 30

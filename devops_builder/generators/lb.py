@@ -306,7 +306,7 @@ def _outscale(ir: IR, gs, ports):
 {where}
 {listeners}
 
-  health_check {{
+  health_check = {{
     healthy_threshold   = 3
     unhealthy_threshold = 3
     check_interval      = 30
