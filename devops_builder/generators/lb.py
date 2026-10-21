@@ -306,14 +306,14 @@ def _outscale(ir: IR, gs, ports):
 {where}
 {listeners}
 
-  health_check = {{
+  health_check = [{{
     healthy_threshold   = 3
     unhealthy_threshold = 3
     check_interval      = 30
     timeout             = 5
     protocol            = "TCP"
     port                = {probe}
-  }}
+  }}]
 }}
 
 resource "outscale_load_balancer_vms" "{g.label}" {{
