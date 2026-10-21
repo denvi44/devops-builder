@@ -114,6 +114,7 @@ Ce que chaque capacité ajoute aux fichiers générés :
 4. **Cache managé** : le cache, et son adresse de connexion rangée dans les secrets comme la base de données.
    *Fait dans la 0.26.0* : cinq clouds ; OVHcloud expérimental, port réel à lire dans les sorties.
 5. **File de messages** : la file, et son adresse transmise à l'application.
+   *Fait dans la 0.26.0* : cinq clouds, une file par environnement ; l'adresse sort de la pile, sans encore entrer dans les variables de l'application.
 6. **Fonctions serverless** : la fonction, son déclencheur HTTP et son déploiement par la CI.
 7. **Chiffrement** : une clé, utilisée pour l'état OpenTofu, les disques et les secrets.
 8. **CDN et pare-feu** : le CDN devant l'application, avec le pare-feu applicatif.

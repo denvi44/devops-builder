@@ -1,0 +1,89 @@
+format_version: 2
+name: Mon projet
+description: ''
+target: vm
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  host: hors-production
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: gitlab
+    params: {}
+  build:
+  - uid: brique002
+    tool: gitlab-ci
+    params: {}
+  - uid: brique003
+    tool: buildkit
+    params: {}
+  - uid: brique004
+    tool: renovate
+    params: {}
+  test:
+  - uid: brique005
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: brique006
+    tool: gitleaks
+    params: {}
+  - uid: brique007
+    tool: trivy
+    params: {}
+  - uid: brique008
+    tool: cosign
+    params: {}
+  artifacts: []
+  infrastructure:
+  - uid: brique009
+    tool: aws
+    params: {}
+  - uid: brique010
+    tool: ansible
+    params: {}
+  - uid: brique011
+    tool: aws-ec2
+    params: {}
+  - uid: brique012
+    tool: opentofu
+    params: {}
+  - uid: brique013
+    tool: s3
+    params: {}
+  - uid: brique014
+    tool: aws-sqs
+    params: {}
+  deploy:
+  - uid: brique015
+    tool: docker-compose
+    params: {}
+  platform:
+  - uid: brique016
+    tool: traefik
+    params: {}
+  observability:
+  - uid: brique017
+    tool: prometheus
+    params: {}
+  - uid: brique018
+    tool: grafana
+    params: {}
