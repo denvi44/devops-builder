@@ -244,6 +244,12 @@ resource "google_compute_global_network_endpoint" "cdn" {{
 
   cdn_policy {{
     cache_mode = "{"CACHE_ALL_STATIC" if standard else "USE_ORIGIN_HEADERS"}"
+
+    cache_key_policy {{
+      include_host         = true
+      include_protocol     = true
+      include_query_string = true
+    }}
   }}
 
   depends_on = [google_compute_global_network_endpoint.cdn]
