@@ -1037,3 +1037,31 @@ outscale-net:
     default: 10.40.0.0/16
     pattern: '(10|172|192)\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/(1[6-9]|20)'
     pattern_hint: "plage privée en notation CIDR, ex. 10.40.0.0/16"
+
+# ------------------------------------------------------------- DNS
+_dns_params: &dns_params
+  zone:
+    label: Domaine
+    description: Domaine de la zone DNS. Avec une zone créée par la pile, le déléguer chez le registrar (serveurs de noms en sortie).
+    example: exemple.fr
+    required: true
+    pattern: '[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+'
+    pattern_hint: "nom de domaine sans schéma ni point final, ex. exemple.fr"
+  record:
+    label: Nom de l'enregistrement
+    description: Nom de la production dans la zone (« boutique » donne boutique.exemple.fr) ; les autres groupes de machines reçoivent un suffixe.
+    default: "{app}"
+    pattern: '[a-z0-9]([a-z0-9-]*[a-z0-9])?'
+    pattern_hint: "minuscules, chiffres et tirets"
+  ttl:
+    label: Durée de vie (secondes)
+    type: int
+    default: 300
+aws-route53:
+  <<: *dns_params
+gcp-dns:
+  <<: *dns_params
+azure-dns:
+  <<: *dns_params
+scaleway-domains:
+  <<: *dns_params

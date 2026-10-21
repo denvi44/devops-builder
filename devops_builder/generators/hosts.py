@@ -104,9 +104,7 @@ locals {{
       - usermod -aG docker {user}
   EOT
 }}''']
-    render = {"aws-ec2": _aws, "gce": _gce, "azure-vm": _azure, "scaleway-instance": _scaleway,
-              "ovh-instance": _ovh, "outscale-vm": _outscale}[tool]
-    shared, per_group, ip = render(ir, gs)
+    shared, per_group, ip = _renderer(tool)(ir, gs)
     blocks.append(f"# --- {ir.catalog[tool].name} : réseau et accès\n{shared}")
     for g in gs:
         envs = ", ".join(e.display for e in g.envs)
@@ -117,6 +115,20 @@ locals {{
               f"  value = {{\n{entries}\n  }}\n}}")
     ir.cover(tool)
     return blocks, [output]
+
+
+def _renderer(tool: str):
+    return {"aws-ec2": _aws, "gce": _gce, "azure-vm": _azure, "scaleway-instance": _scaleway,
+            "ovh-instance": _ovh, "outscale-vm": _outscale}[tool]
+
+
+def address_exprs(ir: IR) -> dict[str, str]:
+    """Expression OpenTofu (liste d'adresses publiques) des machines de chaque groupe ; vide sans machines créées."""
+    if not creates_hosts(ir):
+        return {}
+    gs = groups(ir)
+    _shared, _per_group, ip = _renderer(compute_tool(ir))(ir, gs)
+    return {g.key: ip(g) for g in gs}
 
 
 def _name(ir: IR, g: HostGroup) -> str:

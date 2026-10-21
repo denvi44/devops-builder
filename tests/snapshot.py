@@ -279,6 +279,17 @@ def extra_cases(catalog) -> dict[str, Project]:
                 p.add(catalog[cloud].services["network"], "infrastructure")
             p.add(catalog[cloud].services["load-balancer"], "infrastructure")
             out[f"repartiteur-machines-{cloud}"] = p
+    # 1.1 : DNS — zone et enregistrements vers le répartiteur (ou les machines), pour les clouds qui ont un DNS
+    if catalog.get("aws-route53"):
+        for cloud in ("aws", "gcp", "azure", "scaleway"):
+            p = build_starter(StarterAnswers(forge="gitlab", hosting="vm", cloud=cloud, envs="dev-recette-prod",
+                                             shared_host=True), catalog)
+            p.add(catalog[cloud].services["load-balancer"], "infrastructure")
+            p.add(catalog[cloud].services["dns"], "infrastructure", zone="boutique.fr", record="boutique")
+            out[f"dns-repartiteur-{cloud}"] = p
+        p = build_starter(StarterAnswers(forge="gitlab", hosting="vm", cloud="aws", envs="staging-prod"), catalog)
+        p.add("aws-route53", "infrastructure", zone="boutique.fr")
+        out["dns-machines-aws"] = p
     return out
 
 

@@ -4,9 +4,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
-## 0.26.0 — non publié — Réseau privé, répartiteur de charge, clés Helm et noms de Service éprouvés
+## 0.26.0 — non publié — Réseau privé, répartiteur, DNS, clés Helm et noms de Service éprouvés
 
 ### Ajouté
+- **Capacité « DNS »** (troisième de la feuille de route 1.1) : Amazon Route 53, Google Cloud DNS, Azure DNS et Scaleway Domains and DNS (OVHcloud hors Public Cloud et Outscale n'ont pas de DNS : pas de brique). La brique reçoit le domaine, le nom de l'enregistrement et la durée de vie ; la pile écrit la zone (sauf chez Scaleway, où le domaine existe déjà) et un enregistrement A par groupe de machines, vers le répartiteur de charge du projet s'il existe (alias chez AWS), sinon vers les machines. Les serveurs de noms sortent de la pile (`dns_name_servers`) pour la délégation chez le registrar. Sur Kubernetes, seule la zone est écrite (les enregistrements viennent du Service ou d'external-dns).
+- Cinq piles de référence `dns-*`.
 - **Capacité « répartiteur de charge »** (deuxième de la feuille de route 1.1) : une brique par cloud — Amazon Elastic Load Balancing (NLB), Google Cloud Load Balancing, Azure Load Balancer, Scaleway Load Balancer, OVHcloud Load Balancer, Outscale LBU — qui place un répartiteur TCP devant chaque groupe de machines créé par la pile (ports web, sonde TCP, Traefik garde le TLS). L'adresse est une sortie `lb_<groupe>` : le DNS pointe vers elle. Sur AWS et Outscale, le répartiteur utilise le réseau privé du projet s'il existe, sinon le réseau par défaut. Sur Kubernetes, aucune ressource n'est écrite : le Service ou l'entrée demande le répartiteur au cloud (une note le dit).
   - OVHcloud (fiche expérimentale) : répartiteur, pool et écouteurs sur le réseau privé (la règle R29 l'exige) ; les machines ne sont pas encore sur ce réseau, leurs adresses sont à ajouter au pool à la main. Outscale : fiche expérimentale, non essayée sur un compte.
 - Six piles de référence `repartiteur-machines-*`.

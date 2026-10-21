@@ -1,0 +1,59 @@
+# Capacité « DNS » : zone et enregistrements vers le répartiteur ou les machines de la pile.
+# OVHcloud (hors Public Cloud) et Outscale n'ont pas de service DNS dans leur offre : pas de brique.
+# Vérifiées le 2026-10-21.
+
+- id: aws-route53
+  name: Amazon Route 53
+  kind: service
+  stage: infrastructure
+  roles: [dns]
+  description: "DNS AWS : zone hébergée du domaine et un enregistrement par groupe de machines (alias vers le répartiteur s'il existe)."
+  homepage: https://aws.amazon.com/route53/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [dns]
+  provider: aws
+  verified: "2026-10-21"
+
+- id: gcp-dns
+  name: Google Cloud DNS
+  kind: service
+  stage: infrastructure
+  roles: [dns]
+  description: "DNS Google Cloud : zone gérée du domaine et un enregistrement par groupe de machines."
+  homepage: https://cloud.google.com/dns
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [dns]
+  provider: gcp
+  verified: "2026-10-21"
+
+- id: azure-dns
+  name: Azure DNS
+  kind: service
+  stage: infrastructure
+  roles: [dns]
+  description: "DNS Azure : zone du domaine et un enregistrement par groupe de machines."
+  homepage: https://azure.microsoft.com/products/dns
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [dns]
+  provider: azure
+  verified: "2026-10-21"
+
+- id: scaleway-domains
+  name: Scaleway Domains and DNS
+  kind: service
+  stage: infrastructure
+  roles: [dns]
+  description: "DNS Scaleway : enregistrements dans la zone d'un domaine géré chez Scaleway, un par groupe de machines."
+  homepage: https://www.scaleway.com/en/domains-and-dns/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [dns]
+  provider: scaleway
+  verified: "2026-10-21"

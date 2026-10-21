@@ -110,6 +110,7 @@ Ce que chaque capacité ajoute aux fichiers générés :
 2. **Répartiteur de charge** : devant les machines ou le cluster, avec sa sonde de santé ; adresse publique en sortie.
    *Fait dans la 0.26.0* devant les machines (TCP, sonde TCP) ; devant un cluster, le Service du cloud s'en charge.
 3. **DNS** : la zone et l'enregistrement vers le répartiteur.
+   *Fait dans la 0.26.0* pour AWS, Google Cloud, Azure et Scaleway ; zone existante chez AWS, Google Cloud et Azure à ajouter.
 4. **Cache managé** : le cache, et son adresse de connexion rangée dans les secrets comme la base de données.
 5. **File de messages** : la file, et son adresse transmise à l'application.
 6. **Fonctions serverless** : la fonction, son déclencheur HTTP et son déploiement par la CI.
