@@ -1,0 +1,92 @@
+format_version: 2
+name: Téléservice
+description: ''
+target: vm
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: true
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: teleservice
+  port: 8000
+stages:
+  source:
+  - uid: 6d06cb30
+    tool: gitlab
+    params: {}
+  build:
+  - uid: 8d469f5e
+    tool: gitlab-ci
+    params: {}
+  - uid: 72ed5452
+    tool: buildkit
+    params: {}
+  - uid: 12ee6bd5
+    tool: renovate
+    params: {}
+  test:
+  - uid: 604d8d60
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: 5de34355
+    tool: gitleaks
+    params: {}
+  - uid: d5ccd5b0
+    tool: trivy
+    params: {}
+  - uid: f63d3f2e
+    tool: cosign
+    params: {}
+  artifacts: []
+  infrastructure:
+  - uid: 1c7977c7
+    tool: outscale
+    params: {}
+  - uid: 34f18348
+    tool: ansible
+    params: {}
+  - uid: edba9b13
+    tool: outscale-vm
+    params: {}
+  - uid: f7672315
+    tool: opentofu
+    params: {}
+  - uid: 8baa3317
+    tool: outscale-oos
+    params: {}
+  data:
+  - uid: b91dbcc4
+    tool: postgresql
+    params: {}
+  deploy:
+  - uid: 789c5b33
+    tool: docker-compose
+    params: {}
+  platform:
+  - uid: 2de821a9
+    tool: traefik
+    params: {}
+  - uid: fe125d5d
+    tool: sops
+    params: {}
+  observability:
+  - uid: 8f29affc
+    tool: prometheus
+    params: {}
+  - uid: 1ad0fed6
+    tool: grafana
+    params: {}
