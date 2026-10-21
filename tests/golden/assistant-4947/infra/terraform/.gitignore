@@ -4,6 +4,7 @@
 *.tfstate
 *.tfstate.*
 *.tfplan
+function-placeholder.zip
 crash.log
 crash.*.log
 terraform.tfvars

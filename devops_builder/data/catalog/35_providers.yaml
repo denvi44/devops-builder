@@ -19,6 +19,7 @@
     load-balancer: aws-elb
     cache: aws-elasticache
     message-queue: aws-sqs
+    functions: aws-lambda
     dns: aws-route53
     database: aws-rds
     k8s.managed: eks
@@ -48,6 +49,7 @@
     load-balancer: gcp-lb
     cache: gcp-memorystore
     message-queue: gcp-pubsub
+    functions: gcp-functions
     dns: gcp-dns
     database: cloud-sql
     k8s.managed: gke
@@ -77,6 +79,7 @@
     load-balancer: azure-lb
     cache: azure-redis
     message-queue: azure-service-bus
+    functions: azure-functions
     dns: azure-dns
     database: azure-database
     k8s.managed: aks
@@ -148,6 +151,7 @@
     load-balancer: scaleway-lb
     cache: scaleway-redis
     message-queue: scaleway-queues
+    functions: scaleway-functions
     dns: scaleway-domains
     database: scaleway-rdb
     k8s.managed: kapsule

@@ -1185,3 +1185,109 @@ ovh-kafka:
     default: GRA
     pattern: '[A-Z0-9-]{2,20}'
     pattern_hint: "code de région des bases OVHcloud, ex. GRA"
+
+# ------------------------------------------------------------- Fonctions serverless
+aws-lambda:
+  function:
+    label: Nom de la fonction
+    description: Reçoit le suffixe de l'environnement hors production.
+    default: "{app}"
+    pattern: '[a-z][a-z0-9-]{0,40}[a-z0-9]'
+    pattern_hint: "minuscules, chiffres et tirets, commence par une lettre"
+  runtime:
+    label: Environnement d'exécution
+    default: python3.13
+    suggestions: [python3.13, nodejs22.x, java21, dotnet8, provided.al2023]
+    pattern: '[a-z0-9.]+'
+    pattern_hint: "identifiant Lambda, ex. python3.13"
+  handler:
+    label: Point d'entrée
+    default: main.handler
+    pattern: '[A-Za-z0-9_.:/-]+'
+    pattern_hint: "fichier.fonction, ex. main.handler"
+  memory_mb:
+    label: Mémoire (Mo)
+    type: int
+    default: 256
+  timeout_s:
+    label: Délai maximal (secondes)
+    type: int
+    default: 30
+gcp-functions:
+  function:
+    label: Nom de la fonction
+    description: Reçoit le suffixe de l'environnement hors production.
+    default: "{app}"
+    pattern: '[a-z][a-z0-9-]{0,40}[a-z0-9]'
+    pattern_hint: "minuscules, chiffres et tirets, commence par une lettre"
+  runtime:
+    label: Environnement d'exécution
+    default: python313
+    suggestions: [python313, nodejs22, go125, java21, dotnet8]
+    pattern: '[a-z0-9]+'
+    pattern_hint: "identifiant Google, ex. python313"
+  handler:
+    label: Point d'entrée
+    default: handler
+    pattern: '[A-Za-z0-9_.:/-]+'
+    pattern_hint: "nom de la fonction exportée par le code"
+  memory_mb:
+    label: Mémoire (Mo)
+    type: int
+    default: 256
+  timeout_s:
+    label: Délai maximal (secondes)
+    type: int
+    default: 30
+azure-functions:
+  function:
+    label: Nom de la fonction
+    description: Reçoit le suffixe de l'environnement hors production.
+    default: "{app}"
+    pattern: '[a-z][a-z0-9-]{0,40}[a-z0-9]'
+    pattern_hint: "minuscules, chiffres et tirets, commence par une lettre"
+  runtime:
+    label: Environnement d'exécution
+    default: python:3.13
+    suggestions: [python:3.13, node:22, dotnet:8.0, java:21]
+    pattern: '(python|node|dotnet|java):[0-9.]+'
+    pattern_hint: "famille:version, ex. python:3.13"
+  handler:
+    label: Point d'entrée
+    default: host.json
+    pattern: '[A-Za-z0-9_.:/-]+'
+    pattern_hint: "non utilisé par Azure (le code décrit ses fonctions)"
+  memory_mb:
+    label: Mémoire (Mo)
+    type: int
+    default: 256
+  timeout_s:
+    label: Délai maximal (secondes)
+    type: int
+    default: 30
+scaleway-functions:
+  function:
+    label: Nom de la fonction
+    description: Reçoit le suffixe de l'environnement hors production.
+    default: "{app}"
+    pattern: '[a-z][a-z0-9-]{0,40}[a-z0-9]'
+    pattern_hint: "minuscules, chiffres et tirets, commence par une lettre"
+  runtime:
+    label: Environnement d'exécution
+    default: python313
+    suggestions: [python313, node22, go125, php84, rust185]
+    pattern: '[a-z]+[0-9]+'
+    pattern_hint: "identifiant Scaleway, ex. python313"
+  handler:
+    label: Point d'entrée
+    default: handler.handle
+    pattern: '[A-Za-z0-9_.:/-]+'
+    pattern_hint: "fichier.fonction, ex. handler.handle"
+  memory_mb:
+    label: Mémoire (Mo)
+    type: int
+    default: 256
+  timeout_s:
+    label: Délai maximal (secondes)
+    type: int
+    default: 30

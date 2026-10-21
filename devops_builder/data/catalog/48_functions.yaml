@@ -1,0 +1,64 @@
+# Capacité « fonctions serverless » : une brique par cloud (OVHcloud annonce son offre, Outscale n'en a pas).
+# La fonction est créée par environnement avec un code de remplacement ; la CI déploie le vrai code. Vérifiées le 2026-10-21.
+
+- id: aws-lambda
+  name: AWS Lambda
+  kind: service
+  stage: deploy
+  extra_stages: [infrastructure]
+  roles: [deploy, serverless-functions]
+  description: "Fonction Lambda par environnement avec son rôle IAM, une URL HTTPS publique et un déploiement du code par la CI."
+  homepage: https://aws.amazon.com/lambda/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [serverless-functions]
+  provider: aws
+  verified: "2026-10-21"
+
+- id: gcp-functions
+  name: Google Cloud Run functions
+  kind: service
+  stage: deploy
+  extra_stages: [infrastructure]
+  roles: [deploy, serverless-functions]
+  description: "Fonction (2e génération) par environnement, déclencheur HTTP public et déploiement du code par la CI."
+  homepage: https://cloud.google.com/functions
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [serverless-functions]
+  provider: gcp
+  verified: "2026-10-21"
+
+- id: azure-functions
+  name: Azure Functions
+  kind: service
+  stage: deploy
+  extra_stages: [infrastructure]
+  roles: [deploy, serverless-functions]
+  description: "Application de fonctions Linux (offre à la consommation) par environnement, déclencheur HTTP et déploiement du code par la CI."
+  homepage: https://azure.microsoft.com/products/functions
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [serverless-functions]
+  provider: azure
+  verified: "2026-10-21"
+
+- id: scaleway-functions
+  name: Scaleway Serverless Functions
+  kind: service
+  stage: deploy
+  extra_stages: [infrastructure]
+  roles: [deploy, serverless-functions]
+  description: "Espace de noms et fonction publique par environnement ; le code se publie hors de la CI générée."
+  homepage: https://www.scaleway.com/en/serverless-functions/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [serverless-functions]
+  provider: scaleway
+  support: experimental
+  support_note: "Fonction créée sans code ; publication du code (zip) à faire avec l'outil de Scaleway. Non essayé sur un compte Scaleway."
+  verified: "2026-10-21"

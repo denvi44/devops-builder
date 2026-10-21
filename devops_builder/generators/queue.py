@@ -19,17 +19,21 @@ def tool(ir: IR) -> str | None:
     return next((t for t in QUEUE if ir.has(t)), None)
 
 
-def _items(ir: IR, p: dict) -> list[tuple[str, str, object]]:
-    """(étiquette, nom, environnement) : un par nom d'environnement distinct."""
-    base = str(p.get("queue") or ir.app)
+def env_names(ir: IR, p: dict, key: str = "queue", prefix: str = "queue") -> list[tuple[str, str, object]]:
+    """(étiquette, nom, environnement) : un par nom d'environnement distinct ; la production porte le nom de la brique."""
+    base = str(p.get(key) or ir.app)
     out, seen = [], set()
     for env in ir.envs:
         name = base if env.kind == "production" else f"{base}-{env.id}"
         if name in seen:
             continue
         seen.add(name)
-        out.append(("queue_" + env.id.replace("-", "_") if ir.multi_env else "queue", name, env))
+        out.append((prefix + "_" + env.id.replace("-", "_") if ir.multi_env else prefix, name, env))
     return out
+
+
+def _items(ir: IR, p: dict) -> list[tuple[str, str, object]]:
+    return env_names(ir, p)
 
 
 def _out(label: str, desc: str, value: str, sensitive: bool = False) -> str:

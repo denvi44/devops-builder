@@ -4,8 +4,8 @@ Fichier produit par `python -m devops_builder.support` ; un test vérifie qu'il 
 
 ## Niveaux
 
-- **Pris en charge** (161) : les fichiers sont générés et passent l'outil de référence dans les tests (linter, schéma, `tofu validate`, ShellCheck) ; aucune limite connue n'empêche le premier déploiement en suivant `docs/mise-en-route.md`.
-- **Expérimental** (14) : les fichiers sont générés, mais une limite connue demande une intervention ou n'a pas été vérifiée ; la règle R50 la rappelle dans le projet.
+- **Pris en charge** (164) : les fichiers sont générés et passent l'outil de référence dans les tests (linter, schéma, `tofu validate`, ShellCheck) ; aucune limite connue n'empêche le premier déploiement en suivant `docs/mise-en-route.md`.
+- **Expérimental** (15) : les fichiers sont générés, mais une limite connue demande une intervention ou n'a pas été vérifiée ; la règle R50 la rappelle dans le projet.
 - **À configurer à la main** (18) : aucun générateur ne produit de fichier ; la brique sert aux règles et à la documentation, elle est listée dans « À configurer à la main » de `PIPELINE.md` (règle R31).
 
 Une entrée du CNCF Landscape sans fiche, ou une fiche personnelle, est toujours à configurer à la main.
@@ -27,6 +27,7 @@ Une entrée du CNCF Landscape sans fiche, ou une fiche personnelle, est toujours
 | RKE2 | Infrastructure | Le contrôleur d'entrée embarqué dépend de la version : à désactiver à la main si un autre contrôleur est posé. |
 | OVHcloud Public Cloud Databases for Valkey | Données | Instance et utilisateur créés ; droits de l'utilisateur et liste d'adresses autorisées à régler ensuite. Non essayé sur un compte OVHcloud. |
 | Azure Container Apps | Déploiement | Aucune ressource Terraform générée : l'application Container Apps se crée à la main, la CI la met ensuite à jour. |
+| Scaleway Serverless Functions | Déploiement | Fonction créée sans code ; publication du code (zip) à faire avec l'outil de Scaleway. Non essayé sur un compte Scaleway. |
 | Dex | Plateforme | Exécuté de bout en bout sur hôte Docker (jusqu'à la page d'autorisation de la forge) ; sur Kubernetes, valeurs du chart vérifiées sans exécution. |
 
 ## À configurer à la main
@@ -61,6 +62,6 @@ Une entrée du CNCF Landscape sans fiche, ou une fiche personnelle, est toujours
 - **Artefacts** : Amazon ECR, Azure Container Registry, Distribution (registry), GitHub Container Registry, Google Artifact Registry, Google Container Registry, Harbor, JFrog Artifactory, Nexus Repository, OVHcloud Managed Private Registry, Scaleway Container Registry, zot
 - **Infrastructure** : Amazon EC2, Amazon EKS, Amazon Elastic Load Balancing (NLB), Amazon Route 53, Amazon S3, Amazon SQS, Amazon VPC, Amazon Web Services, Ansible, Azure Blob Storage, Azure DNS, Azure Kubernetes Service, Azure Load Balancer, Azure Service Bus, Azure Virtual Machines, Azure Virtual Network, Crossplane, Google Cloud, Google Cloud DNS, Google Cloud Load Balancing, Google Cloud Pub/Sub, Google Cloud Storage, Google Cloud VPC, Google Compute Engine, Google Kubernetes Engine, k3s, kind, kubeadm, MicroK8s, Microsoft Azure, minikube, MinIO, OpenTofu, Outscale, Outscale Object Storage (OOS), Outscale VM, OVHcloud, OVHcloud Managed Kubernetes, OVHcloud Object Storage, OVHcloud Public Cloud Instances, Pulumi, Scaleway, Scaleway Domains and DNS, Scaleway Instances, Scaleway Kapsule, Scaleway Load Balancer, Scaleway Messaging and Queuing (SQS), Scaleway Object Storage, Scaleway VPC, Terraform
 - **Données** : Amazon ElastiCache (Valkey), Amazon RDS, Azure Cache for Redis, Azure Database (serveur flexible), CloudNativePG, Google Cloud Memorystore (Redis), Google Cloud SQL, MariaDB, Migrations de schéma, MongoDB, MySQL, OVHcloud Public Cloud Databases, PostgreSQL, Redis, Scaleway Managed Database, Scaleway Managed Database for Redis, Valkey
-- **Déploiement** : Amazon ECS (Fargate), Argo CD, Argo Events, Argo Rollouts, Docker Compose, Flux, Google Cloud Run, Helm, Kustomize
+- **Déploiement** : Amazon ECS (Fargate), Argo CD, Argo Events, Argo Rollouts, AWS Lambda, Azure Functions, Docker Compose, Flux, Google Cloud Run, Google Cloud Run functions, Helm, Kustomize
 - **Plateforme** : AWS Secrets Manager, Azure Key Vault, Calico, cert-manager, Cilium, Envoy Gateway, External Secrets Operator, Falco, Flannel, Google Secret Manager, ingress-nginx, Istio, KEDA, Keycloak, Kyverno, Linkerd, Longhorn, OPA Gatekeeper, OpenBao, Rook (Ceph), SOPS, Traefik, Vault, Velero
 - **Observabilité** : Amazon CloudWatch, Azure Monitor, Fluent Bit, Fluentd, Google Cloud Monitoring et Logging, Grafana, Grafana Loki, Grafana Tempo, Jaeger, OpenCost, OpenSearch, OpenTelemetry Collector, Prometheus, Zabbix
