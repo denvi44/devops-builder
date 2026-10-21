@@ -72,7 +72,10 @@ URL_FORMATS = {"url": "URL (postgresql://, mysql://…)", "jdbc": "JDBC (jdbc:po
                "parts": "URL et variables séparées (HOST, PORT, NAME, USER, PASSWORD)"}
 JDBC_SCHEMES = {"postgresql": "postgresql", "mysql": "mysql", "mariadb": "mariadb"}
 OPERATORS = {"cloudnative-pg": "postgresql"}
-MANAGED = ("aws-rds", "cloud-sql", "azure-database", "scaleway-rdb", "ovh-databases")
+# Caches managés → (moteur de référence, port de connexion TLS) ; l'URL est en « rediss:// »
+MANAGED_CACHES = {"aws-elasticache": ("valkey", 6379), "gcp-memorystore": ("redis", 6378),
+                  "azure-redis": ("redis", 6380), "scaleway-redis": ("redis", 6379), "ovh-valkey": ("valkey", 6379)}
+MANAGED = ("aws-rds", "cloud-sql", "azure-database", "scaleway-rdb", "ovh-databases", *MANAGED_CACHES)
 DATABASE_TOOLS = (*SELF_HOSTED, *OPERATORS, *MANAGED)
 MIGRATIONS = "db-migrations"
 
@@ -149,6 +152,15 @@ class Database:
                 (("HOST", "host"), ("PORT", "port"), ("NAME", "name"), ("USER", "user"), ("PASSWORD", "password"))]
 
     @property
+    def port(self) -> int:
+        """Port de connexion : celui du moteur, ou le port TLS du cache managé."""
+        return MANAGED_CACHES[self.id][1] if self.id in MANAGED_CACHES else self.engine.port
+
+    @property
+    def scheme(self) -> str:
+        return "rediss" if self.id in MANAGED_CACHES else self.engine.scheme
+
+    @property
     def password_var(self) -> str:
         """Variable CI du mot de passe (base autogérée)."""
         return f"{self.id.upper().replace('-', '_')}_PASSWORD"
@@ -164,7 +176,7 @@ class Database:
             return (f"jdbc:{JDBC_SCHEMES.get(e.id, e.scheme)}://{host}:{e.port}/{self.name}"
                     f"?user={self.user}&password={password}")
         if e.family == "key-value":
-            return f"{e.scheme}://:{password}@{host}:{e.port}/0"
+            return f"{self.scheme}://:{password}@{host}:{self.port}/0"
         return f"{e.scheme}://{self.user}:{password}@{host}:{e.port}/{self.name}{e.url_suffix}"
 
 
@@ -180,6 +192,8 @@ def databases(project: Project, catalog: Catalog) -> list[Database]:
             out.append(Database(tool, ENGINES[tool.id], "self-hosted", params))
         elif tool.id in OPERATORS:
             out.append(Database(tool, ENGINES[OPERATORS[tool.id]], "operator", params))
+        elif tool.id in MANAGED_CACHES:
+            out.append(Database(tool, ENGINES[MANAGED_CACHES[tool.id][0]], "managed", params))
         else:
             engine = MANAGED_ENGINES.get(str(params.get("engine", "postgres")), "postgresql")
             out.append(Database(tool, ENGINES[engine], "managed", params))

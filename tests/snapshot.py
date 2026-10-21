@@ -290,6 +290,11 @@ def extra_cases(catalog) -> dict[str, Project]:
         p = build_starter(StarterAnswers(forge="gitlab", hosting="vm", cloud="aws", envs="staging-prod"), catalog)
         p.add("aws-route53", "infrastructure", zone="boutique.fr")
         out["dns-machines-aws"] = p
+        for cloud in ("aws", "gcp", "azure", "scaleway", "ovhcloud"):
+            p = build_starter(StarterAnswers(forge="gitlab", hosting="vm", cloud=cloud, envs="staging-prod",
+                                             shared_host=True), catalog)
+            p.add(catalog[cloud].services["cache"], "data")
+            out[f"cache-{cloud}"] = p
     return out
 
 

@@ -422,7 +422,7 @@ def terraform(ir: IR) -> dict[str, str]:
     network.host_note(ir)
     lb_blocks, lb_outputs = lb.terraform_blocks(ir)
     dns_blocks, dns_outputs = dns.terraform_blocks(ir)
-    main_parts += net_blocks + host_blocks + lb_blocks + dns_blocks + db_blocks + secret_blocks + eso_blocks
+    main_parts += network.default_data_blocks(ir) + net_blocks + host_blocks + lb_blocks + dns_blocks + db_blocks + secret_blocks + eso_blocks
     ir.cover(*(p.id for p in ir.providers))
     if backend_tool(ir) in S3_COMPATIBLE:
         ir.cover(backend_tool(ir))  # porte l'état : écrit dans le bloc backend de versions.tf

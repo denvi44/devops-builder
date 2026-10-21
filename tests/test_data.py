@@ -280,7 +280,7 @@ RESOURCES = {"aws-rds": "aws_db_instance", "cloud-sql": "google_sql_database_ins
              "ovh-databases": "ovh_cloud_project_database"}
 
 
-@pytest.mark.parametrize("tool", MANAGED)
+@pytest.mark.parametrize("tool", [t for t in MANAGED if t in MANAGED_CASES])
 def test_base_managee_une_instance_par_environnement(tool, tmp_path):
     extra, params = MANAGED_CASES[tool]
     p = project("kubernetes-managed", "gitlab", "gitlab-ci", "buildkit", *extra, tool, **params)

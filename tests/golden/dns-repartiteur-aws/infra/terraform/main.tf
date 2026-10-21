@@ -8,6 +8,18 @@ provider "aws" {
 # Le bucket mon-projet-tfstate porte l'état de cette pile : il est créé à part (amorçage),
 # pas par la pile qui l'utilise.
 
+# --- Réseau par défaut du compte AWS (aucune brique Amazon VPC)
+data "aws_vpc" "default" {
+  default = true
+}
+
+data "aws_subnets" "default" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+
 # --- Machines de déploiement (Ubuntu 24.04) : cloud-init pose le compte « deploy », la clé de la CI
 # et Docker avec son extension Compose.
 locals {
@@ -133,17 +145,6 @@ resource "aws_instance" "production" {
 }
 
 # --- Amazon Elastic Load Balancing (NLB)
-data "aws_vpc" "default" {
-  default = true
-}
-
-data "aws_subnets" "default" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
-}
-
 # --- hors-production : répartiteur
 resource "aws_lb" "hors_production" {
   name               = "mon-app-hors-production"

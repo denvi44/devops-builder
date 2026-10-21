@@ -1065,3 +1065,83 @@ azure-dns:
   <<: *dns_params
 scaleway-domains:
   <<: *dns_params
+
+# ------------------------------------------------------------- Cache managé
+aws-elasticache:
+  instance: *managed_instance
+  node_type:
+    label: Type de nœud
+    default: cache.t4g.micro
+    suggestions: [cache.t4g.micro, cache.t4g.small, cache.t4g.medium, cache.m7g.large]
+    pattern: 'cache\.[a-z0-9]+\.[a-z0-9]+'
+    pattern_hint: "type ElastiCache, ex. cache.t4g.micro"
+  version:
+    label: Version de Valkey
+    default: "8.0"
+    suggestions: ["8.0", "7.2"]
+    pattern: '[0-9]+(\.[0-9]+)?'
+    pattern_hint: "ex. 8.0"
+  url_var: *db_url_var
+gcp-memorystore:
+  instance: *managed_instance
+  memory_gb:
+    label: Mémoire (Go)
+    type: int
+    default: 1
+  version:
+    label: Version de Redis
+    default: REDIS_7_2
+    suggestions: [REDIS_7_2, REDIS_7_0, REDIS_6_X]
+    pattern: 'REDIS_[0-9]+(_[0-9]+|_X)'
+    pattern_hint: "ex. REDIS_7_2"
+  url_var: *db_url_var
+azure-redis:
+  instance: *managed_instance
+  sku:
+    label: Offre
+    description: "Basic : un nœud, sans réplication ; Standard : deux nœuds répliqués (production)."
+    default: Basic
+    choices: [Basic, Standard]
+  capacity:
+    label: Taille (C0 à C6)
+    description: "0 = 250 Mo, 1 = 1 Go, 2 = 2,5 Go, 3 = 6 Go…"
+    type: int
+    default: 0
+  url_var: *db_url_var
+scaleway-redis:
+  instance: *managed_instance
+  node_type:
+    label: Type de nœud
+    default: RED1-MICRO
+    suggestions: [RED1-MICRO, RED1-XS, RED1-S, RED1-M]
+    pattern: 'RED1-[A-Z0-9]+'
+    pattern_hint: "type Scaleway, ex. RED1-MICRO"
+  version:
+    label: Version de Redis
+    default: 7.2.11
+    pattern: '[0-9]+\.[0-9]+\.[0-9]+'
+    pattern_hint: "version complète proposée par Scaleway, ex. 7.2.11"
+  url_var: *db_url_var
+ovh-valkey:
+  instance: *managed_instance
+  version:
+    label: Version de Valkey
+    default: "8.0"
+    pattern: '[0-9]+(\.[0-9]+)?'
+    pattern_hint: "ex. 8.0"
+  plan:
+    label: Offre
+    default: essential
+    suggestions: [essential, business, enterprise]
+  flavor:
+    label: Gabarit
+    default: db1-4
+    suggestions: [db1-4, db1-7, db1-15]
+    pattern: 'db[0-9]+-[0-9]+'
+    pattern_hint: "gabarit OVHcloud, ex. db1-4"
+  region:
+    label: Région des bases
+    default: GRA
+    pattern: '[A-Z0-9-]{2,20}'
+    pattern_hint: "code de région des bases OVHcloud, ex. GRA"
+  url_var: *db_url_var

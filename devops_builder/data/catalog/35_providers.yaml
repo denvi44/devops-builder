@@ -17,6 +17,7 @@
     compute: aws-ec2
     network: aws-vpc
     load-balancer: aws-elb
+    cache: aws-elasticache
     dns: aws-route53
     database: aws-rds
     k8s.managed: eks
@@ -44,6 +45,7 @@
     compute: gce
     network: gcp-vpc
     load-balancer: gcp-lb
+    cache: gcp-memorystore
     dns: gcp-dns
     database: cloud-sql
     k8s.managed: gke
@@ -71,6 +73,7 @@
     compute: azure-vm
     network: azure-vnet
     load-balancer: azure-lb
+    cache: azure-redis
     dns: azure-dns
     database: azure-database
     k8s.managed: aks
@@ -98,6 +101,7 @@
     compute: ovh-instance
     network: ovh-private-network
     load-balancer: ovh-load-balancer
+    cache: ovh-valkey
     database: ovh-databases
     k8s.managed: ovh-mks
     registry: ovh-registry
@@ -138,6 +142,7 @@
     compute: scaleway-instance
     network: scaleway-vpc
     load-balancer: scaleway-lb
+    cache: scaleway-redis
     dns: scaleway-domains
     database: scaleway-rdb
     k8s.managed: kapsule
