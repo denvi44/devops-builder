@@ -1,0 +1,74 @@
+# Capacité « file de messages » : une brique par cloud (Outscale n'en propose pas). La file est créée par environnement ;
+# son adresse sort de la pile (queue_<environnement>_url) et se transmet à l'application. Vérifiées le 2026-10-21.
+
+- id: aws-sqs
+  name: Amazon SQS
+  kind: service
+  stage: infrastructure
+  roles: [message-queue]
+  description: "File SQS chiffrée avec sa file des messages morts (DLQ), une par environnement."
+  homepage: https://aws.amazon.com/sqs/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [message-queue]
+  provider: aws
+  verified: "2026-10-21"
+
+- id: gcp-pubsub
+  name: Google Cloud Pub/Sub
+  kind: service
+  stage: infrastructure
+  roles: [message-queue]
+  description: "Sujet Pub/Sub et abonnement, un couple par environnement."
+  homepage: https://cloud.google.com/pubsub
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [message-queue]
+  provider: gcp
+  verified: "2026-10-21"
+
+- id: azure-service-bus
+  name: Azure Service Bus
+  kind: service
+  stage: infrastructure
+  roles: [message-queue]
+  description: "Espace de noms Service Bus (offre Standard) et une file par environnement, avec file des messages morts."
+  homepage: https://azure.microsoft.com/products/service-bus
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [message-queue]
+  provider: azure
+  verified: "2026-10-21"
+
+- id: scaleway-queues
+  name: Scaleway Messaging and Queuing (SQS)
+  kind: service
+  stage: infrastructure
+  roles: [message-queue]
+  description: "File compatible SQS de Scaleway, avec des identifiants dédiés à l'application, une file par environnement."
+  homepage: https://www.scaleway.com/en/messaging-and-queuing/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [message-queue]
+  provider: scaleway
+  verified: "2026-10-21"
+
+- id: ovh-kafka
+  name: OVHcloud Public Cloud Databases for Apache Kafka
+  kind: service
+  stage: infrastructure
+  roles: [message-queue]
+  description: "Cluster Kafka managé (trois nœuds) et un sujet par environnement."
+  homepage: https://www.ovhcloud.com/fr/public-cloud/kafka/
+  license: proprietary
+  repo: ""
+  hosting: [saas]
+  provides: [message-queue]
+  provider: ovhcloud
+  support: experimental
+  support_note: "Cluster et sujet créés ; utilisateur, droits (ACL) et liste d'adresses autorisées à régler ensuite. Non essayé sur un compte OVHcloud."
+  verified: "2026-10-21"
