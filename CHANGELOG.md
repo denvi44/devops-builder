@@ -4,7 +4,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
-## 0.26.1 — non publié — Robustesse et confort d'usage
+## 0.26.1 — 2026-10-22 — Robustesse et confort d'usage
 
 ### Ajouté
 - Règle **R57** (bloquante) : le nom d'image de l'application doit être un nom OCI valide (minuscules, chiffres, `. _ -`) ; correction en un clic. Le dialogue du projet convertit lui aussi la saisie en nom valide.
