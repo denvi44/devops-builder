@@ -29,7 +29,7 @@ classifiers = [
 dependencies = [
     # PySide6 6.12.0 décrémente trop le compteur de références : plantage à la sortie sous Python 3.11,
     # erreur de segmentation intermittente sous 3.12 (CI du 13 octobre). À lever avec une 6.12.x corrigée.
-    "PySide6>=6.6,<6.12",
+    "PySide6>=6.6,<6.13",
     "qt-material>=2.14",
     "QtAwesome>=1.3",
     "pydantic>=2.6",
