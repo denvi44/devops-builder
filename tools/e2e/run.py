@@ -637,6 +637,10 @@ echo "dépôt privé e2e/gitops créé"
         Step("État de l'application Argo CD", f"kubectl --context {ctx} -n argocd get application {ns} "
              "-o jsonpath='{.status.sync.status} {.status.health.status}{\"\\n\"}{.status.conditions}{\"\\n\"}"
              "{.status.operationState.message}{\"\\n\"}' || true", always=True, evidence=True),
+        Step("Journaux d'Argo CD (repo-server et contrôleur)",
+             f"for d in deployment/argo-cd-argocd-repo-server statefulset/argo-cd-argocd-application-controller; do "
+             f"echo \"== $d\"; kubectl --context {ctx} -n argocd logs $d --tail=40 2>&1 | cut -c1-300; done; "
+             f"kubectl --context {ctx} -n argocd top pods 2>&1 | head -12 || true", always=True, evidence=True),
         *end[:-1],
         Step("Arrêt de Gitea", "docker rm -f gitea-e2e", always=True),
         end[-1],
