@@ -626,6 +626,11 @@ echo "dépôt privé e2e/gitops créé"
         Step("Fichiers générés poussés dans le dépôt GitOps", push, cwd=out),
         Step("Job de déploiement de la CI générée (alpine, comme GitLab) : étiquette e2e-1", ci_job("e2e-1"),
              evidence=True),
+        Step("Argo CD prêt (Redis, serveur de dépôts, contrôleur) avant de lui confier une application",
+             f"for d in argo-cd-argocd-redis argo-cd-argocd-repo-server argo-cd-argocd-server; do "
+             f"kubectl --context {ctx} -n argocd rollout status deployment/$d --timeout=300s; done\n"
+             f"kubectl --context {ctx} -n argocd rollout status statefulset/argo-cd-argocd-application-controller "
+             f"--timeout=300s\nkubectl --context {ctx} -n argocd get pods", evidence=True),
         Step("Mode d'emploi Argo CD joué tel quel (secret du dépôt, applications, synchronisation)",
              f"kubectl config use-context {ctx}\nexport GITOPS_READ_TOKEN=\"$(cat {token})\"\n{guide}", cwd=out,
              evidence=True),
