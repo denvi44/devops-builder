@@ -53,7 +53,29 @@ Pousser sur la branche principale : chaque environnement se déploie dans l'ordr
 ssh "<hôte>" "cd /opt/boutique && docker compose -p boutique ps"
 ```
 
-## 5. Sauvegardes
+## 5. Essai à la main, sans CI
+
+Pour essayer la pile sur un hôte Docker sans passer par la CI (labo, poste de travail, NAS), copier le dossier du projet sur l'hôte puis, depuis ce dossier :
+
+```bash
+POSTGRESQL_PASSWORD="$(openssl rand -hex 24)" VALKEY_PASSWORD="$(openssl rand -hex 24)" sh deploy/secrets.sh deploy/secrets   # écrit deploy/secrets/ (ne pas le partager)
+export COMPOSE_FILE=deploy/docker-compose.yml   # les commandes compose s'appliquent au projet
+docker compose version   # absente ? voir la remarque ci-dessous
+docker compose config --services     # les services du projet
+docker compose up -d <service> ...   # ceux à lancer ; sans nom : tous
+docker compose ps
+```
+
+Les services de l'application ont besoin de leur image (construite et poussée par la CI) : à l'essai, ne lancer que les services de plateforme (bases, Zabbix, Keycloak…).
+
+`docker compose` absent (NAS, Unraid, vieux Docker) : télécharger le binaire autonome de Compose à côté du projet, sans rien installer sur le système.
+
+```bash
+mkdir -p bin && curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o bin/docker-compose && chmod +x bin/docker-compose
+bin/docker-compose version   # puis bin/docker-compose à la place de docker compose
+```
+
+## 6. Sauvegardes
 
 Sur l'hôte, une sauvegarde puis une restauration d'essai (la restauration remplace la base) :
 
@@ -63,7 +85,7 @@ last="$(sudo ls -t /var/backups/boutique-dev | head -n 1)"
 sudo /opt/boutique-dev/db-restore.sh /opt/boutique-dev "/var/backups/boutique-dev/$last" --oui
 ```
 
-## 6. Poste de développement
+## 7. Poste de développement
 
 Les mêmes bases qu'en production, en version identique, sur le poste (ports liés à 127.0.0.1, mot de passe `dev`). Les fichiers de `dev/db/init/<base>/` sont joués à la création :
 
@@ -74,7 +96,7 @@ alembic upgrade head
 docker compose -f dev/db/compose.yaml --profile outils up -d adminer   # http://127.0.0.1:8081
 ```
 
-## 7. Entretien
+## 8. Entretien
 
 - Sauvegardes : `scripts/db-backup.sh` à planifier sur l'hôte (cron) ; copier les fichiers hors de la machine et tester une restauration (section Sauvegardes).
 - Renovate : le job `renovate` tourne dans une planification de pipeline qui porte la variable `RENOVATE=1` (Build › Pipeline schedules, ou par l'API ci-dessous, jeton `api` dans `GITLAB_TOKEN`) ; `RENOVATE_TOKEN` : jeton de projet avec les droits `api` et `write_repository`.
