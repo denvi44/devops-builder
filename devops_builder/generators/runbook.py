@@ -408,6 +408,18 @@ def _hosts(ir: IR) -> list[str]:
                            if ir.has("ansible") else
                            f"ssh \"{user}@$(bash {INVENTORY_SCRIPT} --first {ir.envs[0].id})\" docker ps")]
     else:
+        if user == "root":
+            return out + [
+                "Sur chaque hôte : le compte `root` avec la clé publique de la CI (la clé privée va dans "
+                "`SSH_PRIVATE_KEY`) ; pas de sudo à configurer. Docker "
+                + ("est préparé par Ansible." if ir.has("ansible") else "et son extension Compose doivent être installés."),
+                "", *_sh("ssh-keygen -t ed25519 -N '' -f ci_deploy -C ci-deploy   # sur le poste",
+                         "ssh-copy-id -i ci_deploy.pub root@<hôte>"),
+                "Empreinte des hôtes dans `SSH_KNOWN_HOSTS` (facultatif, recommandé) : `ssh-keyscan <hôte>`.", ""] + (
+                ["Préparer les hôtes (Docker depuis son dépôt officiel), une fois par environnement :", "",
+                 *_sh("pip install 'ansible-core>=2.21,<2.22' && ansible-galaxy collection install -r ansible/requirements.yml",
+                      *[f"ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook -i {ir.inventory(e)} ansible/site.yml"
+                        for e in ir.envs])] if ir.has("ansible") else []) + _dns_names(ir)
         out += [f"Sur chaque hôte : un compte `{user}` avec la clé publique de la CI (la clé privée va dans "
                 "`SSH_PRIVATE_KEY`)" + (" et sudo sans mot de passe." if ir.has("ansible") else
                                         ", membre du groupe docker, Docker et son extension Compose installés."), "",
@@ -424,6 +436,36 @@ def _hosts(ir: IR) -> list[str]:
                      *[f"ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook -i {ir.inventory(e)} ansible/site.yml"
                        for e in ir.envs])]
     return out + _dns_names(ir)
+
+
+def _manual(ir: IR, files: dict[str, str]) -> list[str]:
+    """Essai sans CI : les fichiers générés lancés à la main sur un hôte Docker (labo, poste, NAS)."""
+    if ir.project.target not in ("docker-host", "vm") or "deploy/docker-compose.yml" not in files:
+        return []
+    from .data import SECRETS_SCRIPT, secret_vars
+    out = ["## Essai à la main, sans CI", "",
+           "Pour essayer la pile sur un hôte Docker sans passer par la CI (labo, poste de travail, NAS), copier "
+           "le dossier du projet sur l'hôte puis, depuis ce dossier :", ""]
+    steps: list[str] = []
+    variables = secret_vars(ir)
+    if SECRETS_SCRIPT in files and variables:
+        required = [v for v, optional in variables if not optional]
+        setting = " ".join(f'{v}="$(openssl rand -hex 24)"' for v in required)
+        steps.append(f"{setting} sh {SECRETS_SCRIPT} deploy/secrets   # écrit deploy/secrets/ (ne pas le partager)")
+    steps += ["export COMPOSE_FILE=deploy/docker-compose.yml   # les commandes compose s'appliquent au projet",
+              "docker compose version   # absente ? voir la remarque ci-dessous",
+              "docker compose config --services     # les services du projet",
+              "docker compose up -d <service> ...   # ceux à lancer ; sans nom : tous",
+              "docker compose ps"]
+    out += _sh(*steps)
+    out += ["Les services de l'application ont besoin de leur image (construite et poussée par la CI) : à l'essai, "
+            "ne lancer que les services de plateforme (bases, Zabbix, Keycloak…).", "",
+            "`docker compose` absent (NAS, Unraid, vieux Docker) : télécharger le binaire autonome de Compose à côté "
+            "du projet, sans rien installer sur le système.", "",
+            *_sh("mkdir -p bin && curl -SL https://github.com/docker/compose/releases/latest/download/"
+                 "docker-compose-linux-x86_64 -o bin/docker-compose && chmod +x bin/docker-compose",
+                 "bin/docker-compose version   # puis bin/docker-compose à la place de docker compose")]
+    return out
 
 
 def _dns_names(ir: IR) -> list[str]:
@@ -737,7 +779,7 @@ def _dast(ir: IR) -> list[str]:
             "sans attendre passe à `FAIL`.", ""]
 
 SECTIONS = (_state, _ci_cloud, _infra, _platform, _identity, _vault, _app_secrets, _eso, _hosts, _gitops, _ci_vars,
-            _first_deploy, _sonarqube, _zabbix, _dast, _backups, _dev, _upkeep)
+            _first_deploy, _manual, _sonarqube, _zabbix, _dast, _backups, _dev, _upkeep)
 
 
 def runbook(ir: IR, files: dict[str, str]) -> dict[str, str]:

@@ -65,7 +65,29 @@ Pousser sur la branche principale : chaque environnement se déploie dans l'ordr
 ssh "<hôte>" "cd /opt/mon-app && docker compose -p mon-app ps"
 ```
 
-## 5. Zabbix
+## 5. Essai à la main, sans CI
+
+Pour essayer la pile sur un hôte Docker sans passer par la CI (labo, poste de travail, NAS), copier le dossier du projet sur l'hôte puis, depuis ce dossier :
+
+```bash
+ZABBIX_DB_PASSWORD="$(openssl rand -hex 24)" sh deploy/secrets.sh deploy/secrets   # écrit deploy/secrets/ (ne pas le partager)
+export COMPOSE_FILE=deploy/docker-compose.yml   # les commandes compose s'appliquent au projet
+docker compose version   # absente ? voir la remarque ci-dessous
+docker compose config --services     # les services du projet
+docker compose up -d <service> ...   # ceux à lancer ; sans nom : tous
+docker compose ps
+```
+
+Les services de l'application ont besoin de leur image (construite et poussée par la CI) : à l'essai, ne lancer que les services de plateforme (bases, Zabbix, Keycloak…).
+
+`docker compose` absent (NAS, Unraid, vieux Docker) : télécharger le binaire autonome de Compose à côté du projet, sans rien installer sur le système.
+
+```bash
+mkdir -p bin && curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o bin/docker-compose && chmod +x bin/docker-compose
+bin/docker-compose version   # puis bin/docker-compose à la place de docker compose
+```
+
+## 6. Zabbix
 
 L'interface répond sur https://zabbix.example.com une fois le premier déploiement fait ; le serveur crée le schéma de sa base au premier démarrage (une à deux minutes). Le compte **Admin / zabbix** est connu de tous : le changer aussitôt, ici par l'API (ou dans l'interface, Utilisateurs → Admin) :
 
@@ -86,7 +108,7 @@ curl -fsS -H 'Content-Type: application/json-rpc' -H "Authorization: Bearer $tok
 
 Les autres machines se supervisent avec un agent 2 chacune (paquet `zabbix-agent2` du dépôt officiel, https://www.zabbix.com/download), `Server=` pointant vers cet hôte Docker, puis un hôte déclaré dans l'interface.
 
-## 6. Sauvegardes
+## 7. Sauvegardes
 
 Sur l'hôte, une sauvegarde puis une restauration d'essai (la restauration remplace la base) :
 
@@ -96,7 +118,7 @@ last="$(sudo ls -t /var/backups/mon-app | head -n 1)"
 sudo /opt/mon-app/db-restore.sh /opt/mon-app "/var/backups/mon-app/$last" --oui
 ```
 
-## 7. Entretien
+## 8. Entretien
 
 - Sauvegardes : `scripts/db-backup.sh` planifiée par Ansible ; copier les fichiers hors de la machine et tester une restauration (section Sauvegardes).
 - Rotation d'un mot de passe : nouvelle valeur par `scripts/secrets-seed.sh`, puis redéploiement.

@@ -48,7 +48,10 @@ def _inventory(ir: IR, env) -> str:
         lines += ["[app]", *ansible_hosts(ir, env), ""]
     if ir.has("k3s"):
         lines += ["[k3s]", f"k3s1{('.' + env.id) if ir.multi_env else ''}.example.com", ""]
-    lines += ["[all:vars]", f"ansible_user={user}", f"deploy_env={env.id}", ""]
+    lines += ["[all:vars]", f"ansible_user={user}", f"deploy_env={env.id}"]
+    if user == "root":
+        lines.append("ansible_become=false   # déjà root : pas de sudo (absent de certains NAS)")
+    lines.append("")
     return "\n".join(lines)
 
 

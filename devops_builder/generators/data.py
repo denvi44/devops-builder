@@ -168,6 +168,15 @@ def compose_parts(ir: IR, app_service: dict, image: str) -> dict[str, dict]:
     return services
 
 
+def secret_vars(ir: IR) -> list[tuple[str, bool]]:
+    """(variable, facultative) lues par deploy/secrets.sh, dans l'ordre du script."""
+    from .identity import all_compose_secrets
+    extras = all_compose_secrets(ir)
+    optional = {cs.var for cs in extras if cs.optional}
+    names = list(dict.fromkeys([*_script_vars(compose_dbs(ir)), *(cs.var for cs in extras)]))
+    return [(n, n in optional) for n in names]
+
+
 def secrets_script(ir: IR) -> dict[str, str]:
     """deploy/secrets.sh : écrit les fichiers lus par Compose (env_file) à partir des variables."""
     from .identity import all_compose_secrets

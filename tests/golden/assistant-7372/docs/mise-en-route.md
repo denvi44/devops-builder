@@ -39,6 +39,27 @@ Pousser sur la branche principale : chaque environnement se déploie dans l'ordr
 ssh "<hôte>" "cd /opt/mon-app && docker compose -p mon-app ps"
 ```
 
-## 4. Entretien
+## 4. Essai à la main, sans CI
+
+Pour essayer la pile sur un hôte Docker sans passer par la CI (labo, poste de travail, NAS), copier le dossier du projet sur l'hôte puis, depuis ce dossier :
+
+```bash
+export COMPOSE_FILE=deploy/docker-compose.yml   # les commandes compose s'appliquent au projet
+docker compose version   # absente ? voir la remarque ci-dessous
+docker compose config --services     # les services du projet
+docker compose up -d <service> ...   # ceux à lancer ; sans nom : tous
+docker compose ps
+```
+
+Les services de l'application ont besoin de leur image (construite et poussée par la CI) : à l'essai, ne lancer que les services de plateforme (bases, Zabbix, Keycloak…).
+
+`docker compose` absent (NAS, Unraid, vieux Docker) : télécharger le binaire autonome de Compose à côté du projet, sans rien installer sur le système.
+
+```bash
+mkdir -p bin && curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o bin/docker-compose && chmod +x bin/docker-compose
+bin/docker-compose version   # puis bin/docker-compose à la place de docker compose
+```
+
+## 5. Entretien
 
 - Renovate : job planifié (quotidien) avec l'image `renovate/renovate:44.164.5` et `RENOVATE_TOKEN`.

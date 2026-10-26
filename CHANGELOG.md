@@ -4,6 +4,14 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## 0.26.2 — non publié — Hôte Docker essayé à la main
+
+### Ajouté
+- Guide de mise en route (`docs/mise-en-route.md`) : section **« Essai à la main, sans CI »** pour les piles sur hôte Docker : secrets générés avec `openssl`, liste des services, démarrage des seuls services de plateforme, et, quand `docker compose` manque (Unraid, NAS), téléchargement du binaire autonome de Compose à côté du projet.
+
+### Corrigé
+- Compte SSH `root` choisi pour Ansible : le guide ne propose plus de créer un compte `root` ni un fichier sudoers (`useradd`, `/home/root`), il copie la clé avec `ssh-copy-id` ; l'inventaire pose `ansible_become=false` (pas de sudo sur Unraid et beaucoup de NAS).
+
 ## 0.26.1 — 2026-10-22 — Robustesse et confort d'usage
 
 ### Ajouté
