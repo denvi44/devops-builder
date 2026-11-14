@@ -81,7 +81,11 @@ class MainWindow(QMainWindow):
         self.undo_stack = QUndoStack(self)
         self.undo_stack.cleanChanged.connect(lambda _: self._update_title())
         self.settings = QSettings("DevOpsBuilder", "DevOpsBuilder")
-        self.dark = self.settings.value("dark", False, type=bool)
+        # « theme » depuis la 0.27 ; « dark » reste écrit pour les versions précédentes
+        self.theme_name = str(self.settings.value("theme", "") or (
+            "sombre" if self.settings.value("dark", False, type=bool) else "clair"))
+        if self.theme_name not in theme.THEMES:
+            self.theme_name = "clair"
 
         self.setWindowTitle("DevOps Builder")
         self.resize(1500, 920)
@@ -106,6 +110,7 @@ class MainWindow(QMainWindow):
     # ================================================================ UI
     def _build_central(self) -> None:
         central = QWidget()
+        central.setObjectName("centralWidget")
         lay = QVBoxLayout(central)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(0)
@@ -272,6 +277,10 @@ class MainWindow(QMainWindow):
         self.a_theme = self._act("Thème sombre", self.toggle_theme, "Ctrl+T", "mdi6.theme-light-dark")
         self.a_theme.setCheckable(True)
         self.a_theme.setChecked(self.dark)
+        self.a_glass = self._act("Thème Verre", self.toggle_glass, "Ctrl+Shift+T", "mdi6.blur",
+                                 "Panneaux translucides sur un fond en dégradé ; même rendu sur tous les systèmes")
+        self.a_glass.setCheckable(True)
+        self.a_glass.setChecked(self.theme_name == "verre")
         self.a_search = self._act("Rechercher dans le catalogue", self._focus_search, "Ctrl+F")
         self.a_focus_canvas = self._act("Aller au pipeline", lambda: self.canvas.columns["source"].list.setFocus(), "Ctrl+2")
         self.a_focus_diag = self._act("Aller aux diagnostics", lambda: self.diagnostics.tree.setFocus(), "Ctrl+3")
@@ -336,7 +345,7 @@ class MainWindow(QMainWindow):
         c = mb.addMenu("&Catalogue")
         c.addActions([self.a_maintenance, self.a_new_fiche, self.a_catalog_folder])
         v = mb.addMenu("&Affichage")
-        v.addAction(self.a_theme)
+        v.addActions([self.a_theme, self.a_glass])
         sizes = v.addMenu("Taille du te&xte")
         self.text_size_group = QActionGroup(self)
         for factor in theme.TEXT_SCALES:
@@ -900,11 +909,24 @@ class MainWindow(QMainWindow):
             from .validation import ValidationDialog
             ValidationDialog(result, self).exec()
 
+    @property
+    def dark(self) -> bool:
+        return self.theme_name == "sombre"
+
     def toggle_theme(self) -> None:
-        self.dark = not self.dark
+        """Bascule clair / sombre (Ctrl+T) ; depuis Verre, passe au sombre."""
+        self.set_theme("clair" if self.dark else "sombre")
+
+    def toggle_glass(self) -> None:
+        self.set_theme("clair" if self.theme_name == "verre" else "verre")
+
+    def set_theme(self, name: str) -> None:
+        self.theme_name = name if name in theme.THEMES else "clair"
         self.a_theme.setChecked(self.dark)
+        self.a_glass.setChecked(self.theme_name == "verre")
+        self.settings.setValue("theme", self.theme_name)
         self.settings.setValue("dark", self.dark)
-        theme.apply(QApplication.instance(), self.dark)  # type: ignore[arg-type]
+        theme.apply(QApplication.instance(), self.theme_name)  # type: ignore[arg-type]
         self.canvas.rescale()
         self._update_icons()
         self.palette.refresh()
@@ -912,7 +934,7 @@ class MainWindow(QMainWindow):
 
     def set_text_scale(self, factor: float) -> None:
         self.settings.setValue("text_scale", factor)
-        theme.apply(QApplication.instance(), self.dark, factor)  # type: ignore[arg-type]
+        theme.apply(QApplication.instance(), self.theme_name, factor)  # type: ignore[arg-type]
         for a in self.text_size_group.actions():
             a.setChecked(abs(a.data() - theme.scale()) < 0.01)
         self.chips_area.setFixedHeight(theme.px(30))

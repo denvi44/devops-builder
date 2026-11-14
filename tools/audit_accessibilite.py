@@ -27,12 +27,12 @@ def main() -> int:
     win.open_path(DATA_DIR / "examples" / "01-web-hote-docker.devops.yaml")
     app.processEvents()
     total = 0
-    for dark in (False, True):
-        if win.dark != dark:
-            win.toggle_theme()
-            app.processEvents()
+    from devops_builder.ui import theme
+    for name in theme.THEMES:
+        win.set_theme(name)
+        app.processEvents()
         findings = full_audit(win, focus="--sans-focus" not in sys.argv) + clipped_at(win, 2.0)
-        print(f"== thème {'sombre' if dark else 'clair'} : {len(findings)} constat(s)")
+        print(f"== thème {name} : {len(findings)} constat(s)")
         for f in findings:
             en, wcag, rgaa = CRITERIA[f.criterion]
             print(f"  {f}   ({wcag} ; EN 301 549 {en} ; {rgaa})")

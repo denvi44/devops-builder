@@ -10,7 +10,7 @@ correspondent, pour qui a l'habitude de les lire.
 
 **Audit automatisé** (`devops_builder/ui/audit.py`, lancé par `python tools/audit_accessibilite.py` et par les
 tests) : la fenêtre principale ouverte sur un exemple, puis chacun des onze dialogues et chaque page de
-l'assistant, dans les deux thèmes. Il lit l'arbre d'accessibilité que Qt expose aux technologies d'assistance
+l'assistant, dans les trois thèmes. Il lit l'arbre d'accessibilité que Qt expose aux technologies d'assistance
 et mesure le rendu à l'écran :
 
 | Contrôle | Critère (WCAG 2.1 ; EN 301 549 ; RGAA) | Comment |
@@ -52,7 +52,7 @@ Les deux audits ne relèvent aucun constat sur la version 0.20. Ils ont trouvé,
 
 Ce qui était déjà en place : un nom pour chaque contrôle et chaque brique (avec son niveau de prise en charge et
 la gravité de son diagnostic), une alternative au clavier pour chaque glisser-déposer, l'information jamais
-donnée par la seule couleur (gravité écrite et icône distincte), les deux thèmes.
+donnée par la seule couleur (gravité écrite et icône distincte), les trois thèmes.
 
 ## Ce qui n'est pas encore vérifié
 
@@ -75,7 +75,7 @@ donnée par la seule couleur (gravité écrite et icône distincte), les deux th
 ## Refaire les contrôles
 
 ```bash
-QT_QPA_PLATFORM=offscreen python tools/audit_accessibilite.py      # audit hors écran, les deux thèmes
+QT_QPA_PLATFORM=offscreen python tools/audit_accessibilite.py      # audit hors écran, les trois thèmes
 python tools/arbre_accessibilite.py --sortie arbre.txt             # Linux : Xvfb, at-spi2-core, python3-pyatspi
 python tools/arbre_uia.py --sortie arbre.txt                       # Windows : pip install uiautomation
 ```

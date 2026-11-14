@@ -20,7 +20,9 @@ def main() -> int:
     out = Path(sys.argv[1] if len(sys.argv) > 1 else ".")
     out.mkdir(parents=True, exist_ok=True)
     dark = "--dark" in sys.argv
+    glass = "--verre" in sys.argv
     QSettings("DevOpsBuilder", "DevOpsBuilder").setValue("dark", dark)
+    QSettings("DevOpsBuilder", "DevOpsBuilder").setValue("theme", "verre" if glass else "sombre" if dark else "clair")
     app, win = create_window(["devops-builder"])
     win.resize(1600, 960)
     win.show()
@@ -30,7 +32,7 @@ def main() -> int:
     first = win.project.stages["deploy"][1].uid
     win._focus_brick(first)
     app.processEvents()
-    suffix = "-dark" if dark else ""
+    suffix = "-verre" if glass else "-dark" if dark else ""
     win.grab().save(str(out / f"01-pipeline{suffix}.png"))
 
     # 2. Pipeline incohérent : diagnostics et corrections
@@ -269,7 +271,7 @@ def main() -> int:
     from devops_builder.starter import build_starter
     guide = Path(__file__).resolve().parent.parent / "docs" / "guide" / "captures"
     guide.mkdir(parents=True, exist_ok=True)
-    for slug, answers in TUTORIALS.items() if not dark else ():  # le guide n'illustre que le thème clair
+    for slug, answers in TUTORIALS.items() if not (dark or glass) else ():  # le guide n'illustre que le thème clair
         win._load(build_starter(answers, win.catalog), None)
         app.processEvents()
         win.grab().save(str(guide / f"{slug}.png"))

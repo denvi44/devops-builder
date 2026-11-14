@@ -4,11 +4,13 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
-## 0.27.0 — non publié — Pour débuter : un labo sans application, des guides qui se collent
+## 0.27.0 — non publié — Pour débuter : un labo sans application, des guides qui se collent, un thème Verre
 
 ### Ajouté
 - **Projet « plateforme seule »** (Paramètres du projet, case « Projet sans application ») : des outils lancés à la main sur un hôte Docker, sans application, sans CI ni registre. Le fichier Compose ne contient que les outils, `PIPELINE.md` et le guide s'y adaptent ; la règle **R59** signale ce qui n'a rien à construire ou à livrer, et refuse les cibles autres que l'hôte Docker. Exemple fourni : « Labo DevOps sur hôte Docker » (Gitea, Zabbix, Prometheus, Grafana), et un tutoriel, « Premier labo ».
 - **Zabbix supervise l'hôte Docker et ses conteneurs** : un second agent sur le réseau de l'hôte (paramètre « Superviser l'hôte Docker », activé par défaut), et les commandes qui déclarent l'hôte avec les modèles Linux et Docker. Le port 10051 du serveur est publié : les agents des autres machines peuvent s'annoncer. Cet agent lit le socket Docker, ce qui lui donne des droits étendus sur l'hôte.
+
+- **Thème Verre** (Affichage › Thème Verre, Ctrl+Maj+T) : troisième thème, à côté du clair et du sombre. Panneaux translucides sur un fond en dégradé, dessinés par l'application : le rendu est le même sur Windows, macOS et Linux (ce n'est pas l'effet natif de macOS 26). Les contrastes sont vérifiés au pire cas du dégradé, et l'audit d'accessibilité passe sur les trois thèmes.
 
 ### Modifié
 - **Guide de mise en route** : les blocs de commandes ne contiennent plus de commentaire (`#`) ni de nom entre chevrons ; ils se collent tels quels dans zsh (macOS) comme dans bash, les remarques passent sous chaque bloc. Le démarrage à la main vient en premier, avec les services à lancer nommés et l'adresse de chaque interface. L'adresse de l'hôte se pose une fois (`HOTE`).

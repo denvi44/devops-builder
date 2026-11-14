@@ -401,7 +401,10 @@ old=$(curl -fsS -H 'Content-Type: application/json-rpc' -d '{{"jsonrpc":"2.0","m
 printf '%s' "$old" | jq -e '.error' >/dev/null && echo "ancien mot de passe refusé"
 """
     # l'hôte Docker et ses conteneurs : déclaré par le mode d'emploi, joint par le serveur depuis son conteneur
+    # le bloc de vérification a tourné dans un sous-shell : sa connexion (première ligne) est rejouée ici
+    login = check.splitlines()[0] if check.strip() else "false"
     guide += f"""
+{login}
 {declare}
 for _ in $(seq 1 30); do
   host="$({check_host})" || true

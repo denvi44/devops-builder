@@ -59,6 +59,7 @@ Tout se fait sans souris ; le glisser-déposer a toujours son équivalent clavie
 | Application, ports, données, réseau | Ctrl+Maj+A, Ctrl+Maj+P, Ctrl+Maj+D, Ctrl+Maj+R |
 | Générer, valider | Ctrl+G, Ctrl+Maj+V |
 | Thème sombre | Ctrl+T |
+| Thème Verre | Ctrl+Maj+T |
 | Agrandir, réduire le texte | Ctrl++, Ctrl+- |
 
 Une brique ne peut être posée que dans une étape qui l'accepte : un dépôt refusé, au clavier comme à la souris,
@@ -66,8 +67,14 @@ dit pourquoi dans la barre d'état.
 
 ## Affichage
 
-- **Thème sombre** : Affichage › Thème sombre (Ctrl+T). Les deux thèmes respectent les contrastes minimaux
-  (4,5:1 pour le texte, 3:1 pour les icônes et l'indicateur de focus).
+- **Thème sombre** : Affichage › Thème sombre (Ctrl+T).
+- **Thème Verre** : Affichage › Thème Verre (Ctrl+Maj+T) : panneaux translucides sur un fond en dégradé. C'est une
+  imitation dessinée par l'application, identique sur Windows, macOS et Linux ; ce n'est pas l'effet natif de
+  macOS 26. Les panneaux restent assez opaques pour que le texte garde son contraste.
+- Les trois thèmes respectent les contrastes minimaux (4,5:1 pour le texte, 3:1 pour les icônes et l'indicateur
+  de focus) ; le choix est retenu d'une session à l'autre.
+
+![Le pipeline dans le thème Verre](../captures/theme-verre.png)
 - **Taille du texte** : Affichage › Taille du texte, de 100 à 200 %. Le choix est retenu d'une session à
   l'autre ; à 150 % et plus, le nom du projet passe sur sa propre ligne.
 - **Focus** : le contrôle actif est entouré d'un anneau de deux pixels dans la couleur principale du thème.

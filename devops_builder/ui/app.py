@@ -37,9 +37,10 @@ def create_window(argv: list[str] | None = None) -> tuple[QApplication, MainWind
                 str(exc) if isinstance(exc, ProjectFormatError) else reason(exc))
 
     from PySide6.QtCore import QSettings
-    dark = QSettings("DevOpsBuilder", "DevOpsBuilder").value("dark", False, type=bool)
-    text_scale = QSettings("DevOpsBuilder", "DevOpsBuilder").value("text_scale", 1.0, type=float)
-    theme.apply(app, dark, text_scale)  # type: ignore[arg-type]
+    settings = QSettings("DevOpsBuilder", "DevOpsBuilder")
+    name = str(settings.value("theme", "") or ("sombre" if settings.value("dark", False, type=bool) else "clair"))
+    text_scale = settings.value("text_scale", 1.0, type=float)
+    theme.apply(app, name, text_scale)  # type: ignore[arg-type]
     window = MainWindow(catalog, engine, project, path)
     if problem:
         window.statusBar().showMessage(problem, 15000)

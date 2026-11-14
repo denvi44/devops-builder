@@ -288,8 +288,8 @@ def palette_pairs(p) -> list[tuple[str, str, str, float]]:
 def check_palettes() -> list[Finding]:
     from . import theme
     found = []
-    for pal in (theme.LIGHT, theme.DARK):
-        label = "thème sombre" if pal.dark else "thème clair"
+    for pal in theme.THEMES.values():
+        label = f"thème {pal.name}"
         for name, fg, bg, need in palette_pairs(pal):
             r = ratio(fg, bg)
             if r < need:
