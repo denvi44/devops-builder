@@ -45,9 +45,9 @@ DARK = Palette(True, "#80cbc4", "#b2fef7", "#2b3035", "#202326", "#3d444b", "#ec
 # Verre : imitation dessinée par l'application, identique sur tous les systèmes (pas l'effet natif de macOS 26).
 # Fond en dégradé pastel, panneaux blancs translucides. « background » est l'arrêt le plus sombre du dégradé et
 # « surface » le panneau composé sur lui : les contrastes se vérifient donc dans le cas le moins favorable.
-GLASS_STOPS = ("#d3e4fb", "#eae3fc", "#d2efe5")
-GLASS = Palette(False, "#00574b", "#3d8f81", "#eef4fc", "#d3e4fb", "#9fb1c7", "#14202c", "#3c4856",
-                blocking="#b3261e", warning="#9a3a00", info="#0b4a9e", ok="#1b5e20", name="verre", glass=True)
+GLASS_STOPS = ("#b4cdf3", "#cfc2f1", "#aedfcb")
+GLASS = Palette(False, "#004a40", "#3d8f81", "#dcd9f6", "#cfc2f1", "#c2d0e4", "#14202c", "#3c4856",
+                blocking="#861a14", warning="#722b00", info="#093f87", ok="#174d1b", name="verre", glass=True)
 THEMES: dict[str, Palette] = {p.name: p for p in (LIGHT, DARK, GLASS)}
 THEME_LABELS = {"clair": "Clair", "sombre": "Sombre", "verre": "Verre"}
 
@@ -164,11 +164,18 @@ QTreeView::indicator:disabled {{ image: url(icon:/disabled/checkbox_unchecked.sv
 
 
 def _glass_qss(p: Palette) -> str:
-    """Verre : le dégradé est peint par la fenêtre, les conteneurs le laissent voir, les panneaux le voilent."""
+    """Verre : le dégradé est peint par la fenêtre, les conteneurs le laissent voir, les panneaux le voilent.
+
+    Les boutons déclarent tous leurs états (survol, appui, coché, focus) : sinon les règles de qt-material
+    (bordures de 12 px colorées par état) reprennent la main au survol et déforment le bouton.
+    """
     a, b, c = GLASS_STOPS
-    panel = "rgba(255, 255, 255, 0.58)"     # panneau : assez opaque pour garder le texte à plus de 7:1
-    field = "rgba(255, 255, 255, 0.78)"     # champs et listes : plus opaques, on y lit et on y écrit
-    edge = "rgba(255, 255, 255, 0.95)"      # liseré clair, le « bord de verre »
+    panel = "rgba(246, 249, 255, 0.46)"     # panneau : voile bleuté, ni blanc franc ni opaque
+    field = "rgba(248, 251, 255, 0.72)"     # champs et listes : plus opaques, on y lit et on y écrit
+    edge = "rgba(255, 255, 255, 0.70)"      # liseré clair, le « bord de verre »
+    lift = "rgba(255, 255, 255, 0.78)"      # bouton survolé : le verre s'éclaircit
+    press = _rgba(p.primary, 0.22)          # bouton appuyé ou coché : teinte de la couleur principale
+    hov_edge = p.primary
     return f"""
 QMainWindow, QDialog {{
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 {a}, stop:0.5 {b}, stop:1 {c});
@@ -179,17 +186,18 @@ QDockWidget, QDockWidget > QWidget, QTabWidget, QTabWidget > QWidget, QGroupBox,
 QToolBar, QStatusBar, QMenuBar, QWizardPage, QWizard > QWidget, QDialog > QWidget#qt_scrollarea_viewport {{
     background: transparent;
 }}
-QFrame#stageCard, QFrame#projectBar, QPushButton#startCard, QTabWidget::pane, QGroupBox {{
+QFrame#stageCard, QFrame#projectBar, QPushButton#startCard, QTabWidget::pane, QGroupBox, QWidget#fixesPanel {{
     background: {panel};
     border: 1px solid {edge};
     border-radius: 18px;
 }}
 QFrame#projectBar {{ border-radius: 0px; border-left: none; border-right: none; border-top: none; }}
 QFrame#stageCard[dropState="ok"] {{ border: 2px solid {p.primary}; background: {field}; }}
-QFrame#stageCard[dropState="no"] {{ border: 1px dashed {p.border}; background: rgba(255, 255, 255, 0.30); }}
+QFrame#stageCard[dropState="no"] {{ border: 1px dashed {p.text_muted}; background: rgba(255, 255, 255, 0.22); }}
 QPushButton#startCard[recommended="true"] {{ border: 2px solid {p.primary}; }}
-QPushButton#startCard:hover {{ border-color: {p.primary}; background: {field}; }}
-QFrame#nextStep {{ background: rgba(255, 255, 255, 0.45); border-bottom: 1px solid {edge}; }}
+QPushButton#startCard:hover, QPushButton#startCard:focus {{ border: 2px solid {hov_edge}; background: {lift}; }}
+QPushButton#startCard:pressed {{ border: 2px solid {hov_edge}; background: {press}; }}
+QFrame#nextStep {{ background: rgba(255, 255, 255, 0.34); border-bottom: 1px solid {edge}; }}
 QLineEdit, QPlainTextEdit, QTextEdit, QTextBrowser, QComboBox, QSpinBox, QTreeView, QTreeWidget, QListView,
 QTableView, QTableWidget {{
     background: {field};
@@ -197,31 +205,51 @@ QTableView, QTableWidget {{
     border-radius: 10px;
     color: {p.text};
 }}
+QTreeView::item:hover, QListView::item:hover, QTableView::item:hover {{ background: {_rgba(p.primary, 0.14)}; color: {p.text}; }}
+QTreeView::item:selected, QListView::item:selected, QTableView::item:selected,
+QTreeView::item:selected:hover {{ background: {_rgba(p.primary, 0.30)}; color: {p.text}; }}
+QLineEdit:hover, QComboBox:hover, QSpinBox:hover {{ border: 1px solid {hov_edge}; background: {lift}; }}
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus {{ border: 2px solid {hov_edge}; }}
 QListWidget#stageList {{ background: transparent; border: none; }}
-QHeaderView::section {{ background: rgba(255, 255, 255, 0.55); color: {p.text}; border: none; }}
-QPushButton {{
-    background: {panel};
+QHeaderView, QTableView QTableCornerButton::section {{ background: transparent; border: none; }}
+QHeaderView::section {{ background: rgba(255, 255, 255, 0.30); color: {p.text}; border: none; padding: 4px 8px; }}
+QPushButton, QPushButton:hover, QPushButton:pressed, QPushButton:focus, QPushButton:checked {{
     border: 1px solid {edge};
     border-radius: 14px;
+    padding: 4px 14px;
+    margin: 0px;
     color: {p.primary};
 }}
-QPushButton:hover {{ background: {field}; }}
-QPushButton:disabled {{ color: {p.text_muted}; background: rgba(255, 255, 255, 0.30); }}
-QPushButton:flat {{ background: transparent; border: none; }}
-QToolBar QToolButton {{
-    background: {panel};
+QPushButton {{ background: {panel}; }}
+QPushButton:hover {{ background: {lift}; border: 1px solid {hov_edge}; }}
+QPushButton:focus {{ background: {lift}; border: 2px solid {hov_edge}; }}
+QPushButton:pressed, QPushButton:checked {{ background: {press}; border: 1px solid {hov_edge}; }}
+QPushButton:disabled {{ color: {p.text_muted}; background: rgba(255, 255, 255, 0.22); border: 1px solid {edge}; }}
+QPushButton:flat, QPushButton:flat:hover, QPushButton:flat:focus {{ background: transparent; border: none; }}
+QToolBar QToolButton, QToolBar QToolButton:hover, QToolBar QToolButton:pressed, QToolBar QToolButton:checked,
+QToolBar QToolButton:focus {{
     border: 1px solid {edge};
+    border-left: 1px solid {edge};
+    border-right: 1px solid {edge};
     border-radius: 14px;
+    padding: 4px 12px;
+    margin: 3px 2px;
     color: {p.text};
 }}
-QToolBar QToolButton:hover {{ background: {field}; }}
-QToolBar QToolButton:disabled {{ color: {p.text_muted}; background: rgba(255, 255, 255, 0.30); }}
-QToolButton#filtersToggle {{ background: transparent; }}
-QMenu {{ background: rgba(248, 251, 255, 0.97); border: 1px solid {edge}; border-radius: 10px; color: {p.text}; }}
+QToolBar QToolButton {{ background: {panel}; }}
+QToolBar QToolButton:hover {{ background: {lift}; border: 1px solid {hov_edge}; }}
+QToolBar QToolButton:focus {{ background: {lift}; border: 2px solid {hov_edge}; }}
+QToolBar QToolButton:pressed, QToolBar QToolButton:checked {{ background: {press}; border: 1px solid {hov_edge}; }}
+QToolBar QToolButton:disabled {{ color: {p.text_muted}; background: rgba(255, 255, 255, 0.22); border: 1px solid {edge}; }}
+QToolButton#filtersToggle, QToolButton#filtersToggle:hover {{ background: transparent; border: none; }}
+QMenu {{ background: rgba(244, 248, 255, 0.97); border: 1px solid {edge}; border-radius: 10px; color: {p.text}; }}
+QMenu::item:selected {{ background: {_rgba(p.primary, 0.20)}; color: {p.text}; }}
 QMenuBar::item {{ background: transparent; color: {p.text}; }}
+QMenuBar::item:selected {{ background: {_rgba(p.primary, 0.20)}; color: {p.text}; border-radius: 8px; }}
 QTabBar::tab {{ background: transparent; color: {p.text}; }}
+QTabBar::tab:hover {{ background: {_rgba(p.primary, 0.14)}; }}
 QToolTip {{ background: #14202c; color: #ffffff; border: none; border-radius: 6px; }}
-QLabel[chip="true"] {{ background: rgba(255, 255, 255, 0.70); border: 1px solid {edge}; }}
+QLabel[chip="true"] {{ background: rgba(255, 255, 255, 0.50); border: 1px solid {edge}; }}
 """
 
 

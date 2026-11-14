@@ -69,6 +69,8 @@ class DiagnosticsPanel(QWidget):
         split.addWidget(self.tree)
 
         self.fixes = QWidget()
+        self.fixes.setObjectName("fixesPanel")
+        self.fixes.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.fixes_lay = QVBoxLayout(self.fixes)
         self.fixes_lay.setContentsMargins(8, 0, 0, 0)
         self.fixes_lay.setAlignment(Qt.AlignmentFlag.AlignTop)
