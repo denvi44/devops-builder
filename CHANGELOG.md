@@ -4,7 +4,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
-## 0.27.0 — non publié — Pour débuter : un labo sans application, des guides qui se collent, un thème Verre
+## 0.27.0 — 2026-11-14 — Pour débuter : un labo sans application, des guides qui se collent, un thème Verre
 
 ### Ajouté
 - **Projet « plateforme seule »** (Paramètres du projet, case « Projet sans application ») : des outils lancés à la main sur un hôte Docker, sans application, sans CI ni registre. Le fichier Compose ne contient que les outils, `PIPELINE.md` et le guide s'y adaptent ; la règle **R59** signale ce qui n'a rien à construire ou à livrer, et refuse les cibles autres que l'hôte Docker. Exemple fourni : « Labo DevOps sur hôte Docker » (Gitea, Zabbix, Prometheus, Grafana), et un tutoriel, « Premier labo ».
