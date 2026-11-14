@@ -4,6 +4,12 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## Non publié
+
+### Corrigé
+- **Thème Verre — survol** : les boutons de la barre d'outils (Enregistrer, Annuler, Valider…) changeaient de forme et tronquaient leur texte au survol (bordures de 12 px de qt-material). Tous les états des boutons (survol, appui, coché, focus) sont maintenant déclarés : un survol éclaircit le verre et trace un liseré de la couleur principale.
+- **Thème Verre — rendu** : fond en dégradé plus marqué, panneaux bleutés au lieu de blanc franc, en-tête du tableau de diagnostics et panneau Corrections translucides ; survol et sélection lisibles dans les listes, arbres, menus et onglets. Couleurs principale, d'alerte et de bordure assombries pour garder le contraste sur le dégradé plus soutenu (audit : 0 constat sur les trois thèmes).
+
 ## 0.27.0 — 2026-11-14 — Pour débuter : un labo sans application, des guides qui se collent, un thème Verre
 
 ### Ajouté
