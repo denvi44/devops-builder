@@ -100,7 +100,10 @@ class AppProfile:
 
 
 def slug(name: str) -> str:
-    s = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    """Nom sûr pour une image, un dossier ou une pile : minuscules sans accents (« hôte » donne « hote »)."""
+    import unicodedata
+    plain = "".join(c for c in unicodedata.normalize("NFD", name.lower()) if not unicodedata.combining(c))
+    s = re.sub(r"[^a-z0-9]+", "-", plain).strip("-")
     return (s or "mon-app")[:40].rstrip("-")
 
 

@@ -100,7 +100,9 @@ def report(ir: IR, diagnostics: list[Diagnostic], files: list[str],
            f"Cible : {TARGETS.get(p.target)}"
            + (" ; exigence SecNumCloud." if p.secnumcloud else "."), ""]
     out += ["## Environnements", "",
-            "Ordre de promotion : la même image est déployée successivement dans chaque environnement.", "",
+            ("Projet « plateforme seule » : les outils tournent sur l'hôte Docker, sans application à livrer."
+             if ir.platform_only else
+             "Ordre de promotion : la même image est déployée successivement dans chaque environnement."), "",
             "| Environnement | Type | Approbation | Cluster | Espace de noms / projet |", "| --- | --- | --- | --- | --- |"]
     for env in p.environments:
         cluster = ir.cluster_for(env)
@@ -122,7 +124,10 @@ def report(ir: IR, diagnostics: list[Diagnostic], files: list[str],
         fiche = "vérifiée" if t.curated else "non vérifiée (Landscape)"
         out.append(f"| {STAGE_LABELS[stage]} | {t.name} | {t.license} | {fiche} |")
     out += ["", "## Étapes CI", ""]
-    if ir.ci is None:
+    if ir.platform_only:
+        out.append("Aucune : sans application, il n'y a rien à construire ni à livrer. La pile se démarre à la main "
+                   "(docs/mise-en-route.md).")
+    elif ir.ci is None:
         out.append("Aucun orchestrateur CI dans le pipeline : aucun fichier CI n'a été généré.")
     else:
         out.append(f"Orchestrateur : {ir.ci.name}. Image publiée : `{ir.image_ref}:<commit>`.")
@@ -138,8 +143,9 @@ def report(ir: IR, diagnostics: list[Diagnostic], files: list[str],
             extra = f" ({', '.join(flags)})" if flags else ""
             out.append(f"{i}. {st.name}{extra}")
     if ir.variables:
-        out += ["", "## Variables CI", "",
-                "Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà écrites dans les fichiers.", "",
+        out += ["", "## Secrets à fournir" if ir.platform_only else "## Variables CI", "",
+                ("Valeurs à passer à `deploy/secrets.sh` au démarrage (docs/mise-en-route.md)." if ir.platform_only else
+                 "Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà écrites dans les fichiers."), "",
                 "| Variable | Secret | Valeur | Rôle |", "| --- | --- | --- | --- |"]
         for v in ir.variables:
             value = f"`{v.value}`" if v.value else "à déclarer"

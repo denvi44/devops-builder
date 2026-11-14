@@ -154,7 +154,7 @@ def compose_parts(ir: IR, app_service: dict, image: str) -> dict[str, dict]:
             ir.cover(db.id)
         else:
             ir.cover(db.id)  # l'instance est décrite en Terraform si l'IaC est présente (sinon R31)
-    command = migration_command(ir.project, ir.catalog)
+    command = migration_command(ir.project, ir.catalog) if ir.project.app.enabled else ""
     if command:
         migrate: dict = {"image": image, "command": ["sh", "-c", command], "env_file": ["secrets/app.env"],
                          "restart": "no"}
@@ -255,9 +255,9 @@ def backup_script(ir: IR) -> dict[str, str]:
     lines = ["#!/bin/sh", f"# {HEADER}",
              "# Sauvegarde logique des bases du projet Compose, à planifier sur l'hôte (cron, timer systemd) :",
              f"#   {BACKUP_SCRIPT.split('/')[-1]} /opt/<projet> [/var/backups/<projet>]      KEEP_DAYS=7 par défaut",
-             "# Le nom du projet Compose est celui du dossier (docker compose -p).",
+             "# Le nom du projet Compose est celui du dossier (docker compose -p), ou COMPOSE_PROJECT_NAME s'il est posé.",
              "set -eu", 'dir="${1:?dossier du projet Compose, ex. /opt/mon-app}"',
-             'project="$(basename "$dir")"', 'dest="${2:-/var/backups/$project}"', 'keep="${KEEP_DAYS:-7}"',
+             'project="${COMPOSE_PROJECT_NAME:-$(basename "$dir")}"', 'dest="${2:-/var/backups/$project}"', 'keep="${KEEP_DAYS:-7}"',
              'stamp="$(date +%Y%m%d-%H%M%S)"', "umask 077", 'mkdir -p "$dest"',
              'dc() { docker compose --project-directory "$dir" -p "$project" "$@"; }', ""]
     for service, label, engine in dbs:
@@ -289,7 +289,7 @@ def dev_version(db: Database) -> str:
 def dev_files(ir: IR) -> dict[str, str]:
     """dev/db : les bases du projet pour le poste de développement, même moteur et même version."""
     dbs = all_dbs(ir)
-    if not dbs:
+    if not dbs or ir.platform_only:   # pas d'application à lancer sur un poste
         return {}
     services: dict[str, dict] = {}
     env_lines = [f"# {HEADER}", "# Connexion de l'application lancée sur le poste aux bases de dev/db/compose.yaml :",
@@ -367,7 +367,7 @@ def restore_script(ir: IR) -> dict[str, str]:
              "#   db-restore.sh /opt/<projet> /var/backups/<projet>/<base>-<date>.<ext> --oui",
              "set -eu", 'dir="${1:?dossier du projet Compose, ex. /opt/mon-app}"',
              'file="${2:?fichier de sauvegarde}"', '[ -f "$file" ] || { echo "Fichier absent : $file" >&2; exit 1; }',
-             'project="$(basename "$dir")"',
+             'project="${COMPOSE_PROJECT_NAME:-$(basename "$dir")}"',
              'dc() { docker compose --project-directory "$dir" -p "$project" "$@"; }',
              'case "$(basename "$file")" in']
     for service, _label, engine in dbs:

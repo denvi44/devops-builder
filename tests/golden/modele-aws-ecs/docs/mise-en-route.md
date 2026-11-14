@@ -2,16 +2,18 @@
 
 <!-- Généré par DevOps Builder — à relire avant usage. -->
 
-Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque section se vérifie avant de passer à la suivante.
+Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque section se vérifie avant de passer à la suivante. Les blocs se collent tels quels dans un terminal (bash ou zsh) ; les remarques sont sous chaque bloc.
 
 ## Valeurs à adapter
 
 À poser une fois dans le terminal ; les commandes suivantes les reprennent.
 
 ```bash
-export REPO="propriétaire/dépôt"   # dépôt de l'application sur la forge
+export REPO="propriétaire/dépôt"
 export AWS_ACCOUNT_ID="123456789012"
 ```
+
+- `export REPO="propriétaire/dépôt"` : dépôt de l'application sur la forge
 
 ## 1. État Terraform
 
@@ -92,12 +94,14 @@ echo "AWS_INFRA_ROLE_ARN=arn:aws:iam::$AWS_ACCOUNT_ID:role/mon-app-ci-infra"
 Le premier passage se fait depuis le poste (ou par le job manuel de la CI) ; les suivants passent par la CI.
 
 ```bash
-cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars   # valeurs à renseigner, fichier non versionné
+cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
 tofu -chdir=infra/terraform init
 tofu -chdir=infra/terraform plan -out=plan.tfplan
 tofu -chdir=infra/terraform apply plan.tfplan
 tofu -chdir=infra/terraform output
 ```
+
+- `cp infra/terraform/terraform.tfvars.example infr…` : valeurs à renseigner, fichier non versionné
 
 ## 4. Secrets de l'application
 
@@ -114,9 +118,11 @@ aws secretsmanager get-secret-value --secret-id mon-app-staging/aws-rds --query 
 5 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :
 
 ```bash
-bash scripts/ci-variables.sh --dry-run   # ce qui serait déclaré
+bash scripts/ci-variables.sh --dry-run
 bash scripts/ci-variables.sh
 ```
+
+- `bash scripts/ci-variables.sh --dry-run` : ce qui serait déclaré
 
 ## 6. Premier déploiement
 
@@ -128,6 +134,9 @@ Les mêmes bases qu'en production, en version identique, sur le poste (ports li�
 
 ```bash
 docker compose -f dev/db/compose.yaml up -d --wait
-set -a && . dev/db/app.env && set +a   # variables de connexion pour l'application lancée sur le poste
-docker compose -f dev/db/compose.yaml --profile outils up -d adminer   # http://127.0.0.1:8081
+set -a && . dev/db/app.env && set +a
+docker compose -f dev/db/compose.yaml --profile outils up -d adminer
 ```
+
+- `set -a && . dev/db/app.env && set +a` : variables de connexion pour l'application lancée sur le poste
+- `docker compose -f dev/db/compose.yaml --profile…` : http://127.0.0.1:8081

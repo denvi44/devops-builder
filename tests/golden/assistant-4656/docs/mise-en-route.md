@@ -2,7 +2,7 @@
 
 <!-- Généré par DevOps Builder — à relire avant usage. -->
 
-Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque section se vérifie avant de passer à la suivante.
+Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque section se vérifie avant de passer à la suivante. Les blocs se collent tels quels dans un terminal (bash ou zsh) ; les remarques sont sous chaque bloc.
 
 ## Valeurs à adapter
 
@@ -27,12 +27,14 @@ aws s3api put-public-access-block --bucket mon-projet-tfstate --public-access-bl
 Le premier passage se fait depuis le poste (ou par le job manuel de la CI) ; les suivants passent par la CI.
 
 ```bash
-cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars   # valeurs à renseigner, fichier non versionné
+cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
 terraform -chdir=infra/terraform init
 terraform -chdir=infra/terraform plan -out=plan.tfplan
 terraform -chdir=infra/terraform apply plan.tfplan
 terraform -chdir=infra/terraform output
 ```
+
+- `cp infra/terraform/terraform.tfvars.example infr…` : valeurs à renseigner, fichier non versionné
 
 EKS donne l'administration du cluster à l'identité qui applique la pile : celle du poste au premier apply, puis le rôle d'infrastructure de la CI. Pour garder l'accès, déclarer son rôle IAM dans `cluster_admin_arns` (terraform.tfvars) ; le rôle de déploiement de la CI y entre par `ci_deploy_role_arn`.
 
@@ -43,8 +45,10 @@ Avec le kubeconfig du cluster, une fois :
 ```bash
 kubectl config current-context
 bash platform/install.sh
-kubectl get pods -A | grep -v Running   # rien ne doit rester en attente
+kubectl get pods -A | grep -v Running
 ```
+
+- `kubectl get pods -A | grep -v Running` : rien ne doit rester en attente
 
 ## 4. Argo CD
 
@@ -67,9 +71,11 @@ Ensuite, chaque pipeline met à jour l'étiquette de l'image dans le dépôt Git
 10 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :
 
 ```bash
-bash scripts/ci-variables.sh --dry-run   # ce qui serait déclaré
+bash scripts/ci-variables.sh --dry-run
 bash scripts/ci-variables.sh
 ```
+
+- `bash scripts/ci-variables.sh --dry-run` : ce qui serait déclaré
 
 ## 6. Premier déploiement
 

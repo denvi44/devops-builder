@@ -18,6 +18,7 @@ from .catalog import Catalog
 from .databases import databases
 from .model import TARGETS, Project, Severity
 from .ports import KUBERNETES_TARGETS, PortEntry, compose_publishes, port_plan
+from .ports import owner as port_owner
 from .rules import Action, Diagnostic, RuleEngine
 
 LAYERS = ("internet", "entree", "application", "donnees", "hebergement")
@@ -129,7 +130,7 @@ def build_graph(project: Project, catalog: Catalog, engine: RuleEngine, env_id: 
     by_component: dict[str, list[PortEntry]] = {}
     for e in entries:
         if e.component_id != "app" and e.component_id != ingress:   # l'entrée a son propre plan
-            by_component.setdefault(e.component_id, []).append(e)
+            by_component.setdefault(port_owner(e.component_id), []).append(e)
     for cid, comp in by_component.items():
         base = comp[0].tool_id or cid   # l'identifiant d'une instance nommée n'est pas celui de l'outil
         tool = catalog.get(base)

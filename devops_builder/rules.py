@@ -487,8 +487,8 @@ def _present_providers(ctx: Context) -> list[Tool]:
 
 @handler("missing_ci")
 def h_missing_ci(rule: Rule, ctx: Context) -> list[Diagnostic]:
-    if ctx.with_role("ci"):
-        return []
+    if ctx.with_role("ci") or not ctx.project.app.enabled:
+        return []  # plateforme seule : la pile se lance à la main, sans pipeline
     needing = [p for p in ctx.placed if _needs_ci(p.tool)]
     if not needing:
         return []
@@ -518,7 +518,7 @@ def h_build_without_registry(rule: Rule, ctx: Context) -> list[Diagnostic]:
 
 @handler("deploy_without_build")
 def h_deploy_without_build(rule: Rule, ctx: Context) -> list[Diagnostic]:
-    if ctx.with_role("image-build"):
+    if ctx.with_role("image-build") or not ctx.project.app.enabled:
         return []
     deployers = [p for p in ctx.placed if p.tool.curated and {"deploy", "gitops"} & set(p.tool.roles)
                  and p.tool.id != "ansible"]
@@ -1016,6 +1016,38 @@ def h_image_name(rule: Rule, ctx: Context) -> list[Diagnostic]:
         [Action("set_app_image", f"Utiliser « {slug(name or '')} »", {"value": slug(name or "")})])]
 
 
+# Rôles qui n'ont de sens qu'avec une application à construire, tester ou livrer
+APP_ONLY_ROLES = {"image-build", "unit-tests", "sast", "vuln-scan", "signing", "sbom", "dependency-update",
+                  "secret-scan", "database-migrations", "gitops", "packaging", "dast", "config-mgmt"}
+
+
+@handler("platform_only")
+def h_platform_only(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    """Projet sans application : hôte Docker seulement, Docker Compose requis, briques de pipeline sans objet."""
+    if ctx.project.app.enabled:
+        return []
+    back = Action("set_app_enabled", "Remettre une application dans le projet", {"value": True})
+    out = []
+    if ctx.project.target != "docker-host":
+        return [_diag(rule, _fmt(rule.message, detail=(
+            "Un projet sans application (plateforme seule) n'est pris en charge que sur un hôte Docker : changer la "
+            "cible du projet, ou y remettre une application.")), [], [back])]
+    if not ctx.project.bricks_for("docker-compose"):
+        out.append(_diag(rule, _fmt(rule.message, detail=(
+            "Projet sans application : ajouter Docker Compose, qui lance les outils de la plateforme sur l'hôte.")),
+            [], _add_actions(ctx, ["docker-compose"], 1)))
+    useless = [p for p in ctx.placed if p.tool.curated and APP_ONLY_ROLES & set(p.tool.roles)]
+    if useless:
+        out.append(_diag(rule, _fmt(rule.message, detail=(
+            f"Projet sans application : {_names(useless)} "
+            + ("n'ont" if len(useless) > 1 else "n'a") + " rien à construire, analyser ou livrer. Retirer "
+            + ("ces briques" if len(useless) > 1 else "cette brique") + ", ou remettre une application dans le projet.")),
+            [p.brick.uid for p in useless],
+            [Action("remove_bricks", "Retirer " + ("ces briques" if len(useless) > 1 else "cette brique"),
+                    {"uids": [p.brick.uid for p in useless]}), back]))
+    return out
+
+
 @handler("unknown_tool")
 def h_unknown_tool(rule: Rule, ctx: Context) -> list[Diagnostic]:
     """Brique dont l'outil n'existe pas dans le catalogue (fichier modifié à la main, outil retiré) : elle est ignorée."""
@@ -1061,6 +1093,8 @@ def h_identity_prereq(rule: Rule, ctx: Context) -> list[Diagnostic]:
 
 @handler("vault_unreachable")
 def h_vault_unreachable(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    if not ctx.project.app.enabled:
+        return []  # plateforme seule : aucune CI ne lit le coffre
     from .databases import DATABASE_TOOLS
     from .params import effective_params
     if ctx.project.target not in ("docker-host", "vm") or not ctx.has("docker-compose") or ctx.has("sops"):
@@ -1133,6 +1167,8 @@ def apply_action(project: Project, action: Action, catalog: Catalog) -> None:
         env = project.env(args["env"])
         if env is not None:
             setattr(env, args["field"], args["value"])
+    elif action.op == "set_app_enabled":
+        project.app.enabled = bool(args["value"])
     elif action.op == "set_app_image":
         project.app.image_name = args["value"]
     elif action.op == "set_app_port":

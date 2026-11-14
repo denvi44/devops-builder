@@ -34,6 +34,8 @@ LANGUAGE_ICONS = {"python": "mdi6.language-python", "node": "mdi6.nodejs", "java
 
 def app_label(project: Project) -> str:
     app = project.app
+    if not app.enabled:
+        return "Plateforme seule · sans application"
     return f"{app.image_name} · {LANGUAGES.get(app.language, app.language)} · port {app.port}"
 
 

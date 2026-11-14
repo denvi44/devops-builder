@@ -2,16 +2,18 @@
 
 <!-- Généré par DevOps Builder — à relire avant usage. -->
 
-Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque section se vérifie avant de passer à la suivante.
+Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque section se vérifie avant de passer à la suivante. Les blocs se collent tels quels dans un terminal (bash ou zsh) ; les remarques sont sous chaque bloc.
 
 ## Valeurs à adapter
 
 À poser une fois dans le terminal ; les commandes suivantes les reprennent.
 
 ```bash
-export REPO="propriétaire/dépôt"   # dépôt de l'application sur la forge
+export REPO="propriétaire/dépôt"
 read -rsp "Jeton de lecture du dépôt GitOps : " GITOPS_READ_TOKEN; echo; export GITOPS_READ_TOKEN
 ```
+
+- `export REPO="propriétaire/dépôt"` : dépôt de l'application sur la forge
 
 ## 1. État Terraform
 
@@ -67,8 +69,10 @@ Avec le kubeconfig du cluster, une fois :
 ```bash
 kubectl config current-context
 bash platform/install.sh
-kubectl get pods -A | grep -v Running   # rien ne doit rester en attente
+kubectl get pods -A | grep -v Running
 ```
+
+- `kubectl get pods -A | grep -v Running` : rien ne doit rester en attente
 
 ## 5. Argo CD
 
@@ -91,9 +95,11 @@ Ensuite, chaque pipeline met à jour l'étiquette de l'image dans le dépôt Git
 10 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :
 
 ```bash
-bash scripts/ci-variables.sh --dry-run   # ce qui serait déclaré
+bash scripts/ci-variables.sh --dry-run
 bash scripts/ci-variables.sh
 ```
+
+- `bash scripts/ci-variables.sh --dry-run` : ce qui serait déclaré
 
 ## 7. Premier déploiement
 

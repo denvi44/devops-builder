@@ -180,8 +180,9 @@ class PropertiesPanel(QScrollArea):
         self.setWidget(w)
 
     def _ports_section(self, lay: QVBoxLayout, tool: Tool, project: Project, brick: BrickInstance | None = None) -> None:
-        from ..ports import port_plan
-        mine = [e for e in port_plan(project, self.catalog) if e.component_id == (brick.service_id if brick else tool.id)]
+        from ..ports import owner, port_plan
+        mine = [e for e in port_plan(project, self.catalog)
+                if owner(e.component_id) == (brick.service_id if brick else tool.id)]
         if not mine:
             return
         lay.addWidget(section_title("Ports"))

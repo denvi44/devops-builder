@@ -52,7 +52,7 @@ def test_mode_d_emploi_dans_l_ordre_et_annonce_dans_le_rapport():
 def test_valeurs_a_adapter_seulement_si_employees():
     guide = files_of(project("docker-host", *COMPOSE))[GUIDE]
     assert "Valeurs à adapter" not in guide and "$REPO" not in guide
-    assert sections(guide)[0] == "Hôtes"
+    assert sections(guide)[:2] == ["Essai à la main, sans CI", "Hôtes"]   # le chemin le plus court d'abord
 
 
 def test_coffre_dans_le_cluster_init_port_forward_et_script():

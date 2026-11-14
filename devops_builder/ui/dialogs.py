@@ -262,6 +262,13 @@ class ProjectSettingsDialog(QDialog):
         self.port = QSpinBox()
         self.port.setRange(1, 65535)
         self.port.setValue(project.app.port)
+        self.platform_only = QCheckBox("Projet sans application (plateforme seule)")
+        self.platform_only.setToolTip(
+            "Seulement des outils (supervision, forge, bases…) lancés sur un hôte Docker : rien à construire ni à "
+            "livrer, donc ni CI ni image. Idéal pour un labo.")
+        self.platform_only.setAccessibleDescription(self.platform_only.toolTip())
+        self.platform_only.setChecked(not project.app.enabled)
+        self.platform_only.toggled.connect(self._sync_app_fields)
         self.secnum = QCheckBox("Exiger un hébergement qualifié SecNumCloud")
         self.secnum.setChecked(project.secnumcloud)
         self.auth = QComboBox()
@@ -276,6 +283,7 @@ class ProjectSettingsDialog(QDialog):
         form.addRow("Nom", self.name)
         form.addRow("Description", self.description)
         form.addRow("Cible d'hébergement (production)", self.target)
+        form.addRow("", self.platform_only)
         form.addRow("Langage de l'application", self.language)
         form.addRow("Nom de l'image", self.image)
         form.addRow("Port de l'application", self.port)
@@ -284,6 +292,7 @@ class ProjectSettingsDialog(QDialog):
         form.addRow("", self.secnum)
         general = QWidget()
         general.setLayout(form)
+        self._sync_app_fields()
 
         clusters = []
         for _, b in project.all_bricks():
@@ -305,6 +314,12 @@ class ProjectSettingsDialog(QDialog):
         lay.addWidget(self.tabs)
         lay.addWidget(buttons)
 
+    def _sync_app_fields(self) -> None:
+        """Sans application, ses réglages n'ont plus d'objet : grisés plutôt que cachés (le formulaire ne saute pas)."""
+        with_app = not self.platform_only.isChecked()
+        for w in (self.language, self.image, self.port):
+            w.setEnabled(with_app)
+
     def _accept(self) -> None:
         if not self.envs_editor._check():
             self.tabs.setCurrentWidget(self.envs_editor)
@@ -320,6 +335,7 @@ class ProjectSettingsDialog(QDialog):
         from ..appscan import slug
         project.app.image_name = slug(self.image.text()) or "mon-app"
         project.app.port = self.port.value()
+        project.app.enabled = not self.platform_only.isChecked()
         project.secnumcloud = self.secnum.isChecked()
         project.cloud_auth = self.auth.currentData()
         project.license_policy = self.license.currentData()
@@ -444,12 +460,13 @@ class GenerateDialog(QDialog):
             QMessageBox.information(self, "Export terminé", f"{n} fichier(s) écrit(s) ou supprimé(s) dans {target}.")
 
     def _export_zip(self) -> None:
-        name = self.result.ir.project.app.image_name or "pipeline"
-        path, _ = QFileDialog.getSaveFileName(self, "Enregistrer l'archive", f"{name}-pipeline.zip", "Archive zip (*.zip)")
+        name = self.result.folder
+        path, _ = QFileDialog.getSaveFileName(self, "Enregistrer l'archive", f"{name}.zip", "Archive zip (*.zip)")
         if not path:
             return
         Path(path).write_bytes(self.result.zip_bytes())
-        QMessageBox.information(self, "Export terminé", f"Archive enregistrée : {path}")
+        QMessageBox.information(self, "Export terminé",
+                                f"Archive enregistrée : {path}\nElle s'extrait dans son propre dossier, « {name} ».")
 
 
 def about_text(n_curated: int, n_total: int, n_rules: int) -> str:

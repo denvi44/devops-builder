@@ -4,6 +4,11 @@
 Les images créent elles-mêmes le schéma au premier démarrage ; le mot de passe de la base passe par le circuit
 habituel (variables CI, SOPS ou coffre) via deploy/secrets.sh. L'agent 2 partage le réseau du serveur : l'hôte
 « Zabbix server » créé par défaut (interface 127.0.0.1) est supervisé sans réglage.
+
+Un second agent (paramètre « Superviser l'hôte Docker », activé par défaut) tourne sur le réseau de l'hôte : il voit
+la machine elle-même (processeur, mémoire, disques sous /hostfs) et ses conteneurs par le socket Docker. Le port
+10051 du serveur est publié : les agents d'autres machines s'y annoncent. Essai réel sur un Unraid (0.26.2) : sans
+cet agent, ni l'hôte ni ses conteneurs n'étaient supervisés, et les agents actifs étaient refusés.
 """
 
 from __future__ import annotations
@@ -15,6 +20,12 @@ IMAGES = ("zabbix/zabbix-server-pgsql", "zabbix/zabbix-web-nginx-pgsql", "zabbix
 DEFAULT_VERSION = "7.4"
 DB_IMAGE = "postgres:17"
 WEB_PORT = 8080   # nginx de l'image web (non privilégié)
+TRAPPER_PORT = 10051   # agents actifs et zabbix_sender
+AGENT_PORT = 10050
+HOST_AGENT_SERVICE = "zabbix-agent-host"
+HOST_AGENT_NAME = "Docker host"       # nom de l'hôte dans Zabbix (ZBX_HOSTNAME de l'agent)
+HOST_GATEWAY = "host.docker.internal"  # l'hôte Docker vu depuis le conteneur du serveur
+DOCKER_NETWORKS = "172.16.0.0/12"      # réseaux ponts de Docker : c'est de là que le serveur interroge l'agent
 
 
 def enabled(ir: IR) -> bool:
@@ -31,6 +42,11 @@ def host(ir: IR) -> str:
 
 def version(ir: IR) -> str:
     return str(params(ir).get("version") or DEFAULT_VERSION)
+
+
+def host_agent(ir: IR) -> bool:
+    """Agent de l'hôte Docker et de ses conteneurs (réseau de l'hôte, socket Docker)."""
+    return enabled(ir) and params(ir).get("supervise_host", True) is not False
 
 
 def compose_secrets(ir: IR) -> list[ComposeSecret]:
@@ -82,8 +98,22 @@ def compose_services(ir: IR) -> dict[str, dict]:
         ]
     else:
         web["ports"] = [f"{WEB_PORT}:{WEB_PORT}"]
+    # agents actifs et zabbix_sender des autres machines : sans ce port, le serveur les refuse
+    server["ports"] = [f"{TRAPPER_PORT}:{TRAPPER_PORT}"]
+    services = {"zabbix-server": server, "zabbix-web": web, "zabbix-agent": agent, "zabbix-db": db}
+    if host_agent(ir):
+        server["extra_hosts"] = [f"{HOST_GATEWAY}:host-gateway"]
+        services[HOST_AGENT_SERVICE] = {
+            "image": f"{IMAGES[2]}:{tag}", "restart": "unless-stopped",
+            # réseau et processus de l'hôte : c'est la machine qui est mesurée, pas le conteneur
+            "network_mode": "host", "pid": "host", "user": "0:0",
+            "environment": {"ZBX_HOSTNAME": HOST_AGENT_NAME, "ZBX_SERVER_HOST": "127.0.0.1",
+                            "ZBX_PASSIVESERVERS": DOCKER_NETWORKS, "ZBX_TIMEOUT": "30"},
+            "volumes": ["/:/hostfs:ro,rslave", "/var/run/docker.sock:/var/run/docker.sock:ro"],
+            "depends_on": {"zabbix-server": {"condition": "service_started"}},
+        }
     ir.cover("zabbix")
-    return {"zabbix-server": server, "zabbix-web": web, "zabbix-agent": agent, "zabbix-db": db}
+    return services
 
 
 def web_url(ir: IR) -> str:
@@ -93,5 +123,9 @@ def web_url(ir: IR) -> str:
 def notes(ir: IR) -> None:
     if enabled(ir):
         ir.notes.append(f"Zabbix : interface sur {web_url(ir)} ; compte Admin / zabbix au premier accès, à changer "
-                        "aussitôt (docs/mise-en-route.md). L'agent fourni supervise le serveur Zabbix lui-même ; "
-                        "les autres hôtes reçoivent chacun un agent.")
+                        "aussitôt (docs/mise-en-route.md). "
+                        + ("Un agent supervise le serveur Zabbix, un second l'hôte Docker et ses conteneurs (à "
+                           "déclarer une fois, docs/mise-en-route.md) : ce second agent lit le socket Docker, ce qui "
+                           "lui donne des droits étendus sur l'hôte. " if host_agent(ir) else
+                           "L'agent fourni supervise le serveur Zabbix lui-même. ")
+                        + f"Les autres machines reçoivent chacune un agent, qui s'annonce sur le port {TRAPPER_PORT}.")

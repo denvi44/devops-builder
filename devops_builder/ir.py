@@ -140,7 +140,15 @@ class IR:
 
     @property
     def app(self) -> str:
-        return self.project.app.image_name
+        """Nom de l'application ; pour un projet « plateforme seule », celui du projet (pile Compose, dossier)."""
+        if self.project.app.enabled:
+            return self.project.app.image_name
+        from .appscan import slug
+        return slug(self.project.name)
+
+    @property
+    def platform_only(self) -> bool:
+        return not self.project.app.enabled
 
     @property
     def iac_cmd(self) -> str:
@@ -283,12 +291,14 @@ def build_ir(project: Project, catalog: Catalog) -> IR:
     providers.sort(key=lambda t: t.id)
     deploy = [t for t in (catalog.get(b.tool) for _, b in project.all_bricks())
               if t and t.curated and t.stage == "deploy"]
+    # Plateforme seule : rien à construire ni à livrer ; forge, CI et registre ne sont que des services de la pile
+    with_app = project.app.enabled
     ir = IR(
         project=project,
         catalog=catalog,
-        forge=_first(project, catalog, "scm"),
-        ci=_first(project, catalog, "ci"),
-        registry=_first(project, catalog, "registry"),
+        forge=_first(project, catalog, "scm") if with_app else None,
+        ci=_first(project, catalog, "ci") if with_app else None,
+        registry=_first(project, catalog, "registry") if with_app else None,
         image_ref="",
         cluster=_first(project, catalog, "kubernetes-cluster"),
         providers=providers,
@@ -296,7 +306,8 @@ def build_ir(project: Project, catalog: Catalog) -> IR:
         deploy=deploy,
     )
     ir.image_ref = _image_ref(ir)
-    _add_steps(ir)
+    if with_app:
+        _add_steps(ir)
     return ir
 
 

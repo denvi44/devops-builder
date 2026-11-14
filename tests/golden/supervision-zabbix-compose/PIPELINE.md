@@ -19,11 +19,15 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Préproduction | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Préproduction | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
 | Préproduction | Zabbix | — | 8080 | interface web | via Traefik, hôte zabbix.boutique.fr |
+| Préproduction | Zabbix | 10051 | 10051 | agents actifs et trappeur | publié sur l'hôte Docker |
+| Préproduction | Zabbix | 10050 | 10050 | agent de l'hôte | réseau de l'hôte Docker |
 | Préproduction | PostgreSQL | — | 5432 | PostgreSQL | réseau interne Compose (hôte « postgresql »), non publié |
 | Production | mon-app | — | 8000 | application | via Traefik, hôte mon-app.example.com |
 | Production | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Production | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
 | Production | Zabbix | — | 8080 | interface web | via Traefik, hôte zabbix.boutique.fr |
+| Production | Zabbix | 10051 | 10051 | agents actifs et trappeur | publié sur l'hôte Docker |
+| Production | Zabbix | 10050 | 10050 | agent de l'hôte | réseau de l'hôte Docker |
 | Production | PostgreSQL | — | 5432 | PostgreSQL | réseau interne Compose (hôte « postgresql »), non publié |
 
 ## Données
@@ -38,12 +42,12 @@ L'application lit l'URL de connexion complète dans la variable indiquée ; le m
 
 Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
 
-Services : mon-app (512 Mio, estimé), postgresql (512 Mio, estimé), traefik (128 Mio, estimé), zabbix-server (512 Mio, estimé), zabbix-web (256 Mio, estimé), zabbix-agent (64 Mio, estimé), zabbix-db (512 Mio, estimé).
+Services : mon-app (512 Mio, estimé), postgresql (512 Mio, estimé), traefik (128 Mio, estimé), zabbix-server (512 Mio, estimé), zabbix-web (256 Mio, estimé), zabbix-agent (64 Mio, estimé), zabbix-db (512 Mio, estimé), zabbix-agent-host (64 Mio, estimé).
 
 | Machines | Environnements | Besoin | Type retenu | Verdict |
 | --- | --- | --- | --- | --- |
-| `staging` | staging | 2 vCPU, 3,5 Gio | hôte existant | prévoir au moins 2 vCPU et 3,5 Gio |
-| `production` | production | 2 vCPU, 3,5 Gio | hôte existant | prévoir au moins 2 vCPU et 3,5 Gio |
+| `staging` | staging | 2 vCPU, 3,6 Gio | hôte existant | prévoir au moins 2 vCPU et 3,6 Gio |
+| `production` | production | 2 vCPU, 3,6 Gio | hôte existant | prévoir au moins 2 vCPU et 3,6 Gio |
 
 ## Briques
 
@@ -101,7 +105,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Poste de développement : `docker compose -f dev/db/compose.yaml up -d` lance les bases du projet (même version), `dev/db/app.env` donne leurs variables de connexion.
 - PostgreSQL : service Compose non publié sur l'hôte (réseau interne), données dans un volume nommé ; `deploy/secrets.sh` écrit les mots de passe et l'URL de connexion lus par les conteneurs (env_file), à partir des variables CI.
 - Sauvegardes : planifier `scripts/db-backup.sh` sur chaque hôte (cron quotidien) et copier les fichiers hors de la machine.
-- Zabbix : interface sur https://zabbix.boutique.fr ; compte Admin / zabbix au premier accès, à changer aussitôt (docs/mise-en-route.md). L'agent fourni supervise le serveur Zabbix lui-même ; les autres hôtes reçoivent chacun un agent.
+- Zabbix : interface sur https://zabbix.boutique.fr ; compte Admin / zabbix au premier accès, à changer aussitôt (docs/mise-en-route.md). Un agent supervise le serveur Zabbix, un second l'hôte Docker et ses conteneurs (à déclarer une fois, docs/mise-en-route.md) : ce second agent lit le socket Docker, ce qui lui donne des droits étendus sur l'hôte. Les autres machines reçoivent chacune un agent, qui s'annonce sur le port 10051.
 - Renovate : job « renovate » de .gitlab-ci.yml, lancé par une planification de pipeline portant la variable RENOVATE=1 (docs/mise-en-route.md) ; les autres jobs ne tournent pas dans ces pipelines.
 - `scripts/ci-variables.sh` déclare les 9 variable(s) à renseigner avec GitLab (glab), sans écrire leurs valeurs dans le dépôt.
 

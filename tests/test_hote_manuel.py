@@ -32,7 +32,8 @@ def test_essai_a_la_main():
     text, files = guide(None)
     assert "## " in text and "Essai à la main, sans CI" in text
     assert 'ZABBIX_DB_PASSWORD="$(openssl rand -hex 24)" sh deploy/secrets.sh deploy/secrets' in text
-    assert "docker compose config --services" in text
+    assert "docker compose up -d zabbix-server zabbix-web zabbix-agent zabbix-db zabbix-agent-host" in text
+    assert "<service> ..." not in text and "   # " not in text   # rien que zsh refuserait au collage
     assert "releases/latest/download/docker-compose-linux-x86_64" in text
 
 

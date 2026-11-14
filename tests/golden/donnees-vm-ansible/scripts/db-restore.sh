@@ -7,7 +7,7 @@ set -eu
 dir="${1:?dossier du projet Compose, ex. /opt/mon-app}"
 file="${2:?fichier de sauvegarde}"
 [ -f "$file" ] || { echo "Fichier absent : $file" >&2; exit 1; }
-project="$(basename "$dir")"
+project="${COMPOSE_PROJECT_NAME:-$(basename "$dir")}"
 dc() { docker compose --project-directory "$dir" -p "$project" "$@"; }
 case "$(basename "$file")" in
   mariadb-*) service=mariadb; cmd='mariadb -u"$MARIADB_USER" -p"$MARIADB_PASSWORD" "$MARIADB_DATABASE"' ;;

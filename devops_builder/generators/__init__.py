@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import io
+import time
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -38,11 +39,21 @@ class GenerationResult:
             written.append(path)
         return written
 
+    @property
+    def folder(self) -> str:
+        """Dossier racine de l'archive : le nom du projet, pour qu'elle ne se répande pas là où on l'extrait."""
+        from ..appscan import slug
+        return slug(self.ir.project.name) if self.ir.project.name.strip() else "pipeline"
+
     def zip_bytes(self) -> bytes:
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             for rel, content in sorted(self.files.items()):
-                zf.writestr(rel, content)
+                info = zipfile.ZipInfo(f"{self.folder}/{rel}", date_time=time.localtime()[:6])
+                info.compress_type = zipfile.ZIP_DEFLATED
+                # droits conservés à l'extraction : les scripts restent exécutables
+                info.external_attr = (0o755 if rel.endswith(".sh") else 0o644) << 16
+                zf.writestr(info, content)
         return buf.getvalue()
 
 

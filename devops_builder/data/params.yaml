@@ -450,6 +450,7 @@ _app_hostname: &app_hostname
     environnement pour obtenir le certificat.
   example: "{app}.example.com"
   required: true
+  needs_app: true
   pattern: '[a-z0-9]([a-z0-9.-]*[a-z0-9])?'
   pattern_hint: "nom d'hôte sans schéma, ex. boutique.fr"
 
@@ -481,6 +482,14 @@ zabbix:
     label: Fuseau horaire
     description: Fuseau de l'interface web (PHP_TZ).
     default: Europe/Paris
+  supervise_host:
+    label: Superviser l'hôte Docker
+    type: bool
+    description: >-
+      Ajoute un agent sur le réseau de l'hôte : il mesure la machine (processeur, mémoire, disques) et ses conteneurs
+      par le socket Docker, ce qui lui donne des droits étendus sur l'hôte. Désactivé, seul le serveur Zabbix est
+      supervisé.
+    default: true
 
 _gitops_repo: &gitops_repo
   label: Dépôt GitOps

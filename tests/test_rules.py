@@ -94,6 +94,7 @@ CASES = [
     ("R55", lambda: put(make("docker-host"), "grafana", "grafana"), Severity.WARNING),
     ("R57", lambda: _image("Mon App"), Severity.BLOCKING),
     ("R58", lambda: _outil_disparu(), Severity.WARNING),
+    ("R59", lambda: _plateforme_seule(), Severity.BLOCKING),
     ("R47", lambda: with_params(put(make("kubernetes"), "k3s", "helm", "cloudnative-pg"), "cloudnative-pg",
                                 backup_destination="s3://sauvegardes"), Severity.WARNING),
 ]
@@ -114,6 +115,12 @@ def _image(name: str) -> Project:
     p = make()
     p.app.image_name = name
     return p
+
+
+def _plateforme_seule() -> Project:
+    p = make("docker-host")
+    p.app.enabled = False
+    return put(p, "buildkit")
 
 
 def _outil_disparu() -> Project:

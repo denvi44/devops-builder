@@ -64,10 +64,12 @@ def test_scenario_inconnu_code_2():
 
 
 def test_blocs_du_mode_d_emploi_zabbix(tmp_path):
-    """Le scénario compose-zabbix joue les deux blocs de la section Zabbix : ils doivent exister."""
+    """Le scénario compose-zabbix joue les blocs de la section Zabbix : ils doivent exister, dans cet ordre."""
     assert e2e.main(["compose-zabbix", "--plan", "--keep", str(tmp_path)]) == 0
     blocks = e2e.runbook_blocks(tmp_path / "projet", "Zabbix")
-    assert len(blocks) == 2 and "user.update" in blocks[0] and "host.get" in blocks[1]
+    assert len(blocks) == 4 and "user.update" in blocks[0] and "host.get" in blocks[1]
+    assert "host.create" in blocks[2] and "Docker host" in blocks[3]   # hôte Docker déclaré, puis vérifié
+    assert not any("  # " in b for b in blocks)                        # collables dans zsh
 
 
 def test_sops_du_workflow_identique_a_celui_de_la_ci_generee():

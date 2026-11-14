@@ -1,0 +1,113 @@
+# Généré par DevOps Builder — à relire avant usage.
+name: labo-devops-sur-hote-docker
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+    - 9090:9090
+    volumes:
+    - prometheus-data:/prometheus
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+    - 3000:3000
+    volumes:
+    - grafana-data:/var/lib/grafana
+  gitea:
+    image: gitea/gitea:latest
+    ports:
+    - 3001:3000
+    - '2222:22'
+    volumes:
+    - gitea-data:/data
+  zabbix-server:
+    image: zabbix/zabbix-server-pgsql:alpine-7.4-latest
+    restart: unless-stopped
+    environment:
+      DB_SERVER_HOST: zabbix-db
+      POSTGRES_USER: zabbix
+      POSTGRES_DB: zabbix
+    env_file:
+    - secrets/zabbix.env
+    depends_on:
+      zabbix-db:
+        condition: service_healthy
+    ports:
+    - 10051:10051
+    extra_hosts:
+    - host.docker.internal:host-gateway
+  zabbix-web:
+    image: zabbix/zabbix-web-nginx-pgsql:alpine-7.4-latest
+    restart: unless-stopped
+    environment:
+      DB_SERVER_HOST: zabbix-db
+      POSTGRES_USER: zabbix
+      POSTGRES_DB: zabbix
+      ZBX_SERVER_HOST: zabbix-server
+      PHP_TZ: Europe/Paris
+    env_file:
+    - secrets/zabbix.env
+    depends_on:
+      zabbix-db:
+        condition: service_healthy
+      zabbix-server:
+        condition: service_started
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - wget -q -O /dev/null http://localhost:8080/ || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    ports:
+    - 8080:8080
+  zabbix-agent:
+    image: zabbix/zabbix-agent2:alpine-7.4-latest
+    restart: unless-stopped
+    environment:
+      ZBX_HOSTNAME: Zabbix server
+      ZBX_SERVER_HOST: 127.0.0.1
+    network_mode: service:zabbix-server
+    depends_on:
+      zabbix-server:
+        condition: service_started
+  zabbix-db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: zabbix
+      POSTGRES_DB: zabbix
+    env_file:
+    - secrets/zabbix.env
+    volumes:
+    - zabbix-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  zabbix-agent-host:
+    image: zabbix/zabbix-agent2:alpine-7.4-latest
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    user: 0:0
+    environment:
+      ZBX_HOSTNAME: Docker host
+      ZBX_SERVER_HOST: 127.0.0.1
+      ZBX_PASSIVESERVERS: 172.16.0.0/12
+      ZBX_TIMEOUT: '30'
+    volumes:
+    - /:/hostfs:ro,rslave
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      zabbix-server:
+        condition: service_started
+volumes:
+  gitea-data: {}
+  grafana-data: {}
+  prometheus-data: {}
+  zabbix-db-data: {}

@@ -2,15 +2,17 @@
 
 <!-- Généré par DevOps Builder — à relire avant usage. -->
 
-Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque section se vérifie avant de passer à la suivante.
+Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque section se vérifie avant de passer à la suivante. Les blocs se collent tels quels dans un terminal (bash ou zsh) ; les remarques sont sous chaque bloc.
 
 ## Valeurs à adapter
 
 À poser une fois dans le terminal ; les commandes suivantes les reprennent.
 
 ```bash
-export REPO="groupe/projet"   # dépôt de l'application sur la forge
+export REPO="groupe/projet"
 ```
+
+- `export REPO="groupe/projet"` : dépôt de l'application sur la forge
 
 ## 1. État Terraform
 
@@ -60,9 +62,11 @@ terraform -chdir=infra/terraform output
 9 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :
 
 ```bash
-bash scripts/ci-variables.sh --dry-run   # ce qui serait déclaré
+bash scripts/ci-variables.sh --dry-run
 bash scripts/ci-variables.sh
 ```
+
+- `bash scripts/ci-variables.sh --dry-run` : ce qui serait déclaré
 
 ## 5. Premier déploiement
 
