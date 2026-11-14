@@ -4,7 +4,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
-## 0.26.2 — non publié — Hôte Docker essayé à la main
+## 0.26.2 — 2026-11-14 — Hôte Docker essayé à la main
 
 ### Ajouté
 - Guide de mise en route (`docs/mise-en-route.md`) : section **« Essai à la main, sans CI »** pour les piles sur hôte Docker : secrets générés avec `openssl`, liste des services, démarrage des seuls services de plateforme, et, quand `docker compose` manque (Unraid, NAS), téléchargement du binaire autonome de Compose à côté du projet.
