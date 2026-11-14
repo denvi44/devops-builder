@@ -4,7 +4,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
-## Non publié
+## 0.27.1 — 2026-11-14 — Thème Verre : survol et rendu
 
 ### Corrigé
 - **Thème Verre — survol** : les boutons de la barre d'outils (Enregistrer, Annuler, Valider…) changeaient de forme et tronquaient leur texte au survol (bordures de 12 px de qt-material). Tous les états des boutons (survol, appui, coché, focus) sont maintenant déclarés : un survol éclaircit le verre et trace un liseré de la couleur principale.
