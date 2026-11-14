@@ -65,6 +65,10 @@ services:
     depends_on:
       zabbix-db:
         condition: service_healthy
+    ports:
+    - 10051:10051
+    extra_hosts:
+    - host.docker.internal:host-gateway
   zabbix-web:
     image: zabbix/zabbix-web-nginx-pgsql:alpine-7.4-latest
     restart: unless-stopped
@@ -121,6 +125,23 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+  zabbix-agent-host:
+    image: zabbix/zabbix-agent2:alpine-7.4-latest
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    user: 0:0
+    environment:
+      ZBX_HOSTNAME: Docker host
+      ZBX_SERVER_HOST: 127.0.0.1
+      ZBX_PASSIVESERVERS: 172.16.0.0/12
+      ZBX_TIMEOUT: '30'
+    volumes:
+    - /:/hostfs:ro,rslave
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      zabbix-server:
+        condition: service_started
 volumes:
   postgresql-data: {}
   traefik-letsencrypt: {}

@@ -45,7 +45,8 @@ def compose(ir: IR) -> dict[str, str]:
         service["ports"] = [_published(ir, "app", port, port)]
     from . import identity
     service["environment"].update(identity.app_env(ir))
-    services = {app: service}
+    with_app = ir.project.app.enabled
+    services = {app: service} if with_app else {}
     services.update(data.compose_parts(ir, service, service["image"]))
     services.update(compose_platform_services(ir))
     services.update(identity.compose_services(ir))

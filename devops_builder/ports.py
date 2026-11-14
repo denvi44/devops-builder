@@ -75,6 +75,14 @@ def env_offset(project: Project, env: Environment) -> int:
 
 # Services Compose générés hors de COMPOSE_SERVICES (generators/identity.py, generators/zabbix.py)
 WEB_SERVICES = (("keycloak", 8080, "interface et OIDC"), ("dex", 5556, "OIDC"), ("zabbix", 8080, "interface web"))
+WEB_SERVICE_IDS = {"zabbix": "zabbix-web"}   # service Compose qui publie le port, quand il ne porte pas le nom de l'outil
+# Services Compose d'une même brique : leurs ports se rangent sous elle (propriétés, schéma réseau)
+SERVICE_OWNERS = {"zabbix-web": "zabbix", "zabbix-server": "zabbix", "zabbix-agent-host": "zabbix"}
+
+
+def owner(component_id: str) -> str:
+    """Brique à laquelle rattacher le port d'un service Compose."""
+    return SERVICE_OWNERS.get(component_id, component_id)
 
 
 # Interfaces web des briques Compose, servies par Traefik quand il est présent : (port du conteneur, sous-domaine).
@@ -177,7 +185,9 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
                         f"réseau interne Compose (hôte « {db.id} »), non publié")
 
         if compose_publishes(project):
-            if "traefik" in present:
+            if not project.app.enabled:
+                pass  # plateforme seule : pas de service d'application
+            elif "traefik" in present:
                 add("app", name, app_port, None, "application",
                     f"via Traefik, hôte {app_hostname(project, env)}")
             else:
@@ -205,14 +215,22 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
                 if tid not in present:
                     continue
                 tool = catalog.get(tid)
+                # identifiant du service Compose : c'est lui qui nomme la variable de port (PORT_ZABBIX_WEB_8080)
+                sid = WEB_SERVICE_IDS.get(tid, tid)
                 if "traefik" in present:
                     hostname = next((b.params.get("hostname") for _, b in project.all_bricks()
                                      if b.tool == tid and b.params.get("hostname")), None)
-                    add(tid, tool.name if tool else tid, container, None, usage,
-                        "via Traefik" + (f", hôte {hostname}" if hostname else ""))
+                    add(sid, tool.name if tool else tid, container, None, usage,
+                        "via Traefik" + (f", hôte {hostname}" if hostname else ""), tid)
                 else:
-                    add(tid, tool.name if tool else tid, container, container + offset, usage,
-                        "publié sur l'hôte Docker")
+                    add(sid, tool.name if tool else tid, container, container + offset, usage,
+                        "publié sur l'hôte Docker", tid)
+            if "zabbix" in present:
+                # hors Traefik (TCP) : agents actifs des autres machines ; l'agent de l'hôte écoute sur son réseau
+                add("zabbix-server", "Zabbix", 10051, 10051 + offset, "agents actifs et trappeur",
+                    "publié sur l'hôte Docker")
+                if all(b.params.get("supervise_host", True) is not False for b in project.bricks_for("zabbix")):
+                    add("zabbix-agent-host", "Zabbix", 10050, 10050, "agent de l'hôte", "réseau de l'hôte Docker")
             add_databases(False)
         elif project.target in KUBERNETES_TARGETS or any(
                 (t := catalog.get(tid)) and "kubernetes-cluster" in t.roles for tid in present):

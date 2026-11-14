@@ -4,6 +4,20 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## 0.27.0 — non publié — Pour débuter : un labo sans application, des guides qui se collent
+
+### Ajouté
+- **Projet « plateforme seule »** (Paramètres du projet, case « Projet sans application ») : des outils lancés à la main sur un hôte Docker, sans application, sans CI ni registre. Le fichier Compose ne contient que les outils, `PIPELINE.md` et le guide s'y adaptent ; la règle **R59** signale ce qui n'a rien à construire ou à livrer, et refuse les cibles autres que l'hôte Docker. Exemple fourni : « Labo DevOps sur hôte Docker » (Gitea, Zabbix, Prometheus, Grafana), et un tutoriel, « Premier labo ».
+- **Zabbix supervise l'hôte Docker et ses conteneurs** : un second agent sur le réseau de l'hôte (paramètre « Superviser l'hôte Docker », activé par défaut), et les commandes qui déclarent l'hôte avec les modèles Linux et Docker. Le port 10051 du serveur est publié : les agents des autres machines peuvent s'annoncer. Cet agent lit le socket Docker, ce qui lui donne des droits étendus sur l'hôte.
+
+### Modifié
+- **Guide de mise en route** : les blocs de commandes ne contiennent plus de commentaire (`#`) ni de nom entre chevrons ; ils se collent tels quels dans zsh (macOS) comme dans bash, les remarques passent sous chaque bloc. Le démarrage à la main vient en premier, avec les services à lancer nommés et l'adresse de chaque interface. L'adresse de l'hôte se pose une fois (`HOTE`).
+- **Archive .zip** : elle s'extrait dans son propre dossier, au nom du projet, et garde les scripts exécutables.
+- `scripts/db-backup.sh` et `db-restore.sh` acceptent `COMPOSE_PROJECT_NAME` quand le dossier ne porte pas le nom du projet Compose.
+
+### Corrigé
+- Hôte Docker partagé par plusieurs environnements : le port de l'interface de Zabbix n'était pas décalé (la variable écrite dans `deploy/env/<environnement>.env` n'était pas celle lue par Compose).
+
 ## 0.26.2 — 2026-11-14 — Hôte Docker essayé à la main
 
 ### Ajouté

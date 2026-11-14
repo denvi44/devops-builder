@@ -56,6 +56,7 @@ faute de frappe ne passe pas inaperçue.
 | `image_name` | texte | `mon-app` |
 | `port` | entier | 8000 |
 | `source` | texte | vide (non écrit) : dossier de l'application sur le poste |
+| `enabled` | oui/non | `true` (non écrit) ; `false` : projet « plateforme seule », sans application (hôte Docker), depuis la 0.27 |
 
 ### Étapes et briques (`stages`)
 

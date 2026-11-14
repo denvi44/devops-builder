@@ -8,6 +8,7 @@ ce qui dépend de l'organisation (dépôt, compte, adresse) est posé une fois e
 from __future__ import annotations
 
 import json
+import re
 
 from ..ir import IR
 from . import secrets as sec
@@ -16,8 +17,26 @@ from .common import HEADER
 PATH = "docs/mise-en-route.md"
 
 
+_NOTE = re.compile(r"\s{2,}# ")
+
+
+def _short(command: str, limit: int = 48) -> str:
+    return command if len(command) <= limit else command[:limit].rstrip() + "…"
+
+
 def _sh(*lines: str) -> list[str]:
-    return ["```bash", *lines, "```", ""]
+    """Bloc de commandes sans commentaire, suivi des remarques : zsh (macOS) n'accepte pas « # » dans une
+    commande collée, et un débutant colle le bloc entier."""
+    commands, notes = [], []
+    for line in lines:
+        command, note = (_NOTE.split(line, 1) + [""])[:2]
+        commands.append(command.rstrip())
+        if note:
+            notes.append(f"- `{_short(command.strip())}` : {note.strip()}")
+    out = ["```bash", *commands, "```", ""]
+    if notes:
+        out += [*notes, ""]
+    return out
 
 
 def _repo_hint(ir: IR) -> str:
@@ -32,6 +51,8 @@ def _values(ir: IR, files: dict[str, str], used: str) -> list[str]:
     lines = []
     if "$REPO" in used or "${REPO}" in used:
         lines.append(f'export REPO="{_repo_hint(ir)}"   # dépôt de l\'application sur la forge')
+    if "$HOTE" in used:
+        lines.append('export HOTE="192.168.1.10"   # adresse de l\'hôte Docker (nom ou IP)')
     if "AWS_ACCOUNT_ID" in used:
         lines.append('export AWS_ACCOUNT_ID="123456789012"')
     if "$GITOPS_REPO" in used:
@@ -322,6 +343,8 @@ def _vault(ir: IR, files: dict[str, str]) -> list[str]:
 
 def _app_secrets(ir: IR, files: dict[str, str]) -> list[str]:
     from .data import compose_dbs
+    if ir.platform_only:
+        return []  # les secrets sont écrits au démarrage (section « Démarrer la plateforme »)
     dbs = compose_dbs(ir)
     vals = sec.values(ir, dbs)
     seed = files.get(sec.SEED_SCRIPT)
@@ -397,6 +420,8 @@ def _hosts(ir: IR) -> list[str]:
     from .hosts import creates_hosts, deploy_user
     if ir.project.target not in ("docker-host", "vm") or not ir.has("docker-compose") and not ir.has("ansible"):
         return []
+    if ir.platform_only:
+        return []  # pas de compte de déploiement : la pile se lance depuis l'hôte
     user = deploy_user(ir)
     out = ["## Hôtes", ""]
     if creates_hosts(ir):
@@ -438,33 +463,84 @@ def _hosts(ir: IR) -> list[str]:
     return out + _dns_names(ir)
 
 
+COMPOSE_BINARY = ("https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64")
+
+
+def _platform_services(ir: IR, files: dict[str, str]) -> list[str]:
+    """Services Compose qui se lancent sans l'image de l'application."""
+    import yaml
+    doc = yaml.safe_load(files["deploy/docker-compose.yml"]) or {}
+    skipped = {ir.app, "migrate"} if ir.project.app.enabled else set()
+    return [name for name in doc.get("services", {}) if name not in skipped]
+
+
+def _addresses(ir: IR) -> list[str]:
+    """Adresses des interfaces publiées sur l'hôte, pour savoir où cliquer une fois la pile démarrée."""
+    from ..ports import port_plan
+    env = ir.envs[0].id
+    seen: list[str] = []
+    for e in port_plan(ir.project, ir.catalog):
+        if e.env_id != env or e.host_port is None or e.component_id == "app":
+            continue
+        if not any(word in e.usage for word in ("interface", "OIDC")):
+            continue
+        line = f"- {e.component} ({e.usage}) : `http://<adresse de l'hôte>:{e.host_port}`"
+        if line not in seen:
+            seen.append(line)
+    return seen
+
+
 def _manual(ir: IR, files: dict[str, str]) -> list[str]:
-    """Essai sans CI : les fichiers générés lancés à la main sur un hôte Docker (labo, poste, NAS)."""
+    """Démarrage à la main sur un hôte Docker (labo, poste, NAS) : le chemin le plus court, donc le premier.
+
+    Projet « plateforme seule » : c'est le démarrage lui-même. Avec une application : un essai des services de
+    plateforme, avant de brancher la CI.
+    """
     if ir.project.target not in ("docker-host", "vm") or "deploy/docker-compose.yml" not in files:
         return []
     from .data import SECRETS_SCRIPT, secret_vars
-    out = ["## Essai à la main, sans CI", "",
-           "Pour essayer la pile sur un hôte Docker sans passer par la CI (labo, poste de travail, NAS), copier "
-           "le dossier du projet sur l'hôte puis, depuis ce dossier :", ""]
+    services = _platform_services(ir, files)
+    if not services:
+        return []
+    only = ir.platform_only
+    out = (["## Démarrer la plateforme", "",
+            "Sur l'hôte Docker (Docker installé), copier le dossier du projet puis, depuis ce dossier :", ""]
+           if only else
+           ["## Essai à la main, sans CI", "",
+            "Le chemin le plus court pour voir tourner les outils du projet, avant de brancher la CI : sur un hôte "
+            "Docker (labo, poste de travail, NAS), copier le dossier du projet puis, depuis ce dossier :", ""])
     steps: list[str] = []
     variables = secret_vars(ir)
-    if SECRETS_SCRIPT in files and variables:
+    has_secrets = SECRETS_SCRIPT in files and bool(variables)
+    if has_secrets:
         required = [v for v, optional in variables if not optional]
         setting = " ".join(f'{v}="$(openssl rand -hex 24)"' for v in required)
-        steps.append(f"{setting} sh {SECRETS_SCRIPT} deploy/secrets   # écrit deploy/secrets/ (ne pas le partager)")
-    steps += ["export COMPOSE_FILE=deploy/docker-compose.yml   # les commandes compose s'appliquent au projet",
-              "docker compose version   # absente ? voir la remarque ci-dessous",
-              "docker compose config --services     # les services du projet",
-              "docker compose up -d <service> ...   # ceux à lancer ; sans nom : tous",
+        steps.append(f"{setting} sh {SECRETS_SCRIPT} deploy/secrets")
+    steps += ["export COMPOSE_FILE=deploy/docker-compose.yml",
+              "docker compose up -d" + ("" if only else " " + " ".join(services)),
               "docker compose ps"]
     out += _sh(*steps)
-    out += ["Les services de l'application ont besoin de leur image (construite et poussée par la CI) : à l'essai, "
-            "ne lancer que les services de plateforme (bases, Zabbix, Keycloak…).", "",
-            "`docker compose` absent (NAS, Unraid, vieux Docker) : télécharger le binaire autonome de Compose à côté "
-            "du projet, sans rien installer sur le système.", "",
-            *_sh("mkdir -p bin && curl -SL https://github.com/docker/compose/releases/latest/download/"
-                 "docker-compose-linux-x86_64 -o bin/docker-compose && chmod +x bin/docker-compose",
-                 "bin/docker-compose version   # puis bin/docker-compose à la place de docker compose")]
+    if has_secrets:
+        out += ["La première commande tire les mots de passe au hasard et les écrit dans `deploy/secrets/` (à ne pas "
+                "partager). Elle ne se lance qu'une fois : relancée, elle changerait les mots de passe alors que les "
+                "bases gardent les anciens.", ""]
+    out += ["`docker compose ps` doit montrer chaque service `running` (ou `healthy`) ; le premier démarrage télécharge "
+            "les images et peut prendre quelques minutes. Journal d'un service qui ne démarre pas : "
+            "`docker compose logs --tail 30 <service>`.", ""]
+    addresses = _addresses(ir)
+    if addresses:
+        out += ["Les interfaces répondent ensuite ici :", "", *addresses, ""]
+    if not only:
+        out += [f"Le service de l'application (`{ir.app}`) attend son image, construite et poussée par la CI : il "
+                "se lance avec le premier déploiement.", ""]
+    out += ["`docker compose` absent (NAS, Unraid, vieux Docker) : télécharger le binaire autonome de Compose à côté "
+            "du projet, sans rien installer sur le système, puis écrire `bin/docker-compose` à la place de "
+            "`docker compose`.", "",
+            *_sh(f"mkdir -p bin && curl -SL {COMPOSE_BINARY} -o bin/docker-compose && chmod +x bin/docker-compose",
+                 "bin/docker-compose version")]
+    if only:
+        out += ["Arrêter la plateforme sans perdre ses données (elles restent dans les volumes Docker) :", "",
+                *_sh("docker compose down")]
     return out
 
 
@@ -679,10 +755,18 @@ def _backups(ir: IR, files: dict[str, str]) -> list[str]:
     out: list[str] = []
     if RESTORE_SCRIPT in files:
         ns = ir.namespace(ir.envs[0])
-        out += ["Sur l'hôte, une sauvegarde puis une restauration d'essai (la restauration remplace la base) :", "",
-                *_sh(f"sudo /opt/{ns}/db-backup.sh /opt/{ns} /var/backups/{ns}",
-                     f'last="$(sudo ls -t /var/backups/{ns} | head -n 1)"',
-                     f'sudo /opt/{ns}/db-restore.sh /opt/{ns} "/var/backups/{ns}/$last" --oui')]
+        if ir.platform_only:
+            out += ["Depuis le dossier du projet, une sauvegarde puis une restauration d'essai (la restauration "
+                    "remplace la base) :", "",
+                    *_sh(f"export COMPOSE_PROJECT_NAME={ns}",
+                         'sh scripts/db-backup.sh "$PWD/deploy" "$PWD/sauvegardes"',
+                         'last="$(ls -t sauvegardes | head -n 1)"',
+                         'sh scripts/db-restore.sh "$PWD/deploy" "$PWD/sauvegardes/$last" --oui')]
+        else:
+            out += ["Sur l'hôte, une sauvegarde puis une restauration d'essai (la restauration remplace la base) :", "",
+                    *_sh(f"sudo /opt/{ns}/db-backup.sh /opt/{ns} /var/backups/{ns}",
+                         f'last="$(sudo ls -t /var/backups/{ns} | head -n 1)"',
+                         f'sudo /opt/{ns}/db-restore.sh /opt/{ns} "/var/backups/{ns}/$last" --oui')]
     target = cnpg_backup(ir)
     if target:
         secret = BACKUP_SECRET.format(app=ir.app)
@@ -730,7 +814,21 @@ def _zabbix(ir: IR) -> list[str]:
     from . import zabbix
     if not zabbix.enabled(ir):
         return []
-    api = f"{zabbix.web_url(ir)}/api_jsonrpc.php"
+    api = f"{zabbix.web_url(ir)}/api_jsonrpc.php".replace("<hôte>", "$HOTE")
+    call = ('zbx() { curl -fsS -H \'Content-Type: application/json-rpc\' -H "Authorization: Bearer $tok" '
+            '-d "$1" "$ZBX"; }')
+    group = ('gid="$(zbx \'{"jsonrpc":"2.0","method":"hostgroup.get","params":{"filter":{"name":["Linux servers"]}},'
+             '"id":4}\' | jq -er \'.result[0].groupid\')"')
+    templates = ('tpl="$(zbx \'{"jsonrpc":"2.0","method":"template.get","params":{"filter":{"host":'
+                 '["Linux by Zabbix agent","Docker by Zabbix agent 2"]},"output":["templateid"]},"id":5}\' '
+                 '| jq -ec \'[.result[] | {templateid}] | select(length == 2)\')"')
+    create = ('zbx "$(jq -n --arg gid "$gid" --argjson tpl "$tpl" \'{jsonrpc:"2.0",method:"host.create",params:'
+              '{host:"' + zabbix.HOST_AGENT_NAME + '",groups:[{groupid:$gid}],templates:$tpl,interfaces:[{type:1,main:1,'
+              'useip:0,ip:"",dns:"' + zabbix.HOST_GATEWAY + '",port:"' + str(zabbix.AGENT_PORT) + '"}]},id:6}\')" '
+              '| jq -e "$ok"')
+    check_host = ('zbx \'{"jsonrpc":"2.0","method":"host.get","params":{"output":["host"],"selectInterfaces":'
+                  '["available","error"],"filter":{"host":["' + zabbix.HOST_AGENT_NAME + '"]}},"id":7}\' '
+                  "| jq -c '.result[0]'")
     login = ('tok="$(curl -fsS -H \'Content-Type: application/json-rpc\' -d \'{"jsonrpc":"2.0","method":"user.login",'
              '"params":{"username":"Admin","password":"zabbix"},"id":1}\' "$ZBX" | jq -er "$ok")"')
     change = ('curl -fsS -H \'Content-Type: application/json-rpc\' -H "Authorization: Bearer $tok" -d "{\\"jsonrpc\\":'
@@ -752,9 +850,21 @@ def _zabbix(ir: IR) -> list[str]:
             "Vérifier que l'agent fourni répond : l'hôte « Zabbix server » (le serveur lui-même) doit être disponible "
             "(`available` = 1 sur son interface ; ses contrôles par défaut sont passifs, `active_available` reste à 0) :", "",
             *_sh(relogin, check),
+            *(["Déclarer l'hôte Docker : le service `" + zabbix.HOST_AGENT_SERVICE + "` mesure la machine (processeur, "
+               "mémoire, disques, visibles sous `/hostfs`) et ses conteneurs. Zabbix le connaît une fois l'hôte « "
+               + zabbix.HOST_AGENT_NAME + " » créé avec les modèles Linux et Docker :", "",
+               *_sh(call, group, templates, create),
+               "Une à deux minutes plus tard, son interface doit être disponible (`available` = 1) ; les conteneurs "
+               "apparaissent ensuite dans Surveillance → Hôtes → Dernières données :", "",
+               *_sh(check_host),
+               "S'il reste indisponible, un pare-feu de l'hôte bloque sans doute le port "
+               f"{zabbix.AGENT_PORT} depuis les réseaux de Docker ({zabbix.DOCKER_NETWORKS}). Le modèle Docker ne "
+               "découvre que les conteneurs en marche : un conteneur arrêté sort de la supervision au lieu de lever "
+               "une alerte, sauf à passer la règle « Containers discovery » sur `docker.containers.discovery[true]`.",
+               ""] if zabbix.host_agent(ir) else []),
             "Les autres machines se supervisent avec un agent 2 chacune (paquet `zabbix-agent2` du dépôt officiel, "
-            "https://www.zabbix.com/download), `Server=` pointant vers cet hôte Docker, puis un hôte déclaré dans "
-            "l'interface.", ""]
+            f"https://www.zabbix.com/download), `Server=` et `ServerActive=` pointant vers cet hôte Docker (port "
+            f"{zabbix.TRAPPER_PORT} publié), puis un hôte déclaré dans l'interface.", ""]
 
 
 
@@ -778,8 +888,9 @@ def _dast(ir: IR) -> list[str]:
             f"objet se passe à `IGNORE` dans `{dast.RULES_FILE}`, avec la raison en commentaire ; une alerte à corriger "
             "sans attendre passe à `FAIL`.", ""]
 
-SECTIONS = (_state, _ci_cloud, _infra, _platform, _identity, _vault, _app_secrets, _eso, _hosts, _gitops, _ci_vars,
-            _first_deploy, _manual, _sonarqube, _zabbix, _dast, _backups, _dev, _upkeep)
+# L'essai à la main vient en premier : c'est le chemin le plus court vers une pile qui tourne.
+SECTIONS = (_manual, _state, _ci_cloud, _infra, _platform, _identity, _vault, _app_secrets, _eso, _hosts, _gitops,
+            _ci_vars, _first_deploy, _sonarqube, _zabbix, _dast, _backups, _dev, _upkeep)
 
 
 def runbook(ir: IR, files: dict[str, str]) -> dict[str, str]:
@@ -798,7 +909,9 @@ def runbook(ir: IR, files: dict[str, str]) -> dict[str, str]:
     if values:
         numbered.insert(0, values)
     head = [f"# Mise en route — {ir.project.name}", "", f"<!-- {HEADER} -->", "",
-            "Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque section se vérifie "
-            "avant de passer à la suivante.", ""]
+            ("Les gestes à faire une fois, dans l'ordre, pour démarrer la plateforme. " if ir.platform_only else
+             "Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. ")
+            + "Chaque section se vérifie avant de passer à la suivante. Les blocs se collent tels quels dans un "
+              "terminal (bash ou zsh) ; les remarques sont sous chaque bloc.", ""]
     text = "\n".join(head + [line for lines in numbered for line in lines]).rstrip() + "\n"
     return {PATH: text}

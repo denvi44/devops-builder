@@ -18,16 +18,18 @@ Ordre de promotion : la même image est déployée successivement dans chaque en
 | Traefik | 80 | 80 | HTTP | publié sur l'hôte Docker |
 | Traefik | 443 | 443 | HTTPS | publié sur l'hôte Docker |
 | Zabbix | — | 8080 | interface web | via Traefik |
+| Zabbix | 10051 | 10051 | agents actifs et trappeur | publié sur l'hôte Docker |
+| Zabbix | 10050 | 10050 | agent de l'hôte | réseau de l'hôte Docker |
 
 ## Dimensionnement
 
 Besoin estimé à partir des services Compose de l'hôte (marge de 25 %), pour chaque environnement porté, plus le système et Docker. Un ordre de grandeur pour une charge modeste, à confirmer par la supervision.
 
-Services : mon-app (512 Mio, estimé), traefik (128 Mio, estimé), zabbix-server (512 Mio, estimé), zabbix-web (256 Mio, estimé), zabbix-agent (64 Mio, estimé), zabbix-db (512 Mio, estimé).
+Services : mon-app (512 Mio, estimé), traefik (128 Mio, estimé), zabbix-server (512 Mio, estimé), zabbix-web (256 Mio, estimé), zabbix-agent (64 Mio, estimé), zabbix-db (512 Mio, estimé), zabbix-agent-host (64 Mio, estimé).
 
 | Environnements | Besoin | Type retenu | Verdict |
 | --- | --- | --- | --- |
-| production | 2 vCPU, 2,9 Gio | hôte existant | prévoir au moins 2 vCPU et 2,9 Gio |
+| production | 2 vCPU, 3 Gio | hôte existant | prévoir au moins 2 vCPU et 3 Gio |
 
 ## Briques
 
@@ -80,7 +82,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 - Mise en route pas à pas, avec les commandes du projet : docs/mise-en-route.md.
 - Ansible : préparer chaque hôte une fois avec `ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook -i ansible/inventory.ini ansible/site.yml` (Docker depuis son dépôt officiel, Debian, Ubuntu, RHEL et dérivées) ; le compte SSH doit avoir sudo sans mot de passe.
 - Secrets par SOPS : renseigner la clé publique age dans la brique SOPS (.sops.yaml), puis `scripts/secrets-seed.sh <environnement>` chiffre les valeurs dans deploy/secrets/<environnement>.enc.env, à committer. La CI les déchiffre avec SOPS_AGE_KEY.
-- Zabbix : interface sur https://zabbix.example.com ; compte Admin / zabbix au premier accès, à changer aussitôt (docs/mise-en-route.md). L'agent fourni supervise le serveur Zabbix lui-même ; les autres hôtes reçoivent chacun un agent.
+- Zabbix : interface sur https://zabbix.example.com ; compte Admin / zabbix au premier accès, à changer aussitôt (docs/mise-en-route.md). Un agent supervise le serveur Zabbix, un second l'hôte Docker et ses conteneurs (à déclarer une fois, docs/mise-en-route.md) : ce second agent lit le socket Docker, ce qui lui donne des droits étendus sur l'hôte. Les autres machines reçoivent chacune un agent, qui s'annonce sur le port 10051.
 - `scripts/ci-variables.sh` déclare les 3 variable(s) à renseigner avec GitHub (gh), sans écrire leurs valeurs dans le dépôt.
 
 ## Fichiers générés

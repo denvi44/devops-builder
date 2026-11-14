@@ -2,7 +2,7 @@
 
 <!-- Généré par DevOps Builder — à relire avant usage. -->
 
-Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque section se vérifie avant de passer à la suivante.
+Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque section se vérifie avant de passer à la suivante. Les blocs se collent tels quels dans un terminal (bash ou zsh) ; les remarques sont sous chaque bloc.
 
 ## 1. État Terraform
 

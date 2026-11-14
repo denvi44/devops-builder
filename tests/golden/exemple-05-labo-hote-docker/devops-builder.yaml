@@ -1,0 +1,45 @@
+format_version: 2
+name: Labo DevOps sur hôte Docker
+description: 'Plateforme seule, sans application : Gitea, Zabbix (hôte et conteneurs),
+  Prometheus et Grafana sur un hôte Docker, à lancer à la main.'
+target: docker-host
+environments:
+- id: production
+  label: ''
+  kind: production
+  approval: false
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: mon-app
+  port: 8000
+  enabled: false
+stages:
+  source:
+  - uid: brique001
+    tool: gitea
+    params: {}
+  build: []
+  test: []
+  security: []
+  artifacts: []
+  infrastructure: []
+  deploy:
+  - uid: brique002
+    tool: docker-compose
+    params: {}
+  platform: []
+  observability:
+  - uid: brique003
+    tool: zabbix
+    params: {}
+  - uid: brique004
+    tool: prometheus
+    params: {}
+  - uid: brique005
+    tool: grafana
+    params: {}

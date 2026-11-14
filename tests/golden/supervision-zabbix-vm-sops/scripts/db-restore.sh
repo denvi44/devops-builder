@@ -7,7 +7,7 @@ set -eu
 dir="${1:?dossier du projet Compose, ex. /opt/mon-app}"
 file="${2:?fichier de sauvegarde}"
 [ -f "$file" ] || { echo "Fichier absent : $file" >&2; exit 1; }
-project="$(basename "$dir")"
+project="${COMPOSE_PROJECT_NAME:-$(basename "$dir")}"
 dc() { docker compose --project-directory "$dir" -p "$project" "$@"; }
 case "$(basename "$file")" in
   zabbix-db-*) service=zabbix-db; cmd='pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner --exit-on-error' ;;

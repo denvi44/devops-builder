@@ -2,7 +2,7 @@
 
 <!-- Généré par DevOps Builder — à relire avant usage. -->
 
-Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque section se vérifie avant de passer à la suivante.
+Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque section se vérifie avant de passer à la suivante. Les blocs se collent tels quels dans un terminal (bash ou zsh) ; les remarques sont sous chaque bloc.
 
 ## Valeurs à adapter
 
@@ -10,8 +10,10 @@ Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque se
 
 ```bash
 read -rsp "Jeton de lecture du dépôt GitOps : " GITOPS_READ_TOKEN; echo; export GITOPS_READ_TOKEN
-export VAULT_ADDR="http://127.0.0.1:8200"   # par kubectl port-forward (section du coffre)
+export VAULT_ADDR="http://127.0.0.1:8200"
 ```
+
+- `export VAULT_ADDR="http://127.0.0.1:8200"` : par kubectl port-forward (section du coffre)
 
 ## 1. Cluster et plateforme
 
@@ -22,8 +24,10 @@ Avec le kubeconfig du cluster, une fois :
 ```bash
 kubectl config current-context
 bash platform/install.sh
-kubectl get pods -A | grep -v Running   # rien ne doit rester en attente
+kubectl get pods -A | grep -v Running
 ```
+
+- `kubectl get pods -A | grep -v Running` : rien ne doit rester en attente
 
 ## 2. Keycloak
 
@@ -53,10 +57,13 @@ Outils branchés : OpenBao, Argo CD, Grafana. Vault / OpenBao : relancer `script
 Initialiser puis desceller le serveur (une fois, puis descellement à chaque redémarrage) :
 
 ```bash
-kubectl -n openbao exec -ti openbao-0 -- bao operator init -key-shares=5 -key-threshold=3   # clés et jeton racine : hors de l'hôte
-kubectl -n openbao exec -ti openbao-0 -- bao operator unseal   # trois fois, trois clés différentes ; après chaque redémarrage
+kubectl -n openbao exec -ti openbao-0 -- bao operator init -key-shares=5 -key-threshold=3
+kubectl -n openbao exec -ti openbao-0 -- bao operator unseal
 kubectl -n openbao exec -ti openbao-0 -- bao status
 ```
+
+- `kubectl -n openbao exec -ti openbao-0 -- bao ope…` : clés et jeton racine : hors de l'hôte
+- `kubectl -n openbao exec -ti openbao-0 -- bao ope…` : trois fois, trois clés différentes ; après chaque redémarrage
 
 Joindre l'API du coffre depuis le poste :
 
@@ -84,8 +91,10 @@ Vérifier : `curl -s $VAULT_ADDR/v1/sys/health | jq` (`sealed: false`, `initiali
 Vérifier, après `platform/install.sh` et le premier déploiement :
 
 ```bash
-kubectl get clustersecretstore mon-app   # READY True
+kubectl get clustersecretstore mon-app
 ```
+
+- `kubectl get clustersecretstore mon-app` : READY True
 
 ## 5. Argo CD
 
@@ -108,9 +117,11 @@ Ensuite, chaque pipeline met à jour l'étiquette de l'image dans le dépôt Git
 2 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :
 
 ```bash
-bash scripts/ci-variables.sh --dry-run   # ce qui serait déclaré
+bash scripts/ci-variables.sh --dry-run
 bash scripts/ci-variables.sh
 ```
+
+- `bash scripts/ci-variables.sh --dry-run` : ce qui serait déclaré
 
 ## 7. Premier déploiement
 

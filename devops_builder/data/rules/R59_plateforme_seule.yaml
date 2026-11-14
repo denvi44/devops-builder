@@ -1,0 +1,6 @@
+id: R59
+title: Projet sans application
+family: completude
+severity: bloquant
+type: platform_only
+message: "{detail}"

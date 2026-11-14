@@ -2,16 +2,18 @@
 
 <!-- Généré par DevOps Builder — à relire avant usage. -->
 
-Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque section se vérifie avant de passer à la suivante.
+Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque section se vérifie avant de passer à la suivante. Les blocs se collent tels quels dans un terminal (bash ou zsh) ; les remarques sont sous chaque bloc.
 
 ## Valeurs à adapter
 
 À poser une fois dans le terminal ; les commandes suivantes les reprennent.
 
 ```bash
-export REPO="propriétaire/dépôt"   # dépôt de l'application sur la forge
+export REPO="propriétaire/dépôt"
 export AWS_ACCOUNT_ID="123456789012"
 ```
+
+- `export REPO="propriétaire/dépôt"` : dépôt de l'application sur la forge
 
 ## 1. État Terraform
 
@@ -88,12 +90,14 @@ echo "AWS_INFRA_ROLE_ARN=arn:aws:iam::$AWS_ACCOUNT_ID:role/mon-app-ci-infra"
 Le premier passage se fait depuis le poste (ou par le job manuel de la CI) ; les suivants passent par la CI.
 
 ```bash
-cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars   # valeurs à renseigner, fichier non versionné
+cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
 tofu -chdir=infra/terraform init
 tofu -chdir=infra/terraform plan -out=plan.tfplan
 tofu -chdir=infra/terraform apply plan.tfplan
 tofu -chdir=infra/terraform output
 ```
+
+- `cp infra/terraform/terraform.tfvars.example infr…` : valeurs à renseigner, fichier non versionné
 
 EKS donne l'administration du cluster à l'identité qui applique la pile : celle du poste au premier apply, puis le rôle d'infrastructure de la CI. Pour garder l'accès, déclarer son rôle IAM dans `cluster_admin_arns` (terraform.tfvars) ; le rôle de déploiement de la CI y entre par `ci_deploy_role_arn`.
 
@@ -102,9 +106,11 @@ EKS donne l'administration du cluster à l'identité qui applique la pile : cell
 5 variable(s) à déclarer (liste dans `PIPELINE.md`). Le script les déclare avec l'outil de la forge, sans écrire les valeurs dans le dépôt :
 
 ```bash
-bash scripts/ci-variables.sh --dry-run   # ce qui serait déclaré
+bash scripts/ci-variables.sh --dry-run
 bash scripts/ci-variables.sh
 ```
+
+- `bash scripts/ci-variables.sh --dry-run` : ce qui serait déclaré
 
 ## 5. Premier déploiement
 

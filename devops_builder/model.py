@@ -108,8 +108,15 @@ class ParamSpec(BaseModel):
     # Cibles d'hébergement où le paramètre sert (vide : toutes) ; ailleurs il n'est ni montré ni signalé.
     targets: list[str] = Field(default_factory=list)
 
+    # Vrai : le paramètre décrit l'application ; sans objet dans un projet « plateforme seule ».
+    needs_app: bool = False
+
     def applies_to(self, project: Project | None) -> bool:
-        return not self.targets or project is None or project.target in self.targets
+        if project is None:
+            return True
+        if self.needs_app and not project.app.enabled:
+            return False
+        return not self.targets or project.target in self.targets
 
 
 class LandscapeRef(BaseModel):
@@ -263,6 +270,8 @@ class AppSettings(BaseModel):
     image_name: str = "mon-app"
     port: int = 8000
     source: str = ""  # dossier de l'application sur le poste (analyse, test kind, export Git)
+    # Faux : projet « plateforme seule » (outils sans application à construire ni à déployer), hôte Docker et VM
+    enabled: bool = True
 
 
 class Environment(BaseModel):
@@ -417,6 +426,8 @@ class Project(BaseModel):
         data = self.model_dump(mode="json")
         if data.get("app", {}).get("source") == "":
             data["app"].pop("source")
+        if data.get("app", {}).get("enabled", True):
+            data["app"].pop("enabled", None)   # champ ajouté en 0.27 : omis quand le projet a une application
         if not data.get("stages", {}).get("data"):
             # étape ajoutée en 0.8 : omise quand elle est vide, le fichier reste lisible par la 0.7
             data.get("stages", {}).pop("data", None)

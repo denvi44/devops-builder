@@ -386,7 +386,7 @@ def _zabbix_steps(out: Path, ir) -> list[Step]:
     web = zabbix.host(ir)
     cenv = {**_curl_env(curlrc, web), "ZBX": f"https://{web}/api_jsonrpc.php"}
     blocks = runbook_blocks(out, "Zabbix")
-    change, check = (blocks + ["false", "false"])[:2]
+    change, check, declare, check_host = (blocks + ["false"] * 4)[:4]
     # le mot de passe choisi par le premier bloc est réutilisé par le second : même shell
     guide = f"""
 {change}
@@ -400,6 +400,24 @@ printf '%s' "$host" | jq -e '.interfaces[0].available == "1"' >/dev/null
 old=$(curl -fsS -H 'Content-Type: application/json-rpc' -d '{{"jsonrpc":"2.0","method":"user.login","params":{{"username":"Admin","password":"zabbix"}},"id":9}}' "$ZBX")
 printf '%s' "$old" | jq -e '.error' >/dev/null && echo "ancien mot de passe refusé"
 """
+    # l'hôte Docker et ses conteneurs : déclaré par le mode d'emploi, joint par le serveur depuis son conteneur
+    guide += f"""
+{declare}
+for _ in $(seq 1 30); do
+  host="$({check_host})" || true
+  echo "$host"
+  printf '%s' "$host" | jq -e '.interfaces[0].available == "1"' >/dev/null && break
+  sleep 10
+done
+printf '%s' "$host" | jq -e '.interfaces[0].available == "1"' >/dev/null
+for _ in $(seq 1 30); do
+  n="$(zbx '{{"jsonrpc":"2.0","method":"item.get","params":{{"host":"Docker host","search":{{"name":"Container "}},"countOutput":true}},"id":8}}' | jq -r .result)"
+  echo "éléments de conteneurs découverts : $n"
+  [ "${{n:-0}}" -gt 0 ] && exit 0
+  sleep 20
+done
+exit 1
+"""
     return [
         *start,
         Step("Interface Zabbix par Traefik en HTTPS",
@@ -411,8 +429,8 @@ printf '%s' "$old" | jq -e '.error' >/dev/null && echo "ancien mot de passe refu
              "'{\"jsonrpc\":\"2.0\",\"method\":\"user.login\",\"params\":{\"username\":\"Admin\","
              "\"password\":\"zabbix\"},\"id\":1}' \"$ZBX\" | jq -e .result >/dev/null && exit 0; sleep 5; done; exit 1",
              env=cenv),
-        Step("Mode d'emploi joué tel quel : mot de passe Admin changé, agent disponible", guide,
-             env=cenv, evidence=True),
+        Step("Mode d'emploi joué tel quel : mot de passe Admin changé, agent disponible, hôte Docker déclaré et "
+             "ses conteneurs découverts", guide, env=cenv, evidence=True, tail=12),
         Step("scripts/db-backup.sh : base de Zabbix sauvegardée",
              f"sh {out}/scripts/db-backup.sh {host} {out.parent}/sauvegardes\nls -l {out.parent}/sauvegardes/zabbix-db-*.dump",
              env=env, evidence=True),
