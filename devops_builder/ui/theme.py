@@ -11,8 +11,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from PySide6.QtCore import QEvent, QObject
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QGraphicsDropShadowEffect, QPushButton, QToolButton, QWidget
 
 THEMES_DIR = Path(__file__).parent / "themes"
 
@@ -175,6 +176,14 @@ def _glass_qss(p: Palette) -> str:
     edge = "rgba(255, 255, 255, 0.70)"      # liseré clair, le « bord de verre »
     lift = "rgba(255, 255, 255, 0.78)"      # bouton survolé : le verre s'éclaircit
     press = _rgba(p.primary, 0.22)          # bouton appuyé ou coché : teinte de la couleur principale
+    # relief : reflet en haut, ombre propre en bas ; le liseré clair d'un côté et sombre de l'autre donne le biseau
+    def gloss(top: float, bottom: float) -> str:
+        return (f"qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(255, 255, 255, {top}), "
+                f"stop:0.5 rgba(246, 249, 255, {(top + bottom) / 2:.2f}), stop:1 rgba(214, 226, 248, {bottom}))")
+    bevel = ("border-top: 1px solid rgba(255, 255, 255, 0.95); border-left: 1px solid rgba(255, 255, 255, 0.85); "
+             "border-bottom: 1px solid rgba(70, 95, 140, 0.38); border-right: 1px solid rgba(70, 95, 140, 0.28);")
+    sunk = ("border-top: 1px solid rgba(70, 95, 140, 0.40); border-left: 1px solid rgba(70, 95, 140, 0.30); "
+            "border-bottom: 1px solid rgba(255, 255, 255, 0.90); border-right: 1px solid rgba(255, 255, 255, 0.80);")
     hov_edge = p.primary
     return f"""
 QMainWindow, QDialog {{
@@ -187,21 +196,23 @@ QToolBar, QStatusBar, QMenuBar, QWizardPage, QWizard > QWidget, QDialog > QWidge
     background: transparent;
 }}
 QFrame#stageCard, QFrame#projectBar, QPushButton#startCard, QTabWidget::pane, QGroupBox, QWidget#fixesPanel {{
-    background: {panel};
+    background: {gloss(0.70, 0.30)};
     border: 1px solid {edge};
+    {bevel}
     border-radius: 18px;
 }}
-QFrame#projectBar {{ border-radius: 0px; border-left: none; border-right: none; border-top: none; }}
+QFrame#projectBar {{ background: {panel}; border-radius: 0px; border-left: none; border-right: none; border-top: none; }}
 QFrame#stageCard[dropState="ok"] {{ border: 2px solid {p.primary}; background: {field}; }}
 QFrame#stageCard[dropState="no"] {{ border: 1px dashed {p.text_muted}; background: rgba(255, 255, 255, 0.22); }}
 QPushButton#startCard[recommended="true"] {{ border: 2px solid {p.primary}; }}
-QPushButton#startCard:hover, QPushButton#startCard:focus {{ border: 2px solid {hov_edge}; background: {lift}; }}
+QPushButton#startCard:hover, QPushButton#startCard:focus {{ border: 2px solid {hov_edge}; background: {gloss(0.92, 0.55)}; }}
 QPushButton#startCard:pressed {{ border: 2px solid {hov_edge}; background: {press}; }}
 QFrame#nextStep {{ background: rgba(255, 255, 255, 0.34); border-bottom: 1px solid {edge}; }}
 QLineEdit, QPlainTextEdit, QTextEdit, QTextBrowser, QComboBox, QSpinBox, QTreeView, QTreeWidget, QListView,
 QTableView, QTableWidget {{
     background: {field};
     border: 1px solid {edge};
+    {sunk}
     border-radius: 10px;
     color: {p.text};
 }}
@@ -215,31 +226,31 @@ QHeaderView, QTableView QTableCornerButton::section {{ background: transparent; 
 QHeaderView::section {{ background: rgba(255, 255, 255, 0.30); color: {p.text}; border: none; padding: 4px 8px; }}
 QPushButton, QPushButton:hover, QPushButton:pressed, QPushButton:focus, QPushButton:checked {{
     border: 1px solid {edge};
+    {bevel}
     border-radius: 14px;
     padding: 4px 14px;
     margin: 0px;
     color: {p.primary};
 }}
-QPushButton {{ background: {panel}; }}
-QPushButton:hover {{ background: {lift}; border: 1px solid {hov_edge}; }}
+QPushButton {{ background: {gloss(0.92, 0.42)}; }}
+QPushButton:hover {{ background: {gloss(1.0, 0.62)}; border: 1px solid {hov_edge}; }}
 QPushButton:focus {{ background: {lift}; border: 2px solid {hov_edge}; }}
-QPushButton:pressed, QPushButton:checked {{ background: {press}; border: 1px solid {hov_edge}; }}
+QPushButton:pressed, QPushButton:checked {{ background: {press}; border: 1px solid {hov_edge}; {sunk} }}
 QPushButton:disabled {{ color: {p.text_muted}; background: rgba(255, 255, 255, 0.22); border: 1px solid {edge}; }}
 QPushButton:flat, QPushButton:flat:hover, QPushButton:flat:focus {{ background: transparent; border: none; }}
 QToolBar QToolButton, QToolBar QToolButton:hover, QToolBar QToolButton:pressed, QToolBar QToolButton:checked,
 QToolBar QToolButton:focus {{
     border: 1px solid {edge};
-    border-left: 1px solid {edge};
-    border-right: 1px solid {edge};
+    {bevel}
     border-radius: 14px;
     padding: 4px 12px;
     margin: 3px 2px;
     color: {p.text};
 }}
-QToolBar QToolButton {{ background: {panel}; }}
-QToolBar QToolButton:hover {{ background: {lift}; border: 1px solid {hov_edge}; }}
+QToolBar QToolButton {{ background: {gloss(0.92, 0.42)}; }}
+QToolBar QToolButton:hover {{ background: {gloss(1.0, 0.62)}; border: 1px solid {hov_edge}; }}
 QToolBar QToolButton:focus {{ background: {lift}; border: 2px solid {hov_edge}; }}
-QToolBar QToolButton:pressed, QToolBar QToolButton:checked {{ background: {press}; border: 1px solid {hov_edge}; }}
+QToolBar QToolButton:pressed, QToolBar QToolButton:checked {{ background: {press}; border: 1px solid {hov_edge}; {sunk} }}
 QToolBar QToolButton:disabled {{ color: {p.text_muted}; background: rgba(255, 255, 255, 0.22); border: 1px solid {edge}; }}
 QToolButton#filtersToggle, QToolButton#filtersToggle:hover {{ background: transparent; border: none; }}
 QMenu {{ background: rgba(244, 248, 255, 0.97); border: 1px solid {edge}; border-radius: 10px; color: {p.text}; }}
@@ -251,6 +262,53 @@ QTabBar::tab:hover {{ background: {_rgba(p.primary, 0.14)}; }}
 QToolTip {{ background: #14202c; color: #ffffff; border: none; border-radius: 6px; }}
 QLabel[chip="true"] {{ background: rgba(255, 255, 255, 0.50); border: 1px solid {edge}; }}
 """
+
+
+_SHADOWED = {"stageCard", "startCard", "fixesPanel"}
+
+
+def _wants_shadow(w: QWidget) -> bool:
+    if not _current.glass or w.property("noShadow"):
+        return False
+    if w.objectName() in _SHADOWED:
+        return True
+    if isinstance(w, QPushButton):
+        return not w.isFlat()
+    return isinstance(w, QToolButton) and w.parent() is not None and w.parent().metaObject().className() == "QToolBar"
+
+
+def _sync_shadow(w: QWidget) -> None:
+    has = isinstance(w.graphicsEffect(), QGraphicsDropShadowEffect)
+    if _wants_shadow(w) and not has:
+        big = w.objectName() in _SHADOWED
+        fx = QGraphicsDropShadowEffect(w)
+        fx.setBlurRadius(26 if big else 12)
+        fx.setOffset(0, 8 if big else 3)
+        fx.setColor(QColor(40, 60, 110, 70 if big else 80))
+        w.setGraphicsEffect(fx)
+    elif not _wants_shadow(w) and has:
+        w.setGraphicsEffect(None)
+
+
+class _ShadowFilter(QObject):
+    """Ombres portées du thème Verre : la feuille de style ne sait pas les dessiner."""
+
+    def eventFilter(self, obj, event):  # noqa: N802
+        if event.type() == QEvent.Type.Show and isinstance(obj, QWidget):
+            _sync_shadow(obj)
+        return False
+
+
+_shadow_filter: _ShadowFilter | None = None
+
+
+def _refresh_shadows(app: QApplication) -> None:
+    global _shadow_filter
+    if _shadow_filter is None:
+        _shadow_filter = _ShadowFilter(app)
+        app.installEventFilter(_shadow_filter)
+    for w in app.allWidgets():
+        _sync_shadow(w)
 
 
 def _theme_file(p: Palette) -> Path:
@@ -286,6 +344,7 @@ def apply(app: QApplication, name: str | bool = "clair", text_scale: float | Non
     for role in (QPalette.ColorRole.Link, QPalette.ColorRole.LinkVisited):
         qpal.setColor(role, QColor(_current.primary))
     app.setPalette(qpal)
+    _refresh_shadows(app)
     return _current
 
 

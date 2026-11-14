@@ -4,6 +4,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## Non publié
+
+### Modifié
+- **Thème Verre — relief** : boutons, cartes d'étapes et panneaux ont un reflet en haut et un biseau (liseré clair en haut à gauche, sombre en bas à droite) ; les champs sont creusés, les boutons appuyés s'enfoncent. Des ombres portées sont dessinées sous les boutons, les cartes et le panneau Corrections.
+
 ## 0.27.1 — 2026-11-14 — Thème Verre : survol et rendu
 
 ### Corrigé
