@@ -1,0 +1,95 @@
+format_version: 2
+name: Plateforme
+description: ''
+target: kubernetes-managed
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: java
+  image_name: plateforme
+  port: 8080
+stages:
+  source:
+  - uid: f4e4cb11
+    tool: gitlab
+    params: {}
+  build:
+  - uid: fddd85c3
+    tool: gitlab-ci
+    params: {}
+  - uid: ad996ffd
+    tool: buildkit
+    params: {}
+  - uid: '17770505'
+    tool: renovate
+    params: {}
+  test:
+  - uid: ca154d8e
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: 2e377097
+    tool: gitleaks
+    params: {}
+  - uid: 59ff10b1
+    tool: trivy
+    params: {}
+  - uid: a1ff50d2
+    tool: cosign
+    params: {}
+  artifacts:
+  - uid: 43419cde
+    tool: ecr
+    params: {}
+  infrastructure:
+  - uid: eba6871b
+    tool: aws
+    params: {}
+  - uid: 20b3c07b
+    tool: eks
+    params: {}
+  - uid: 3022d9e6
+    tool: opentofu
+    params: {}
+  - uid: 166bf4a5
+    tool: s3
+    params: {}
+  data:
+  - uid: 7aa71e6b
+    tool: aws-rds
+    params: {}
+  deploy:
+  - uid: 721c610f
+    tool: helm
+    params: {}
+  platform:
+  - uid: 47e438ec
+    tool: cert-manager
+    params: {}
+  - uid: 65f87708
+    tool: aws-secrets-manager
+    params: {}
+  - uid: daef0ee1
+    tool: external-secrets
+    params: {}
+  observability:
+  - uid: 915265e4
+    tool: prometheus
+    params: {}
+  - uid: 2308ee95
+    tool: grafana
+    params: {}
