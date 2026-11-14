@@ -25,7 +25,7 @@ les fichiers à committer.
 - **Mode d'emploi** : `docs/mise-en-route.md`, les gestes à faire une fois, avec les commandes déjà remplies.
 - **Prise en charge déclarée** : chaque brique est *prise en charge*, *expérimentale* ou *à configurer à la main* ([matrice](docs/prise-en-charge.md)) ; des scénarios de bout en bout exécutent les fichiers générés pour de vrai, chaque nuit.
 - **Livraison** : validation locale, test dans kind, écriture prudente (fichiers retouchés préservés), export Git avec demande de fusion.
-- **Accessible** : utilisable au clavier seul, lu par les lecteurs d'écran (arbres NVDA et Orca vérifiés en CI), contrastes vérifiés dans les deux thèmes, texte agrandi jusqu'à 200 % ([état et limites](docs/accessibilite.md)).
+- **Accessible** : utilisable au clavier seul, lu par les lecteurs d'écran (arbres NVDA et Orca vérifiés en CI), contrastes vérifiés dans les trois thèmes (clair, sombre, Verre), texte agrandi jusqu'à 200 % ([état et limites](docs/accessibilite.md)).
 
 Le **[guide de l'utilisateur](https://denvi44.github.io/devops-builder/)** mène de l'installation au premier déploiement, avec quatre tutoriels (hôte Docker, k3s en GitOps, Amazon EKS, souverain SecNumCloud) ; ses sources sont dans [docs/guide/](docs/guide/index.md). Le détail de chaque fonction, avec les captures d'écran : [docs/fonctionnalites.md](docs/fonctionnalites.md).
 
@@ -89,7 +89,7 @@ devops-builder                     # ou : python -m devops_builder
 | Valider | Ctrl+Maj+V : contrôles locaux, puis test dans kind |
 | Annuler / rétablir | Ctrl+Z / Ctrl+Y |
 | Rechercher | Ctrl+F ; Ctrl+2 pour le pipeline, Ctrl+3 pour les diagnostics |
-| Thème sombre | Ctrl+T |
+| Thème sombre, thème Verre | Ctrl+T, Ctrl+Maj+T |
 | Taille du texte | Affichage › Taille du texte (100 à 200 %), Ctrl++ et Ctrl+- |
 | Ouvrir un projet depuis un terminal | `devops-builder projet.devops.yaml` |
 
@@ -170,7 +170,7 @@ devops_builder/
 tools/
   build_landscape_index.py   rafraîchit l'index depuis landscape.yml
   screenshot.py              captures hors écran de l'interface et du guide
-  audit_accessibilite.py     audit d'accessibilité hors écran, les deux thèmes
+  audit_accessibilite.py     audit d'accessibilité hors écran, les trois thèmes
   arbre_accessibilite.py     arbre lu comme Orca (AT-SPI) ; arbre_uia.py : comme NVDA (UI Automation)
   tutoriels.py               projets des tutoriels du guide
   miroir_tofu.py, publication.py   miroir de providers OpenTofu ; vérification d'une publication

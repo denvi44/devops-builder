@@ -32,13 +32,24 @@ class Palette:
     info: str = "#1565c0"
     ok: str = "#2e7d32"
 
+    name: str = "clair"
+    glass: bool = False        # panneaux translucides sur un fond en dégradé (thème Verre)
+
     def severity(self, value: str) -> str:
         return {"bloquant": self.blocking, "avertissement": self.warning, "info": self.info}.get(value, self.text_muted)
 
 
 LIGHT = Palette(False, "#00695c", "#48a999", "#ffffff", "#f5f5f5", "#d6d6d6", "#212121", "#5f6368")
 DARK = Palette(True, "#80cbc4", "#b2fef7", "#2b3035", "#202326", "#3d444b", "#eceff1", "#b0bec5",
-               blocking="#ef9a9a", warning="#ffb74d", info="#90caf9", ok="#a5d6a7")
+               blocking="#ef9a9a", warning="#ffb74d", info="#90caf9", ok="#a5d6a7", name="sombre")
+# Verre : imitation dessinée par l'application, identique sur tous les systèmes (pas l'effet natif de macOS 26).
+# Fond en dégradé pastel, panneaux blancs translucides. « background » est l'arrêt le plus sombre du dégradé et
+# « surface » le panneau composé sur lui : les contrastes se vérifient donc dans le cas le moins favorable.
+GLASS_STOPS = ("#d3e4fb", "#eae3fc", "#d2efe5")
+GLASS = Palette(False, "#00574b", "#3d8f81", "#eef4fc", "#d3e4fb", "#9fb1c7", "#14202c", "#3c4856",
+                blocking="#b3261e", warning="#9a3a00", info="#0b4a9e", ok="#1b5e20", name="verre", glass=True)
+THEMES: dict[str, Palette] = {p.name: p for p in (LIGHT, DARK, GLASS)}
+THEME_LABELS = {"clair": "Clair", "sombre": "Sombre", "verre": "Verre"}
 
 _current: Palette = LIGHT
 # Taille du texte choisie dans Affichage (WCAG 1.4.4 : jusqu'à 200 % sans perte de contenu)
@@ -152,16 +163,86 @@ QTreeView::indicator:disabled {{ image: url(icon:/disabled/checkbox_unchecked.sv
 """
 
 
-def _theme_file(dark: bool) -> Path:
-    return THEMES_DIR / ("devops_dark.xml" if dark else "devops_light.xml")
+def _glass_qss(p: Palette) -> str:
+    """Verre : le dégradé est peint par la fenêtre, les conteneurs le laissent voir, les panneaux le voilent."""
+    a, b, c = GLASS_STOPS
+    panel = "rgba(255, 255, 255, 0.58)"     # panneau : assez opaque pour garder le texte à plus de 7:1
+    field = "rgba(255, 255, 255, 0.78)"     # champs et listes : plus opaques, on y lit et on y écrit
+    edge = "rgba(255, 255, 255, 0.95)"      # liseré clair, le « bord de verre »
+    return f"""
+QMainWindow, QDialog {{
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 {a}, stop:0.5 {b}, stop:1 {c});
+}}
+QWidget#centralWidget, QStackedWidget, QSplitter, QScrollArea, QScrollArea > QWidget > QWidget,
+QFrame#welcome, QScrollArea#welcomeScroll, QWidget#welcomeContent, QScrollArea#canvasScroll, QWidget#canvasInner,
+QDockWidget, QDockWidget > QWidget, QTabWidget, QTabWidget > QWidget, QGroupBox, QLabel, QCheckBox, QRadioButton,
+QToolBar, QStatusBar, QMenuBar, QWizardPage, QWizard > QWidget, QDialog > QWidget#qt_scrollarea_viewport {{
+    background: transparent;
+}}
+QFrame#stageCard, QFrame#projectBar, QPushButton#startCard, QTabWidget::pane, QGroupBox {{
+    background: {panel};
+    border: 1px solid {edge};
+    border-radius: 18px;
+}}
+QFrame#projectBar {{ border-radius: 0px; border-left: none; border-right: none; border-top: none; }}
+QFrame#stageCard[dropState="ok"] {{ border: 2px solid {p.primary}; background: {field}; }}
+QFrame#stageCard[dropState="no"] {{ border: 1px dashed {p.border}; background: rgba(255, 255, 255, 0.30); }}
+QPushButton#startCard[recommended="true"] {{ border: 2px solid {p.primary}; }}
+QPushButton#startCard:hover {{ border-color: {p.primary}; background: {field}; }}
+QFrame#nextStep {{ background: rgba(255, 255, 255, 0.45); border-bottom: 1px solid {edge}; }}
+QLineEdit, QPlainTextEdit, QTextEdit, QTextBrowser, QComboBox, QSpinBox, QTreeView, QTreeWidget, QListView,
+QTableView, QTableWidget {{
+    background: {field};
+    border: 1px solid {edge};
+    border-radius: 10px;
+    color: {p.text};
+}}
+QListWidget#stageList {{ background: transparent; border: none; }}
+QHeaderView::section {{ background: rgba(255, 255, 255, 0.55); color: {p.text}; border: none; }}
+QPushButton {{
+    background: {panel};
+    border: 1px solid {edge};
+    border-radius: 14px;
+    color: {p.primary};
+}}
+QPushButton:hover {{ background: {field}; }}
+QPushButton:disabled {{ color: {p.text_muted}; background: rgba(255, 255, 255, 0.30); }}
+QPushButton:flat {{ background: transparent; border: none; }}
+QToolBar QToolButton {{
+    background: {panel};
+    border: 1px solid {edge};
+    border-radius: 14px;
+    color: {p.text};
+}}
+QToolBar QToolButton:hover {{ background: {field}; }}
+QToolBar QToolButton:disabled {{ color: {p.text_muted}; background: rgba(255, 255, 255, 0.30); }}
+QToolButton#filtersToggle {{ background: transparent; }}
+QMenu {{ background: rgba(248, 251, 255, 0.97); border: 1px solid {edge}; border-radius: 10px; color: {p.text}; }}
+QMenuBar::item {{ background: transparent; color: {p.text}; }}
+QTabBar::tab {{ background: transparent; color: {p.text}; }}
+QToolTip {{ background: #14202c; color: #ffffff; border: none; border-radius: 6px; }}
+QLabel[chip="true"] {{ background: rgba(255, 255, 255, 0.70); border: 1px solid {edge}; }}
+"""
 
 
-def apply(app: QApplication, dark: bool = False, text_scale: float | None = None) -> Palette:
+def _theme_file(p: Palette) -> Path:
+    return THEMES_DIR / {"sombre": "devops_dark.xml", "verre": "devops_glass.xml"}.get(p.name, "devops_light.xml")
+
+
+def palette_of(name: str | bool) -> Palette:
+    """Palette d'un thème ; un booléen désigne l'ancien réglage « sombre »."""
+    if isinstance(name, bool):
+        return DARK if name else LIGHT
+    return THEMES.get(name, LIGHT)
+
+
+def apply(app: QApplication, name: str | bool = "clair", text_scale: float | None = None) -> Palette:
     """Applique le thème Material ; retourne la palette utilisée pour le dessin."""
     global _current, _scale
     import qt_material  # importé après PySide6, comme l'exige qt-material
 
-    _current = DARK if dark else LIGHT
+    _current = palette_of(name)
+    dark = _current.dark
     if text_scale is not None:
         _scale = min(TEXT_SCALES, key=lambda s: abs(s - text_scale))
     font = app.font()
@@ -171,8 +252,8 @@ def apply(app: QApplication, dark: bool = False, text_scale: float | None = None
              # couleurs des boutons « success », « danger », « warning » : celles de qt-material (#17a2b8…)
              # n'atteignent pas 4,5:1 sur fond clair
              "success": _current.primary, "danger": _current.blocking, "warning": _current.warning}
-    qt_material.apply_stylesheet(app, theme=str(_theme_file(dark)), invert_secondary=not dark, extra=extra)
-    app.setStyleSheet(app.styleSheet() + _extra_qss(_current))
+    qt_material.apply_stylesheet(app, theme=str(_theme_file(_current)), invert_secondary=not dark, extra=extra)
+    app.setStyleSheet(app.styleSheet() + _extra_qss(_current) + (_glass_qss(_current) if _current.glass else ""))
     qpal = app.palette()
     for role in (QPalette.ColorRole.Link, QPalette.ColorRole.LinkVisited):
         qpal.setColor(role, QColor(_current.primary))
