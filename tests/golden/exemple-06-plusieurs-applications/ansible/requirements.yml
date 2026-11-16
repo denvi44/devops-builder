@@ -1,0 +1,4 @@
+# Généré par DevOps Builder — à relire avant usage.
+collections:
+  - name: community.docker
+    version: '>=4.0.0,<6.0.0'

@@ -1,0 +1,4 @@
+# Généré par DevOps Builder — à relire avant usage.
+# Valeurs des variables sans défaut : copier en terraform.tfvars (non versionné) pour un
+# usage local ; la CI les reçoit par les variables TF_VAR_<nom> (voir PIPELINE.md).
+ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA… deploy@ci"

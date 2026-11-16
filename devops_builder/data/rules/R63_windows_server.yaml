@@ -1,0 +1,6 @@
+id: R63
+title: Hôtes Windows Server
+family: cible
+severity: bloquant
+type: windows_server
+message: "{detail}"

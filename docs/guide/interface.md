@@ -95,7 +95,7 @@ contrôles et leurs limites : [Accessibilité de l'application](../accessibilite
 Fichier › Ouvrir (Ctrl+O), ou depuis un terminal : `devops-builder mon-projet.devops.yaml`. Un fichier écrit par
 une version plus ancienne s'ouvre sans perte ; un fichier modifié à la main qui contient une erreur est refusé
 avec un message qui dit où et pourquoi (« YAML invalide ligne 12, colonne 3 : tabulation interdite en YAML :
-indenter avec des espaces »). Quatre exemples sont livrés dans Fichier › Ouvrir un exemple.
+indenter avec des espaces »). Sept exemples sont livrés dans Fichier › Ouvrir un exemple.
 
 ## Simuler une modification d'architecture
 
@@ -109,3 +109,45 @@ Le point de départ est l'état du projet à l'ouverture ; **Prendre l'état act
 (pratique pour comparer plusieurs variantes de suite). **Comparer avec un autre projet…** prend un fichier
 `.devops.yaml` comme état de départ, par exemple l'architecture actuelle d'un client. En ligne de commande :
 `devops-builder compare avant.devops.yaml apres.devops.yaml`.
+
+
+## Plusieurs applications dans un projet
+
+Application › « Applications supplémentaires » ajoute à l'application principale une API, une interface, un worker…
+Chaque composant a son identifiant, son langage, son port et son dossier dans le dépôt (par défaut
+`services/<identifiant>`, avec son propre Dockerfile).
+
+Le pipeline construit, teste et analyse chaque composant : une image par composant, dans le même dépôt du registre,
+avec l'étiquette `<identifiant>-<commit>`. Le déploiement les livre ensemble :
+
+- **Docker Compose** (SSH ou Ansible) : un service par composant ; l'application principale les joint par leur nom
+  (variable `API_URL=http://api:9000`). Un composant « exposé » est routé par Traefik sur `/<identifiant>` (préfixe
+  retiré avant d'arriver au service), ou publié sur l'hôte sans Traefik.
+- **Helm** : un Deployment et un Service par composant dans le même chart (`components.<id>` dans `values.yaml`).
+
+Kustomize, Argo CD, Flux, ECS Fargate, Cloud Run, Azure Container Apps et les fonctions serverless ne livrent pas
+encore plusieurs applications : la règle R60 le signale et bloque la génération. Le test kind jetable n'est pas
+généré avec des composants (il ne construit que l'application principale). Un exemple est livré : « Boutique en
+plusieurs applications ».
+
+
+## Un hébergement par environnement (hybride)
+
+Dans Projet › Environnements, le champ « Hébergement » laisse un environnement être hébergé autrement que le reste du
+projet : développement sur un hôte Docker (Docker Compose), préproduction et production sur Kubernetes (Helm), par
+exemple. Chaque environnement reçoit l'étape de déploiement de son hébergement, la même image est promue de l'un à
+l'autre, les ports ne sont publiés que sur les hôtes Docker, et le rapport ajoute une colonne « Hébergement ».
+
+La règle R61 vérifie que les briques de chaque hébergement sont présentes (Docker Compose pour un hôte ; un cluster et
+Helm ou Kustomize pour Kubernetes). Limites : le mode d'une base de données (conteneur Compose ou Kubernetes) suit le
+projet entier — R61 le signale ; le guide `docs/mise-en-route.md` décrit l'hébergement du projet. Exemple livré :
+« Hybride : hôte Docker puis Kubernetes ».
+
+
+## Accès privé, Proxmox et Windows Server
+
+- **Tailscale, WireGuard, Bastion SSH** (étape Infrastructure) : quand les hôtes ne sont pas joignables depuis Internet, le job de déploiement ouvre l'accès avant sa première connexion SSH. Tailscale : mode utilisateur (sans privilèges), SSH passe par le proxy SOCKS, clé `TAILSCALE_AUTHKEY`. WireGuard : `wg-quick up wg0` depuis `WG_CONFIG` (runner autorisé à créer une interface réseau) ; le playbook `ansible/wireguard.yml` génère la clé de l'hôte sur place. Bastion : `BASTION_HOST` (utilisateur@hôte), ProxyJump pour toutes les connexions. La règle R62 signale un accès inutile (pas de déploiement SSH) ou deux chemins contradictoires.
+- **Proxmox VE** (fournisseur, hôte Docker ou VM) : aucun cloud à payer. Les machines sont clonées d'un modèle cloud-init (Ubuntu 24.04, qemu-guest-agent) par OpenTofu (`bpg/proxmox`) ; paramètres : adresse de l'API, nœud, numéro du modèle, stockage, pont ; jeton `PROXMOX_VE_API_TOKEN`. Modèle prêt : `devops-builder template proxmox`.
+- **Windows Server** (étape Infrastructure) : Ansible en WinRM (HTTPS 5986, mot de passe dans `ANSIBLE_PASSWORD`) ou SSH ; `ansible/site.yml` pose la fonctionnalité Conteneurs, Docker Engine et Compose ; `ansible/deploy.yml` lance l'application comme conteneur Windows. La règle R63 impose Ansible et Docker Compose et exclut Traefik et les bases en conteneur (images Linux).
+
+Limites : rien de cela n'a pu être essayé sur Proxmox, Tailscale ou Windows Server réels (fichiers générés et validés par les tests) ; l'image Windows se construit sur un runner Windows ; le test automatique de la CI ne couvre pas ces hôtes.

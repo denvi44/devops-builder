@@ -1,6 +1,6 @@
 # Pipelines types par fournisseur cloud
 
-Douze modèles donnent, pour chaque fournisseur du catalogue, un pipeline complet avec les services du fournisseur
+Treize modèles donnent, pour chaque fournisseur du catalogue, un pipeline complet avec les services du fournisseur
 qui vont ensemble : un Kubernetes managé par fournisseur, et des variantes plus simples (conteneurs serverless
 ou machines). On les ouvre par **Fichier › Nouveau depuis un modèle de fournisseur**, ou en ligne de
 commande ; on ajuste ensuite comme n'importe quel projet (briques, paramètres, environnements).
@@ -25,6 +25,7 @@ les règles de la version installée.
 | OVHcloud | `devops-builder template ovhcloud` | Managed Kubernetes, Managed Private Registry | Public Cloud Databases | SOPS et age, dans le dépôt | Prometheus, Grafana | GitLab CI, clés d'API |
 | Scaleway | `devops-builder template scaleway` | Kapsule, Container Registry | Managed Database | SOPS et age, dans le dépôt | Prometheus, Grafana | GitLab CI, clés d'API |
 | Outscale (SecNumCloud) | `devops-builder template outscale` | machines virtuelles, Ansible, Docker Compose et Traefik | PostgreSQL sur chaque machine | SOPS et age, dans le dépôt | Prometheus, Grafana | GitLab CI, clés d'accès |
+| Proxmox VE (vos serveurs) | `devops-builder template proxmox` | une VM par environnement clonée d'un modèle cloud-init, Ansible, Docker Compose et Traefik | PostgreSQL sur chaque machine | SOPS et age, dans le dépôt | Prometheus, Grafana | GitLab CI, jeton d'API Proxmox ; état OpenTofu à conserver hors du job (R44) |
 
 ## Variantes sans Kubernetes
 

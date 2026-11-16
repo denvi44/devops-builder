@@ -454,7 +454,8 @@ class MainWindow(QMainWindow):
         self.title.setText(p.name)
         name = p.app.image_name if len(p.app.image_name) <= 22 else p.app.image_name[:21] + "…"
         if p.app.enabled:
-            self.app_btn.setText(f"{name} :{p.app.port}" + ("" if p.app.source else " · dossier ?"))
+            more = f" +{len(p.components)}" if p.components else ""
+            self.app_btn.setText(f"{name}{more} :{p.app.port}" + ("" if p.app.source else " · dossier ?"))
         else:
             self.app_btn.setText("Plateforme seule")
         self.app_btn.setIcon(icon(LANGUAGE_ICONS.get(p.app.language, "mdi6.application-outline"), theme.current().primary))

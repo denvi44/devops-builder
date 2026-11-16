@@ -87,6 +87,11 @@ MODELES: dict[str, Modele] = {m.slug: m for m in (
            "Une instance Scaleway par environnement, Docker Compose déployé par SSH derrière Traefik ; secrets "
            "chiffrés dans le dépôt (SOPS et age). Le plus simple, pour une petite application.",
            _a("Modèle Scaleway instance", forge="gitlab", hosting="docker-host", cloud="scaleway", secrets="sops"), fix=("R52",)),
+    Modele("proxmox", "Proxmox VE (vos serveurs)",
+           "Aucun cloud à payer : une machine virtuelle par environnement, clonée d'un modèle cloud-init sur votre "
+           "Proxmox VE par OpenTofu, configurée par Ansible, Docker Compose et Traefik ; secrets chiffrés dans le "
+           "dépôt (SOPS et age). Le modèle de VM (Ubuntu 24.04, qemu-guest-agent) est à préparer une fois, et l'état OpenTofu à conserver hors du job (R44).",
+           _a("Modèle Proxmox", forge="gitlab", hosting="vm", cloud="proxmox", secrets="sops"), fix=("R52",)),
 )}
 
 

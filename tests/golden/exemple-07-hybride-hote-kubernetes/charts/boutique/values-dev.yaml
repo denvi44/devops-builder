@@ -1,0 +1,6 @@
+# Généré par DevOps Builder — à relire avant usage. Valeurs propres à l'environnement « Développement ».
+replicaCount: 1
+image:
+  tag: latest
+ingress:
+  host: dev.boutique.example.com

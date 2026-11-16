@@ -1,0 +1,6 @@
+id: R61
+title: Hébergement propre à un environnement
+family: cible
+severity: bloquant
+type: env_target
+message: "{detail}"

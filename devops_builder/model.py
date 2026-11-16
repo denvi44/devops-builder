@@ -7,6 +7,7 @@ et versionnable sans l'application.
 
 from __future__ import annotations
 
+import re
 import uuid
 from enum import Enum
 from pathlib import Path
@@ -274,6 +275,28 @@ class AppSettings(BaseModel):
     enabled: bool = True
 
 
+class Component(BaseModel):
+    """Application supplémentaire du projet (API, interface, worker…), construite et déployée avec l'application
+    principale : même dépôt de code, même registre, même pipeline."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    language: str = "python"
+    port: int = 8080
+    source: str = ""     # dossier du composant dans le dépôt ; vide : services/<id>
+    public: bool = False  # exposé à l'extérieur (route /<id> derrière Traefik, port publié sinon)
+
+    @property
+    def path(self) -> str:
+        return (self.source or f"services/{self.id}").strip("/")
+
+    @property
+    def env_name(self) -> str:
+        """Nom de la variable d'image : IMAGE_API, IMAGE_FRONT_END."""
+        return "IMAGE_" + re.sub(r"[^A-Z0-9]+", "_", self.id.upper())
+
+
 class Environment(BaseModel):
     """Environnement de déploiement ; l'ordre de la liste est l'ordre de promotion."""
 
@@ -284,6 +307,8 @@ class Environment(BaseModel):
     kind: EnvKind = "production"
     approval: bool = False          # déploiement soumis à une approbation manuelle
     cluster: str | None = None      # brique cluster utilisée (obligatoire s'il y en a plusieurs)
+    # Hébergement propre à cet environnement (hybride) ; vide : celui du projet. Une des clés de TARGETS.
+    target: str = ""
     # Hôte Docker partagé : les environnements qui indiquent le même nom se partagent ses ports
     host: str = ""
     port_offset: int | None = None  # décalage des ports publiés ; None = automatique
@@ -335,6 +360,7 @@ class Project(BaseModel):
     cloud_auth: Literal["oidc", "static"] = "oidc"
     license_policy: Literal["any", "oss-only"] = "any"
     app: AppSettings = Field(default_factory=AppSettings)
+    components: list[Component] = Field(default_factory=list)  # applications supplémentaires (ajouté en 0.30)
     stages: dict[str, list[BrickInstance]] = Field(
         default_factory=lambda: {s: [] for s in STAGE_IDS}
     )
@@ -359,6 +385,15 @@ class Project(BaseModel):
             if k in kinds:
                 return k
         return "production"
+
+    def env_target(self, env: Environment) -> str:
+        """Hébergement de l'environnement : le sien, sinon celui du projet."""
+        return env.target or self.target
+
+    @property
+    def hybrid(self) -> bool:
+        """Les environnements ne sont pas tous hébergés au même endroit (hôte Docker et Kubernetes, par exemple)."""
+        return len({self.env_target(e) for e in self.environments}) > 1
 
     def env(self, env_id: str) -> Environment | None:
         return next((e for e in self.environments if e.id == env_id), None)
@@ -428,6 +463,8 @@ class Project(BaseModel):
             data["app"].pop("source")
         if data.get("app", {}).get("enabled", True):
             data["app"].pop("enabled", None)   # champ ajouté en 0.27 : omis quand le projet a une application
+        if not data.get("components"):
+            data.pop("components", None)   # champ ajouté en 0.30 : omis sans composant
         if not data.get("stages", {}).get("data"):
             # étape ajoutée en 0.8 : omise quand elle est vide, le fichier reste lisible par la 0.7
             data.get("stages", {}).pop("data", None)
@@ -437,7 +474,7 @@ class Project(BaseModel):
                     b.pop("instance", None)
         for env in data.get("environments", []):
             # champs ajoutés en 0.6 : omis quand ils ne servent pas, le fichier reste lisible par la 0.5
-            for key, default in (("host", ""), ("port_offset", None)):
+            for key, default in (("host", ""), ("port_offset", None), ("target", "")):
                 if env.get(key) == default:
                     env.pop(key, None)
         return yaml.dump(data, Dumper=_FAST_DUMPER, sort_keys=False, allow_unicode=True)

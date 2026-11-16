@@ -585,3 +585,71 @@
   provides: [config-mgmt]
   alternatives: [ansible]
   verified: "2026-10-14"
+
+- id: proxmox-vm
+  name: Proxmox VE (machines virtuelles)
+  kind: service
+  stage: infrastructure
+  roles: [compute]
+  description: "Machines virtuelles clonées d'un modèle cloud-init sur un nœud Proxmox VE, par Terraform ou OpenTofu, un groupe par environnement (ou par hôte partagé) ; leurs adresses (agent invité) alimentent l'inventaire Ansible ou le déploiement SSH."
+  license: AGPL-3.0
+  repo: ""
+  hosting: [vm]
+  provides: [vm-hosts]
+  requires: [iac-hcl]
+  provider: proxmox
+  support: experimental
+  support_note: "Non essayé sur un Proxmox réel : le modèle de VM (Ubuntu 24.04, cloud-init, qemu-guest-agent) est à préparer à la main."
+  verified: "2026-11-16"
+
+- id: tailscale
+  name: Tailscale
+  stage: infrastructure
+  roles: [vpn]
+  description: "Réseau privé maillé (WireGuard) sans port à ouvrir : le job de déploiement le rejoint en mode utilisateur, SSH passe par son proxy SOCKS, et un playbook l'installe sur les hôtes. Compte gratuit pour un usage personnel ; Headscale est l'alternative libre à héberger soi-même."
+  homepage: https://tailscale.com
+  license: BSD-3-Clause
+  repo: https://github.com/tailscale/tailscale
+  hosting: [saas]
+  verified: "2026-11-16"
+  support: experimental
+  support_note: "Non essayé avec un compte Tailscale réel : clé éphémère étiquetée et règles d'accès (ACL) à créer à la main."
+
+- id: wireguard
+  name: WireGuard
+  stage: infrastructure
+  roles: [vpn]
+  description: "Tunnel VPN libre et léger : le job de déploiement monte l'interface wg0 avant d'ouvrir SSH (runner autorisé à créer une interface réseau), et un playbook l'installe sur les hôtes en générant leur clé sur place."
+  homepage: https://www.wireguard.com
+  license: GPL-2.0
+  repo: https://git.zx2c4.com/wireguard-linux
+  hosting: [docker-host, vm]
+  verified: "2026-11-16"
+  support: experimental
+  support_note: "Non essayé de bout en bout : les clés des pairs et la passerelle sont à échanger à la main (paramètre wg_peers)."
+
+- id: ssh-bastion
+  name: Bastion SSH
+  stage: infrastructure
+  roles: [bastion]
+  description: "Machine d'entrée unique par laquelle passent toutes les connexions SSH de la CI vers les hôtes privés (ProxyJump), avec la clé de déploiement ; la CI sait le franchir sans y déployer."
+  homepage: https://www.openssh.com
+  license: BSD-2-Clause
+  repo: https://github.com/openssh/openssh-portable
+  hosting: [vm]
+  verified: "2026-11-16"
+  support: experimental
+  support_note: "Le bastion lui-même (machine, pare-feu, clés autorisées) est à préparer à la main."
+
+- id: windows-server
+  name: Windows Server
+  stage: infrastructure
+  roles: [host-os]
+  description: "Hôtes Windows Server (2022 ou plus) pilotés par Ansible en WinRM ou en SSH : fonctionnalité Conteneurs, Docker Engine et Docker Compose posés par un playbook, application déployée comme conteneur Windows."
+  homepage: https://learn.microsoft.com/fr-fr/virtualization/windowscontainers/
+  license: proprietary
+  hosting: [vm]
+  requires: [config-mgmt]
+  verified: "2026-11-16"
+  support: experimental
+  support_note: "Non essayé sur un Windows Server réel : l'image de l'application doit être une image Windows (build sur un runner Windows), sans Traefik ni base de données en conteneur Linux."

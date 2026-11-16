@@ -341,7 +341,9 @@ def h_sovereignty(rule: Rule, ctx: Context) -> list[Diagnostic]:
 
 @handler("target_mismatch")
 def h_target_mismatch(rule: Rule, ctx: Context) -> list[Diagnostic]:
-    if ctx.project.target not in rule.params["targets"]:
+    # Hybride : l'outil sert l'environnement qui a l'hébergement voulu ; l'écart n'existe que si aucun n'en a
+    targets = {ctx.project.env_target(e) for e in ctx.project.environments} or {ctx.project.target}
+    if not targets <= set(rule.params["targets"]):
         return []
     out = []
     for p in ctx.with_tool(rule.params["tool"]):
@@ -1014,6 +1016,142 @@ def h_image_name(rule: Rule, ctx: Context) -> list[Diagnostic]:
         f"Le nom d'image {shown} n'est pas valide : un registre OCI n'accepte que des minuscules, des chiffres et les "
         "séparateurs . _ - (sans espace ni majuscule). Le build et le déploiement échoueraient.")), [],
         [Action("set_app_image", f"Utiliser « {slug(name or '')} »", {"value": slug(name or "")})])]
+
+
+# Cibles de déploiement qui ne savent pas encore livrer plusieurs applications
+COMPONENTS_UNSUPPORTED = {
+    "kustomize": "Kustomize", "argo-cd": "Argo CD", "flux": "Flux", "ecs-fargate": "ECS Fargate",
+    "cloud-run": "Cloud Run", "azure-container-apps": "Azure Container Apps", "aws-lambda": "AWS Lambda",
+    "gcp-functions": "Cloud Functions", "azure-functions": "Azure Functions",
+    "scaleway-functions": "Scaleway Functions",
+}
+
+
+@handler("windows_server")
+def h_windows_server(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    """Windows Server : déploiement par Ansible et Docker Compose, services Linux (Traefik, bases) exclus."""
+    bricks = ctx.project.bricks_for("windows-server")
+    if not bricks or not ctx.project.app.enabled:
+        return []
+    uids = [b.uid for b in bricks]
+    out = []
+    missing = [name for tool, name in (("ansible", "Ansible"), ("docker-compose", "Docker Compose"))
+               if not ctx.project.bricks_for(tool)]
+    if missing:
+        out.append(_diag(rule, _fmt(rule.message, detail=(
+            f"Windows Server se déploie avec Ansible et Docker Compose : ajouter {' et '.join(missing)}.")),
+            uids, _add_actions(ctx, [t for t, n in (("ansible", "Ansible"), ("docker-compose", "Docker Compose"))
+                                     if n in missing])))
+    linux_only = []
+    if ctx.project.bricks_for("traefik"):
+        linux_only.append("Traefik")
+    from .databases import databases
+    if databases(ctx.project, ctx.catalog):
+        linux_only.append("la base de données en conteneur")
+    if linux_only:
+        out.append(_diag(rule, _fmt(rule.message, detail=(
+            f"{' et '.join(linux_only)} : image Linux uniquement, sans équivalent Windows. Retirer la brique, ou "
+            "héberger ce service sur un hôte Linux.")), uids, []))
+    return out
+
+
+@handler("private_access")
+def h_private_access(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    """VPN et bastion : utiles au déploiement SSH seulement, et un seul chemin d'accès cohérent."""
+    access = [t for t in ("tailscale", "wireguard", "ssh-bastion") if ctx.project.bricks_for(t)]
+    if not access or not ctx.project.app.enabled:
+        return []
+    names = {"tailscale": "Tailscale", "wireguard": "WireGuard", "ssh-bastion": "Bastion SSH"}
+    uids = [b.uid for t in access for b in ctx.project.bricks_for(t)]
+    out = []
+    ssh_deploy = any(ctx.project.env_target(e) in ("docker-host", "vm") for e in ctx.project.environments) and (
+        ctx.project.bricks_for("docker-compose") or ctx.project.bricks_for("ansible"))
+    if not ssh_deploy:
+        out.append(_diag(rule, _fmt(rule.message, detail=(
+            f"{', '.join(names[t] for t in access)} : le déploiement ne passe pas par SSH (hôte Docker ou machines "
+            "virtuelles avec Docker Compose ou Ansible), l'accès privé ne servirait à rien.")), uids,
+            [Action("remove_bricks", "Retirer ces briques", {"uids": uids})]))
+    if "tailscale" in access and ("ssh-bastion" in access or "wireguard" in access):
+        other = "le bastion" if "ssh-bastion" in access else "WireGuard"
+        out.append(_diag(rule, _fmt(rule.message, detail=(
+            f"Tailscale et {other} décrivent deux chemins d'accès différents vers les hôtes : la configuration SSH "
+            "écrite par la CI les empile et le premier l'emporte. N'en garder qu'un.")), uids, []))
+    return out
+
+
+@handler("env_target")
+def h_env_target(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    """Hébergement par environnement (hybride) : valeur connue, et briques qui livrent sur cet hébergement."""
+    project = ctx.project
+    if not any(e.target for e in project.environments):
+        return []
+    out = []
+    compose = bool(project.bricks_for("docker-compose"))
+    cluster = bool(ctx.with_role("kubernetes-cluster")) or project.target in MANAGED_TARGETS
+    helm_or_kustomize = bool(project.bricks_for("helm") or project.bricks_for("kustomize"))
+    for env in project.environments:
+        if not env.target:
+            continue
+        name = TARGETS.get(env.target)
+        problems = []
+        if name is None:
+            choices = ", ".join(f"« {label} »" for label in TARGETS.values())
+            problems.append(f"L'hébergement « {env.target} » de l'environnement « {env.display} » est inconnu : {choices}.")
+        elif env.target in ("docker-host", "vm") and not compose:
+            problems.append(f"L'environnement « {env.display} » est hébergé sur « {name} » : ajouter Docker Compose, "
+                            "qui y lance l'application.")
+        elif env.target in ("kubernetes", "kubernetes-managed"):
+            if not cluster:
+                problems.append(f"L'environnement « {env.display} » est hébergé sur « {name} » : ajouter un cluster "
+                                "(k3s, kind, EKS, GKE, AKS…).")
+            if not helm_or_kustomize:
+                problems.append(f"L'environnement « {env.display} » est hébergé sur « {name} » : ajouter Helm ou "
+                                "Kustomize pour y déployer l'application.")
+        for text in problems:
+            out.append(_diag(rule, _fmt(rule.message, detail=text), [],
+                             [Action("set_env", "Reprendre l'hébergement du projet",
+                                     {"env": env.id, "field": "target", "value": ""})]))
+    if project.hybrid and project.bricks_for("docker-compose") and ctx.with_role("kubernetes-cluster"):
+        from .databases import databases
+        if databases(project, ctx.catalog):
+            out.append(_diag(rule, _fmt(rule.message, detail=(
+                "Projet hybride avec une base de données : le mode de la base (conteneur Compose ou Kubernetes) suit "
+                "le projet entier, pas chaque environnement. Vérifier la base de chaque environnement à la main.")),
+                [], [], Severity.WARNING))
+    return out
+
+
+@handler("components")
+def h_components(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    """Applications supplémentaires : identifiants valides et uniques, cibles de déploiement qui les prennent en charge."""
+    comps = ctx.project.components
+    if not comps or not ctx.project.app.enabled:
+        return []
+    seen: set[str] = set()
+    taken = {ctx.project.app.image_name}
+    problems: list[str] = []
+    for c in comps:
+        if not IMAGE_NAME_PATTERN.fullmatch(c.id or "") or "." in c.id or "_" in c.id or len(c.id) > 40:
+            problems.append(f"L'identifiant « {c.id} » n'est pas valide : minuscules, chiffres et tirets seulement "
+                            "(40 caractères au plus).")
+        elif c.id in seen or c.id in taken:
+            problems.append(f"L'identifiant « {c.id} » est déjà pris par l'application ou un autre composant.")
+        elif c.id in {"migrate", "traefik"}:
+            problems.append(f"L'identifiant « {c.id} » est réservé à un service du projet.")
+        seen.add(c.id)
+        if not 1 <= c.port <= 65535:
+            problems.append(f"Le port du composant « {c.id} » ({c.port}) est hors de la plage 1–65535.")
+    present = [t for t in COMPONENTS_UNSUPPORTED if ctx.project.bricks_for(t)]
+    if present:
+        names = ", ".join(COMPONENTS_UNSUPPORTED[t] for t in present)
+        problems.append(
+            f"{names} ne livre{'nt' if len(present) > 1 else ''} pas encore plusieurs applications : "
+            "les composants ne seraient ni déployés ni exposés. Utiliser Docker Compose, Ansible ou Helm, "
+            "ou retirer les applications supplémentaires.")
+    if not problems:
+        return []
+    uids = [b.uid for t in present for b in ctx.project.bricks_for(t)]
+    return [_diag(rule, _fmt(rule.message, detail=" ".join(problems)), uids, [])]
 
 
 # Rôles qui n'ont de sens qu'avec une application à construire, tester ou livrer

@@ -19,7 +19,7 @@ from . import network
 from .common import HEADER, align_attrs
 
 COMPUTE = {"aws-ec2": "aws", "gce": "gcp", "azure-vm": "azure", "scaleway-instance": "scaleway",
-           "ovh-instance": "ovhcloud", "outscale-vm": "outscale"}
+           "ovh-instance": "ovhcloud", "outscale-vm": "outscale", "proxmox-vm": "proxmox"}
 COMPUTE_PROVIDER = COMPUTE
 INVENTORY_SCRIPT = "scripts/tf-inventory.sh"
 
@@ -119,7 +119,8 @@ locals {{
 
 def _renderer(tool: str):
     return {"aws-ec2": _aws, "gce": _gce, "azure-vm": _azure, "scaleway-instance": _scaleway,
-            "ovh-instance": _ovh, "outscale-vm": _outscale}[tool]
+            "ovh-instance": _ovh, "outscale-vm": _outscale,
+            "proxmox-vm": _proxmox}[tool]
 
 
 def address_exprs(ir: IR) -> dict[str, str]:
@@ -377,6 +378,64 @@ resource "azurerm_linux_virtual_machine" "{g.label}" {{
   }}
 }}'''
     return shared, per_group, lambda g: f"azurerm_public_ip.{g.label}[*].ip_address"
+
+
+def _proxmox(ir: IR, gs: list[HostGroup]):
+    """Clones d'un modèle cloud-init : le compte de déploiement et la clé de la CI passent par l'initialisation native
+    (sans fichier snippet, donc sans accès SSH au nœud) ; l'adresse vient de l'agent invité."""
+    p = ir.params("proxmox")
+    user = deploy_user(ir)
+    shared = f'''# Modèle à cloner : VM n° {int(p.get("template_id") or 9000)} du nœud « {p.get("node", "pve")} »
+# (Ubuntu 24.04 cloud-init, qemu-guest-agent installé), à préparer une fois à la main.
+# Docker est posé par ansible/site.yml, ou déjà présent dans le modèle.'''
+
+    def per_group(g: HostGroup) -> str:
+        return f'''resource "proxmox_virtual_environment_vm" "{g.label}" {{
+  count     = {_count(g)}
+  name      = "{_name(ir, g)}-${{count.index + 1}}"
+  node_name = "{p.get("node", "pve")}"
+  tags      = ["{ir.app}"]
+
+  clone {{
+    vm_id = {int(p.get("template_id") or 9000)}
+  }}
+
+  agent {{
+    enabled = true
+  }}
+
+  cpu {{
+    cores = {int(g.params.get("cores") or 2)}
+  }}
+
+  memory {{
+    dedicated = {int(g.params.get("memory_mb") or 4096)}
+  }}
+
+  disk {{
+    datastore_id = "{p.get("datastore", "local-lvm")}"
+    interface    = "scsi0"
+    size         = {int(g.params.get("disk_gb") or 30)}
+  }}
+
+  network_device {{
+    bridge = "{p.get("bridge", "vmbr0")}"
+  }}
+
+  initialization {{
+    ip_config {{
+      ipv4 {{
+        address = "dhcp"
+      }}
+    }}
+    user_account {{
+      username = "{user}"
+      keys     = [var.ssh_public_key]
+    }}
+  }}
+}}'''
+    return shared, per_group, lambda g: (f"[for vm in proxmox_virtual_environment_vm.{g.label} : "
+                                         "vm.ipv4_addresses[1][0]]")
 
 
 def _scaleway(ir: IR, gs: list[HostGroup]):

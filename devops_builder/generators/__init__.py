@@ -93,11 +93,18 @@ def render(project: Project, catalog: Catalog) -> tuple[dict[str, str], IR]:
     files.update(platform.platform_files(ir))
     files.update(floci.floci_files(ir))
     files.update(hosts.inventory_script(ir))
+    from . import acces
+    files.update(acces.files(ir))
     files.update(secrets.files(ir, data.compose_dbs(ir)))
     files.update(data.dev_files(ir))
     from . import identity
     files.update(identity.files(ir))
     data.notes(ir)
+    if project.components and project.app.enabled:
+        ir.notes.append("Applications supplémentaires : " + ", ".join(
+            f"`{c.id}` (`{c.path}/Dockerfile`)" for c in project.components)
+            + ". Chaque dossier contient son Dockerfile ; les images partagent le dépôt du registre, "
+              "l'étiquette est préfixée par l'identifiant du composant (`<id>-<commit>`).")
     from . import zabbix
     zabbix.notes(ir)
     from . import dast

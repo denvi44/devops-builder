@@ -1,0 +1,64 @@
+format_version: 2
+name: 'Hybride : hôte Docker puis Kubernetes'
+description: 'Développement sur un hôte Docker (Compose), préproduction et production
+  sur k3s (Helm) : la même image est promue d''un hébergement à l''autre.'
+target: kubernetes
+environments:
+- id: dev
+  label: ''
+  kind: dev
+  approval: false
+  cluster: null
+  target: docker-host
+  host: vm-dev
+  overrides: {}
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: boutique
+  port: 8000
+stages:
+  source:
+  - uid: brique001
+    tool: github
+    params: {}
+  build:
+  - uid: brique002
+    tool: github-actions
+    params: {}
+  - uid: brique003
+    tool: buildkit
+    params: {}
+  test: []
+  security: []
+  artifacts:
+  - uid: brique004
+    tool: ghcr
+    params: {}
+  infrastructure:
+  - uid: brique005
+    tool: k3s
+    params: {}
+  deploy:
+  - uid: brique006
+    tool: docker-compose
+    params: {}
+  - uid: brique007
+    tool: helm
+    params: {}
+  platform: []
+  observability: []

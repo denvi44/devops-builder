@@ -95,6 +95,10 @@ CASES = [
     ("R57", lambda: _image("Mon App"), Severity.BLOCKING),
     ("R58", lambda: _outil_disparu(), Severity.WARNING),
     ("R59", lambda: _plateforme_seule(), Severity.BLOCKING),
+    ("R60", lambda: _composants(), Severity.BLOCKING),
+    ("R61", lambda: _hybride(), Severity.BLOCKING),
+    ("R63", lambda: put(make("docker-host"), "windows-server"), Severity.BLOCKING),
+    ("R62", lambda: put(make("kubernetes-managed"), "tailscale"), Severity.WARNING),
     ("R47", lambda: with_params(put(make("kubernetes"), "k3s", "helm", "cloudnative-pg"), "cloudnative-pg",
                                 backup_destination="s3://sauvegardes"), Severity.WARNING),
 ]
@@ -147,6 +151,19 @@ def _envs(preset: str | None, approval: bool = True, target: str = "kubernetes-m
     for e in p.environments:
         if e.kind == "production":
             e.approval = approval
+    return p
+
+
+def _composants() -> Project:
+    from devops_builder.model import Component
+    p = put(make("kubernetes-managed"), "kustomize")
+    p.components = [Component(id="api")]
+    return p
+
+
+def _hybride() -> Project:
+    p = make("docker-host")
+    p.environments[0].target = "kubernetes"
     return p
 
 

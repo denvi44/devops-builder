@@ -205,6 +205,10 @@ def kind_test(ir: IR, files: dict[str, str]) -> dict[str, str]:
     envs = [e.id for e in ir.envs]
     if not envs:
         return {}
+    if ir.project.components and ir.project.app.enabled:
+        ir.notes.append("Le test kind jetable n'est pas généré : il ne construit que l'application principale, "
+                        "les composants n'auraient pas d'image dans le cluster.")
+        return {}
     default = next((e.id for k in ("dev", "sandbox") for e in ir.envs if e.kind == k), envs[0])
     cases = "\n".join(f"  {e.id}) NAMESPACE={shlex.quote(ir.namespace(e))} ;;" for e in ir.envs)
     deploy = _HELM if helm else _KUSTOMIZE.replace("@OVERLAYS@", "deploy/kustomize/overlays")

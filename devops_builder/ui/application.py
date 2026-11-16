@@ -7,6 +7,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -25,7 +26,7 @@ from PySide6.QtWidgets import (
 from .. import appscan
 from ..catalog import Catalog
 from ..messages import explain
-from ..model import LANGUAGES, Project
+from ..model import LANGUAGES, Component, Project
 from .widgets import icon, muted, section_title
 
 LANGUAGE_ICONS = {"python": "mdi6.language-python", "node": "mdi6.nodejs", "java": "mdi6.language-java",
@@ -75,7 +76,7 @@ class ApplicationDialog(QDialog):
         self.project, self.catalog = project, catalog
         self.profile: appscan.AppProfile | None = None
         self.setWindowTitle("Application")
-        self.resize(760, 620)
+        self.resize(760, 760)
         lay = QVBoxLayout(self)
         lay.addWidget(muted("Désigner le dossier de l'application : DevOps Builder y lit le langage, le port, le "
                             "Dockerfile, les bases de données, la CI et la forge déjà en place, et propose les "
@@ -97,6 +98,7 @@ class ApplicationDialog(QDialog):
         form.addRow("Langage", self.language)
         form.addRow("Port d'écoute", self.port)
         lay.addLayout(form)
+        self._build_components(lay, project)
         lay.addWidget(section_title("Ce que l'analyse a trouvé"))
         self.found = QListWidget()
         self.found.setAccessibleName("Détections")
@@ -114,6 +116,107 @@ class ApplicationDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         lay.addWidget(buttons)
+
+    # ------------------------------------------------------ applications supplémentaires
+    def _build_components(self, lay: QVBoxLayout, project: Project) -> None:
+        lay.addWidget(section_title("Applications supplémentaires"))
+        lay.addWidget(muted("API, interface, worker… : chaque composant a son Dockerfile dans son dossier du dépôt, "
+                            "son image, ses tests et son déploiement, dans le même pipeline."))
+        self._comps: list[Component] = [c.model_copy() for c in project.components]
+        self._comp_row = -1
+        self.comp_list = QListWidget()
+        self.comp_list.setAccessibleName("Applications supplémentaires")
+        self.comp_list.setMaximumHeight(90)
+        for c in self._comps:
+            self.comp_list.addItem(self._comp_text(c))
+        box = QHBoxLayout()
+        self.comp_add = QPushButton(icon("mdi6.plus"), "Ajouter")
+        self.comp_remove = QPushButton(icon("mdi6.delete-outline"), "Retirer")
+        box.addWidget(self.comp_add)
+        box.addWidget(self.comp_remove)
+        box.addStretch(1)
+        form = QFormLayout()
+        self.comp_id = QLineEdit()
+        self.comp_id.setAccessibleName("Identifiant du composant")
+        self.comp_id.setPlaceholderText("api, front, worker…")
+        self.comp_lang = QComboBox()
+        self.comp_lang.setAccessibleName("Langage du composant")
+        for k, v in LANGUAGES.items():
+            self.comp_lang.addItem(icon(LANGUAGE_ICONS.get(k, "mdi6.application-outline")), v, k)
+        self.comp_port = QSpinBox()
+        self.comp_port.setRange(1, 65535)
+        self.comp_port.setAccessibleName("Port du composant")
+        self.comp_dir = QLineEdit()
+        self.comp_dir.setAccessibleName("Dossier du composant")
+        self.comp_dir.setPlaceholderText("services/<identifiant>")
+        self.comp_public = QCheckBox("Exposé à l'extérieur (chemin /<identifiant> derrière Traefik)")
+        form.addRow("Identifiant", self.comp_id)
+        form.addRow("Langage", self.comp_lang)
+        form.addRow("Port d'écoute", self.comp_port)
+        form.addRow("Dossier du dépôt", self.comp_dir)
+        form.addRow("", self.comp_public)
+        lay.addWidget(self.comp_list)
+        lay.addLayout(box)
+        lay.addLayout(form)
+        self.comp_add.clicked.connect(self._comp_add)
+        self.comp_remove.clicked.connect(self._comp_remove)
+        self.comp_list.currentRowChanged.connect(self._comp_select)
+        self._comp_enable(False)
+        if self._comps:
+            self.comp_list.setCurrentRow(0)
+
+    @staticmethod
+    def _comp_text(c: Component) -> str:
+        return f"{c.id or '(sans nom)'} · {LANGUAGES.get(c.language, c.language)} · port {c.port}" + \
+            (" · exposé" if c.public else "")
+
+    def _comp_enable(self, on: bool) -> None:
+        for w in (self.comp_id, self.comp_lang, self.comp_port, self.comp_dir, self.comp_public, self.comp_remove):
+            w.setEnabled(on)
+
+    def _comp_commit(self) -> None:
+        row = self._comp_row
+        if not 0 <= row < len(self._comps):
+            return
+        c = self._comps[row]
+        c.id = appscan.slug(self.comp_id.text()) if self.comp_id.text().strip() else ""
+        c.language = self.comp_lang.currentData()
+        c.port = self.comp_port.value()
+        c.source = self.comp_dir.text().strip()
+        c.public = self.comp_public.isChecked()
+        self.comp_list.item(row).setText(self._comp_text(c))
+
+    def _comp_select(self, row: int) -> None:
+        self._comp_commit()
+        self._comp_row = row
+        self._comp_enable(0 <= row < len(self._comps))
+        if not 0 <= row < len(self._comps):
+            return
+        c = self._comps[row]
+        self.comp_id.setText(c.id)
+        self.comp_lang.setCurrentIndex(max(0, self.comp_lang.findData(c.language)))
+        self.comp_port.setValue(c.port)
+        self.comp_dir.setText(c.source)
+        self.comp_public.setChecked(c.public)
+
+    def _comp_add(self) -> None:
+        self._comp_commit()
+        taken = {c.id for c in self._comps}
+        n = 1
+        while f"service-{n}" in taken:
+            n += 1
+        self._comps.append(Component(id=f"service-{n}", port=8080 + len(self._comps)))
+        self.comp_list.addItem(self._comp_text(self._comps[-1]))
+        self.comp_list.setCurrentRow(len(self._comps) - 1)
+
+    def _comp_remove(self) -> None:
+        row = self.comp_list.currentRow()
+        if not 0 <= row < len(self._comps):
+            return
+        self._comp_row = -1
+        del self._comps[row]
+        self.comp_list.takeItem(row)
+        self._comp_select(self.comp_list.currentRow())
 
     def analyse(self) -> None:
         path = self.folder.path()
@@ -154,6 +257,8 @@ class ApplicationDialog(QDialog):
         project.app.image_name = appscan.slug(self.image.text()) if self.image.text().strip() else project.app.image_name
         project.app.language = self.language.currentData()
         project.app.port = self.port.value()
+        self._comp_commit()
+        project.components = [c.model_copy() for c in self._comps if c.id]
         for tool_id in self.chosen_bricks():
             if not project.bricks_for(tool_id):
                 params = appscan.proposed_params(self.profile, tool_id, project, self.catalog) if self.profile else {}

@@ -246,6 +246,19 @@ def _image_ref(ir: IR) -> str:
     return f"{url}/{app}/{app}"
 
 
+def component_image_line(c) -> str:
+    """Ligne shell qui dérive l'image d'un composant de $IMAGE : même dépôt, étiquette « <id>-<étiquette> »."""
+    return f'{c.env_name}="${{IMAGE%:*}}:{c.id}-${{IMAGE##*:}}"'
+
+
+def project_components(ir: IR) -> list:
+    return list(ir.project.components) if ir.project.app.enabled else []
+
+
+def component_image_lines(ir: IR) -> list[str]:
+    return [component_image_line(c) for c in ir.project.components] if ir.project.app.enabled else []
+
+
 def registry_host(ir: IR) -> str:
     ref = ir.image_ref
     return ref.split("/")[0]
@@ -443,16 +456,25 @@ def _app_hostname(ir: IR, env: Environment) -> str:
 
 
 def _ansible_step(ir: IR, env: Environment, ns: str, secrets: list[str], name: str) -> Step:
-    ssh_variables(ir, "les hôtes")
+    winrm = ir.has("windows-server") and (ir.params("windows-server", env).get("connection") or "winrm") == "winrm"
+    if winrm:
+        ir.add_var("ANSIBLE_PASSWORD", "Mot de passe du compte de déploiement des hôtes Windows Server (WinRM)")
+    else:
+        ssh_variables(ir, "les hôtes")
     hosts, clouds = _tf_hosts(ir, env)
     reg = host_registry(ir)
     _registry_note(ir)
     login = ([f'export DEPLOY_REGISTRY="{reg[0]}" DEPLOY_REGISTRY_USER="{reg[1]}" DEPLOY_REGISTRY_PASSWORD="{reg[2]}"']
              if reg else [])
+    from .generators import acces as access
     from .generators import secrets as sec
+    extra = "".join(f' -e "{c.env_name.lower()}=${c.env_name}"' for c in ir.project.components)
     return Step("deploy", name, "deploy", ANSIBLE_IMAGE, [
-        *ANSIBLE_INSTALL, *hosts, SSH_SETUP, KNOWN_HOSTS, *secrets, *login,
-        f'ansible-playbook -i {ir.inventory(env)} ansible/deploy.yml -e "image=$IMAGE" -e "project={ns}" '
+        *component_image_lines(ir), *([*ANSIBLE_INSTALL[:1], ANSIBLE_INSTALL[1].replace('"ansible-core', 'pywinrm "ansible-core', 1), *ANSIBLE_INSTALL[2:]]
+                                      if winrm else ANSIBLE_INSTALL),
+        *hosts, *([] if winrm else [SSH_SETUP, KNOWN_HOSTS]), *access.ci_lines(ir), *secrets,
+        *login,
+        f'ansible-playbook -i {ir.inventory(env)} ansible/deploy.yml -e "image=$IMAGE"{extra} -e "project={ns}" '
         f'-e "deploy_env={env.id}"' + (f' -e "app_host={_app_hostname(ir, env)}"' if ir.has("traefik") else "")],
         tool="ansible", env={"ANSIBLE_CONFIG": "ansible/ansible.cfg"}, cloud=clouds,
         id_tokens=sec.gitlab_id_tokens(ir) if secrets else {})
@@ -460,7 +482,7 @@ def _ansible_step(ir: IR, env: Environment, ns: str, secrets: list[str], name: s
 
 def _compose_env(ir: IR, env: Environment) -> str:
     """Variables passées à docker compose sur l'hôte : l'image, et le nom d'hôte de l'environnement (Traefik)."""
-    out = "IMAGE=$IMAGE "
+    out = "IMAGE=$IMAGE " + "".join(f"{c.env_name}=${c.env_name} " for c in ir.project.components)
     if ir.has("traefik") and not _ports_shifted(ir):  # ports décalés : APP_HOST est dans le fichier .env copié
         from .ports import app_hostname
         out += f"APP_HOST={app_hostname(ir.project, env)} "
@@ -469,9 +491,10 @@ def _compose_env(ir: IR, env: Environment) -> str:
 
 def _deploy_step(ir: IR, env: Environment) -> Step | None:
     """Étape de déploiement d'un environnement, selon les briques présentes."""
-    target = ir.project.target
+    target = ir.project.env_target(env)
     app = ir.app
     ns = ir.namespace(env)
+    from .generators import acces as access
     from .generators import data as dbgen
     from .generators import secrets as sec
     if ir.has("docker-compose") and target in ("docker-host", "vm"):
@@ -494,10 +517,12 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
         if not tf_hosts:
             ir.add_var(host, f"Hôte Docker cible{where} (utilisateur@hôte)", secret=False)
         return Step("deploy", "Déploiement Docker Compose (SSH)", "deploy", ALPINE, [
+            *component_image_lines(ir),
             "apk add --no-cache openssh-client",
             *tf_hosts,
             SSH_SETUP,
             KNOWN_HOSTS,
+            *access.ci_lines(ir),
             f'ssh -o StrictHostKeyChecking=accept-new "${host}" "mkdir -p /opt/{ns}"',
             f'scp deploy/docker-compose.yml "${host}:/opt/{ns}/docker-compose.yml"',
             *([f'scp deploy/env/{env.id}.env "${host}:/opt/{ns}/.env"'] if _ports_shifted(ir) else []),
@@ -541,11 +566,14 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
         ka = _kube_access(ir, True, env)
         extra = f" -f {ir.helm_values(env)}" if ir.multi_env else ""
         fetch = sec.ci_lines(ir, env, kube_secrets, ka.image)
+        comp = "".join(f' --set components.{c.id}.image.repository="${{IMAGE%:*}}" '
+                       f'--set components.{c.id}.image.tag="${{{c.env_name}##*:}}"' for c in project_components(ir))
         return Step("deploy", "Déploiement Helm", "deploy", ka.image, [
+            *component_image_lines(ir),
             *ka.script,
             *fetch,
             f'helm upgrade --install {app} charts/{app}{extra} --namespace {ns} --create-namespace '
-            f'--set image.repository="${{IMAGE%:*}}" --set image.tag="$TAG"{dbgen.helm_set_flags(ir, env)} --wait'],
+            f'--set image.repository="${{IMAGE%:*}}" --set image.tag="$TAG"{comp}{dbgen.helm_set_flags(ir, env)} --wait'],
             tool="helm", cloud=ka.cloud, id_tokens=sec.gitlab_id_tokens(ir) if fetch else {})
     if ir.has("kustomize"):
         ka = _kube_access(ir, False, env)
@@ -597,6 +625,9 @@ def _add_steps(ir: IR) -> None:
             unit.services = [floci_service(ir)]
             unit.env = dict(FLOCI_CLIENT_ENV, AWS_DEFAULT_REGION=floci_region(ir), AWS_REGION=floci_region(ir))
         s.append(unit)
+        for c in project.components:
+            s.append(Step(f"unit-tests-{c.id}", f"Tests unitaires — {c.id}", "test", TEST_IMAGES.get(c.language, ALPINE),
+                          [f"cd {c.path}", *TEST_COMMANDS.get(c.language, TEST_COMMANDS["other"])], tool="unit-tests"))
     if ir.has("sonarqube") or ir.has("sonarqube-cloud"):
         host = "https://sonarcloud.io" if ir.has("sonarqube-cloud") else "$SONAR_HOST_URL"
         if ir.has("sonarqube"):
@@ -622,62 +653,76 @@ def _add_steps(ir: IR) -> None:
     # ---------------------------------------------------------------- build
     builder = _first(project, ir.catalog, "image-build")
     if builder:
-        ref = '"$IMAGE"'
-        if builder.id == "buildkit":
-            script = registry_login(ir) + [f"docker buildx build --tag {ref} --push ."]
-            image, docker = DOCKER_IMAGE, True
-        elif builder.id == "buildah":
-            script = registry_login(ir, "buildah") + [
-                f"buildah build --tag {ref} .", f"buildah push {ref}"]
-            image, docker = "quay.io/buildah/stable:latest", False
-        elif builder.id == "kaniko":
-            script = [
-                "# Kaniko est archivé depuis juin 2025 : préférer BuildKit ou Buildah.",
-                "# Les identifiants du registre se placent dans /kaniko/.docker/config.json.",
-                f"/kaniko/executor --context . --dockerfile Dockerfile --destination {ref}",
-            ]
-            image, docker = "gcr.io/kaniko-project/executor:debug", False
-        else:  # buildpacks
-            script = registry_login(ir) + [
-                f"pack build {ref} --builder paketobuildpacks/builder-jammy-base --publish"]
-            image, docker = "buildpacksio/pack:latest", True
-        if ir.registry and ir.registry.id == "ecr":
-            script.insert(0, "apk add --no-cache aws-cli || true")
-        s.append(Step("build-image", f"Build et publication de l'image ({builder.name})", "build",
-                      image, script, tool=builder.id, docker=docker, cloud=_cloud_of_registry(ir)))
+        def build_step(ref: str, ctx: str, step_id: str, name: str, setup: list[str]) -> Step:
+            dockerfile = "Dockerfile" if ctx == "." else f"{ctx}/Dockerfile"
+            if builder.id == "buildkit":
+                script = registry_login(ir) + [*setup, f"docker buildx build --tag {ref} --push {ctx}"]
+                image, docker = DOCKER_IMAGE, True
+            elif builder.id == "buildah":
+                script = registry_login(ir, "buildah") + [*setup, f"buildah build --tag {ref} {ctx}",
+                                                          f"buildah push {ref}"]
+                image, docker = "quay.io/buildah/stable:latest", False
+            elif builder.id == "kaniko":
+                script = [
+                    "# Kaniko est archivé depuis juin 2025 : préférer BuildKit ou Buildah.",
+                    "# Les identifiants du registre se placent dans /kaniko/.docker/config.json.",
+                    *setup,
+                    f"/kaniko/executor --context {ctx} --dockerfile {dockerfile} --destination {ref}",
+                ]
+                image, docker = "gcr.io/kaniko-project/executor:debug", False
+            else:  # buildpacks
+                script = registry_login(ir) + [
+                    *setup, f"pack build {ref} --builder paketobuildpacks/builder-jammy-base --publish"
+                    + ("" if ctx == "." else f" --path {ctx}")]
+                image, docker = "buildpacksio/pack:latest", True
+            if ir.registry and ir.registry.id == "ecr":
+                script.insert(0, "apk add --no-cache aws-cli || true")
+            return Step(step_id, name, "build", image, script, tool=builder.id, docker=docker,
+                        cloud=_cloud_of_registry(ir))
+
+        s.append(build_step('"$IMAGE"', ".", "build-image", f"Build et publication de l'image ({builder.name})", []))
+        for c in project.components:
+            s.append(build_step(f'"${c.env_name}"', c.path, f"build-image-{c.id}",
+                                f"Build et publication de l'image — {c.id} ({builder.name})",
+                                [component_image_line(c)]))
 
     # ------------------------------------------------------- scans d'image
-    if builder and ir.has("trivy"):
-        s.append(Step("trivy", "Scan de vulnérabilités Trivy", "security", "aquasec/trivy:latest",
-                      ['trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"'], tool="trivy",
-                      env=scanner_credentials(ir, "TRIVY_USERNAME", "TRIVY_PASSWORD"),
-                      cloud=_cloud_of_registry(ir)))
-    elif ir.has("trivy"):
-        s.append(Step("trivy", "Scan Trivy du dépôt", "security", "aquasec/trivy:latest",
-                      ["trivy fs --exit-code 1 --severity HIGH,CRITICAL ."], tool="trivy"))
-    if ir.has("grype"):
-        target = '"$IMAGE"' if builder else "dir:."
-        s.append(Step("grype", "Scan de vulnérabilités Grype", "security", ALPINE, [
-            "apk add --no-cache curl",
-            "curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin",
-            f"grype {target} --fail-on high"], tool="grype",
-            env=scanner_credentials(ir, "GRYPE_REGISTRY_AUTH_USERNAME", "GRYPE_REGISTRY_AUTH_PASSWORD") if builder else {},
-            cloud=_cloud_of_registry(ir) if builder else []))
-    if ir.has("syft"):
-        target = '"$IMAGE"' if builder else "dir:."
-        s.append(Step("syft", "SBOM Syft", "security", ALPINE, [
-            "apk add --no-cache curl",
-            "curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin",
-            f"syft {target} -o spdx-json > sbom.spdx.json"], tool="syft", artifacts=["sbom.spdx.json"]))
-    if ir.has("snyk"):
-        ir.add_var("SNYK_TOKEN", "Jeton d'API Snyk")
-        s.append(Step("snyk", "Scan Snyk", "security", "snyk/snyk:alpine",
-                      ["snyk test --severity-threshold=high"], tool="snyk", allow_failure=True))
-    if builder and ir.has("cosign"):
-        pre = ["apk add --no-cache aws-cli"] if ir.registry and ir.registry.id == "ecr" else []
-        s.append(Step("cosign", "Signature de l'image (Cosign)", "publish", ALPINE, [
-            "apk add --no-cache cosign", *pre, *registry_login(ir, "cosign"),
-            'cosign sign --yes "$IMAGE"'], tool="cosign", cloud=_cloud_of_registry(ir), main_only=True))
+    # Une image par composant : mêmes scans, sur l'image du composant (« $IMAGE_<ID> »)
+    images = [("", "", "$IMAGE", [])] + [(f"-{c.id}", f" — {c.id}", f"${c.env_name}", [component_image_line(c)])
+                                         for c in project.components]
+    for sid, label, var, setup in images:
+        if builder and ir.has("trivy"):
+            s.append(Step(f"trivy{sid}", f"Scan de vulnérabilités Trivy{label}", "security", "aquasec/trivy:latest",
+                          [*setup, f'trivy image --exit-code 1 --severity HIGH,CRITICAL "{var}"'], tool="trivy",
+                          env=scanner_credentials(ir, "TRIVY_USERNAME", "TRIVY_PASSWORD"),
+                          cloud=_cloud_of_registry(ir)))
+        elif ir.has("trivy") and not sid:
+            s.append(Step("trivy", "Scan Trivy du dépôt", "security", "aquasec/trivy:latest",
+                          ["trivy fs --exit-code 1 --severity HIGH,CRITICAL ."], tool="trivy"))
+        if ir.has("grype") and (builder or not sid):
+            target = f'"{var}"' if builder else "dir:."
+            s.append(Step(f"grype{sid}", f"Scan de vulnérabilités Grype{label}", "security", ALPINE, [
+                "apk add --no-cache curl",
+                "curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin",
+                *setup, f"grype {target} --fail-on high"], tool="grype",
+                env=scanner_credentials(ir, "GRYPE_REGISTRY_AUTH_USERNAME", "GRYPE_REGISTRY_AUTH_PASSWORD") if builder else {},
+                cloud=_cloud_of_registry(ir) if builder else []))
+        if ir.has("syft") and (builder or not sid):
+            target = f'"{var}"' if builder else "dir:."
+            out = f"sbom{sid}.spdx.json"
+            s.append(Step(f"syft{sid}", f"SBOM Syft{label}", "security", ALPINE, [
+                "apk add --no-cache curl",
+                "curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin",
+                *setup, f"syft {target} -o spdx-json > {out}"], tool="syft", artifacts=[out]))
+        if sid == "" and ir.has("snyk"):
+            ir.add_var("SNYK_TOKEN", "Jeton d'API Snyk")
+            s.append(Step("snyk", "Scan Snyk", "security", "snyk/snyk:alpine",
+                          ["snyk test --severity-threshold=high"], tool="snyk", allow_failure=True))
+        if builder and ir.has("cosign"):
+            pre = ["apk add --no-cache aws-cli"] if ir.registry and ir.registry.id == "ecr" else []
+            s.append(Step(f"cosign{sid}", f"Signature de l'image (Cosign){label}", "publish", ALPINE, [
+                "apk add --no-cache cosign", *pre, *registry_login(ir, "cosign"),
+                *setup, f'cosign sign --yes "{var}"'], tool="cosign", cloud=_cloud_of_registry(ir), main_only=True))
 
     # ----------------------------------------------------------- infrastructure
     tf_stack = bool(ir.iac and ir.iac.id in ("terraform", "opentofu"))
@@ -761,6 +806,7 @@ PROVIDER_ENV = {
                  ("OVH_APPLICATION_SECRET", "Secret d'application OVHcloud"),
                  ("OVH_CONSUMER_KEY", "Clé consommateur OVHcloud")],
     "outscale": [("OSC_ACCESS_KEY", "Clé d'accès Outscale"), ("OSC_SECRET_KEY", "Clé secrète Outscale")],
+    "proxmox": [("PROXMOX_VE_API_TOKEN", "Jeton d'API Proxmox (utilisateur@realm!jeton=secret)")],
 }
 
 

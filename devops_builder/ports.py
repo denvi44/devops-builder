@@ -126,13 +126,18 @@ def routed_hostname(project: Project, tool: str, brick=None) -> str:
     return given or f"{sub}.{tools_domain(project)}"
 
 
-def compose_publishes(project: Project) -> bool:
-    return project.target in ("docker-host", "vm") and any(b.tool == "docker-compose" for _, b in project.all_bricks())
+def compose_publishes(project: Project, env: Environment | None = None) -> bool:
+    """Compose publie des ports : pour un environnement précis, ou pour au moins un d'entre eux."""
+    if not any(b.tool == "docker-compose" for _, b in project.all_bricks()):
+        return False
+    envs = [env] if env is not None else project.environments or [None]
+    return any((project.env_target(e) if e is not None else project.target) in ("docker-host", "vm") for e in envs)
 
 
 def parametrized(project: Project) -> bool:
     """Les ports Compose deviennent des variables quand un environnement est décalé."""
-    return compose_publishes(project) and any(env_offset(project, e) for e in project.environments)
+    return compose_publishes(project) and any(
+        env_offset(project, e) for e in project.environments if compose_publishes(project, e))
 
 
 def port_variable(component_id: str, container_port: int) -> str:
@@ -184,7 +189,7 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
                     add(db.id, db.tool.name, db.engine.port, None, db.engine.label,
                         f"réseau interne Compose (hôte « {db.id} »), non publié")
 
-        if compose_publishes(project):
+        if compose_publishes(project, env):
             if not project.app.enabled:
                 pass  # plateforme seule : pas de service d'application
             elif "traefik" in present:
@@ -192,6 +197,17 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
                     f"via Traefik, hôte {app_hostname(project, env)}")
             else:
                 add("app", name, app_port, app_port + offset, "application", "publié sur l'hôte Docker")
+            if project.app.enabled:
+                for comp in project.components:
+                    if not comp.public:
+                        add(comp.id, f"{name}-{comp.id}", comp.port, None, "composant",
+                            "réseau interne Compose, non publié")
+                    elif "traefik" in present:
+                        add(comp.id, f"{name}-{comp.id}", comp.port, None, "composant",
+                            f"via Traefik, hôte {app_hostname(project, env)}, chemin /{comp.id}")
+                    else:
+                        add(comp.id, f"{name}-{comp.id}", comp.port, comp.port + offset, "composant",
+                            "publié sur l'hôte Docker")
             for tid in COMPOSE_SERVICES:
                 if tid not in present:
                     continue
@@ -232,7 +248,7 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
                 if all(b.params.get("supervise_host", True) is not False for b in project.bricks_for("zabbix")):
                     add("zabbix-agent-host", "Zabbix", 10050, 10050, "agent de l'hôte", "réseau de l'hôte Docker")
             add_databases(False)
-        elif project.target in KUBERNETES_TARGETS or any(
+        elif project.env_target(env) in KUBERNETES_TARGETS or any(
                 (t := catalog.get(tid)) and "kubernetes-cluster" in t.roles for tid in present):
             ingress_id = next((t for t in INGRESS_TOOLS if t in present), None)
             ingress = catalog[ingress_id].name if ingress_id else None
@@ -240,6 +256,10 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
             if ingress:
                 exposure += f", exposé par {ingress}, hôte {app_hostname(project, env)}"
             add("app", name, app_port, None, "application", exposure)
+            if project.app.enabled:
+                for comp in project.components:
+                    add(comp.id, f"{name}-{comp.id}", comp.port, None, "composant",
+                        f"Service {name}-{comp.id}, espace de noms {name}{suffix}, interne au cluster")
             add_databases(True)
             for tid in dict.fromkeys(present):
                 if tid in PLATFORM_CHARTS and tid in ports and tid not in DATABASE_TOOLS:

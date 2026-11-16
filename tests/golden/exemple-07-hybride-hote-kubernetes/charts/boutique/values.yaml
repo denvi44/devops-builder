@@ -1,0 +1,20 @@
+# Généré par DevOps Builder — à relire avant usage.
+replicaCount: 2
+image:
+  repository: ghcr.io/OWNER/boutique
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+ingress:
+  enabled: true
+  className: traefik
+  host: boutique.example.com

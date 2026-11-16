@@ -173,6 +173,21 @@ def _settings(before: Project, after: Project) -> list[str]:
     return out
 
 
+def _components(before: Project, after: Project) -> list[str]:
+    old = {c.id: c for c in before.components}
+    new = {c.id: c for c in after.components}
+    out = [f"Application supplémentaire ajoutée : {i} ({new[i].language}, port {new[i].port})"
+           for i in new.keys() - old.keys()]
+    out += [f"Application supplémentaire retirée : {i}" for i in old.keys() - new.keys()]
+    for i in old.keys() & new.keys():
+        a, b = old[i], new[i]
+        for label, x, y in (("langage", a.language, b.language), ("port", a.port, b.port),
+                            ("dossier", a.path, b.path), ("exposé", _show(a.public), _show(b.public))):
+            if x != y:
+                out.append(f"Application {i} — {label} : {x} → {y}")
+    return sorted(out)
+
+
 def _environments(before: Project, after: Project) -> list[str]:
     old = {e.id: e for e in before.environments}
     new = {e.id: e for e in after.environments}
@@ -185,6 +200,8 @@ def _environments(before: Project, after: Project) -> list[str]:
         a, b = old[env_id], new[env_id]
         for label, x, y in (("type", ENVIRONMENTS.get(a.kind, a.kind), ENVIRONMENTS.get(b.kind, b.kind)),
                             ("approbation", _show(a.approval), _show(b.approval)), ("hôte", a.host or "—", b.host or "—"),
+                            ("hébergement", TARGETS.get(a.target, a.target or "celui du projet"),
+                             TARGETS.get(b.target, b.target or "celui du projet")),
                             ("cluster", a.cluster or "—", b.cluster or "—")):
             if x != y:
                 out.append(f"Environnement {env_id} — {label} : {x} → {y}")
@@ -249,7 +266,7 @@ def compare(before: Project, after: Project, catalog: Catalog, engine: RuleEngin
     """Rapport des différences entre deux projets ; `files` génère aussi les fichiers des deux côtés."""
     engine = engine or RuleEngine(catalog)
     cmp = Comparison(before=before.name, after=after.name)
-    cmp.settings = _settings(before, after)
+    cmp.settings = _settings(before, after) + _components(before, after)
     cmp.environments = _environments(before, after)
 
     old, new = _bricks(before), _bricks(after)

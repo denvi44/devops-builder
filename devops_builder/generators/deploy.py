@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from ..ir import IR
+from ..ir import IR, project_components
 from . import data
 from .common import HEADER, dump_yaml, dump_yaml_docs
 from .platform import compose_platform_services
@@ -23,6 +23,32 @@ def _app_host(ir: IR) -> str:
     """Nom d'hôte de la règle Traefik : APP_HOST, donné par le déploiement de chaque environnement."""
     from ..ports import app_hostname
     return "${APP_HOST:-" + app_hostname(ir.project) + "}"
+
+
+def component_url_env(ir: IR, host_of) -> dict[str, str]:
+    """Adresse interne de chaque composant, donnée à l'application principale (API_URL=http://api:8080)."""
+    return {f"{c.env_name[6:]}_URL": f"http://{host_of(c)}:{c.port}" for c in project_components(ir)}
+
+
+def _component_service(ir: IR, c) -> dict:
+    service: dict = {
+        "image": "${" + c.env_name + ":-" + f"{ir.image_ref}:{c.id}-latest" + "}",
+        "restart": "unless-stopped",
+        "environment": {"PORT": str(c.port)},
+    }
+    name = f"{ir.app}-{c.id}"
+    if c.public and ir.has("traefik"):
+        service["labels"] = [
+            "traefik.enable=true",
+            f"traefik.http.routers.{name}.rule=Host(`{_app_host(ir)}`) && PathPrefix(`/{c.id}`)",
+            f"traefik.http.routers.{name}.entrypoints=websecure",
+            f"traefik.http.routers.{name}.middlewares={name}-strip",
+            f"traefik.http.middlewares.{name}-strip.stripprefix.prefixes=/{c.id}",
+            f"traefik.http.services.{name}.loadbalancer.server.port={c.port}",
+        ]
+    elif c.public:
+        service["ports"] = [_published(ir, c.id, c.port, c.port)]
+    return service
 
 
 def compose(ir: IR) -> dict[str, str]:
@@ -46,7 +72,11 @@ def compose(ir: IR) -> dict[str, str]:
     from . import identity
     service["environment"].update(identity.app_env(ir))
     with_app = ir.project.app.enabled
+    components = {c.id: _component_service(ir, c) for c in project_components(ir)}
+    if components:
+        service["environment"].update(component_url_env(ir, lambda c: c.id))
     services = {app: service} if with_app else {}
+    services.update(components)
     services.update(data.compose_parts(ir, service, service["image"]))
     services.update(compose_platform_services(ir))
     services.update(identity.compose_services(ir))
@@ -65,13 +95,15 @@ def compose(ir: IR) -> dict[str, str]:
     files: dict[str, str] = {}
     if parametrized(ir.project):
         for tid, svc in services.items():
-            if tid != app and svc.get("ports"):
+            if tid != app and tid not in components and svc.get("ports"):
                 svc = dict(svc)
                 svc["ports"] = [_published(ir, tid, int(p.split(":")[0]), int(p.split(":")[1])) for p in svc["ports"]]
                 services[tid] = svc
         plan = port_plan(ir.project, ir.catalog)
+        from ..ports import compose_publishes
         for env in ir.envs:
-            files[f"deploy/env/{env.id}.env"] = env_file(ir.project, env, plan)
+            if compose_publishes(ir.project, env):   # hybride : les environnements Kubernetes n'ont pas de .env
+                files[f"deploy/env/{env.id}.env"] = env_file(ir.project, env, plan)
         ir.notes.append("Plusieurs environnements partagent un hôte Docker : leurs ports publiés sont décalés "
                         "(deploy/env/<environnement>.env, copié en .env à côté du fichier Compose).")
     volumes = sorted({v.split(":")[0] for s in services.values() for v in s.get("volumes", [])
@@ -138,8 +170,10 @@ spec:
             readOnlyRootFilesystem: true
 """
     oidc = [{"name": k, "value": v} for k, v in identity_env(ir).items()]
-    if db_env or oidc:
-        deployment += _indent({"env": db_env + oidc}, 10)
+    comp_env = [{"name": k, "value": v} for k, v in
+                component_url_env(ir, lambda c: "{{ .Release.Name }}-" + c.id).items()]
+    if db_env or oidc or comp_env:
+        deployment += _indent({"env": db_env + oidc + comp_env}, 10)
     if db_init:
         deployment = deployment.replace("      containers:\n", _indent({"initContainers": db_init}, 6) + "      containers:\n", 1)
     service = f"""apiVersion: v1
@@ -154,6 +188,11 @@ spec:
     - port: {{{{ .Values.service.port }}}}
       targetPort: {{{{ .Values.service.targetPort }}}}
 """
+    comp_files: dict[str, str] = {}
+    for c in project_components(ir):
+        values.setdefault("components", {})[c.id] = {
+            "replicaCount": 1, "image": {"repository": ir.image_ref, "tag": f"{c.id}-latest"}, "port": c.port}
+        comp_files[f"{base}/templates/component-{c.id}.yaml"] = _helm_component(c, db_env)
     ir.cover("helm")
     env_files = {}
     if ir.multi_env:
@@ -169,9 +208,65 @@ spec:
         f"{base}/values.yaml": dump_yaml(values),
         f"{base}/templates/deployment.yaml": deployment,
         f"{base}/templates/service.yaml": service,
+        **comp_files,
         **{f"{base}/{k}": v for k, v in db_templates.items()},
         **{f"{base}/{k}": v for k, v in entree.helm_templates(ir).items()},
     }
+
+
+def _helm_component(c, db_env: list) -> str:
+    """Deployment + Service d'un composant, réglés par .Values.components.<id> (image, étiquette, port)."""
+    ref = f'(index .Values.components "{c.id}")'
+    name = f"{{{{ .Release.Name }}}}-{c.id}"
+    labels = f"app.kubernetes.io/name: {c.id}\n"
+    return f"""{{{{- $c := {ref} }}}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {name}
+  labels:
+    {labels.strip()}
+spec:
+  replicas: {{{{ $c.replicaCount }}}}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {c.id}
+      app.kubernetes.io/instance: {{{{ .Release.Name }}}}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {c.id}
+        app.kubernetes.io/instance: {{{{ .Release.Name }}}}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: {c.id}
+          image: "{{{{ $c.image.repository }}}}:{{{{ $c.image.tag }}}}"
+          env:
+            - name: PORT
+              value: "{{{{ $c.port }}}}"
+          ports:
+            - containerPort: {{{{ $c.port }}}}
+          resources:
+            {{{{- toYaml $.Values.resources | nindent 12 }}}}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {name}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {c.id}
+    app.kubernetes.io/instance: {{{{ .Release.Name }}}}
+  ports:
+    - port: {{{{ $c.port }}}}
+      targetPort: {{{{ $c.port }}}}
+"""
 
 
 def identity_env(ir: IR) -> dict[str, str]:

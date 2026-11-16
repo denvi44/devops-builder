@@ -345,6 +345,35 @@ scaleway:
     pattern: '[a-z]{2}-[a-z]{3}-[0-9]'
     pattern_hint: "zone Scaleway, ex. fr-par-1"
 
+proxmox:
+  endpoint:
+    label: Adresse de l'API Proxmox
+    description: URL de l'API du nœud ou du cluster (port 8006).
+    example: https://pve.example.lan:8006/
+    required: true
+    pattern: 'https?://[^\s/]+(:[0-9]+)?/?'
+    pattern_hint: "URL de l'API, ex. https://pve.example.lan:8006/"
+  node:
+    label: Nœud Proxmox
+    default: pve
+    pattern: '[A-Za-z0-9-]+'
+    pattern_hint: "nom du nœud, ex. pve"
+  template_id:
+    label: Numéro du modèle de VM
+    description: Identifiant (VMID) du modèle Ubuntu 24.04 cloud-init, avec qemu-guest-agent, à cloner.
+    type: int
+    default: 9000
+  datastore:
+    label: Stockage des disques
+    default: local-lvm
+    pattern: '[A-Za-z0-9._-]+'
+    pattern_hint: "nom du stockage, ex. local-lvm"
+  bridge:
+    label: Pont réseau
+    default: vmbr0
+    pattern: '[A-Za-z0-9._-]+'
+    pattern_hint: "nom du pont, ex. vmbr0"
+
 # ------------------------------------------------------------- Services de déploiement
 ecs-fargate:
   cluster:
@@ -846,6 +875,25 @@ ansible:
     default: deploy
     pattern: '[a-z_][a-z0-9_-]{0,31}'
     pattern_hint: "nom de compte Unix, ex. deploy"
+windows-server:
+  connection:
+    label: Connexion Ansible
+    description: "winrm : WinRM sur HTTPS (mot de passe dans ANSIBLE_PASSWORD) ; ssh : OpenSSH de Windows Server (clé SSH_PRIVATE_KEY)."
+    default: winrm
+    suggestions: [winrm, ssh]
+    pattern: 'winrm|ssh'
+    pattern_hint: "winrm ou ssh"
+  user:
+    label: Compte de déploiement
+    description: Compte local ou de domaine, administrateur de la machine.
+    default: Administrator
+    pattern: '[A-Za-z0-9._@\\-]{1,64}'
+    pattern_hint: "compte, ex. Administrator ou CORP\\deploy"
+  app_dir:
+    label: Dossier de l'application
+    default: C:\apps
+    pattern: '[A-Za-z]:\\[^<>"|?*]*'
+    pattern_hint: "chemin Windows, ex. C:\\apps"
 
 # ------------------------------------------------------------- Machines virtuelles
 aws-ec2:
@@ -1418,3 +1466,21 @@ scaleway-edge-services:
     label: Requêtes par minute et par adresse
     type: int
     default: 2000
+proxmox-vm:
+  cores:
+    label: Cœurs par machine
+    type: int
+    default: 2
+  memory_mb:
+    label: Mémoire par machine (Mo)
+    type: int
+    default: 4096
+  count:
+    label: Nombre de machines
+    description: Par environnement (surchargeable) ; les environnements qui partagent un hôte partagent ces machines.
+    type: int
+    default: 1
+  disk_gb:
+    label: Disque système (Go)
+    type: int
+    default: 30

@@ -5,7 +5,7 @@ Fichier produit par `python -m devops_builder.support` ; un test vérifie qu'il 
 ## Niveaux
 
 - **Pris en charge** (170) : les fichiers sont générés et passent l'outil de référence dans les tests (linter, schéma, `tofu validate`, ShellCheck) ; aucune limite connue n'empêche le premier déploiement en suivant `docs/mise-en-route.md`.
-- **Expérimental** (17) : les fichiers sont générés, mais une limite connue demande une intervention ou n'a pas été vérifiée ; la règle R50 la rappelle dans le projet.
+- **Expérimental** (23) : les fichiers sont générés, mais une limite connue demande une intervention ou n'a pas été vérifiée ; la règle R50 la rappelle dans le projet.
 - **À configurer à la main** (18) : aucun générateur ne produit de fichier ; la brique sert aux règles et à la documentation, elle est listée dans « À configurer à la main » de `PIPELINE.md` (règle R31).
 
 Une entrée du CNCF Landscape sans fiche, ou une fiche personnelle, est toujours à configurer à la main.
@@ -19,14 +19,20 @@ Une entrée du CNCF Landscape sans fiche, ou une fiche personnelle, est toujours
 | Tekton | Build | Pas de porte d'approbation native : la production part d'un déclenchement manuel ; secrets de la CI à déclarer à la main. |
 | Woodpecker CI | Build | Pas de porte d'approbation native : la production part d'un déclenchement manuel ; secrets de la CI à déclarer à la main. |
 | Floci | Tests & qualité | Dans la CI, le plan passe ; EKS, RDS et Lambda ne se créent qu'en local, et un apply échoue sur les réseaux existants. |
+| Bastion SSH | Infrastructure | Le bastion lui-même (machine, pare-feu, clés autorisées) est à préparer à la main. |
 | Outscale Load Balancer Unit | Infrastructure | Non essayé sur un compte Outscale. |
 | Outscale Net | Infrastructure | Net, sous-réseau et routage Internet pour les machines Outscale ; non essayé sur un compte Outscale. |
 | OVHcloud Load Balancer | Infrastructure | Écouteurs et pool créés ; les instances restent hors du réseau privé, leurs adresses privées sont à ajouter au pool à la main. Non essayé sur un compte OVHcloud. |
 | OVHcloud Private Network | Infrastructure | Rattaché au cluster Managed Kubernetes seulement : les instances et les bases restent sur le réseau public (à rattacher à la main). Non essayé sur un compte OVHcloud. |
 | OVHcloud Public Cloud Databases for Apache Kafka | Infrastructure | Cluster et sujet créés ; utilisateur, droits (ACL) et liste d'adresses autorisées à régler ensuite. Non essayé sur un compte OVHcloud. |
+| Proxmox VE | Infrastructure | Non essayé sur un Proxmox réel : les fichiers passent la validation Terraform, mais le modèle de VM (cloud-init, qemu-guest-agent) est à préparer à la main. |
+| Proxmox VE (machines virtuelles) | Infrastructure | Non essayé sur un Proxmox réel : le modèle de VM (Ubuntu 24.04, cloud-init, qemu-guest-agent) est à préparer à la main. |
 | RKE2 | Infrastructure | Le contrôleur d'entrée embarqué dépend de la version : à désactiver à la main si un autre contrôleur est posé. |
 | Scaleway Edge Services (CDN et WAF) | Infrastructure | Pipeline créé devant le répartiteur ; domaine public et certificat à régler ensuite. Non essayé sur un compte Scaleway. |
 | Scaleway Key Manager | Infrastructure | Clé créée et donnée en sortie ; aucun service du projet ne l'utilise encore. Non essayé sur un compte Scaleway. |
+| Tailscale | Infrastructure | Non essayé avec un compte Tailscale réel : clé éphémère étiquetée et règles d'accès (ACL) à créer à la main. |
+| Windows Server | Infrastructure | Non essayé sur un Windows Server réel : l'image de l'application doit être une image Windows (build sur un runner Windows), sans Traefik ni base de données en conteneur Linux. |
+| WireGuard | Infrastructure | Non essayé de bout en bout : les clés des pairs et la passerelle sont à échanger à la main (paramètre wg_peers). |
 | OVHcloud Public Cloud Databases for Valkey | Données | Instance et utilisateur créés ; droits de l'utilisateur et liste d'adresses autorisées à régler ensuite. Non essayé sur un compte OVHcloud. |
 | Azure Container Apps | Déploiement | Aucune ressource Terraform générée : l'application Container Apps se crée à la main, la CI la met ensuite à jour. |
 | Scaleway Serverless Functions | Déploiement | Fonction créée sans code ; publication du code (zip) à faire avec l'outil de Scaleway. Non essayé sur un compte Scaleway. |
