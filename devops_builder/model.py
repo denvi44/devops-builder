@@ -307,6 +307,8 @@ class Environment(BaseModel):
     kind: EnvKind = "production"
     approval: bool = False          # déploiement soumis à une approbation manuelle
     cluster: str | None = None      # brique cluster utilisée (obligatoire s'il y en a plusieurs)
+    # Hébergement propre à cet environnement (hybride) ; vide : celui du projet. Une des clés de TARGETS.
+    target: str = ""
     # Hôte Docker partagé : les environnements qui indiquent le même nom se partagent ses ports
     host: str = ""
     port_offset: int | None = None  # décalage des ports publiés ; None = automatique
@@ -383,6 +385,15 @@ class Project(BaseModel):
             if k in kinds:
                 return k
         return "production"
+
+    def env_target(self, env: Environment) -> str:
+        """Hébergement de l'environnement : le sien, sinon celui du projet."""
+        return env.target or self.target
+
+    @property
+    def hybrid(self) -> bool:
+        """Les environnements ne sont pas tous hébergés au même endroit (hôte Docker et Kubernetes, par exemple)."""
+        return len({self.env_target(e) for e in self.environments}) > 1
 
     def env(self, env_id: str) -> Environment | None:
         return next((e for e in self.environments if e.id == env_id), None)
@@ -463,7 +474,7 @@ class Project(BaseModel):
                     b.pop("instance", None)
         for env in data.get("environments", []):
             # champs ajoutés en 0.6 : omis quand ils ne servent pas, le fichier reste lisible par la 0.5
-            for key, default in (("host", ""), ("port_offset", None)):
+            for key, default in (("host", ""), ("port_offset", None), ("target", "")):
                 if env.get(key) == default:
                     env.pop(key, None)
         return yaml.dump(data, Dumper=_FAST_DUMPER, sort_keys=False, allow_unicode=True)

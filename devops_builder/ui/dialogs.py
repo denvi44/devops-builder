@@ -83,6 +83,13 @@ class EnvironmentsEditor(QWidget):
         for k, v in ENVIRONMENTS.items():
             self.f_kind.addItem(v, k)
         self.f_approval = QCheckBox("Exiger une approbation avant de déployer")
+        self.f_target = QComboBox()
+        self.f_target.setAccessibleName("Hébergement de l'environnement")
+        self.f_target.setToolTip("Hybride : un environnement peut être hébergé autrement que le reste du projet "
+                                 "(développement sur un hôte Docker, production sur Kubernetes).")
+        self.f_target.addItem("(celui du projet)", "")
+        for k, v in TARGETS.items():
+            self.f_target.addItem(v, k)
         self.f_cluster = QComboBox()
         self.f_cluster.addItem("(automatique)", None)
         for tid, name in cluster_tools:
@@ -105,6 +112,7 @@ class EnvironmentsEditor(QWidget):
         form.addRow("Identifiant", self.f_id)
         form.addRow("Libellé", self.f_label)
         form.addRow("Type", self.f_kind)
+        form.addRow("Hébergement", self.f_target)
         form.addRow("Cluster", self.f_cluster)
         form.addRow("Hôte Docker partagé", self.f_host)
         form.addRow("Décalage des ports", self.f_offset)
@@ -116,7 +124,7 @@ class EnvironmentsEditor(QWidget):
         self.list.currentRowChanged.connect(self._show)
         for w in (self.f_id, self.f_label):
             w.textEdited.connect(self._store)
-        for w in (self.f_kind, self.f_cluster):
+        for w in (self.f_kind, self.f_cluster, self.f_target):
             w.currentIndexChanged.connect(self._store)
         self.f_approval.toggled.connect(self._store)
         self.f_host.currentTextChanged.connect(self._store)
@@ -147,6 +155,7 @@ class EnvironmentsEditor(QWidget):
         self.f_label.setText(e.label)
         self.f_kind.setCurrentIndex(list(ENVIRONMENTS).index(e.kind))
         self.f_cluster.setCurrentIndex(max(0, self.f_cluster.findData(e.cluster)))
+        self.f_target.setCurrentIndex(max(0, self.f_target.findData(e.target)))
         self.f_approval.setChecked(e.approval)
         hosts = sorted({x.host for x in self.envs if x.host})
         self.f_host.clear()
@@ -165,6 +174,7 @@ class EnvironmentsEditor(QWidget):
         e.label = self.f_label.text().strip()
         e.kind = self.f_kind.currentData()
         e.cluster = self.f_cluster.currentData()
+        e.target = self.f_target.currentData() or ""
         e.approval = self.f_approval.isChecked()
         e.host = self.f_host.currentText().strip()
         e.port_offset = None if self.f_offset.value() < 0 else self.f_offset.value()
@@ -236,7 +246,7 @@ class EnvironmentsEditor(QWidget):
             self.envs = []
             for e in env_preset(key):  # conserve surcharges et cluster des environnements déjà présents
                 if e.id in old:
-                    e.overrides, e.cluster = old[e.id].overrides, old[e.id].cluster
+                    e.overrides, e.cluster, e.target = old[e.id].overrides, old[e.id].cluster, old[e.id].target
                 self.envs.append(e)
             self._refresh(0)
         self.preset.setCurrentIndex(0)

@@ -10,7 +10,10 @@ mineure peut changer les fichiers générés ; chaque changement voulu est relu 
 - **Applications supplémentaires** (API, interface, worker…) : chaque composant a son identifiant, son langage, son port et son dossier (`services/<id>` par défaut). La CI construit, teste, analyse (Trivy, Grype, Syft) et signe (Cosign) une image par composant, dans le même dépôt du registre, étiquetée `<id>-<commit>`. Déploiement Docker Compose (SSH ou Ansible) : un service par composant, route Traefik `/<id>` pour les composants exposés, adresse interne `<ID>_URL` donnée à l'application principale. Déploiement Helm : un Deployment et un Service par composant. Édition dans Application › Applications supplémentaires ; plan des ports, rapport et comparaison avant/après en tiennent compte ; exemple « Boutique en plusieurs applications ».
 - **Règle R60** : identifiants invalides ou en double, et cibles qui ne livrent pas encore plusieurs applications (Kustomize, Argo CD, Flux, ECS Fargate, Cloud Run, Azure Container Apps, fonctions) — génération bloquée avec un message explicite.
 
+- **Un hébergement par environnement (hybride)** : champ « Hébergement » de chaque environnement (hôte Docker, machines virtuelles, Kubernetes autogéré ou managé). Chaque environnement reçoit l'étape de déploiement de son hébergement ; les ports ne sont publiés (et décalés) que sur les hôtes Docker ; rapport, comparaison et exemple « Hybride : hôte Docker puis Kubernetes ». **Règle R61** : briques manquantes pour l'hébergement d'un environnement, hébergement inconnu, avertissement pour une base de données en hybride. La règle R17 (Compose sur Kubernetes) ne se déclenche plus quand un environnement est hébergé sur un hôte.
+
 ### Limites
+- Hybride : le mode d'une base de données (conteneur ou Kubernetes) suit le projet entier ; le guide pas à pas décrit l'hébergement du projet.
 - Le test kind jetable n'est pas généré avec des composants. Les gabarits Helm des composants sont vérifiés par la CI du projet (aucun binaire helm dans l'environnement de développement).
 
 ## 0.29.0 — 2026-11-16 — Comparaison avant / après

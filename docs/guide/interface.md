@@ -95,7 +95,7 @@ contrôles et leurs limites : [Accessibilité de l'application](../accessibilite
 Fichier › Ouvrir (Ctrl+O), ou depuis un terminal : `devops-builder mon-projet.devops.yaml`. Un fichier écrit par
 une version plus ancienne s'ouvre sans perte ; un fichier modifié à la main qui contient une erreur est refusé
 avec un message qui dit où et pourquoi (« YAML invalide ligne 12, colonne 3 : tabulation interdite en YAML :
-indenter avec des espaces »). Six exemples sont livrés dans Fichier › Ouvrir un exemple.
+indenter avec des espaces »). Sept exemples sont livrés dans Fichier › Ouvrir un exemple.
 
 ## Simuler une modification d'architecture
 
@@ -129,3 +129,16 @@ Kustomize, Argo CD, Flux, ECS Fargate, Cloud Run, Azure Container Apps et les fo
 encore plusieurs applications : la règle R60 le signale et bloque la génération. Le test kind jetable n'est pas
 généré avec des composants (il ne construit que l'application principale). Un exemple est livré : « Boutique en
 plusieurs applications ».
+
+
+## Un hébergement par environnement (hybride)
+
+Dans Projet › Environnements, le champ « Hébergement » laisse un environnement être hébergé autrement que le reste du
+projet : développement sur un hôte Docker (Docker Compose), préproduction et production sur Kubernetes (Helm), par
+exemple. Chaque environnement reçoit l'étape de déploiement de son hébergement, la même image est promue de l'un à
+l'autre, les ports ne sont publiés que sur les hôtes Docker, et le rapport ajoute une colonne « Hébergement ».
+
+La règle R61 vérifie que les briques de chaque hébergement sont présentes (Docker Compose pour un hôte ; un cluster et
+Helm ou Kustomize pour Kubernetes). Limites : le mode d'une base de données (conteneur Compose ou Kubernetes) suit le
+projet entier — R61 le signale ; le guide `docs/mise-en-route.md` décrit l'hébergement du projet. Exemple livré :
+« Hybride : hôte Docker puis Kubernetes ».

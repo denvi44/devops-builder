@@ -176,7 +176,7 @@ tools/
   tutoriels.py               projets des tutoriels du guide
   miroir_tofu.py, publication.py   miroir de providers OpenTofu ; vérification d'une publication
 tests/              règles, générateurs, interface (hors écran), non-régression
-  golden/           sorties figées de 184 projets (exemples, matrice, échantillon de l'assistant, environnements, ports, données, IaC, Floci, Ansible et machines)
+  golden/           sorties figées de 185 projets (exemples, matrice, échantillon de l'assistant, environnements, ports, données, IaC, Floci, Ansible et machines)
   data/legacy/      projets enregistrés par chaque version, de la 0.1 à la 0.19
   minihelm.py       rendu des gabarits Helm générés, sans le binaire helm
 tools/compare_captures.py  écart visuel entre deux séries de captures
@@ -218,7 +218,7 @@ La CI lit aussi l'arbre d'accessibilité de l'application comme Orca (AT-SPI, Li
 
 ### Non-régression
 
-`tests/test_regression.py` compare tout ce que génèrent 184 projets (fichiers et diagnostics) à l'instantané de `tests/golden/`, et recharge les projets enregistrés par chaque version précédente (`tests/data/legacy/`, de la 0.1 à la 0.19 : ouverts, contrôlés, générés, réenregistrés sans perte de valeur). À chaque version, des fichiers écrits par la précédente rejoignent ce corpus ; un test le vérifie. Après un changement voulu :
+`tests/test_regression.py` compare tout ce que génèrent 185 projets (fichiers et diagnostics) à l'instantané de `tests/golden/`, et recharge les projets enregistrés par chaque version précédente (`tests/data/legacy/`, de la 0.1 à la 0.19 : ouverts, contrôlés, générés, réenregistrés sans perte de valeur). À chaque version, des fichiers écrits par la précédente rejoignent ce corpus ; un test le vérifie. Après un changement voulu :
 
 ```bash
 UPDATE_GOLDEN=1 pytest tests/test_regression.py

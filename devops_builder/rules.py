@@ -341,7 +341,9 @@ def h_sovereignty(rule: Rule, ctx: Context) -> list[Diagnostic]:
 
 @handler("target_mismatch")
 def h_target_mismatch(rule: Rule, ctx: Context) -> list[Diagnostic]:
-    if ctx.project.target not in rule.params["targets"]:
+    # Hybride : l'outil sert l'environnement qui a l'hébergement voulu ; l'écart n'existe que si aucun n'en a
+    targets = {ctx.project.env_target(e) for e in ctx.project.environments} or {ctx.project.target}
+    if not targets <= set(rule.params["targets"]):
         return []
     out = []
     for p in ctx.with_tool(rule.params["tool"]):
@@ -1023,6 +1025,48 @@ COMPONENTS_UNSUPPORTED = {
     "gcp-functions": "Cloud Functions", "azure-functions": "Azure Functions",
     "scaleway-functions": "Scaleway Functions",
 }
+
+
+@handler("env_target")
+def h_env_target(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    """Hébergement par environnement (hybride) : valeur connue, et briques qui livrent sur cet hébergement."""
+    project = ctx.project
+    if not any(e.target for e in project.environments):
+        return []
+    out = []
+    compose = bool(project.bricks_for("docker-compose"))
+    cluster = bool(ctx.with_role("kubernetes-cluster")) or project.target in MANAGED_TARGETS
+    helm_or_kustomize = bool(project.bricks_for("helm") or project.bricks_for("kustomize"))
+    for env in project.environments:
+        if not env.target:
+            continue
+        name = TARGETS.get(env.target)
+        problems = []
+        if name is None:
+            choices = ", ".join(f"« {label} »" for label in TARGETS.values())
+            problems.append(f"L'hébergement « {env.target} » de l'environnement « {env.display} » est inconnu : {choices}.")
+        elif env.target in ("docker-host", "vm") and not compose:
+            problems.append(f"L'environnement « {env.display} » est hébergé sur « {name} » : ajouter Docker Compose, "
+                            "qui y lance l'application.")
+        elif env.target in ("kubernetes", "kubernetes-managed"):
+            if not cluster:
+                problems.append(f"L'environnement « {env.display} » est hébergé sur « {name} » : ajouter un cluster "
+                                "(k3s, kind, EKS, GKE, AKS…).")
+            if not helm_or_kustomize:
+                problems.append(f"L'environnement « {env.display} » est hébergé sur « {name} » : ajouter Helm ou "
+                                "Kustomize pour y déployer l'application.")
+        for text in problems:
+            out.append(_diag(rule, _fmt(rule.message, detail=text), [],
+                             [Action("set_env", "Reprendre l'hébergement du projet",
+                                     {"env": env.id, "field": "target", "value": ""})]))
+    if project.hybrid and project.bricks_for("docker-compose") and ctx.with_role("kubernetes-cluster"):
+        from .databases import databases
+        if databases(project, ctx.catalog):
+            out.append(_diag(rule, _fmt(rule.message, detail=(
+                "Projet hybride avec une base de données : le mode de la base (conteneur Compose ou Kubernetes) suit "
+                "le projet entier, pas chaque environnement. Vérifier la base de chaque environnement à la main.")),
+                [], [], Severity.WARNING))
+    return out
 
 
 @handler("components")

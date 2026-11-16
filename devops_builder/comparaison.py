@@ -200,6 +200,8 @@ def _environments(before: Project, after: Project) -> list[str]:
         a, b = old[env_id], new[env_id]
         for label, x, y in (("type", ENVIRONMENTS.get(a.kind, a.kind), ENVIRONMENTS.get(b.kind, b.kind)),
                             ("approbation", _show(a.approval), _show(b.approval)), ("hôte", a.host or "—", b.host or "—"),
+                            ("hébergement", TARGETS.get(a.target, a.target or "celui du projet"),
+                             TARGETS.get(b.target, b.target or "celui du projet")),
                             ("cluster", a.cluster or "—", b.cluster or "—")):
             if x != y:
                 out.append(f"Environnement {env_id} — {label} : {x} → {y}")

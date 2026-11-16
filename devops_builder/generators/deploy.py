@@ -100,8 +100,10 @@ def compose(ir: IR) -> dict[str, str]:
                 svc["ports"] = [_published(ir, tid, int(p.split(":")[0]), int(p.split(":")[1])) for p in svc["ports"]]
                 services[tid] = svc
         plan = port_plan(ir.project, ir.catalog)
+        from ..ports import compose_publishes
         for env in ir.envs:
-            files[f"deploy/env/{env.id}.env"] = env_file(ir.project, env, plan)
+            if compose_publishes(ir.project, env):   # hybride : les environnements Kubernetes n'ont pas de .env
+                files[f"deploy/env/{env.id}.env"] = env_file(ir.project, env, plan)
         ir.notes.append("Plusieurs environnements partagent un hôte Docker : leurs ports publiés sont décalés "
                         "(deploy/env/<environnement>.env, copié en .env à côté du fichier Compose).")
     volumes = sorted({v.split(":")[0] for s in services.values() for v in s.get("volumes", [])

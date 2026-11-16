@@ -103,14 +103,18 @@ def report(ir: IR, diagnostics: list[Diagnostic], files: list[str],
             ("Projet « plateforme seule » : les outils tournent sur l'hôte Docker, sans application à livrer."
              if ir.platform_only else
              "Ordre de promotion : la même image est déployée successivement dans chaque environnement."), "",
-            "| Environnement | Type | Approbation | Cluster | Espace de noms / projet |", "| --- | --- | --- | --- | --- |"]
+            *(["| Environnement | Type | Hébergement | Approbation | Cluster | Espace de noms / projet |",
+               "| --- | --- | --- | --- | --- | --- |"] if p.hybrid else
+              ["| Environnement | Type | Approbation | Cluster | Espace de noms / projet |",
+               "| --- | --- | --- | --- | --- |"])]
     for env in p.environments:
         cluster = ir.cluster_for(env)
         cname = ""
         if cluster is not None:
             name = ir.params(cluster.id, env).get("cluster_name")
             cname = f"{cluster.name}" + (f" `{name}`" if name else "")
-        out.append(f"| {env.display} (`{env.id}`) | {ENVIRONMENTS[env.kind]} | {'oui' if env.approval else 'non'} "
+        where = f" | {TARGETS.get(p.env_target(env), p.env_target(env))}" if p.hybrid else ""
+        out.append(f"| {env.display} (`{env.id}`) | {ENVIRONMENTS[env.kind]}{where} | {'oui' if env.approval else 'non'} "
                    f"| {cname or '—'} | `{ir.namespace(env)}` |")
     out.append("")
     out += _ports_section(ir)

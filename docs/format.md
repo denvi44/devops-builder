@@ -96,3 +96,16 @@ components:
 
 `id` : minuscules, chiffres et tirets ; `source` : dossier du dépôt, vide pour `services/<id>` ; `public` : exposé à
 l'extérieur. Le format reste à `format_version: 2`.
+
+
+## Hébergement par environnement (0.30)
+
+Clé facultative `target` dans un environnement (une clé de `TARGETS` : `docker-host`, `vm`, `kubernetes`,
+`kubernetes-managed`), absente quand l'environnement suit le projet :
+
+```yaml
+environments:
+- id: dev
+  target: docker-host
+  host: vm-dev
+```

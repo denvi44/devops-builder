@@ -96,6 +96,7 @@ CASES = [
     ("R58", lambda: _outil_disparu(), Severity.WARNING),
     ("R59", lambda: _plateforme_seule(), Severity.BLOCKING),
     ("R60", lambda: _composants(), Severity.BLOCKING),
+    ("R61", lambda: _hybride(), Severity.BLOCKING),
     ("R47", lambda: with_params(put(make("kubernetes"), "k3s", "helm", "cloudnative-pg"), "cloudnative-pg",
                                 backup_destination="s3://sauvegardes"), Severity.WARNING),
 ]
@@ -155,6 +156,12 @@ def _composants() -> Project:
     from devops_builder.model import Component
     p = put(make("kubernetes-managed"), "kustomize")
     p.components = [Component(id="api")]
+    return p
+
+
+def _hybride() -> Project:
+    p = make("docker-host")
+    p.environments[0].target = "kubernetes"
     return p
 
 

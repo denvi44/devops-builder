@@ -483,7 +483,7 @@ def _compose_env(ir: IR, env: Environment) -> str:
 
 def _deploy_step(ir: IR, env: Environment) -> Step | None:
     """Étape de déploiement d'un environnement, selon les briques présentes."""
-    target = ir.project.target
+    target = ir.project.env_target(env)
     app = ir.app
     ns = ir.namespace(env)
     from .generators import data as dbgen
