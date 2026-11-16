@@ -6,6 +6,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from ..catalog import default_catalog
@@ -15,12 +16,26 @@ from ..rules import RuleEngine
 from . import a11y, theme
 from .main_window import MainWindow
 
+LOGO = Path(__file__).resolve().parent.parent / "data" / "logo"
+
+
+def app_icon() -> QIcon:
+    """Logo de l'application (barre de titre, barre des tâches, Alt+Tab) ; icône vide si le fichier manque."""
+    icon = QIcon()
+    for size in (64, 256):
+        path = LOGO / f"logo-{size}.png"
+        if path.exists():
+            icon.addFile(str(path))
+    return icon
+
 
 def create_window(argv: list[str] | None = None) -> tuple[QApplication, MainWindow]:
     argv = argv if argv is not None else sys.argv
     app = QApplication.instance() or QApplication(argv)
     app.setApplicationName("DevOps Builder")
     app.setOrganizationName("DevOpsBuilder")
+    app.setDesktopFileName("devops-builder")   # rattache la fenêtre à devops-builder.desktop sous Linux
+    app.setWindowIcon(app_icon())
     app.setFont(theme.default_font())
     a11y.install_translations(app)  # boutons standard, menus contextuels, sélecteur de fichiers en français
     a11y.install_focus_ring(app)

@@ -11,6 +11,8 @@ copyright: DevOps Builder — Apache 2.0
 theme:
   name: material
   language: fr
+  logo: assets/logo.png
+  favicon: assets/logo.png
   features:
     - navigation.sections
     - navigation.top

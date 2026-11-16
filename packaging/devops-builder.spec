@@ -50,8 +50,11 @@ a.binaries = [b for b in a.binaries if not any(u in b[0] for u in UNUSED)]
 a.datas = [d for d in a.datas if not any(u in d[0] for u in UNUSED)]
 pyz = PYZ(a.pure)
 # Python en mode UTF-8 : fichiers et sorties en UTF-8 quel que soit le système
-exe = EXE(pyz, a.scripts, [("X utf8_mode=1", None, "OPTION")], exclude_binaries=True, name="devops-builder", console=True, upx=False)
+# Logo : .ico dans l'exécutable Windows, .icns dans l'application macOS (icones/devops-builder.*, voir tools/logo.py)
+exe = EXE(pyz, a.scripts, [("X utf8_mode=1", None, "OPTION")], exclude_binaries=True, name="devops-builder", console=True,
+          upx=False, icon="icones/devops-builder.ico" if sys.platform == "win32" else None)
 coll = COLLECT(exe, a.binaries, a.datas, name="devops-builder", upx=False)
 if sys.platform == "darwin":
-    app = BUNDLE(coll, name="DevOps Builder.app", bundle_identifier="fr.izinum.devops-builder",
+    app = BUNDLE(coll, name="DevOps Builder.app", icon="icones/devops-builder.icns",
+                 bundle_identifier="fr.izinum.devops-builder",
                  info_plist={"NSHighResolutionCapable": True, "LSApplicationCategoryType": "public.app-category.developer-tools"})
