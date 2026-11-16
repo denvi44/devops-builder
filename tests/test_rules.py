@@ -97,6 +97,8 @@ CASES = [
     ("R59", lambda: _plateforme_seule(), Severity.BLOCKING),
     ("R60", lambda: _composants(), Severity.BLOCKING),
     ("R61", lambda: _hybride(), Severity.BLOCKING),
+    ("R63", lambda: put(make("docker-host"), "windows-server"), Severity.BLOCKING),
+    ("R62", lambda: put(make("kubernetes-managed"), "tailscale"), Severity.WARNING),
     ("R47", lambda: with_params(put(make("kubernetes"), "k3s", "helm", "cloudnative-pg"), "cloudnative-pg",
                                 backup_destination="s3://sauvegardes"), Severity.WARNING),
 ]

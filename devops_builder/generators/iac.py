@@ -20,9 +20,10 @@ PROVIDER_SOURCES = {
     "ovhcloud": ("ovh/ovh", "~> 2.0"),
     "outscale": ("outscale/outscale", "~> 1.0"),
     "scaleway": ("scaleway/scaleway", "~> 2.0"),
+    "proxmox": ("bpg/proxmox", "~> 0.70"),
 }
 PROVIDER_LOCAL = {"aws": "aws", "gcp": "google", "azure": "azurerm", "ovhcloud": "ovh",
-                  "outscale": "outscale", "scaleway": "scaleway"}
+                  "outscale": "outscale", "scaleway": "scaleway", "proxmox": "proxmox"}
 REQUIRED_VERSION = ">= 1.10"  # verrou d'état natif du backend S3 (use_lockfile)
 
 
@@ -105,6 +106,8 @@ def _providers_block(ir: IR) -> str:
             lines.append(f'provider "ovh" {{\n  endpoint = "{params.get("endpoint", "ovh-eu")}"\n}}')
         elif p.id == "outscale":
             lines.append(f'provider "outscale" {{\n  region = "{params.get("region", "eu-west-2")}"\n}}')
+        elif p.id == "proxmox":
+            lines.append(f'provider "proxmox" {{\n  endpoint = "{params.get("endpoint", "https://pve.example.lan:8006/")}"\n}}')
         elif p.id == "scaleway":
             lines.append(f'provider "scaleway" {{\n  region = "{params.get("region", "fr-par")}"\n  zone   = "{params.get("zone", "fr-par-1")}"\n}}')
     return "\n\n".join(lines)

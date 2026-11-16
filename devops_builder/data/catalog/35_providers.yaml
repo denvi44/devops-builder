@@ -166,3 +166,21 @@
     registry: scaleway-registry
     object-storage: scaleway-object-storage
   verified: "2026-10-08"
+
+- id: proxmox
+  name: Proxmox VE
+  kind: provider
+  stage: infrastructure
+  roles: [cloud-provider]
+  description: "Hyperviseur libre (KVM et conteneurs LXC) installé sur vos propres serveurs : aucun cloud à payer. Les machines se créent par clonage d'un modèle cloud-init."
+  license: AGPL-3.0
+  repo: https://github.com/proxmox
+  hosting: [vm]
+  terraform_provider: bpg/proxmox
+  auth: [static]
+  secnumcloud: unknown
+  services:
+    compute: proxmox-vm
+  support: experimental
+  support_note: "Non essayé sur un Proxmox réel : les fichiers passent la validation Terraform, mais le modèle de VM (cloud-init, qemu-guest-agent) est à préparer à la main."
+  verified: "2026-11-16"

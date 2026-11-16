@@ -12,7 +12,12 @@ mineure peut changer les fichiers générés ; chaque changement voulu est relu 
 
 - **Un hébergement par environnement (hybride)** : champ « Hébergement » de chaque environnement (hôte Docker, machines virtuelles, Kubernetes autogéré ou managé). Chaque environnement reçoit l'étape de déploiement de son hébergement ; les ports ne sont publiés (et décalés) que sur les hôtes Docker ; rapport, comparaison et exemple « Hybride : hôte Docker puis Kubernetes ». **Règle R61** : briques manquantes pour l'hébergement d'un environnement, hébergement inconnu, avertissement pour une base de données en hybride. La règle R17 (Compose sur Kubernetes) ne se déclenche plus quand un environnement est hébergé sur un hôte.
 
+- **Proxmox VE** : nouveau fournisseur (machines clonées d'un modèle cloud-init par OpenTofu, `bpg/proxmox`), service « Proxmox VE (machines virtuelles) », modèle `devops-builder template proxmox`, paramètres (API, nœud, modèle, stockage, pont), jeton `PROXMOX_VE_API_TOKEN`.
+- **Accès privé** : Tailscale, WireGuard et Bastion SSH ouvrent l'accès aux hôtes dans le job de déploiement (Compose par SSH ou Ansible) ; playbooks `ansible/tailscale.yml` et `ansible/wireguard.yml` ; variables `TAILSCALE_AUTHKEY`, `WG_CONFIG`, `BASTION_HOST`. **Règle R62** (avertissement) : accès sans déploiement SSH, chemins contradictoires.
+- **Windows Server** : hôtes pilotés par Ansible en WinRM ou SSH, Conteneurs + Docker + Compose posés par `ansible/site.yml`, application déployée comme conteneur Windows par `ansible/deploy.yml`. **Règle R63** : Ansible et Docker Compose requis, Traefik et bases en conteneur Linux exclus.
+
 ### Limites
+- Proxmox, Tailscale, WireGuard, le bastion et Windows Server sont marqués expérimentaux : fichiers générés et validés par les tests, non essayés sur des machines réelles. L'image d'un hôte Windows se construit sur un runner Windows.
 - Hybride : le mode d'une base de données (conteneur ou Kubernetes) suit le projet entier ; le guide pas à pas décrit l'hébergement du projet.
 - Le test kind jetable n'est pas généré avec des composants. Les gabarits Helm des composants sont vérifiés par la CI du projet (aucun binaire helm dans l'environnement de développement).
 

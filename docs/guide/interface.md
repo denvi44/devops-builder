@@ -142,3 +142,12 @@ La règle R61 vérifie que les briques de chaque hébergement sont présentes (D
 Helm ou Kustomize pour Kubernetes). Limites : le mode d'une base de données (conteneur Compose ou Kubernetes) suit le
 projet entier — R61 le signale ; le guide `docs/mise-en-route.md` décrit l'hébergement du projet. Exemple livré :
 « Hybride : hôte Docker puis Kubernetes ».
+
+
+## Accès privé, Proxmox et Windows Server
+
+- **Tailscale, WireGuard, Bastion SSH** (étape Infrastructure) : quand les hôtes ne sont pas joignables depuis Internet, le job de déploiement ouvre l'accès avant sa première connexion SSH. Tailscale : mode utilisateur (sans privilèges), SSH passe par le proxy SOCKS, clé `TAILSCALE_AUTHKEY`. WireGuard : `wg-quick up wg0` depuis `WG_CONFIG` (runner autorisé à créer une interface réseau) ; le playbook `ansible/wireguard.yml` génère la clé de l'hôte sur place. Bastion : `BASTION_HOST` (utilisateur@hôte), ProxyJump pour toutes les connexions. La règle R62 signale un accès inutile (pas de déploiement SSH) ou deux chemins contradictoires.
+- **Proxmox VE** (fournisseur, hôte Docker ou VM) : aucun cloud à payer. Les machines sont clonées d'un modèle cloud-init (Ubuntu 24.04, qemu-guest-agent) par OpenTofu (`bpg/proxmox`) ; paramètres : adresse de l'API, nœud, numéro du modèle, stockage, pont ; jeton `PROXMOX_VE_API_TOKEN`. Modèle prêt : `devops-builder template proxmox`.
+- **Windows Server** (étape Infrastructure) : Ansible en WinRM (HTTPS 5986, mot de passe dans `ANSIBLE_PASSWORD`) ou SSH ; `ansible/site.yml` pose la fonctionnalité Conteneurs, Docker Engine et Compose ; `ansible/deploy.yml` lance l'application comme conteneur Windows. La règle R63 impose Ansible et Docker Compose et exclut Traefik et les bases en conteneur (images Linux).
+
+Limites : rien de cela n'a pu être essayé sur Proxmox, Tailscale ou Windows Server réels (fichiers générés et validés par les tests) ; l'image Windows se construit sur un runner Windows ; le test automatique de la CI ne couvre pas ces hôtes.

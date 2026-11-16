@@ -1027,6 +1027,58 @@ COMPONENTS_UNSUPPORTED = {
 }
 
 
+@handler("windows_server")
+def h_windows_server(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    """Windows Server : déploiement par Ansible et Docker Compose, services Linux (Traefik, bases) exclus."""
+    bricks = ctx.project.bricks_for("windows-server")
+    if not bricks or not ctx.project.app.enabled:
+        return []
+    uids = [b.uid for b in bricks]
+    out = []
+    missing = [name for tool, name in (("ansible", "Ansible"), ("docker-compose", "Docker Compose"))
+               if not ctx.project.bricks_for(tool)]
+    if missing:
+        out.append(_diag(rule, _fmt(rule.message, detail=(
+            f"Windows Server se déploie avec Ansible et Docker Compose : ajouter {' et '.join(missing)}.")),
+            uids, _add_actions(ctx, [t for t, n in (("ansible", "Ansible"), ("docker-compose", "Docker Compose"))
+                                     if n in missing])))
+    linux_only = []
+    if ctx.project.bricks_for("traefik"):
+        linux_only.append("Traefik")
+    from .databases import databases
+    if databases(ctx.project, ctx.catalog):
+        linux_only.append("la base de données en conteneur")
+    if linux_only:
+        out.append(_diag(rule, _fmt(rule.message, detail=(
+            f"{' et '.join(linux_only)} : image Linux uniquement, sans équivalent Windows. Retirer la brique, ou "
+            "héberger ce service sur un hôte Linux.")), uids, []))
+    return out
+
+
+@handler("private_access")
+def h_private_access(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    """VPN et bastion : utiles au déploiement SSH seulement, et un seul chemin d'accès cohérent."""
+    access = [t for t in ("tailscale", "wireguard", "ssh-bastion") if ctx.project.bricks_for(t)]
+    if not access or not ctx.project.app.enabled:
+        return []
+    names = {"tailscale": "Tailscale", "wireguard": "WireGuard", "ssh-bastion": "Bastion SSH"}
+    uids = [b.uid for t in access for b in ctx.project.bricks_for(t)]
+    out = []
+    ssh_deploy = any(ctx.project.env_target(e) in ("docker-host", "vm") for e in ctx.project.environments) and (
+        ctx.project.bricks_for("docker-compose") or ctx.project.bricks_for("ansible"))
+    if not ssh_deploy:
+        out.append(_diag(rule, _fmt(rule.message, detail=(
+            f"{', '.join(names[t] for t in access)} : le déploiement ne passe pas par SSH (hôte Docker ou machines "
+            "virtuelles avec Docker Compose ou Ansible), l'accès privé ne servirait à rien.")), uids,
+            [Action("remove_bricks", "Retirer ces briques", {"uids": uids})]))
+    if "tailscale" in access and ("ssh-bastion" in access or "wireguard" in access):
+        other = "le bastion" if "ssh-bastion" in access else "WireGuard"
+        out.append(_diag(rule, _fmt(rule.message, detail=(
+            f"Tailscale et {other} décrivent deux chemins d'accès différents vers les hôtes : la configuration SSH "
+            "écrite par la CI les empile et le premier l'emporte. N'en garder qu'un.")), uids, []))
+    return out
+
+
 @handler("env_target")
 def h_env_target(rule: Rule, ctx: Context) -> list[Diagnostic]:
     """Hébergement par environnement (hybride) : valeur connue, et briques qui livrent sur cet hébergement."""

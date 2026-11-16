@@ -27,7 +27,9 @@ def test_modele_sans_blocage_et_valide(slug, tmp_path):
     assert p.description == MODELES[slug].description
     assert PROVIDER[slug] in p.tool_ids(), "le fournisseur du modèle est dans le pipeline"
     diags = ENGINE.evaluate(p)
-    assert {d.rule_id for d in diags} <= {"R34"}, [(d.rule_id, d.message) for d in diags]  # valeurs à renseigner
+    # valeurs à renseigner (R34) ; Proxmox : fiches expérimentales (R50) et pas de stockage objet de fournisseur (R44)
+    allowed = {"R34", "R44", "R50"} if slug == "proxmox" else {"R34"}
+    assert {d.rule_id for d in diags} <= allowed, [(d.rule_id, d.message) for d in diags]
     result = generate(p, CATALOG)
     assert "infra/terraform/main.tf" in result.files and "docs/mise-en-route.md" in result.files
     _check_yaml(result.files)

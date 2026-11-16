@@ -1,0 +1,6 @@
+id: R62
+title: Accès privé aux hôtes
+family: cible
+severity: avertissement
+type: private_access
+message: "{detail}"

@@ -456,16 +456,24 @@ def _app_hostname(ir: IR, env: Environment) -> str:
 
 
 def _ansible_step(ir: IR, env: Environment, ns: str, secrets: list[str], name: str) -> Step:
-    ssh_variables(ir, "les hôtes")
+    winrm = ir.has("windows-server") and (ir.params("windows-server", env).get("connection") or "winrm") == "winrm"
+    if winrm:
+        ir.add_var("ANSIBLE_PASSWORD", "Mot de passe du compte de déploiement des hôtes Windows Server (WinRM)")
+    else:
+        ssh_variables(ir, "les hôtes")
     hosts, clouds = _tf_hosts(ir, env)
     reg = host_registry(ir)
     _registry_note(ir)
     login = ([f'export DEPLOY_REGISTRY="{reg[0]}" DEPLOY_REGISTRY_USER="{reg[1]}" DEPLOY_REGISTRY_PASSWORD="{reg[2]}"']
              if reg else [])
+    from .generators import acces as access
     from .generators import secrets as sec
     extra = "".join(f' -e "{c.env_name.lower()}=${c.env_name}"' for c in ir.project.components)
     return Step("deploy", name, "deploy", ANSIBLE_IMAGE, [
-        *component_image_lines(ir), *ANSIBLE_INSTALL, *hosts, SSH_SETUP, KNOWN_HOSTS, *secrets, *login,
+        *component_image_lines(ir), *([*ANSIBLE_INSTALL[:1], ANSIBLE_INSTALL[1].replace('"ansible-core', 'pywinrm "ansible-core', 1), *ANSIBLE_INSTALL[2:]]
+                                      if winrm else ANSIBLE_INSTALL),
+        *hosts, *([] if winrm else [SSH_SETUP, KNOWN_HOSTS]), *access.ci_lines(ir), *secrets,
+        *login,
         f'ansible-playbook -i {ir.inventory(env)} ansible/deploy.yml -e "image=$IMAGE"{extra} -e "project={ns}" '
         f'-e "deploy_env={env.id}"' + (f' -e "app_host={_app_hostname(ir, env)}"' if ir.has("traefik") else "")],
         tool="ansible", env={"ANSIBLE_CONFIG": "ansible/ansible.cfg"}, cloud=clouds,
@@ -486,6 +494,7 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
     target = ir.project.env_target(env)
     app = ir.app
     ns = ir.namespace(env)
+    from .generators import acces as access
     from .generators import data as dbgen
     from .generators import secrets as sec
     if ir.has("docker-compose") and target in ("docker-host", "vm"):
@@ -513,6 +522,7 @@ def _deploy_step(ir: IR, env: Environment) -> Step | None:
             *tf_hosts,
             SSH_SETUP,
             KNOWN_HOSTS,
+            *access.ci_lines(ir),
             f'ssh -o StrictHostKeyChecking=accept-new "${host}" "mkdir -p /opt/{ns}"',
             f'scp deploy/docker-compose.yml "${host}:/opt/{ns}/docker-compose.yml"',
             *([f'scp deploy/env/{env.id}.env "${host}:/opt/{ns}/.env"'] if _ports_shifted(ir) else []),
@@ -796,6 +806,7 @@ PROVIDER_ENV = {
                  ("OVH_APPLICATION_SECRET", "Secret d'application OVHcloud"),
                  ("OVH_CONSUMER_KEY", "Clé consommateur OVHcloud")],
     "outscale": [("OSC_ACCESS_KEY", "Clé d'accès Outscale"), ("OSC_SECRET_KEY", "Clé secrète Outscale")],
+    "proxmox": [("PROXMOX_VE_API_TOKEN", "Jeton d'API Proxmox (utilisateur@realm!jeton=secret)")],
 }
 
 

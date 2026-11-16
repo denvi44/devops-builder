@@ -36,8 +36,9 @@ HOSTINGS = {
 }
 CLOUDS = {
     "aws": "AWS", "gcp": "Google Cloud", "azure": "Azure",
-    "ovhcloud": "OVHcloud", "scaleway": "Scaleway", "outscale": "Outscale",
+    "ovhcloud": "OVHcloud", "scaleway": "Scaleway", "outscale": "Outscale", "proxmox": "Proxmox VE (vos serveurs)",
 }
+HOST_ONLY_CLOUDS = ("proxmox",)   # fournit des machines seulement : ni Kubernetes managé ni serverless
 SERVERLESS_CLOUDS = ("aws", "gcp", "azure")
 SECNUMCLOUD_CLOUDS = ("outscale", "ovhcloud")
 OBSERVABILITY = {"prometheus": "Prometheus et Grafana", "cloud": "Service du cloud", "none": "Aucune"}
@@ -95,7 +96,7 @@ def clouds_for(hosting: str, secnumcloud: bool) -> list[str]:
     if hosting == "serverless":
         options = list(SERVERLESS_CLOUDS)
     elif hosting == "kubernetes-managed":
-        options = list(CLOUDS)
+        options = [c for c in CLOUDS if c not in HOST_ONLY_CLOUDS]
     else:
         return []
     if secnumcloud:

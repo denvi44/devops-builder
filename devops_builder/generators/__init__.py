@@ -93,6 +93,8 @@ def render(project: Project, catalog: Catalog) -> tuple[dict[str, str], IR]:
     files.update(platform.platform_files(ir))
     files.update(floci.floci_files(ir))
     files.update(hosts.inventory_script(ir))
+    from . import acces
+    files.update(acces.files(ir))
     files.update(secrets.files(ir, data.compose_dbs(ir)))
     files.update(data.dev_files(ir))
     from . import identity
