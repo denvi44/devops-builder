@@ -55,7 +55,7 @@ Les variables sans valeur sont à déclarer dans la CI ; les autres sont déjà 
 
 ## Diagnostics restants
 
-- **Avertissement** (R17) — Docker Compose ne se déploie pas sur « Kubernetes autogéré » : convertir en chart Helm.
+Aucun.
 
 ## Notes
 

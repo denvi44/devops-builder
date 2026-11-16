@@ -1,0 +1,5 @@
+avertissement R34 Proxmox VE : « Adresse de l'API Proxmox » non renseigné : la valeur d'exemple « https://pve.example.lan:8006/ » sera écrite dans les fichiers.
+avertissement R34 Traefik : « Adresse publique de l'application » non renseigné : la valeur d'exemple « mon-app.example.com » sera écrite dans les fichiers.
+avertissement R44 OpenTofu tourne dans la CI sans stockage d'état distant : l'état, écrit dans le job, serait perdu à la fin de chaque pipeline et l'apply suivant recréerait les ressources. Ajouter le stockage objet du fournisseur.
+info R50 Proxmox VE (machines virtuelles) est expérimental : non essayé sur un Proxmox réel : le modèle de VM (Ubuntu 24.04, cloud-init, qemu-guest-agent) est à préparer à la main.
+info R50 Proxmox VE est expérimental : non essayé sur un Proxmox réel : les fichiers passent la validation Terraform, mais le modèle de VM (cloud-init, qemu-guest-agent) est à préparer à la main.

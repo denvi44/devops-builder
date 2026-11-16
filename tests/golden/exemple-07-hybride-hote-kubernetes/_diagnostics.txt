@@ -1,1 +1,1 @@
-avertissement R17 Docker Compose ne se déploie pas sur « Kubernetes autogéré » : convertir en chart Helm.
+

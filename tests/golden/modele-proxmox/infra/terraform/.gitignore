@@ -1,0 +1,13 @@
+# Généré par DevOps Builder — à relire avant usage.
+# État, plans et fichiers locaux : jamais dans Git. Le .terraform.lock.hcl, lui, se versionne.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+function-placeholder.zip
+crash.log
+crash.*.log
+terraform.tfvars
+*.auto.tfvars
+override.tf
+*_override.tf
