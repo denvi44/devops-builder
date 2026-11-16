@@ -192,6 +192,17 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
                     f"via Traefik, hôte {app_hostname(project, env)}")
             else:
                 add("app", name, app_port, app_port + offset, "application", "publié sur l'hôte Docker")
+            if project.app.enabled:
+                for comp in project.components:
+                    if not comp.public:
+                        add(comp.id, f"{name}-{comp.id}", comp.port, None, "composant",
+                            "réseau interne Compose, non publié")
+                    elif "traefik" in present:
+                        add(comp.id, f"{name}-{comp.id}", comp.port, None, "composant",
+                            f"via Traefik, hôte {app_hostname(project, env)}, chemin /{comp.id}")
+                    else:
+                        add(comp.id, f"{name}-{comp.id}", comp.port, comp.port + offset, "composant",
+                            "publié sur l'hôte Docker")
             for tid in COMPOSE_SERVICES:
                 if tid not in present:
                     continue
@@ -240,6 +251,10 @@ def port_plan(project: Project, catalog: Catalog) -> list[PortEntry]:
             if ingress:
                 exposure += f", exposé par {ingress}, hôte {app_hostname(project, env)}"
             add("app", name, app_port, None, "application", exposure)
+            if project.app.enabled:
+                for comp in project.components:
+                    add(comp.id, f"{name}-{comp.id}", comp.port, None, "composant",
+                        f"Service {name}-{comp.id}, espace de noms {name}{suffix}, interne au cluster")
             add_databases(True)
             for tid in dict.fromkeys(present):
                 if tid in PLATFORM_CHARTS and tid in ports and tid not in DATABASE_TOOLS:

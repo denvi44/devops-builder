@@ -1,0 +1,88 @@
+format_version: 2
+name: API commandes
+description: ''
+target: kubernetes
+environments:
+- id: dev
+  label: ''
+  kind: dev
+  approval: false
+  cluster: null
+  overrides: {}
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: node
+  image_name: api-commandes
+  port: 3000
+stages:
+  source:
+  - uid: 9d4db4e3
+    tool: github
+    params: {}
+  build:
+  - uid: 4c407c41
+    tool: github-actions
+    params: {}
+  - uid: c4f93722
+    tool: buildkit
+    params: {}
+  - uid: a3e61be6
+    tool: dependabot
+    params: {}
+  test:
+  - uid: '77481203'
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: 414b7309
+    tool: gitleaks
+    params: {}
+  - uid: e2fd0bfd
+    tool: trivy
+    params: {}
+  - uid: 1c482ad6
+    tool: cosign
+    params: {}
+  artifacts:
+  - uid: e1ef7625
+    tool: ghcr
+    params: {}
+  infrastructure:
+  - uid: 84909e6b
+    tool: k3s
+    params: {}
+  deploy:
+  - uid: d16b6f14
+    tool: helm
+    params: {}
+  - uid: c0d0f69b
+    tool: argo-cd
+    params: {}
+  platform:
+  - uid: 35579bec
+    tool: traefik
+    params: {}
+  - uid: 4d82cc8c
+    tool: cert-manager
+    params: {}
+  observability:
+  - uid: 6ffcbaca
+    tool: prometheus
+    params: {}
+  - uid: 34eb6a95
+    tool: grafana
+    params: {}

@@ -131,6 +131,9 @@ def report(ir: IR, diagnostics: list[Diagnostic], files: list[str],
         out.append("Aucun orchestrateur CI dans le pipeline : aucun fichier CI n'a été généré.")
     else:
         out.append(f"Orchestrateur : {ir.ci.name}. Image publiée : `{ir.image_ref}:<commit>`.")
+        for c in ir.project.components:
+            out.append(f"Composant `{c.id}` (dossier `{c.path}/`, port {c.port}"
+                       + (", exposé" if c.public else ", interne") + f") : image `{ir.image_ref}:{c.id}-<commit>`.")
         out.append("")
         for i, st in enumerate(ir.steps, 1):
             flags = []

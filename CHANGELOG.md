@@ -4,6 +4,15 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## 0.30.0 — 2026-11-16 — Plusieurs applications par projet
+
+### Ajouté
+- **Applications supplémentaires** (API, interface, worker…) : chaque composant a son identifiant, son langage, son port et son dossier (`services/<id>` par défaut). La CI construit, teste, analyse (Trivy, Grype, Syft) et signe (Cosign) une image par composant, dans le même dépôt du registre, étiquetée `<id>-<commit>`. Déploiement Docker Compose (SSH ou Ansible) : un service par composant, route Traefik `/<id>` pour les composants exposés, adresse interne `<ID>_URL` donnée à l'application principale. Déploiement Helm : un Deployment et un Service par composant. Édition dans Application › Applications supplémentaires ; plan des ports, rapport et comparaison avant/après en tiennent compte ; exemple « Boutique en plusieurs applications ».
+- **Règle R60** : identifiants invalides ou en double, et cibles qui ne livrent pas encore plusieurs applications (Kustomize, Argo CD, Flux, ECS Fargate, Cloud Run, Azure Container Apps, fonctions) — génération bloquée avec un message explicite.
+
+### Limites
+- Le test kind jetable n'est pas généré avec des composants. Les gabarits Helm des composants sont vérifiés par la CI du projet (aucun binaire helm dans l'environnement de développement).
+
 ## 0.29.0 — 2026-11-16 — Comparaison avant / après
 
 ### Ajouté

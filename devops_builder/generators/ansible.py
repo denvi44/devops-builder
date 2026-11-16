@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 
-from ..ir import IR, ansible_hosts, host_registry
+from ..ir import IR, ansible_hosts, host_registry, project_components
 from .common import HEADER, dump_yaml
 
 ANSIBLE_CORE = "ansible-core>=2.21,<2.22"
@@ -58,8 +58,17 @@ def _inventory(ir: IR, env) -> str:
 def _app_definition(ir: IR) -> dict:
     """Projet Compose minimal quand le pipeline n'a pas de brique Docker Compose : l'application seule."""
     port = ir.project.app.port
-    return {"services": {ir.app: {"image": "{{ image }}", "restart": "unless-stopped",
-                                  "environment": {"PORT": str(port)}, "ports": [f"{port}:{port}"]}}}
+    from .deploy import component_url_env
+    app_env = {"PORT": str(port), **component_url_env(ir, lambda c: c.id)}
+    services = {ir.app: {"image": "{{ image }}", "restart": "unless-stopped",
+                         "environment": app_env, "ports": [f"{port}:{port}"]}}
+    for c in project_components(ir):
+        svc: dict = {"image": "{{ " + c.env_name.lower() + " }}", "restart": "unless-stopped",
+                     "environment": {"PORT": str(c.port)}}
+        if c.public:
+            svc["ports"] = [f"{c.port}:{c.port}"]
+        services[c.id] = svc
+    return {"services": services}
 
 
 def ansible(ir: IR) -> dict[str, str]:
@@ -101,8 +110,12 @@ def ansible(ir: IR) -> dict[str, str]:
         start = {"project_src": "{{ app_dir }}", "definition": _app_definition(ir), **start}
     tasks.append({"name": "Démarrer les services",
                   "community.docker.docker_compose_v2": start,
-                  "environment": {"IMAGE": "{{ image }}", **({"APP_HOST": "{{ app_host }}"} if ir.has("traefik") else {})}})
+                  "environment": {"IMAGE": "{{ image }}",
+                                  **{c.env_name: "{{ " + c.env_name.lower() + " }}" for c in project_components(ir)},
+                                  **({"APP_HOST": "{{ app_host }}"} if ir.has("traefik") else {})}})
     variables = {"image": f"{ir.image_ref}:latest", "project": ir.app, "app_dir": "/opt/{{ project }}"}
+    for c in project_components(ir):
+        variables[c.env_name.lower()] = f"{ir.image_ref}:{c.id}-latest"
     if ir.has("traefik"):
         from ..ports import app_hostname
         variables["app_host"] = app_hostname(ir.project)

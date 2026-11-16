@@ -1016,6 +1016,48 @@ def h_image_name(rule: Rule, ctx: Context) -> list[Diagnostic]:
         [Action("set_app_image", f"Utiliser « {slug(name or '')} »", {"value": slug(name or "")})])]
 
 
+# Cibles de déploiement qui ne savent pas encore livrer plusieurs applications
+COMPONENTS_UNSUPPORTED = {
+    "kustomize": "Kustomize", "argo-cd": "Argo CD", "flux": "Flux", "ecs-fargate": "ECS Fargate",
+    "cloud-run": "Cloud Run", "azure-container-apps": "Azure Container Apps", "aws-lambda": "AWS Lambda",
+    "gcp-functions": "Cloud Functions", "azure-functions": "Azure Functions",
+    "scaleway-functions": "Scaleway Functions",
+}
+
+
+@handler("components")
+def h_components(rule: Rule, ctx: Context) -> list[Diagnostic]:
+    """Applications supplémentaires : identifiants valides et uniques, cibles de déploiement qui les prennent en charge."""
+    comps = ctx.project.components
+    if not comps or not ctx.project.app.enabled:
+        return []
+    seen: set[str] = set()
+    taken = {ctx.project.app.image_name}
+    problems: list[str] = []
+    for c in comps:
+        if not IMAGE_NAME_PATTERN.fullmatch(c.id or "") or "." in c.id or "_" in c.id or len(c.id) > 40:
+            problems.append(f"L'identifiant « {c.id} » n'est pas valide : minuscules, chiffres et tirets seulement "
+                            "(40 caractères au plus).")
+        elif c.id in seen or c.id in taken:
+            problems.append(f"L'identifiant « {c.id} » est déjà pris par l'application ou un autre composant.")
+        elif c.id in {"migrate", "traefik"}:
+            problems.append(f"L'identifiant « {c.id} » est réservé à un service du projet.")
+        seen.add(c.id)
+        if not 1 <= c.port <= 65535:
+            problems.append(f"Le port du composant « {c.id} » ({c.port}) est hors de la plage 1–65535.")
+    present = [t for t in COMPONENTS_UNSUPPORTED if ctx.project.bricks_for(t)]
+    if present:
+        names = ", ".join(COMPONENTS_UNSUPPORTED[t] for t in present)
+        problems.append(
+            f"{names} ne livre{'nt' if len(present) > 1 else ''} pas encore plusieurs applications : "
+            "les composants ne seraient ni déployés ni exposés. Utiliser Docker Compose, Ansible ou Helm, "
+            "ou retirer les applications supplémentaires.")
+    if not problems:
+        return []
+    uids = [b.uid for t in present for b in ctx.project.bricks_for(t)]
+    return [_diag(rule, _fmt(rule.message, detail=" ".join(problems)), uids, [])]
+
+
 # Rôles qui n'ont de sens qu'avec une application à construire, tester ou livrer
 APP_ONLY_ROLES = {"image-build", "unit-tests", "sast", "vuln-scan", "signing", "sbom", "dependency-update",
                   "secret-scan", "database-migrations", "gitops", "packaging", "dast", "config-mgmt"}

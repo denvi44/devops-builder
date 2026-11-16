@@ -1,0 +1,82 @@
+# Généré par DevOps Builder — à relire avant usage.
+name: site-web
+services:
+  site-web:
+    image: ${IMAGE:-registry.example.com/site-web/site-web:latest}
+    restart: unless-stopped
+    environment:
+      PORT: '8000'
+      API_URL: http://api:9000
+      WORKER_URL: http://worker:8081
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.site-web.rule=Host(`${APP_HOST:-site-web.example.com}`)
+    - traefik.http.routers.site-web.entrypoints=websecure
+    - traefik.http.services.site-web.loadbalancer.server.port=8000
+  api:
+    image: ${IMAGE_API:-registry.example.com/site-web/site-web:api-latest}
+    restart: unless-stopped
+    environment:
+      PORT: '9000'
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.site-web-api.rule=Host(`${APP_HOST:-site-web.example.com}`) && PathPrefix(`/api`)
+    - traefik.http.routers.site-web-api.entrypoints=websecure
+    - traefik.http.routers.site-web-api.middlewares=site-web-api-strip
+    - traefik.http.middlewares.site-web-api-strip.stripprefix.prefixes=/api
+    - traefik.http.services.site-web-api.loadbalancer.server.port=9000
+  worker:
+    image: ${IMAGE_WORKER:-registry.example.com/site-web/site-web:worker-latest}
+    restart: unless-stopped
+    environment:
+      PORT: '8081'
+  traefik:
+    image: traefik:v3.1
+    command:
+    - --providers.docker=true
+    - --providers.docker.exposedbydefault=false
+    - --entrypoints.web.address=:80
+    - --entrypoints.web.http.redirections.entrypoint.to=websecure
+    - --entrypoints.web.http.redirections.entrypoint.scheme=https
+    - --entrypoints.websecure.address=:443
+    - --entrypoints.websecure.http.tls=true
+    - --entrypoints.websecure.http.tls.certresolver=letsencrypt
+    - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+    - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+    ports:
+    - 80:80
+    - 443:443
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    - traefik-letsencrypt:/letsencrypt
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+    - prometheus-data:/prometheus
+  grafana:
+    image: grafana/grafana:latest
+    volumes:
+    - grafana-data:/var/lib/grafana
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.grafana.rule=Host(`grafana.example.com`)
+    - traefik.http.routers.grafana.entrypoints=websecure
+    - traefik.http.services.grafana.loadbalancer.server.port=3000
+  loki:
+    image: grafana/loki:latest
+  sonarqube:
+    image: sonarqube:community
+    volumes:
+    - sonarqube-data:/opt/sonarqube/data
+    environment:
+      SONAR_SEARCH_JAVAADDITIONALOPTS: -Dnode.store.allow_mmap=false
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.sonarqube.rule=Host(`sonarqube.example.com`)
+    - traefik.http.routers.sonarqube.entrypoints=websecure
+    - traefik.http.services.sonarqube.loadbalancer.server.port=9000
+volumes:
+  grafana-data: {}
+  prometheus-data: {}
+  sonarqube-data: {}
+  traefik-letsencrypt: {}

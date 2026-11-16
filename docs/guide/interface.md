@@ -95,7 +95,7 @@ contrôles et leurs limites : [Accessibilité de l'application](../accessibilite
 Fichier › Ouvrir (Ctrl+O), ou depuis un terminal : `devops-builder mon-projet.devops.yaml`. Un fichier écrit par
 une version plus ancienne s'ouvre sans perte ; un fichier modifié à la main qui contient une erreur est refusé
 avec un message qui dit où et pourquoi (« YAML invalide ligne 12, colonne 3 : tabulation interdite en YAML :
-indenter avec des espaces »). Quatre exemples sont livrés dans Fichier › Ouvrir un exemple.
+indenter avec des espaces »). Six exemples sont livrés dans Fichier › Ouvrir un exemple.
 
 ## Simuler une modification d'architecture
 
@@ -109,3 +109,23 @@ Le point de départ est l'état du projet à l'ouverture ; **Prendre l'état act
 (pratique pour comparer plusieurs variantes de suite). **Comparer avec un autre projet…** prend un fichier
 `.devops.yaml` comme état de départ, par exemple l'architecture actuelle d'un client. En ligne de commande :
 `devops-builder compare avant.devops.yaml apres.devops.yaml`.
+
+
+## Plusieurs applications dans un projet
+
+Application › « Applications supplémentaires » ajoute à l'application principale une API, une interface, un worker…
+Chaque composant a son identifiant, son langage, son port et son dossier dans le dépôt (par défaut
+`services/<identifiant>`, avec son propre Dockerfile).
+
+Le pipeline construit, teste et analyse chaque composant : une image par composant, dans le même dépôt du registre,
+avec l'étiquette `<identifiant>-<commit>`. Le déploiement les livre ensemble :
+
+- **Docker Compose** (SSH ou Ansible) : un service par composant ; l'application principale les joint par leur nom
+  (variable `API_URL=http://api:9000`). Un composant « exposé » est routé par Traefik sur `/<identifiant>` (préfixe
+  retiré avant d'arriver au service), ou publié sur l'hôte sans Traefik.
+- **Helm** : un Deployment et un Service par composant dans le même chart (`components.<id>` dans `values.yaml`).
+
+Kustomize, Argo CD, Flux, ECS Fargate, Cloud Run, Azure Container Apps et les fonctions serverless ne livrent pas
+encore plusieurs applications : la règle R60 le signale et bloque la génération. Le test kind jetable n'est pas
+généré avec des composants (il ne construit que l'application principale). Un exemple est livré : « Boutique en
+plusieurs applications ».

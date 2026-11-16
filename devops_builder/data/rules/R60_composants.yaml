@@ -1,0 +1,6 @@
+id: R60
+title: Applications supplémentaires du projet
+family: completude
+severity: bloquant
+type: components
+message: "{detail}"

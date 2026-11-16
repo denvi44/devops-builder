@@ -78,3 +78,21 @@ de briques :
 | format 1 (0.1, 0.2) | 2 | Le champ unique `environment` devient la liste `environments` |
 | 0.7 | 0.8 | Les bases de données rangées en Plateforme restent acceptées là ; les nouvelles vont dans Données |
 | `lsc-…` | fiche | Une entrée du Landscape devenue fiche garde son ancien identifiant comme alias |
+
+
+## Applications supplémentaires (0.30)
+
+Clé facultative `components`, absente quand le projet n'a qu'une application (les fichiers des versions précédentes
+restent identiques) :
+
+```yaml
+components:
+- id: api
+  language: go
+  port: 9000
+  source: ''
+  public: true
+```
+
+`id` : minuscules, chiffres et tirets ; `source` : dossier du dépôt, vide pour `services/<id>` ; `public` : exposé à
+l'extérieur. Le format reste à `format_version: 2`.

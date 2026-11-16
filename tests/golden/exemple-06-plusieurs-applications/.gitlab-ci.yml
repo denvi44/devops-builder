@@ -1,0 +1,213 @@
+# Généré par DevOps Builder — à relire avant usage.
+stages:
+- test
+- build
+- security
+- deploy
+- renovate
+variables:
+  TAG: $CI_COMMIT_SHORT_SHA
+  IMAGE: registry.example.com/site-web/site-web:$CI_COMMIT_SHORT_SHA
+unit-tests:
+  stage: test
+  image:
+    name: python:3.12-slim
+    entrypoint:
+    - ''
+  script:
+  - pip install -r requirements.txt
+  - pytest -q
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+unit-tests-api:
+  stage: test
+  image:
+    name: golang:1.23
+    entrypoint:
+    - ''
+  script:
+  - cd services/api
+  - go test ./...
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+unit-tests-worker:
+  stage: test
+  image:
+    name: python:3.12-slim
+    entrypoint:
+    - ''
+  script:
+  - cd services/worker
+  - pip install -r requirements.txt
+  - pytest -q
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+sonarqube:
+  stage: test
+  image:
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint:
+    - ''
+  script:
+  - sonar-scanner -Dsonar.projectKey=site-web -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+build-image:
+  stage: build
+  image:
+    name: docker:27
+    entrypoint:
+    - ''
+  services:
+  - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: /certs
+  script:
+  - echo "$REGISTRY_PASSWORD" | docker login "registry.example.com" -u "$REGISTRY_USER" --password-stdin
+  - docker buildx build --tag "$IMAGE" --push .
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+build-image-api:
+  stage: build
+  image:
+    name: docker:27
+    entrypoint:
+    - ''
+  services:
+  - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: /certs
+  script:
+  - echo "$REGISTRY_PASSWORD" | docker login "registry.example.com" -u "$REGISTRY_USER" --password-stdin
+  - IMAGE_API="${IMAGE%:*}:api-${IMAGE##*:}"
+  - docker buildx build --tag "$IMAGE_API" --push services/api
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+build-image-worker:
+  stage: build
+  image:
+    name: docker:27
+    entrypoint:
+    - ''
+  services:
+  - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: /certs
+  script:
+  - echo "$REGISTRY_PASSWORD" | docker login "registry.example.com" -u "$REGISTRY_USER" --password-stdin
+  - IMAGE_WORKER="${IMAGE%:*}:worker-${IMAGE##*:}"
+  - docker buildx build --tag "$IMAGE_WORKER" --push services/worker
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+gitleaks:
+  stage: security
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint:
+    - ''
+  script:
+  - gitleaks detect --source . --verbose
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+trivy:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint:
+    - ''
+  variables:
+    TRIVY_USERNAME: $REGISTRY_USER
+    TRIVY_PASSWORD: $REGISTRY_PASSWORD
+  script:
+  - trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE"
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+trivy-api:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint:
+    - ''
+  variables:
+    TRIVY_USERNAME: $REGISTRY_USER
+    TRIVY_PASSWORD: $REGISTRY_PASSWORD
+  script:
+  - IMAGE_API="${IMAGE%:*}:api-${IMAGE##*:}"
+  - trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE_API"
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+trivy-worker:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint:
+    - ''
+  variables:
+    TRIVY_USERNAME: $REGISTRY_USER
+    TRIVY_PASSWORD: $REGISTRY_PASSWORD
+  script:
+  - IMAGE_WORKER="${IMAGE%:*}:worker-${IMAGE##*:}"
+  - trivy image --exit-code 1 --severity HIGH,CRITICAL "$IMAGE_WORKER"
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+deploy:
+  stage: deploy
+  image:
+    name: python:3.12-alpine
+    entrypoint:
+    - ''
+  environment:
+    name: production
+  variables:
+    ANSIBLE_CONFIG: ansible/ansible.cfg
+  script:
+  - IMAGE_API="${IMAGE%:*}:api-${IMAGE##*:}"
+  - IMAGE_WORKER="${IMAGE%:*}:worker-${IMAGE##*:}"
+  - apk add --no-cache openssh-client
+  - pip install --no-cache-dir "ansible-core>=2.21,<2.22" || pipx install "ansible-core>=2.21,<2.22"
+  - ansible-galaxy collection install -r ansible/requirements.yml
+  - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  - if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; fi
+  - export DEPLOY_REGISTRY="registry.example.com" DEPLOY_REGISTRY_USER="$REGISTRY_USER" DEPLOY_REGISTRY_PASSWORD="$REGISTRY_PASSWORD"
+  - ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e "image=$IMAGE" -e "image_api=$IMAGE_API" -e "image_worker=$IMAGE_WORKER" -e "project=site-web" -e "deploy_env=production" -e "app_host=site-web.example.com"
+  rules:
+  - if: $RENOVATE == "1"
+    when: never
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+renovate:
+  stage: renovate
+  image:
+    name: renovate/renovate:44.164.5
+    entrypoint:
+    - ''
+  rules:
+  - if: $CI_PIPELINE_SOURCE == "schedule" && $RENOVATE == "1"
+  variables:
+    RENOVATE_PLATFORM: gitlab
+    RENOVATE_ENDPOINT: $CI_API_V4_URL
+    RENOVATE_REPOSITORIES: $CI_PROJECT_PATH
+    LOG_LEVEL: info
+  script:
+  - renovate
