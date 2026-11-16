@@ -45,7 +45,7 @@ def test_une_image_par_composant_dans_la_ci():
         build = "\n".join(ci[f"build-image-{cid}"]["script"])
         assert f'{var}="${{IMAGE%:*}}:{cid}-${{IMAGE##*:}}"' in build
         assert f'docker buildx build --tag "${var}" --push services/{cid}' in build
-        assert f'trivy image' in "\n".join(ci[f"trivy-{cid}"]["script"]) and f'"${var}"' in "\n".join(ci[f"trivy-{cid}"]["script"])
+        assert 'trivy image' in "\n".join(ci[f"trivy-{cid}"]["script"]) and f'"${var}"' in "\n".join(ci[f"trivy-{cid}"]["script"])
         assert f"cosign sign --yes \"${var}\"" in "\n".join(ci[f"cosign-{cid}"]["script"])
         assert "cd services/" + cid in "\n".join(ci[f"unit-tests-{cid}"]["script"])
 

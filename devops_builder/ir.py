@@ -251,11 +251,11 @@ def component_image_line(c) -> str:
     return f'{c.env_name}="${{IMAGE%:*}}:{c.id}-${{IMAGE##*:}}"'
 
 
-def project_components(ir: "IR") -> list:
+def project_components(ir: IR) -> list:
     return list(ir.project.components) if ir.project.app.enabled else []
 
 
-def component_image_lines(ir: "IR") -> list[str]:
+def component_image_lines(ir: IR) -> list[str]:
     return [component_image_line(c) for c in ir.project.components] if ir.project.app.enabled else []
 
 
