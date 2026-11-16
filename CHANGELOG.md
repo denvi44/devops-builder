@@ -4,6 +4,20 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## 0.28.0 — 2026-11-16 — Essai UX/UI : treize défauts majeurs corrigés
+
+### Corrigé
+- **Enregistrement et archive zip** : un emplacement non inscriptible affiche maintenant « Enregistrement impossible » ou « Export impossible » avec la cause en français, au lieu d'échouer sans rien dire.
+- **Diagnostics** : double-clic ou Entrée sur un diagnostic montre la brique concernée ; il n'applique plus la première correction (qui pouvait retirer Trivy ou changer de CI). Les corrections passent par leur bouton.
+- **Diagnostics au clavier** : la sélection d'une brique depuis la liste ne prend plus le focus ; les flèches continuent de parcourir les diagnostics.
+- **Projet « plateforme seule »** : la pastille affiche « Plateforme seule » et le bandeau ne demande plus de désigner le dossier d'une application.
+- **Assistant** : le nom d'image est normalisé à la saisie (« Mon App !! É » devient « mon-app-e ») ; le récapitulatif annonce les erreurs bloquantes ; revenir à « Un serveur avec Docker » retrouve « Serveurs existants » au lieu de laisser un cloud payant coché.
+- **Recherche du catalogue** : tolère une ou deux fautes de frappe (« kubernets », « dokcer », « graphana »), comprend des mots français courants (« bdd », « supervision », « authentification », « mot de passe », « proxy inverse », « intégration continue »), reconnaît le nom d'une étape (« sécurité »), et ne cherche les termes de trois lettres ou moins (« ci », « sso ») que comme mots entiers.
+- **Guide de mise en route** : plus de chevrons ni de commentaires dans les blocs à coller ; l'adresse de l'hôte est une variable (`$HOTE`) posée dans « Valeurs à adapter » ; le jeton du coffre est saisi sans écho ; la création du compte de déploiement est coupée en deux blocs (sur le poste, puis sur l'hôte) sans fichier à transporter ; remarques non tronquées et sans doublon.
+- **Fenêtre** : largeur minimale ramenée de 1 271 à 1 000 px, tailles de départ des panneaux, colonnes du pipeline plus étroites (212 px), panneau Diagnostics repliable plus bas.
+- **Aide › Règles de compatibilité** : dialogue redimensionnable avec défilement, au lieu d'une boîte de 1 475 px.
+- **Ligne de commande** : `init --envs` et `init --hosting` refusent une valeur inconnue avec un message clair et le code 2.
+
 ## 0.27.1 — 2026-11-16 — Thème Verre : survol, rendu et relief
 
 ### Modifié

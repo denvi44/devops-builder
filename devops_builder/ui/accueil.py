@@ -209,7 +209,7 @@ def next_step(project, diags, severity_blocking) -> tuple[str, str, str, str]:
     if values:
         return ("renseigner les valeurs d'exemple (nom du cluster, adresse publique…) : sélectionner la brique "
                 "signalée, puis le panneau Propriétés.", "Voir lesquelles", "diagnostics", "warning")
-    if not project.app.source:
+    if project.app.enabled and not project.app.source:
         return ("désigner le dossier de votre application, pour y lire le langage, le port et la base.",
                 "Choisir le dossier", "application", "info")
     return ("le pipeline est prêt : générer les fichiers.", "Générer", "generer", "ok")

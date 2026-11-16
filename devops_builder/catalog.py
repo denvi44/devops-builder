@@ -120,6 +120,13 @@ class Catalog:
         target: str | None = None,
     ) -> list[Tool]:
         words = [w for w in re.split(r"[\s']+", _fold(text)) if w and w not in _STOP]
+        out = self._search(words, stage, include_uncurated, oss_only, maturity, target, fuzzy=False)
+        if not out and words and not stage:  # rien d'exact : tolérer une faute de frappe
+            out = self._search(words, stage, include_uncurated, oss_only, maturity, target, fuzzy=True)
+        return out
+
+    def _search(self, words, stage, include_uncurated, oss_only, maturity, target, fuzzy: bool) -> list[Tool]:
+        from .model import STAGE_LABELS
         out: list[Tool] = []
         ranks: dict[str, int] = {}
         for t in self.tools.values():
@@ -137,8 +144,11 @@ class Catalog:
                 continue
             if words:
                 title = _fold(f"{t.name} {t.id}")
-                hay = _fold(" ".join([t.name, t.id, t.description, " ".join(t.roles), *_ALIASES.get(t.id, ())]))
-                if not all(any(a in hay for a in (w, *_SYNONYMS.get(w, ()))) for w in words):
+                french = " ".join(_ROLE_FR.get(r, "") for r in t.roles)
+                hay = _fold(" ".join([t.name, t.id, t.description, " ".join(t.roles), STAGE_LABELS.get(t.stage, ""), t.stage,
+                                      french, *_ALIASES.get(t.id, ())]))
+                tokens = set(re.findall(r"[a-z0-9]+", hay))
+                if not all(_matches(w, hay, tokens, fuzzy) for w in words):
                     continue
                 if not all(w in title for w in words):
                     ranks[t.id] = 1
@@ -147,13 +157,44 @@ class Catalog:
         return out
 
 
+def _matches(word: str, hay: str, tokens: set[str], fuzzy: bool) -> bool:
+    """Un mot saisi : mot entier pour les termes courts (« ci », « sso »), sous-chaîne sinon, avec les synonymes ;
+    en dernier recours, un mot proche à une ou deux lettres près."""
+    alternatives = (word, *_SYNONYMS.get(word, ()))
+    for a in alternatives:
+        if len(a) <= 3:
+            if a in tokens:
+                return True
+        elif a in hay:
+            return True
+    if fuzzy and len(word) >= 4:
+        import difflib
+        return bool(difflib.get_close_matches(word, tokens, n=1, cutoff=0.8 if len(word) < 8 else 0.75))
+    return False
+
+
 # Termes français courants absents des descriptions (en anglais) : mot saisi → équivalents recherchables.
 _SYNONYMS: dict[str, tuple[str, ...]] = {
     "base": ("database",), "donnees": ("data", "database"), "repartiteur": ("load balancer", "lb"),
     "surveillance": ("monitoring",), "supervision": ("monitoring",), "sauvegarde": ("backup",),
     "journaux": ("logs",), "journal": ("log",), "conteneur": ("container",), "conteneurs": ("containers",),
     "secrets": ("secret", "vault"), "chiffrement": ("encryption", "kms"), "cle": ("key",), "cles": ("keys",),
-    "charge": ("load",), "pare-feu": ("firewall", "waf"), "parefeu": ("firewall", "waf"), "fichiers": ("files", "storage"),
+    "charge": ("load",), "inverse": ("reverse",), "pgsql": ("postgres",), "mysql": ("mariadb",), "pare-feu": ("firewall", "waf"), "parefeu": ("firewall", "waf"), "fichiers": ("files", "storage"),
+}
+# Mots français par rôle, pour retrouver un outil par ce qu'il fait (les fiches sont en anglais).
+_ROLE_FR: dict[str, str] = {
+    "metrics": "supervision surveillance metriques monitoring", "metrics-longterm": "supervision metriques",
+    "dashboards": "tableaux de bord supervision graphiques", "logs": "journaux logs", "log-shipper": "journaux logs",
+    "tracing": "traces supervision", "telemetry-collector": "supervision telemetrie",
+    "ingress": "reverse proxy proxy inverse entree reseau https", "load-balancer": "repartiteur de charge proxy inverse",
+    "identity-provider": "authentification connexion unique sso identite comptes utilisateurs",
+    "secrets": "mot de passe secrets coffre", "kms": "chiffrement cles secrets", "secrets-sync": "mot de passe secrets",
+    "database": "bdd base de donnees sgbd", "sql-database": "bdd base de donnees sgbd sql pgsql",
+    "managed-database": "bdd base de donnees", "document-database": "bdd base de donnees nosql",
+    "ci": "integration continue pipeline", "backup": "sauvegarde", "certificates": "certificats https tls",
+    "secret-scan": "securite secrets fuite", "vuln-scan": "securite vulnerabilites", "dast": "securite test intrusion",
+    "sast": "securite analyse code", "waf": "pare-feu securite", "registry": "registre images",
+    "object-storage": "stockage fichiers", "message-queue": "file de messages", "gitops": "deploiement continu",
 }
 _STOP = {"de", "du", "des", "la", "le", "les", "un", "une", "d", "l", "et", "pour", "en"}
 _ALIASES: dict[str, tuple[str, ...]] = {}

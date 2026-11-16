@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 
 from ..catalog import Catalog
 from ..messages import explain
-from ..model import ENV_PRESETS, LANGUAGES, STAGE_LABELS, Project
+from ..model import ENV_PRESETS, LANGUAGES, STAGE_LABELS, Project, Severity
 from ..rules import RuleEngine
 from ..starter import (
     CLOUDS,
@@ -53,6 +53,11 @@ def _radios(options: dict[str, str], layout: QVBoxLayout, default: str) -> QButt
         group.addButton(rb, i)
         layout.addWidget(rb)
     return group
+
+
+def _image_slug(text: str) -> str:
+    from ..appscan import slug
+    return slug(text) if text.strip() else "mon-app"
 
 
 def _checked(group: QButtonGroup) -> str:
@@ -103,6 +108,7 @@ class StarterWizard(QWizard):
         for k, v in LANGUAGES.items():
             self.w_language.addItem(v, k)
         self.w_image = QLineEdit("mon-app")
+        self.w_image.editingFinished.connect(self._normalize_image)
         self.w_port = QSpinBox()
         self.w_port.setRange(1, 65535)
         self.w_port.setValue(8000)
@@ -190,9 +196,12 @@ class StarterWizard(QWizard):
             options = machines
         for c in options:
             self.w_cloud.addItem(CLOUDS[c] + (" — machines créées par Terraform" if machines else ""), c)
-        index = self.w_cloud.findData(current)
+        # Le choix n'est conservé que si l'hébergement n'a pas changé : revenir à « Un serveur avec Docker »
+        # doit retrouver « Serveurs existants », pas un cloud payant choisi pour un autre type d'hébergement.
+        index = self.w_cloud.findData(current) if hosting == getattr(self, "_cloud_hosting", hosting) else -1
         if index >= 0:
             self.w_cloud.setCurrentIndex(index)
+        self._cloud_hosting = hosting
         self.w_cloud.setEnabled(bool(options))
         problems = validate(self.collect())
         self.hosting_error.setText(" ".join(problems))
@@ -296,6 +305,12 @@ class StarterWizard(QWizard):
         page.initializePage = self._init_summary  # type: ignore[method-assign]
         return page
 
+    def _normalize_image(self) -> None:
+        from .. import appscan
+        text = self.w_image.text().strip()
+        if text:
+            self.w_image.setText(appscan.slug(text))
+
     def _init_summary(self) -> None:
         project = self.project()
         rows = []
@@ -308,8 +323,15 @@ class StarterWizard(QWizard):
         if hosts:
             envs += " ; hors production sur un même hôte, ports décalés"
         diags = self.engine.evaluate(project)
-        warn = sum(1 for d in diags if d.severity.value == "avertissement")
-        tail = f"<p>{warn} avertissement(s) à examiner, aucun blocage.</p>" if warn else "<p>Aucun blocage.</p>"
+        warn = sum(1 for d in diags if d.severity is Severity.WARNING)
+        block = sum(1 for d in diags if d.severity is Severity.BLOCKING)
+        if block:
+            tail = (f"<p><b>{block} erreur(s) bloquante(s)</b> à corriger avant de générer"
+                    + (f", et {warn} avertissement(s)" if warn else "") + ".</p>")
+        elif warn:
+            tail = f"<p>{warn} avertissement(s) à examiner, aucun blocage.</p>"
+        else:
+            tail = "<p>Aucun blocage.</p>"
         self.summary.setText(f"<p>Environnements : {envs}</p><table>{''.join(rows)}</table>{tail}")
 
     # ---------------------------------------------------------------- résultat
@@ -326,7 +348,8 @@ class StarterWizard(QWizard):
 
     def _collect(self) -> StarterAnswers:
         return StarterAnswers(
-            name=self.w_name.text(), language=self.w_language.currentData(), image_name=self.w_image.text(),
+            name=self.w_name.text(), language=self.w_language.currentData(),
+            image_name=_image_slug(self.w_image.text()),
             port=self.w_port.value(), forge=_checked(self.g_forge), hosting=_checked(self.g_hosting),
             cloud=self.w_cloud.currentData() if self.w_cloud.isEnabled() else None,
             secnumcloud=self.w_secnum.isChecked(),

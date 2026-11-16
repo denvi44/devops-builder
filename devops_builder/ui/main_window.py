@@ -11,6 +11,7 @@ from PySide6.QtCore import QSettings, Qt, QTimer
 from PySide6.QtGui import QAction, QActionGroup, QKeySequence, QUndoCommand, QUndoStack
 from PySide6.QtWidgets import (
     QApplication,
+    QDialog,
     QDockWidget,
     QFileDialog,
     QFrame,
@@ -22,6 +23,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
+    QTextBrowser,
     QToolBar,
     QVBoxLayout,
     QWidget,
@@ -127,7 +129,7 @@ class MainWindow(QMainWindow):
         self.bar = bar
         self.title = QLabel()
         self.title.setObjectName("heroTitle")
-        self.title.setMinimumWidth(120)
+        self.title.setMinimumWidth(theme.px(60))
         self.title.setWordWrap(True)  # texte agrandi ou nom long : le titre passe à la ligne plutôt que d'être coupé
         self.title.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
         bar.addWidget(self.title)
@@ -136,6 +138,7 @@ class MainWindow(QMainWindow):
         self.app_btn.setToolTip("L'application mise en pipeline : dossier, analyse, langage, port")
         self.app_btn.setAccessibleName("Application")
         self.app_btn.clicked.connect(self.edit_application)
+        self.app_btn.setMinimumWidth(theme.px(110))  # texte rogné sur un petit écran, l'infobulle le redonne en entier
         bar.addWidget(self.app_btn)
         # Les puces prennent la place qui reste : sur un petit écran elles sont rognées au lieu
         # d'imposer à la fenêtre une largeur minimale plus grande que l'écran.
@@ -206,7 +209,7 @@ class MainWindow(QMainWindow):
         self.palette.ficheRequested.connect(self.edit_fiche)
         self.palette.ficheDeleteRequested.connect(self.delete_fiche)
         self.palette_dock = self._dock("Catalogue", self.palette, Qt.DockWidgetArea.LeftDockWidgetArea)
-        self.palette_dock.setMinimumWidth(300)
+        self.palette_dock.setMinimumWidth(theme.px(200))
 
         self.properties = PropertiesPanel(self.catalog)
         self.properties.paramsChanged.connect(self.set_params)
@@ -216,13 +219,16 @@ class MainWindow(QMainWindow):
         self.properties.addRequested.connect(lambda tid: self.add_tool(None, tid, -1))
         self.properties.ficheRequested.connect(self.edit_fiche)
         self.props_dock = self._dock("Propriétés", self.properties, Qt.DockWidgetArea.RightDockWidgetArea)
-        self.props_dock.setMinimumWidth(320)
+        self.props_dock.setMinimumWidth(theme.px(240))
 
         self.diagnostics = DiagnosticsPanel()
         self.diagnostics.brickFocused.connect(self._focus_brick)
         self.diagnostics.actionRequested.connect(self.apply_fix)
         self.diag_dock = self._dock("Diagnostics", self.diagnostics, Qt.DockWidgetArea.BottomDockWidgetArea)
-        self.diag_dock.setMinimumHeight(190)
+        self.diag_dock.setMinimumHeight(theme.px(110))
+        # Tailles de départ raisonnables : sans elles, le panneau du bas se partage la fenêtre à égalité avec le pipeline
+        self.resizeDocks([self.palette_dock, self.props_dock], [theme.px(270), theme.px(290)], Qt.Orientation.Horizontal)
+        self.resizeDocks([self.diag_dock], [theme.px(200)], Qt.Orientation.Vertical)
 
     def _dock(self, title: str, widget: QWidget, area: Qt.DockWidgetArea) -> QDockWidget:
         dock = QDockWidget(title, self)
@@ -437,7 +443,10 @@ class MainWindow(QMainWindow):
         p = self.project
         self.title.setText(p.name)
         name = p.app.image_name if len(p.app.image_name) <= 22 else p.app.image_name[:21] + "…"
-        self.app_btn.setText(f"{name} :{p.app.port}" + ("" if p.app.source else " · dossier ?"))
+        if p.app.enabled:
+            self.app_btn.setText(f"{name} :{p.app.port}" + ("" if p.app.source else " · dossier ?"))
+        else:
+            self.app_btn.setText("Plateforme seule")
         self.app_btn.setIcon(icon(LANGUAGE_ICONS.get(p.app.language, "mdi6.application-outline"), theme.current().primary))
         self.app_btn.setToolTip(f"Application {app_label(p)}\nDossier : {p.app.source}" if p.app.source
                                 else f"Application {app_label(p)}\nDésigner son dossier pour l'analyser (Ctrl+Maj+A)")
@@ -665,7 +674,7 @@ class MainWindow(QMainWindow):
 
     def _focus_brick(self, uid: str) -> None:
         self.selected = uid
-        self.canvas.select(uid)
+        self.canvas.select(uid, take_focus=False)
         self._show_selected()
 
     def _show_catalog_tool(self, tool_id: str) -> None:
@@ -859,7 +868,13 @@ class MainWindow(QMainWindow):
     def save(self) -> bool:
         if self.path is None:
             return self.save_as()
-        self.project.save(self.path)
+        try:
+            self.project.save(self.path)
+        except OSError as exc:
+            QMessageBox.warning(self, "Enregistrement impossible",
+                                f"Le projet n'a pas pu être enregistré dans « {self.path} » : {reason(exc)}.\n"
+                                "Choisissez un autre emplacement (Fichier › Enregistrer sous).")
+            return False
         self.undo_stack.setClean()
         self.statusBar().showMessage(f"Enregistré dans {self.path}", 4000)
         return True
@@ -970,11 +985,21 @@ class MainWindow(QMainWindow):
     def show_rules(self) -> None:
         rows = "".join(f"<tr><td><b>{r.id}</b></td><td>{r.severity.label}</td><td>{r.title}</td></tr>"
                        for r in self.engine.rules)
-        box = QMessageBox(self)
-        box.setWindowTitle("Règles de compatibilité")
-        box.setTextFormat(Qt.TextFormat.RichText)
-        box.setText(f"<table cellspacing='6'>{rows}</table>")
-        box.exec()
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Règles de compatibilité")
+        dlg.resize(760, 560)
+        lay = QVBoxLayout(dlg)
+        intro = QLabel(f"{len(self.engine.rules)} règles vérifient votre projet en continu.")
+        intro.setWordWrap(True)
+        lay.addWidget(intro)
+        view = QTextBrowser()
+        view.setAccessibleName("Liste des règles de compatibilité")
+        view.setHtml(f"<table cellspacing='6'>{rows}</table>")
+        lay.addWidget(view, 1)
+        close = QPushButton("Fermer")
+        close.clicked.connect(dlg.accept)
+        lay.addWidget(close, 0, Qt.AlignmentFlag.AlignRight)
+        dlg.exec()
 
     def about(self) -> None:
         QMessageBox.about(self, "À propos", about_text(len(self.catalog.curated()), len(self.catalog.tools),

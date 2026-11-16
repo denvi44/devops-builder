@@ -10,9 +10,11 @@ Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque se
 
 ```bash
 export REPO="groupe/projet"
+export HOTE="192.168.1.10"
 ```
 
 - `export REPO="groupe/projet"` : dépôt de l'application sur la forge
+- `export HOTE="192.168.1.10"` : adresse de l'hôte Docker (nom ou IP)
 
 ## 1. Essai à la main, sans CI
 
@@ -39,17 +41,24 @@ bin/docker-compose version
 
 Sur chaque hôte : un compte `deploy` avec la clé publique de la CI (la clé privée va dans `SSH_PRIVATE_KEY`), membre du groupe docker, Docker et son extension Compose installés.
 
+Sur le poste, créer la paire de clés :
+
 ```bash
 ssh-keygen -t ed25519 -N '' -f ci_deploy -C ci-deploy
+cat ci_deploy.pub
+```
+
+Sur l'hôte (connexion `ssh "$HOTE"`), créer le compte ; la commande demande la clé publique affichée ci-dessus :
+
+```bash
 sudo useradd -m -s /bin/bash deploy
 sudo install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
-sudo tee /home/deploy/.ssh/authorized_keys < ci_deploy.pub
+read -rp "Clé publique de la CI : " CLE
+echo "$CLE" | sudo tee /home/deploy/.ssh/authorized_keys
 sudo usermod -aG docker deploy
 ```
 
-- `ssh-keygen -t ed25519 -N '' -f ci_deploy -C ci-d…` : sur le poste
-
-Empreinte des hôtes dans `SSH_KNOWN_HOSTS` (facultatif, recommandé) : `ssh-keyscan <hôte>`.
+Empreinte des hôtes dans `SSH_KNOWN_HOSTS` (facultatif, recommandé) : `ssh-keyscan $HOTE`.
 
 Noms d'hôte de l'application : chacun pointe (enregistrement DNS A ou AAAA) vers l'hôte de son environnement, joignable depuis Internet sur les ports 80 et 443 ; Traefik y obtient seul le certificat (paramètre « Adresse publique de l'application » de la brique Traefik).
 
@@ -72,7 +81,7 @@ bash scripts/ci-variables.sh
 Pousser sur la branche principale : chaque environnement se déploie dans l'ordre, la production après approbation.
 
 ```bash
-ssh "<hôte>" "cd /opt/mon-app && docker compose -p mon-app ps"
+ssh "$HOTE" "cd /opt/mon-app && docker compose -p mon-app ps"
 ```
 
 ## 5. Analyse dynamique (ZAP)
@@ -85,8 +94,8 @@ chmod a+w .zap
 docker run --rm -v "$PWD/.zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:2.17.0 zap-baseline.py -t "https://recette.boutique.fr" -c rules.tsv -r zap-report.html -I; echo "code $?"
 ```
 
-- `curl -fsS -o /dev/null -w '%{http_code}\n' "http…` : 200 (ou 30x) attendu
-- `docker run --rm -v "$PWD/.zap:/zap/wrk:rw" ghcr.…` : 0 : rien de bloquant, 1 : règle FAIL, 3 : erreur
+- `curl -fsS -o /dev/null -w '%{http_code}\n' "https://recette.boutique.fr"` : 200 (ou 30x) attendu
+- `docker run --rm -v "$PWD/.zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:2.17.…` : 0 : rien de bloquant, 1 : règle FAIL, 3 : erreur
 
 Rapport : `.zap/zap-report.html` (à ne pas committer) ; dans la CI, artefact du job. Une alerte sans objet se passe à `IGNORE` dans `.zap/rules.tsv`, avec la raison en commentaire ; une alerte à corriger sans attendre passe à `FAIL`.
 

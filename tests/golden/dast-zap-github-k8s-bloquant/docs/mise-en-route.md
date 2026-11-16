@@ -48,7 +48,7 @@ chmod a+w .zap
 docker run --rm -v "$PWD/.zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:2.17.0 zap-full-scan.py -t "https://dev.boutique.fr" -c rules.tsv -r zap-report.html -I; echo "code $?"
 ```
 
-- `curl -fsS -o /dev/null -w '%{http_code}\n' "http…` : 200 (ou 30x) attendu
-- `docker run --rm -v "$PWD/.zap:/zap/wrk:rw" ghcr.…` : 0 : rien de bloquant, 1 : règle FAIL, 3 : erreur
+- `curl -fsS -o /dev/null -w '%{http_code}\n' "https://dev.boutique.fr"` : 200 (ou 30x) attendu
+- `docker run --rm -v "$PWD/.zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:2.17.…` : 0 : rien de bloquant, 1 : règle FAIL, 3 : erreur
 
 Rapport : `.zap/zap-report.html` (à ne pas committer) ; dans la CI, artefact du job. Une alerte sans objet se passe à `IGNORE` dans `.zap/rules.tsv`, avec la raison en commentaire ; une alerte à corriger sans attendre passe à `FAIL`.

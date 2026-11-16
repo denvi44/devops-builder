@@ -80,11 +80,15 @@ class PaletteWidget(QWidget):
         lay.addWidget(self.search)
 
         self.stage = QComboBox()
+        self.stage.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.stage.setMinimumContentsLength(7)
         self.stage.addItem("Toutes les étapes", "")
         for sid, label in STAGES:
             self.stage.addItem(icon(STAGE_ICONS[sid]), label, sid)
         self.stage.setAccessibleName("Filtrer par étape")
         self.maturity = QComboBox()
+        self.maturity.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.maturity.setMinimumContentsLength(7)
         for key, label in MATURITY:
             self.maturity.addItem(label, key)
         self.maturity.setAccessibleName("Filtrer par maturité CNCF")

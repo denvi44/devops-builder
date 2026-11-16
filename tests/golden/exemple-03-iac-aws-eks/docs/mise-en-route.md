@@ -33,7 +33,6 @@ La CI s'authentifie par jeton OIDC (GitLab), sans clé statique, avec deux ident
 
 ```bash
 aws iam create-open-id-connect-provider --url https://gitlab.com --client-id-list sts.amazonaws.com
-# déploiement : pousser l'image, obtenir l'accès au cluster
 cat > /tmp/trust-ci.json <<EOF
 {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Federated": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/gitlab.com"}, "Action": "sts:AssumeRoleWithWebIdentity", "Condition": {"StringEquals": {"gitlab.com:aud": "sts.amazonaws.com", "gitlab.com:sub": "project_path:${REPO}:ref_type:branch:ref:main"}}}]}
 EOF
@@ -77,7 +76,6 @@ EOF
 aws iam create-role --role-name commandes-ci --assume-role-policy-document file:///tmp/trust-ci.json
 aws iam put-role-policy --role-name commandes-ci --policy-name deploiement --policy-document file:///tmp/policy-ci.json
 echo "AWS_ROLE_ARN=arn:aws:iam::$AWS_ACCOUNT_ID:role/commandes-ci"
-# infrastructure : la pile crée des rôles IAM (EKS, External Secrets) et des réseaux
 cat > /tmp/trust-infra.json <<EOF
 {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Federated": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/gitlab.com"}, "Action": "sts:AssumeRoleWithWebIdentity", "Condition": {"StringEquals": {"gitlab.com:aud": "sts.amazonaws.com", "gitlab.com:sub": "project_path:${REPO}:ref_type:branch:ref:main"}}}]}
 EOF
@@ -85,6 +83,9 @@ aws iam create-role --role-name commandes-ci-infra --assume-role-policy-document
 aws iam attach-role-policy --role-name commandes-ci-infra --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
 echo "AWS_INFRA_ROLE_ARN=arn:aws:iam::$AWS_ACCOUNT_ID:role/commandes-ci-infra"
 ```
+
+- déploiement : pousser l'image, obtenir l'accès au cluster
+- infrastructure : la pile crée des rôles IAM (EKS, External Secrets) et des réseaux
 
 ## 3. Premier apply
 
@@ -98,7 +99,7 @@ tofu -chdir=infra/terraform apply plan.tfplan
 tofu -chdir=infra/terraform output
 ```
 
-- `cp infra/terraform/terraform.tfvars.example infr…` : valeurs à renseigner, fichier non versionné
+- `cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tf…` : valeurs à renseigner, fichier non versionné
 
 EKS donne l'administration du cluster à l'identité qui applique la pile : celle du poste au premier apply, puis le rôle d'infrastructure de la CI. Pour garder l'accès, déclarer son rôle IAM dans `cluster_admin_arns` (terraform.tfvars) ; le rôle de déploiement de la CI y entre par `ci_deploy_role_arn`.
 

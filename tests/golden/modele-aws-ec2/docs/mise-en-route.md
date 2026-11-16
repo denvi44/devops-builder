@@ -10,10 +10,12 @@ Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque se
 
 ```bash
 export REPO="propriétaire/dépôt"
+export HOTE="192.168.1.10"
 export AWS_ACCOUNT_ID="123456789012"
 ```
 
 - `export REPO="propriétaire/dépôt"` : dépôt de l'application sur la forge
+- `export HOTE="192.168.1.10"` : adresse de l'hôte Docker (nom ou IP)
 
 ## 1. Essai à la main, sans CI
 
@@ -57,7 +59,6 @@ La CI s'authentifie par jeton OIDC (GitHub Actions), sans clé statique, avec de
 
 ```bash
 aws iam create-open-id-connect-provider --url https://token.actions.githubusercontent.com --client-id-list sts.amazonaws.com
-# déploiement : lire les sorties de l'état Terraform
 cat > /tmp/trust-ci.json <<EOF
 {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Federated": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"}, "Action": "sts:AssumeRoleWithWebIdentity", "Condition": {"StringEquals": {"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"}, "StringLike": {"token.actions.githubusercontent.com:sub": ["repo:${REPO}:ref:refs/heads/main", "repo:${REPO}:environment:staging", "repo:${REPO}:environment:production"]}}}]}
 EOF
@@ -83,7 +84,6 @@ EOF
 aws iam create-role --role-name mon-app-ci --assume-role-policy-document file:///tmp/trust-ci.json
 aws iam put-role-policy --role-name mon-app-ci --policy-name deploiement --policy-document file:///tmp/policy-ci.json
 echo "AWS_ROLE_ARN=arn:aws:iam::$AWS_ACCOUNT_ID:role/mon-app-ci"
-# infrastructure : la pile crée des rôles IAM (EKS, External Secrets) et des réseaux
 cat > /tmp/trust-infra.json <<EOF
 {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Federated": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"}, "Action": "sts:AssumeRoleWithWebIdentity", "Condition": {"StringEquals": {"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"}, "StringLike": {"token.actions.githubusercontent.com:sub": ["repo:${REPO}:ref:refs/heads/main", "repo:${REPO}:pull_request", "repo:${REPO}:environment:production"]}}}]}
 EOF
@@ -91,6 +91,9 @@ aws iam create-role --role-name mon-app-ci-infra --assume-role-policy-document f
 aws iam attach-role-policy --role-name mon-app-ci-infra --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
 echo "AWS_INFRA_ROLE_ARN=arn:aws:iam::$AWS_ACCOUNT_ID:role/mon-app-ci-infra"
 ```
+
+- déploiement : lire les sorties de l'état Terraform
+- infrastructure : la pile crée des rôles IAM (EKS, External Secrets) et des réseaux
 
 ## 4. Premier apply
 
@@ -104,7 +107,7 @@ tofu -chdir=infra/terraform apply plan.tfplan
 tofu -chdir=infra/terraform output
 ```
 
-- `cp infra/terraform/terraform.tfvars.example infr…` : valeurs à renseigner, fichier non versionné
+- `cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tf…` : valeurs à renseigner, fichier non versionné
 
 ## 5. Secrets de l'application
 
@@ -159,7 +162,7 @@ bash scripts/ci-variables.sh
 Pousser sur la branche principale : chaque environnement se déploie dans l'ordre, la production après approbation.
 
 ```bash
-ssh "<hôte>" "cd /opt/mon-app && docker compose -p mon-app ps"
+ssh "$HOTE" "cd /opt/mon-app && docker compose -p mon-app ps"
 ```
 
 ## 9. Sauvegardes
@@ -183,7 +186,7 @@ docker compose -f dev/db/compose.yaml --profile outils up -d adminer
 ```
 
 - `set -a && . dev/db/app.env && set +a` : variables de connexion pour l'application lancée sur le poste
-- `docker compose -f dev/db/compose.yaml --profile…` : http://127.0.0.1:8081
+- `docker compose -f dev/db/compose.yaml --profile outils up -d adminer` : http://127.0.0.1:8081
 
 ## 11. Entretien
 

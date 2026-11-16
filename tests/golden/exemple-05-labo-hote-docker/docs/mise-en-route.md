@@ -31,10 +31,10 @@ La première commande tire les mots de passe au hasard et les écrit dans `deplo
 
 Les interfaces répondent ensuite ici :
 
-- Prometheus (interface et API) : `http://<adresse de l'hôte>:9090`
-- Grafana (interface web) : `http://<adresse de l'hôte>:3000`
-- Gitea (interface web) : `http://<adresse de l'hôte>:3001`
-- Zabbix (interface web) : `http://<adresse de l'hôte>:8080`
+- Prometheus (interface et API) : `http://$HOTE:9090`
+- Grafana (interface web) : `http://$HOTE:3000`
+- Gitea (interface web) : `http://$HOTE:3001`
+- Zabbix (interface web) : `http://$HOTE:8080`
 
 `docker compose` absent (NAS, Unraid, vieux Docker) : télécharger le binaire autonome de Compose à côté du projet, sans rien installer sur le système, puis écrire `bin/docker-compose` à la place de `docker compose`.
 
@@ -62,7 +62,7 @@ curl -fsS -H 'Content-Type: application/json-rpc' -H "Authorization: Bearer $tok
 ```
 
 - `ok='.result // error(.error | tostring)'` : réponse de l'API, ou son message d'erreur
-- `ZABBIX_ADMIN_PASSWORD="$(openssl rand -hex 16)";…` : à ranger
+- `ZABBIX_ADMIN_PASSWORD="$(openssl rand -hex 16)"; echo "$ZABBIX_ADMIN_PAS…` : à ranger
 
 Vérifier que l'agent fourni répond : l'hôte « Zabbix server » (le serveur lui-même) doit être disponible (`available` = 1 sur son interface ; ses contrôles par défaut sont passifs, `active_available` reste à 0) :
 

@@ -10,9 +10,11 @@ Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque se
 
 ```bash
 export REPO="groupe/projet"
+export HOTE="192.168.1.10"
 ```
 
 - `export REPO="groupe/projet"` : dépôt de l'application sur la forge
+- `export HOTE="192.168.1.10"` : adresse de l'hôte Docker (nom ou IP)
 
 ## 1. Essai à la main, sans CI
 
@@ -39,17 +41,24 @@ bin/docker-compose version
 
 Sur chaque hôte : un compte `deploy` avec la clé publique de la CI (la clé privée va dans `SSH_PRIVATE_KEY`) et sudo sans mot de passe.
 
+Sur le poste, créer la paire de clés :
+
 ```bash
 ssh-keygen -t ed25519 -N '' -f ci_deploy -C ci-deploy
+cat ci_deploy.pub
+```
+
+Sur l'hôte (connexion `ssh "$HOTE"`), créer le compte ; la commande demande la clé publique affichée ci-dessus :
+
+```bash
 sudo useradd -m -s /bin/bash deploy
 sudo install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
-sudo tee /home/deploy/.ssh/authorized_keys < ci_deploy.pub
+read -rp "Clé publique de la CI : " CLE
+echo "$CLE" | sudo tee /home/deploy/.ssh/authorized_keys
 echo 'deploy ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/deploy
 ```
 
-- `ssh-keygen -t ed25519 -N '' -f ci_deploy -C ci-d…` : sur le poste
-
-Empreinte des hôtes dans `SSH_KNOWN_HOSTS` (facultatif, recommandé) : `ssh-keyscan <hôte>`.
+Empreinte des hôtes dans `SSH_KNOWN_HOSTS` (facultatif, recommandé) : `ssh-keyscan $HOTE`.
 
 Préparer les hôtes (Docker depuis son dépôt officiel), une fois par environnement :
 
@@ -82,7 +91,7 @@ bash scripts/ci-variables.sh
 Pousser sur la branche principale : chaque environnement se déploie dans l'ordre, la production après approbation.
 
 ```bash
-ssh "<hôte>" "cd /opt/mon-app && docker compose -p mon-app ps"
+ssh "$HOTE" "cd /opt/mon-app && docker compose -p mon-app ps"
 ```
 
 ## 5. Entretien

@@ -10,9 +10,11 @@ Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque se
 
 ```bash
 export REPO="groupe/projet"
+export HOTE="192.168.1.10"
 ```
 
 - `export REPO="groupe/projet"` : dépôt de l'application sur la forge
+- `export HOTE="192.168.1.10"` : adresse de l'hôte Docker (nom ou IP)
 
 ## 1. Essai à la main, sans CI
 
@@ -60,7 +62,7 @@ tofu -chdir=infra/terraform apply plan.tfplan
 tofu -chdir=infra/terraform output
 ```
 
-- `cp infra/terraform/terraform.tfvars.example infr…` : valeurs à renseigner, fichier non versionné
+- `cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tf…` : valeurs à renseigner, fichier non versionné
 
 ## 4. Secrets de l'application
 
@@ -113,7 +115,7 @@ bash scripts/ci-variables.sh
 Pousser sur la branche principale : chaque environnement se déploie dans l'ordre, la production après approbation.
 
 ```bash
-ssh "<hôte>" "cd /opt/mon-app && docker compose -p mon-app ps"
+ssh "$HOTE" "cd /opt/mon-app && docker compose -p mon-app ps"
 ```
 
 ## 8. Sauvegardes
@@ -137,7 +139,7 @@ docker compose -f dev/db/compose.yaml --profile outils up -d adminer
 ```
 
 - `set -a && . dev/db/app.env && set +a` : variables de connexion pour l'application lancée sur le poste
-- `docker compose -f dev/db/compose.yaml --profile…` : http://127.0.0.1:8081
+- `docker compose -f dev/db/compose.yaml --profile outils up -d adminer` : http://127.0.0.1:8081
 
 ## 10. Entretien
 

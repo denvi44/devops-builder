@@ -10,9 +10,11 @@ Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque se
 
 ```bash
 export REPO="groupe/projet"
+export HOTE="192.168.1.10"
 ```
 
 - `export REPO="groupe/projet"` : dépôt de l'application sur la forge
+- `export HOTE="192.168.1.10"` : adresse de l'hôte Docker (nom ou IP)
 
 ## 1. Essai à la main, sans CI
 
@@ -62,9 +64,10 @@ APP_ID="$(az ad app create --display-name mon-app-ci --query appId -o tsv)"
 az ad sp create --id "$APP_ID" >/dev/null
 az ad app federated-credential create --id "$APP_ID" --parameters '{"name": "ci-1", "issuer": "https://gitlab.com", "subject": "'"project_path:${REPO}:ref_type:branch:ref:main"'", "audiences": ["api://AzureADTokenExchange"]}'
 echo "AZURE_CLIENT_ID=$APP_ID"
-# après le premier apply, quand le groupe de ressources rg-mon-app existe :
 az role assignment create --assignee "$APP_ID" --role "Reader and Data Access" --scope "/subscriptions/$(az account show --query id -o tsv)/resourceGroups/rg-mon-app"
 ```
+
+- après le premier apply, quand le groupe de ressources rg-mon-app existe :
 
 ## 4. Premier apply
 
@@ -78,7 +81,7 @@ tofu -chdir=infra/terraform apply plan.tfplan
 tofu -chdir=infra/terraform output
 ```
 
-- `cp infra/terraform/terraform.tfvars.example infr…` : valeurs à renseigner, fichier non versionné
+- `cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tf…` : valeurs à renseigner, fichier non versionné
 
 ## 5. Hôtes
 
@@ -112,7 +115,7 @@ bash scripts/ci-variables.sh
 Pousser sur la branche principale : chaque environnement se déploie dans l'ordre, la production après approbation.
 
 ```bash
-ssh "<hôte>" "cd /opt/mon-app && docker compose -p mon-app ps"
+ssh "$HOTE" "cd /opt/mon-app && docker compose -p mon-app ps"
 ```
 
 ## 8. Entretien

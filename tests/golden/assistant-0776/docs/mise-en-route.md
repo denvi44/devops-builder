@@ -42,9 +42,10 @@ APP_ID="$(az ad app create --display-name mon-app-ci --query appId -o tsv)"
 az ad sp create --id "$APP_ID" >/dev/null
 az ad app federated-credential create --id "$APP_ID" --parameters '{"name": "ci-1", "issuer": "https://gitlab.com", "subject": "'"project_path:${REPO}:ref_type:branch:ref:main"'", "audiences": ["api://AzureADTokenExchange"]}'
 echo "AZURE_CLIENT_ID=$APP_ID"
-# après le premier apply, quand le groupe de ressources rg-mon-app existe :
 az role assignment create --assignee "$APP_ID" --role "AcrPush" --scope "/subscriptions/$(az account show --query id -o tsv)/resourceGroups/rg-mon-app"
 ```
+
+- après le premier apply, quand le groupe de ressources rg-mon-app existe :
 
 ## 3. Premier apply
 
