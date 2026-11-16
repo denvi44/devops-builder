@@ -1,0 +1,74 @@
+format_version: 2
+name: Boutique
+description: ''
+target: docker-host
+environments:
+- id: staging
+  label: ''
+  kind: staging
+  approval: false
+  cluster: null
+  overrides: {}
+- id: production
+  label: ''
+  kind: production
+  approval: true
+  cluster: null
+  overrides: {}
+secnumcloud: false
+cloud_auth: oidc
+license_policy: any
+app:
+  language: python
+  image_name: boutique
+  port: 8000
+stages:
+  source:
+  - uid: a082eebf
+    tool: gitlab
+    params: {}
+  build:
+  - uid: 026d1c5b
+    tool: gitlab-ci
+    params: {}
+  - uid: c545acd8
+    tool: buildkit
+    params: {}
+  - uid: 2a48940a
+    tool: renovate
+    params: {}
+  test:
+  - uid: 53322ad8
+    tool: unit-tests
+    params: {}
+  security:
+  - uid: 5a155a8a
+    tool: gitleaks
+    params: {}
+  - uid: 0095105b
+    tool: trivy
+    params: {}
+  - uid: dd645650
+    tool: cosign
+    params: {}
+  artifacts: []
+  infrastructure: []
+  data:
+  - uid: 2225be9e
+    tool: postgresql
+    params: {}
+  deploy:
+  - uid: fd3b4865
+    tool: docker-compose
+    params: {}
+  platform:
+  - uid: f7fc916a
+    tool: traefik
+    params: {}
+  observability:
+  - uid: deecd39d
+    tool: prometheus
+    params: {}
+  - uid: a4f76eee
+    tool: grafana
+    params: {}

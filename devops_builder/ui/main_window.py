@@ -78,6 +78,7 @@ class MainWindow(QMainWindow):
         self.catalog = catalog
         self.engine = engine
         self.project = project or Project()
+        self._baseline = self.project.to_yaml()
         self.path = path
         self.selected: str | None = None
         self.undo_stack = QUndoStack(self)
@@ -265,6 +266,13 @@ class MainWindow(QMainWindow):
                                  "Ports de l'application et des briques, par environnement (Ctrl+Maj+P)")
         self.a_data = self._act("Données…", self.show_data, "Ctrl+Shift+D", "mdi6.database-outline",
                                 "Bases du projet par environnement : mode, connexion, secret, sauvegarde (Ctrl+Maj+D)")
+        self.a_baseline = self._act("Prendre l'état actuel comme point de départ", self.set_baseline,
+                                    tip="Les comparaisons se feront par rapport à cet état")
+        self.a_compare = self._act("Comparer avec le point de départ…", self.compare_baseline, "Ctrl+Shift+C",
+                                   "mdi6.compare-horizontal",
+                                   "Ce qui a changé depuis l'ouverture du projet : briques, diagnostics, ports, fichiers")
+        self.a_compare_file = self._act("Comparer avec un autre projet…", self.compare_with_file,
+                                        tip="Comparer le projet affiché avec un fichier .devops.yaml")
         self.a_network = self._act("Réseau…", self.show_network, "Ctrl+Shift+R", "mdi6.lan-connect",
                                     "Schéma réseau par environnement, en 2D ou en 3D isométrique, avec les erreurs "
                                     "sur les composants (Ctrl+Maj+R)")
@@ -345,6 +353,8 @@ class MainWindow(QMainWindow):
         p.addAction(self.a_ports)
         p.addAction(self.a_data)
         p.addAction(self.a_network)
+        p.addSeparator()
+        p.addActions([self.a_compare, self.a_baseline, self.a_compare_file])
         views = QMenu(self.views_btn)
         views.addActions([self.a_network, self.a_ports, self.a_data])
         self.views_btn.setMenu(views)
@@ -862,8 +872,40 @@ class MainWindow(QMainWindow):
         self.selected = None
         self.manual_start = False
         self.undo_stack.clear()
+        self._baseline = project.to_yaml()   # point de départ des comparaisons : l'état à l'ouverture
         self.refresh()
         self.canvas.horizontalScrollBar().setValue(0)
+
+    def set_baseline(self) -> None:
+        self._baseline = self.project.to_yaml()
+        self.statusBar().showMessage("État actuel pris comme point de départ des comparaisons", 4000)
+
+    def compare_baseline(self) -> None:
+        before = Project.from_yaml(getattr(self, "_baseline", self.project.to_yaml()))
+        self._show_comparison(before, "point de départ")
+
+    def compare_with_file(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, "Projet à comparer (état de départ)", str(Path.home()), FILE_FILTER)
+        if not path:
+            return
+        try:
+            before = Project.load(Path(path))
+        except (ProjectFormatError, OSError) as exc:
+            QMessageBox.critical(self, "Ouverture impossible",
+                                 f"{Path(path).name} n'a pas pu être ouvert :\n"
+                                 f"{exc if isinstance(exc, ProjectFormatError) else reason(exc)}")
+            return
+        self._show_comparison(before, Path(path).name)
+
+    def _show_comparison(self, before: Project, origin: str) -> None:
+        from ..comparaison import compare
+        from .dialogs import ComparisonDialog
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            result = compare(before, self.project, self.catalog, self.engine)
+        finally:
+            QApplication.restoreOverrideCursor()
+        ComparisonDialog(result, origin, self).exec()
 
     def save(self) -> bool:
         if self.path is None:

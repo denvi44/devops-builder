@@ -106,6 +106,7 @@ devops-builder export-git projet.devops.yaml --repo ../depot   # --branch, --no-
 devops-builder catalog-check                            # --offline, --refresh, --apply, --report rapport.md
 devops-builder catalog-import "Keptn"                   # --id, --stage, --license, --offline
 devops-builder landscape-refresh                        # --source landscape.yml, --reset
+devops-builder compare avant.devops.yaml apres.devops.yaml   # --no-files, -o rapport.md, --json : ce qu'une modification change
 devops-builder scan ../mon-app                          # --json : ce que l'analyse trouve
 devops-builder init ../mon-app -o mon-app.devops.yaml   # --hosting, --cloud, --envs, --database
 ```

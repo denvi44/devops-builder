@@ -4,6 +4,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## 0.29.0 — 2026-11-16 — Comparaison avant / après
+
+### Ajouté
+- **Comparaison avant / après** pour simuler une modification d'architecture : réglages du projet, environnements, briques (ajoutées, retirées, déplacées, paramètres modifiés), diagnostics apparus ou résolus, ports publiés, fichiers générés avec leurs lignes ajoutées et retirées. Dans l'interface : Projet › Comparer avec le point de départ (Ctrl+Maj+C), Prendre l'état actuel comme point de départ, Comparer avec un autre projet… ; rapport enregistrable en Markdown. En ligne de commande : `devops-builder compare avant apres` (`--no-files`, `-o`, `--json`), code 1 si la modification introduit une erreur bloquante.
+
 ## 0.28.0 — 2026-11-16 — Essai UX/UI : treize défauts majeurs corrigés
 
 ### Corrigé
