@@ -96,3 +96,16 @@ Fichier › Ouvrir (Ctrl+O), ou depuis un terminal : `devops-builder mon-projet.
 une version plus ancienne s'ouvre sans perte ; un fichier modifié à la main qui contient une erreur est refusé
 avec un message qui dit où et pourquoi (« YAML invalide ligne 12, colonne 3 : tabulation interdite en YAML :
 indenter avec des espaces »). Quatre exemples sont livrés dans Fichier › Ouvrir un exemple.
+
+## Simuler une modification d'architecture
+
+Ouvrir un projet, le modifier (changer l'hébergement, retirer ou ajouter une brique, passer une CI à une autre),
+puis **Projet › Comparer avec le point de départ** (Ctrl+Maj+C). Le rapport montre ce qui change : réglages et
+environnements, briques ajoutées, retirées, déplacées ou modifiées (avec la valeur avant et après), diagnostics
+apparus ou résolus, ports publiés et fichiers générés (lignes ajoutées et retirées). Il s'enregistre en Markdown
+pour être joint à un compte rendu.
+
+Le point de départ est l'état du projet à l'ouverture ; **Prendre l'état actuel comme point de départ** le remplace
+(pratique pour comparer plusieurs variantes de suite). **Comparer avec un autre projet…** prend un fichier
+`.devops.yaml` comme état de départ, par exemple l'architecture actuelle d'un client. En ligne de commande :
+`devops-builder compare avant.devops.yaml apres.devops.yaml`.

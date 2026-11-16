@@ -30,9 +30,12 @@ sortie d'erreur et conservés (voir [format.md](format.md)).
 | `devops-builder catalog-check` | Contrôler les fiches (dépôts, Landscape, cycle de vie) ; `--offline`, `--refresh`, `--apply`, `--report` |
 | `devops-builder catalog-import "Nom"` | Créer une fiche personnelle depuis le Landscape ; `--id`, `--stage`, `--license`, `--offline` |
 | `devops-builder landscape-refresh` | Rafraîchir l'index du Landscape ; `--source`, `--reset` |
+| `devops-builder compare avant.devops.yaml apres.devops.yaml` | Comparer deux architectures : briques, diagnostics, ports, fichiers générés ; `--no-files`, `-o rapport.md`, `--json` |
 | `devops-builder scan ../mon-app` | Analyser le dossier d'une application ; `--json` |
 | `devops-builder template` | Lister les pipelines types par fournisseur ; `template aws -o projet.devops.yaml` crée le projet (voir le guide) |
 | `devops-builder init ../mon-app -o mon-app.devops.yaml` | Créer un projet depuis l'analyse ; `--hosting`, `--cloud`, `--database`, `--envs` |
+
+`compare` rend 1 quand la modification apporte une erreur bloquante que le projet de départ n'avait pas, 0 sinon, 2 si un fichier est illisible.
 
 `generate` n'écrase pas un fichier retouché à la main : il le liste (`kept` en JSON), et `--overwrite` le
 remplace.

@@ -32,7 +32,7 @@ from pathlib import Path
 from . import __version__, sync
 from .catalog import default_catalog
 from .generators import BlockingDiagnostics, GenerationResult, generate
-from .messages import explain
+from .messages import explain, reason
 from .model import Project, ProjectFormatError
 from .rules import RuleEngine
 
@@ -114,6 +114,29 @@ def run_kind_test(files: dict[str, str], env: str | None = None, app_dir: str | 
         return subprocess.call(args, env=envvars, cwd=tmp)
 
 
+def _compare_command(args) -> int:
+    """Code de sortie : 0 comparaison faite, 1 si la modification introduit une erreur bloquante, 2 fichier illisible."""
+    from .comparaison import compare
+    before, after = _load_project(args.avant), _load_project(args.apres)
+    if before is None or after is None:
+        return USAGE
+    catalog = default_catalog()
+    result = compare(before, after, catalog, RuleEngine(catalog), files=not args.no_files)
+    if args.output:
+        try:
+            Path(args.output).write_text(result.to_markdown(), encoding="utf-8")
+        except OSError as exc:
+            print(f"Écriture impossible dans « {args.output} » : {reason(exc)}", file=sys.stderr)
+            return USAGE
+    if args.json:
+        _emit("compare", not result.introduces_blocking, **result.to_dict())
+    elif not args.output:
+        print(result.to_markdown())
+    else:
+        print(f"{result.summary()} Rapport écrit dans {args.output}.")
+    return PROBLEM if result.introduces_blocking else OK
+
+
 def main(argv: list[str] | None = None) -> int:
     # sortie redirigée sous Windows (cp1252) : un caractère hors de la page de code ne doit pas tout arrêter
     for stream in (sys.stdout, sys.stderr):
@@ -169,6 +192,12 @@ def main(argv: list[str] | None = None) -> int:
     lr = sub.add_parser("landscape-refresh", help="Télécharger le Landscape à jour et reconstruire l'index")
     lr.add_argument("--source", help="Fichier ou URL de landscape.yml (défaut : dépôt cncf/landscape)")
     lr.add_argument("--reset", action="store_true", help="Revenir à l'index livré avec l'application")
+    cp = sub.add_parser("compare", help="Comparer deux projets : briques, diagnostics, ports et fichiers générés")
+    cp.add_argument("avant", help="Projet de départ (.devops.yaml)")
+    cp.add_argument("apres", help="Projet modifié (.devops.yaml)")
+    cp.add_argument("--no-files", action="store_true", help="Ne pas générer ni comparer les fichiers (plus rapide)")
+    cp.add_argument("-o", "--output", help="Écrire le rapport Markdown dans ce fichier")
+    cp.add_argument("--json", action="store_true", help="Sortie JSON")
     sc = sub.add_parser("scan", help="Analyser le dossier d'une application")
     sc.add_argument("folder")
     sc.add_argument("--json", action="store_true", help="Sortie JSON")
@@ -196,6 +225,8 @@ def main(argv: list[str] | None = None) -> int:
         return _app_command(args)
     if args.cmd == "template":
         return _template_command(args)
+    if args.cmd == "compare":
+        return _compare_command(args)
     if args.cmd is None:
         from .ui.app import run
         return run()

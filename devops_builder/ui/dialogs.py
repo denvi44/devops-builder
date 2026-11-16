@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QSplitter,
     QTabWidget,
+    QTextBrowser,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -474,6 +475,42 @@ class GenerateDialog(QDialog):
             return
         QMessageBox.information(self, "Export terminé",
                                 f"Archive enregistrée : {path}\nElle s'extrait dans son propre dossier, « {name} ».")
+
+
+class ComparisonDialog(QDialog):
+    """Rapport avant / après : ce qu'une modification d'architecture change."""
+
+    def __init__(self, result, origin: str, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.result = result
+        self.setWindowTitle("Comparaison avant / après")
+        self.resize(820, 640)
+        lay = QVBoxLayout(self)
+        head = QLabel(f"Avant : {origin} — Après : le projet affiché.  {result.summary()}")
+        head.setWordWrap(True)
+        lay.addWidget(head)
+        self.view = QTextBrowser()
+        self.view.setAccessibleName("Rapport de comparaison")
+        self.view.setMarkdown(result.to_markdown())
+        lay.addWidget(self.view, 1)
+        row = QHBoxLayout()
+        save = QPushButton("Enregistrer le rapport…")
+        close = QPushButton("Fermer")
+        save.clicked.connect(self._save)
+        close.clicked.connect(self.accept)
+        row.addWidget(save)
+        row.addStretch(1)
+        row.addWidget(close)
+        lay.addLayout(row)
+
+    def _save(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(self, "Enregistrer le rapport", "comparaison.md", "Markdown (*.md)")
+        if not path:
+            return
+        try:
+            Path(path).write_text(self.result.to_markdown(), encoding="utf-8")
+        except OSError as exc:
+            QMessageBox.warning(self, "Écriture impossible", f"Le rapport n'a pas été écrit dans « {path} » : {reason(exc)}.")
 
 
 def about_text(n_curated: int, n_total: int, n_rules: int) -> str:
