@@ -178,7 +178,10 @@ jobs:
           case "$RUNNER_OS" in
             Windows) 7z a -tzip -bso0 "../../sortie/$ARCHIVE.zip" devops-builder ;;
             macOS) ditto -c -k --keepParent "DevOps Builder.app" "../../sortie/$ARCHIVE.zip" ;;
-            *) tar -czf "../../sortie/$ARCHIVE.tar.gz" devops-builder ;;
+            *)
+              cp ../icones/devops-builder-1024.png devops-builder/devops-builder.png
+              cp ../devops-builder.desktop devops-builder/devops-builder.desktop
+              tar -czf "../../sortie/$ARCHIVE.tar.gz" devops-builder ;;
           esac
           ls -l ../../sortie
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2

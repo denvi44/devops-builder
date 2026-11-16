@@ -1,5 +1,7 @@
 # DevOps Builder
 
+<img src="devops_builder/data/logo/logo-256.png" alt="Logo de DevOps Builder" width="96">
+
 [![CI](https://github.com/denvi44/devops-builder/actions/workflows/ci.yml/badge.svg)](https://github.com/denvi44/devops-builder/actions/workflows/ci.yml) [![Licence Apache 2.0](https://img.shields.io/badge/licence-Apache%202.0-blue.svg)](LICENSE)
 
 Application de bureau Python, en Material Design, pour composer un pipeline DevOps en posant des briques issues du [CNCF Landscape](https://landscape.cncf.io/). Un moteur de règles bloque les combinaisons incohérentes avant de générer les fichiers à committer.
@@ -47,7 +49,9 @@ sous Python 3.15. Sous Linux, Qt a besoin des bibliothèques système habituelle
 **Sans Python** : chaque [publication](https://github.com/denvi44/devops-builder/releases) porte un exécutable
 pour Linux x86-64 (`.tar.gz`, glibc 2.35 ou plus, Ubuntu 22.04 et suivantes), Windows x86-64 (`.zip`) et macOS
 Apple Silicon ou Intel (`.zip` contenant `DevOps Builder.app`). Décompresser, puis lancer `devops-builder` (Linux),
-`devops-builder.exe` (Windows) ou l'application. Les exécutables ne sont **pas signés** pour l'instant :
+`devops-builder.exe` (Windows) ou l'application. Chaque cible porte le logo : icône de l'exécutable Windows (`.ico`), de
+`DevOps Builder.app` (`.icns`), et, sous Linux, `devops-builder.png` et `devops-builder.desktop` à copier dans
+`~/.local/share/icons` et `~/.local/share/applications` pour l'entrée de menu. Les exécutables ne sont **pas signés** pour l'instant :
 
 - Windows : SmartScreen avertit au premier lancement (« Informations complémentaires » → « Exécuter quand même ») ;
 - macOS : Gatekeeper refuse une application téléchargée non notariée ; après vérification (ci-dessous), lever la

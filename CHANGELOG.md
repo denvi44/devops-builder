@@ -4,6 +4,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Jus
 mineure peut changer les fichiers générés ; chaque changement voulu est relu dans les projets de référence
 (`tests/golden/`). Les fichiers projet de toutes les versions restent lisibles (voir `docs/format.md`).
 
+## 0.30.1 — 2026-11-16 — Logo et paquets par cible
+
+### Ajouté
+- **Logo** de DevOps Builder (un pipeline : départ, étape en cours, flèche), dessiné en SVG (`packaging/icones/`) et décliné par `tools/logo.py` en PNG, ICO et ICNS. Icône de fenêtre et de barre des tâches dans l'application, icône de l'exécutable Windows, de `DevOps Builder.app` (macOS), et, pour l'archive Linux, `devops-builder.png` et `devops-builder.desktop` ; logo dans la documentation et le README.
+
 ## 0.30.0 — 2026-11-16 — Plusieurs applications par projet
 
 ### Ajouté

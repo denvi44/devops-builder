@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=DevOps Builder
+GenericName=Composeur de pipeline DevOps
+Comment=Composer un pipeline DevOps à partir des briques du CNCF Landscape
+Exec=devops-builder
+Icon=devops-builder
+Terminal=false
+Categories=Development;
+StartupWMClass=devops-builder

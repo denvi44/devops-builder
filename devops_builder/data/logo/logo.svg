@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>DevOps Builder</title>
+  <defs>
+    <linearGradient id="fond" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1d5aa6"/>
+      <stop offset="1" stop-color="#00594d"/>
+    </linearGradient>
+    <linearGradient id="reflet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="48" y="48" width="928" height="928" rx="224" fill="url(#fond)"/>
+  <rect x="48" y="48" width="928" height="464" rx="224" fill="url(#reflet)"/>
+  <g fill="none" stroke="#ffffff" stroke-width="56" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M300 560H430M594 560H700"/>
+    <path d="M770 490L850 560L770 630"/>
+  </g>
+  <g fill="#ffffff">
+    <circle cx="232" cy="560" r="86"/>
+    <circle cx="512" cy="560" r="112"/>
+  </g>
+  <path d="M488 506L560 560L488 614Z" fill="#0b4a7c"/>
+  <circle cx="232" cy="560" r="34" fill="#0b4a7c"/>
+</svg>
