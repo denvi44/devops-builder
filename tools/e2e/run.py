@@ -234,6 +234,8 @@ def _vault_steps(out: Path, ir) -> list[Step]:
         Step("Image de l'application de démonstration", ["docker", "build", "-t", image, str(APP_DIR)]),
         *start,
         Step("OpenBao démarré (scellé, en attente d'initialisation)",
+             f"for i in $(seq 1 100); do kubectl --context {ctx} -n openbao get pod/openbao-0 >/dev/null 2>&1 && break; "
+             "sleep 3; done\n"
              f"kubectl --context {ctx} -n openbao wait pod/openbao-0 --for=jsonpath='{{.status.phase}}'=Running "
              "--timeout=300s"),
         # Mode d'emploi : 5 clés, seuil 3, saisies à la main ; le test se contente d'une clé.
