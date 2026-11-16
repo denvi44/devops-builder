@@ -33,7 +33,6 @@ La CI s'authentifie par jeton OIDC (GitLab), sans clé statique, avec deux ident
 
 ```bash
 aws iam create-open-id-connect-provider --url https://gitlab.com --client-id-list sts.amazonaws.com
-# déploiement : pousser l'image, mettre à jour le service ECS
 cat > /tmp/trust-ci.json <<EOF
 {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Federated": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/gitlab.com"}, "Action": "sts:AssumeRoleWithWebIdentity", "Condition": {"StringEquals": {"gitlab.com:aud": "sts.amazonaws.com", "gitlab.com:sub": "project_path:${REPO}:ref_type:branch:ref:main"}}}]}
 EOF
@@ -80,7 +79,6 @@ EOF
 aws iam create-role --role-name mon-app-ci --assume-role-policy-document file:///tmp/trust-ci.json
 aws iam put-role-policy --role-name mon-app-ci --policy-name deploiement --policy-document file:///tmp/policy-ci.json
 echo "AWS_ROLE_ARN=arn:aws:iam::$AWS_ACCOUNT_ID:role/mon-app-ci"
-# infrastructure : la pile crée des rôles IAM (EKS, External Secrets) et des réseaux
 cat > /tmp/trust-infra.json <<EOF
 {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Federated": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/gitlab.com"}, "Action": "sts:AssumeRoleWithWebIdentity", "Condition": {"StringEquals": {"gitlab.com:aud": "sts.amazonaws.com", "gitlab.com:sub": "project_path:${REPO}:ref_type:branch:ref:main"}}}]}
 EOF
@@ -88,6 +86,9 @@ aws iam create-role --role-name mon-app-ci-infra --assume-role-policy-document f
 aws iam attach-role-policy --role-name mon-app-ci-infra --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
 echo "AWS_INFRA_ROLE_ARN=arn:aws:iam::$AWS_ACCOUNT_ID:role/mon-app-ci-infra"
 ```
+
+- déploiement : pousser l'image, mettre à jour le service ECS
+- infrastructure : la pile crée des rôles IAM (EKS, External Secrets) et des réseaux
 
 ## 3. Premier apply
 

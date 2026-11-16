@@ -47,9 +47,10 @@ az ad app federated-credential create --id "$APP_ID" --parameters '{"name": "ci-
 az ad app federated-credential create --id "$APP_ID" --parameters '{"name": "ci-3", "issuer": "https://token.actions.githubusercontent.com", "subject": "'"repo:${REPO}:environment:staging"'", "audiences": ["api://AzureADTokenExchange"]}'
 az ad app federated-credential create --id "$APP_ID" --parameters '{"name": "ci-4", "issuer": "https://token.actions.githubusercontent.com", "subject": "'"repo:${REPO}:environment:production"'", "audiences": ["api://AzureADTokenExchange"]}'
 echo "AZURE_CLIENT_ID=$APP_ID"
-# après le premier apply, quand le groupe de ressources rg-mon-app existe :
 az role assignment create --assignee "$APP_ID" --role "AcrPush" --scope "/subscriptions/$(az account show --query id -o tsv)/resourceGroups/rg-mon-app"
 ```
+
+- après le premier apply, quand le groupe de ressources rg-mon-app existe :
 
 ## 3. Premier apply
 

@@ -50,7 +50,7 @@ def test_guide_commence_par_le_demarrage():
     titles = [line for line in text.splitlines() if line.startswith("## ")]
     assert titles[1].endswith("Démarrer la plateforme") and "pour démarrer la plateforme" in text
     assert "docker compose up -d\n" in text and "docker compose down" in text
-    assert "http://<adresse de l'hôte>:3000" in text and "Hôtes" not in "".join(titles) and "SSH_PRIVATE_KEY" not in text
+    assert "http://$HOTE:3000" in text and "Hôtes" not in "".join(titles) and "SSH_PRIVATE_KEY" not in text
     assert 'sh scripts/db-backup.sh "$PWD/deploy" "$PWD/sauvegardes"' in text
     assert "export COMPOSE_PROJECT_NAME=labo-devops" in text and "   # " not in text
 

@@ -16,7 +16,7 @@ tofu -chdir=infra/terraform apply plan.tfplan
 tofu -chdir=infra/terraform output
 ```
 
-- `cp infra/terraform/terraform.tfvars.example infr…` : valeurs à renseigner, fichier non versionné
+- `cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tf…` : valeurs à renseigner, fichier non versionné
 
 EKS donne l'administration du cluster à l'identité qui applique la pile : celle du poste au premier apply, puis le rôle d'infrastructure de la CI. Pour garder l'accès, déclarer son rôle IAM dans `cluster_admin_arns` (terraform.tfvars) ; le rôle de déploiement de la CI y entre par `ci_deploy_role_arn`.
 

@@ -18,7 +18,7 @@ def guide(user: str | None, *tools: str) -> tuple[str, dict[str, str]]:
 def test_compte_root_sans_creation_ni_sudo():
     text, files = guide("root", "ansible")
     assert "useradd" not in text and "sudoers" not in text and "/home/root" not in text
-    assert "ssh-copy-id -i ci_deploy.pub root@<hôte>" in text
+    assert "ssh-copy-id -i ci_deploy.pub root@$HOTE" in text
     assert "ansible_become=false" in files["ansible/inventory.ini"]
 
 

@@ -113,8 +113,8 @@ class DiagnosticsPanel(QWidget):
 
     def _activated(self, item: QTreeWidgetItem) -> None:
         d = self._diag_of(item)
-        if d and d.actions:
-            self.actionRequested.emit(d.actions[0])
+        if d and d.bricks:
+            self.brickFocused.emit(d.bricks[0])
 
     def _show_fixes(self, d: Diagnostic | None) -> None:
         clear_layout(self.fixes_lay)

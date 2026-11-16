@@ -10,9 +10,11 @@ Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque se
 
 ```bash
 export REPO="groupe/projet"
+export HOTE="192.168.1.10"
 ```
 
 - `export REPO="groupe/projet"` : dépôt de l'application sur la forge
+- `export HOTE="192.168.1.10"` : adresse de l'hôte Docker (nom ou IP)
 
 ## 1. Essai à la main, sans CI
 
@@ -43,9 +45,10 @@ bin/docker-compose version
 Keycloak démarre avec un administrateur temporaire, à remplacer par un compte nominatif dans le realm master (Console › Users), puis supprimer :
 
 ```bash
-# administrateur temporaire : admin-temporaire / KEYCLOAK_ADMIN_PASSWORD (deploy/secrets.sh)
-ssh "<hôte>" "cd /opt/mon-app && docker compose -p mon-app logs keycloak | tail -n 5"
+ssh "$HOTE" "cd /opt/mon-app && docker compose -p mon-app logs keycloak | tail -n 5"
 ```
+
+- administrateur temporaire : admin-temporaire / KEYCLOAK_ADMIN_PASSWORD (deploy/secrets.sh)
 
 Décrire le realm « mon-app » (groupes admins et developpeurs, clients de l'application et des outils) :
 
@@ -68,17 +71,24 @@ Valeurs dans des variables CI, une par environnement : `scripts/ci-variables.sh`
 
 Sur chaque hôte : un compte `deploy` avec la clé publique de la CI (la clé privée va dans `SSH_PRIVATE_KEY`), membre du groupe docker, Docker et son extension Compose installés.
 
+Sur le poste, créer la paire de clés :
+
 ```bash
 ssh-keygen -t ed25519 -N '' -f ci_deploy -C ci-deploy
+cat ci_deploy.pub
+```
+
+Sur l'hôte (connexion `ssh "$HOTE"`), créer le compte ; la commande demande la clé publique affichée ci-dessus :
+
+```bash
 sudo useradd -m -s /bin/bash deploy
 sudo install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
-sudo tee /home/deploy/.ssh/authorized_keys < ci_deploy.pub
+read -rp "Clé publique de la CI : " CLE
+echo "$CLE" | sudo tee /home/deploy/.ssh/authorized_keys
 sudo usermod -aG docker deploy
 ```
 
-- `ssh-keygen -t ed25519 -N '' -f ci_deploy -C ci-d…` : sur le poste
-
-Empreinte des hôtes dans `SSH_KNOWN_HOSTS` (facultatif, recommandé) : `ssh-keyscan <hôte>`.
+Empreinte des hôtes dans `SSH_KNOWN_HOSTS` (facultatif, recommandé) : `ssh-keyscan $HOTE`.
 
 Noms d'hôte de l'application : chacun pointe (enregistrement DNS A ou AAAA) vers l'hôte de son environnement, joignable depuis Internet sur les ports 80 et 443 ; Traefik y obtient seul le certificat (paramètre « Adresse publique de l'application » de la brique Traefik).
 
@@ -100,7 +110,7 @@ bash scripts/ci-variables.sh
 Pousser sur la branche principale : chaque environnement se déploie dans l'ordre.
 
 ```bash
-ssh "<hôte>" "cd /opt/mon-app && docker compose -p mon-app ps"
+ssh "$HOTE" "cd /opt/mon-app && docker compose -p mon-app ps"
 ```
 
 ## 7. SonarQube
@@ -112,7 +122,6 @@ SONAR="https://sonarqube.boutique.fr"
 IDP="https://auth.boutique.fr/realms/mon-app"
 SONAR_ADMIN_PASSWORD="S$(openssl rand -hex 12)!a1"; echo "$SONAR_ADMIN_PASSWORD"
 curl -fsS -u admin:admin -X POST "$SONAR/api/users/change_password" -d login=admin -d previousPassword=admin --data-urlencode "password=$SONAR_ADMIN_PASSWORD"
-# certificat de signature du realm, lu dans ses métadonnées SAML
 cert="$(curl -fsS "$IDP/protocol/saml/descriptor" | grep -o '<ds:X509Certificate>[^<]*' | head -n 1 | cut -d '>' -f 2)"
 sonar() { curl -fsS -u "admin:$SONAR_ADMIN_PASSWORD" -X POST "$SONAR/api/$1" "${@:2}"; }
 sonar settings/set -d key=sonar.core.serverBaseURL --data-urlencode "value=$SONAR"
@@ -131,8 +140,9 @@ sonar permissions/add_group -d groupName=admins -d permission=admin
 curl -fsS -o /dev/null -w "%{redirect_url}\n" "$SONAR/sessions/init/saml?return_to=/"
 ```
 
-- `SONAR_ADMIN_PASSWORD="S$(openssl rand -hex 12)!a…` : à ranger
-- `curl -fsS -o /dev/null -w "%{redirect_url}\n" "$…` : adresse de connexion de Keycloak attendue
+- `SONAR_ADMIN_PASSWORD="S$(openssl rand -hex 12)!a1"; echo "$SONAR_ADMIN_P…` : à ranger
+- certificat de signature du realm, lu dans ses métadonnées SAML
+- `curl -fsS -o /dev/null -w "%{redirect_url}\n" "$SONAR/sessions/init/saml…` : adresse de connexion de Keycloak attendue
 
 ## 8. Sauvegardes
 

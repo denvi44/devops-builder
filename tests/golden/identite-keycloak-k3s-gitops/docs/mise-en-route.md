@@ -62,8 +62,8 @@ kubectl -n openbao exec -ti openbao-0 -- bao operator unseal
 kubectl -n openbao exec -ti openbao-0 -- bao status
 ```
 
-- `kubectl -n openbao exec -ti openbao-0 -- bao ope…` : clés et jeton racine : hors de l'hôte
-- `kubectl -n openbao exec -ti openbao-0 -- bao ope…` : trois fois, trois clés différentes ; après chaque redémarrage
+- `kubectl -n openbao exec -ti openbao-0 -- bao operator init -key-shares=5…` : clés et jeton racine : hors de l'hôte
+- `kubectl -n openbao exec -ti openbao-0 -- bao operator unseal` : trois fois, trois clés différentes ; après chaque redémarrage
 
 Joindre l'API du coffre depuis le poste :
 
@@ -74,7 +74,7 @@ kubectl -n openbao port-forward svc/openbao 8200:8200 &
 Configurer le coffre (moteur KV, politiques, connexion d'External Secrets) ; le script est relançable :
 
 ```bash
-export VAULT_TOKEN="<jeton racine>"
+read -rsp "Jeton racine du coffre : " VAULT_TOKEN; echo; export VAULT_TOKEN
 bash scripts/vault-setup.sh
 ```
 

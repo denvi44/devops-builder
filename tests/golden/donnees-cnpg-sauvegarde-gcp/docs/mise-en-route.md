@@ -100,7 +100,7 @@ kubectl -n mon-app get cluster mon-app-pg -o jsonpath='{.status.conditions}'
 kubectl -n mon-app get scheduledbackup,backup
 ```
 
-- `kubectl -n mon-app get cluster mon-app-pg -o jso…` : ContinuousArchiving
+- `kubectl -n mon-app get cluster mon-app-pg -o jsonpath='{.status.conditio…` : ContinuousArchiving
 
 ## 8. Poste de développement
 
@@ -113,7 +113,7 @@ docker compose -f dev/db/compose.yaml --profile outils up -d adminer
 ```
 
 - `set -a && . dev/db/app.env && set +a` : variables de connexion pour l'application lancée sur le poste
-- `docker compose -f dev/db/compose.yaml --profile…` : http://127.0.0.1:8081
+- `docker compose -f dev/db/compose.yaml --profile outils up -d adminer` : http://127.0.0.1:8081
 
 ## 9. Entretien
 

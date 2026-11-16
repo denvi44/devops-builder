@@ -17,10 +17,11 @@ from .common import HEADER
 PATH = "docs/mise-en-route.md"
 
 
+_TOKEN_PROMPT = 'read -rsp "Jeton {what} du coffre : " VAULT_TOKEN; echo; export VAULT_TOKEN'
 _NOTE = re.compile(r"\s{2,}# ")
 
 
-def _short(command: str, limit: int = 48) -> str:
+def _short(command: str, limit: int = 72) -> str:
     return command if len(command) <= limit else command[:limit].rstrip() + "…"
 
 
@@ -29,13 +30,16 @@ def _sh(*lines: str) -> list[str]:
     commande collée, et un débutant colle le bloc entier."""
     commands, notes = [], []
     for line in lines:
+        if line.lstrip().startswith("#"):  # ligne de commentaire seule : remarque sous le bloc
+            notes.append("- " + line.lstrip("# ").strip())
+            continue
         command, note = (_NOTE.split(line, 1) + [""])[:2]
         commands.append(command.rstrip())
         if note:
             notes.append(f"- `{_short(command.strip())}` : {note.strip()}")
     out = ["```bash", *commands, "```", ""]
     if notes:
-        out += [*notes, ""]
+        out += [*dict.fromkeys(notes), ""]
     return out
 
 
@@ -303,7 +307,7 @@ def _vault(ir: IR, files: dict[str, str]) -> list[str]:
             exe = f"kubectl -n {tool} exec -ti {tool}-0 --"
         elif ir.has("docker-compose"):
             ns = ir.namespace(ir.envs[-1])
-            exe = f'ssh "<hôte>" cd /opt/{ns} "&&" docker compose -p {ns} exec {tool}'
+            exe = f'ssh "$HOTE" cd /opt/{ns} "&&" docker compose -p {ns} exec {tool}'
 
         else:
             exe = ""
@@ -332,7 +336,7 @@ def _vault(ir: IR, files: dict[str, str]) -> list[str]:
         who = " et ".join(w for w, on in (("de la CI", "auth/jwt" in setup or "CI_REPO" in setup),
                                            ("d'External Secrets", "auth/kubernetes" in setup)) if on)
         out += [f"Configurer le coffre (moteur KV, politiques, connexion {who}) ; le script est relançable :", "",
-                *_sh('export VAULT_TOKEN="<jeton racine>"', *k8s_extra,
+                *_sh(_TOKEN_PROMPT.format(what="racine"), *k8s_extra,
                      f"{' '.join(e for e in env if not e.startswith('#'))} bash {sec.VAULT_SETUP}".strip(),
                      *[e for e in env if e.startswith("#")]),
                 "Ensuite, créer un accès d'administration nominatif (OIDC, userpass) et révoquer le jeton racine :",
@@ -368,7 +372,7 @@ def _app_secrets(ir: IR, files: dict[str, str]) -> list[str]:
                 ""]
     elif seed:
         where = ir.catalog[sec.store(ir)].name
-        auth = 'export VAULT_TOKEN="<jeton d\'administration>"' if sec.store(ir) in sec.VAULTS else \
+        auth = _TOKEN_PROMPT.format(what="d'administration") if sec.store(ir) in sec.VAULTS else \
             f"# compte autorisé à écrire dans {where}"
         out += [f"Écrire les valeurs dans {where}, une fois par environnement (et à chaque rotation) :", "",
                 *_sh(auth, *[f"{gen} bash {sec.SEED_SCRIPT} {e.id}" for e in ir.envs])]
@@ -438,9 +442,9 @@ def _hosts(ir: IR) -> list[str]:
                 "Sur chaque hôte : le compte `root` avec la clé publique de la CI (la clé privée va dans "
                 "`SSH_PRIVATE_KEY`) ; pas de sudo à configurer. Docker "
                 + ("est préparé par Ansible." if ir.has("ansible") else "et son extension Compose doivent être installés."),
-                "", *_sh("ssh-keygen -t ed25519 -N '' -f ci_deploy -C ci-deploy   # sur le poste",
-                         "ssh-copy-id -i ci_deploy.pub root@<hôte>"),
-                "Empreinte des hôtes dans `SSH_KNOWN_HOSTS` (facultatif, recommandé) : `ssh-keyscan <hôte>`.", ""] + (
+                "Sur le poste :", "", *_sh("ssh-keygen -t ed25519 -N '' -f ci_deploy -C ci-deploy",
+                                           "ssh-copy-id -i ci_deploy.pub root@$HOTE"),
+                "Empreinte des hôtes dans `SSH_KNOWN_HOSTS` (facultatif, recommandé) : `ssh-keyscan $HOTE`.", ""] + (
                 ["Préparer les hôtes (Docker depuis son dépôt officiel), une fois par environnement :", "",
                  *_sh("pip install 'ansible-core>=2.21,<2.22' && ansible-galaxy collection install -r ansible/requirements.yml",
                       *[f"ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook -i {ir.inventory(e)} ansible/site.yml"
@@ -448,13 +452,17 @@ def _hosts(ir: IR) -> list[str]:
         out += [f"Sur chaque hôte : un compte `{user}` avec la clé publique de la CI (la clé privée va dans "
                 "`SSH_PRIVATE_KEY`)" + (" et sudo sans mot de passe." if ir.has("ansible") else
                                         ", membre du groupe docker, Docker et son extension Compose installés."), "",
-                *_sh("ssh-keygen -t ed25519 -N '' -f ci_deploy -C ci-deploy   # sur le poste",
-                     f"sudo useradd -m -s /bin/bash {user}",
+                "Sur le poste, créer la paire de clés :", "",
+                *_sh("ssh-keygen -t ed25519 -N '' -f ci_deploy -C ci-deploy", "cat ci_deploy.pub"),
+                "Sur l'hôte (connexion `ssh \"$HOTE\"`), créer le compte ; la commande demande la clé publique "
+                "affichée ci-dessus :", "",
+                *_sh(f"sudo useradd -m -s /bin/bash {user}",
                      f"sudo install -d -m 700 -o {user} -g {user} /home/{user}/.ssh",
-                     f"sudo tee /home/{user}/.ssh/authorized_keys < ci_deploy.pub",
+                     'read -rp "Clé publique de la CI : " CLE',
+                     f'echo "$CLE" | sudo tee /home/{user}/.ssh/authorized_keys',
                      *([f"echo '{user} ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/{user}"]
                        if ir.has("ansible") else [f"sudo usermod -aG docker {user}"])),
-                "Empreinte des hôtes dans `SSH_KNOWN_HOSTS` (facultatif, recommandé) : `ssh-keyscan <hôte>`.", ""]
+                "Empreinte des hôtes dans `SSH_KNOWN_HOSTS` (facultatif, recommandé) : `ssh-keyscan $HOTE`.", ""]
     if ir.has("ansible"):
         out += ["Préparer les hôtes (Docker depuis son dépôt officiel), une fois par environnement :", "",
                 *_sh("pip install 'ansible-core>=2.21,<2.22' && ansible-galaxy collection install -r ansible/requirements.yml",
@@ -484,7 +492,7 @@ def _addresses(ir: IR) -> list[str]:
             continue
         if not any(word in e.usage for word in ("interface", "OIDC")):
             continue
-        line = f"- {e.component} ({e.usage}) : `http://<adresse de l'hôte>:{e.host_port}`"
+        line = f"- {e.component} ({e.usage}) : `http://$HOTE:{e.host_port}`"
         if line not in seen:
             seen.append(line)
     return seen
@@ -608,7 +616,7 @@ def _first_deploy(ir: IR) -> list[str]:
         out += _sh(f"kubectl -n {ns} rollout status deployment/{ir.app}",
                    f"kubectl -n {ns} get pods")
     elif ir.has("docker-compose"):
-        out += _sh(f'ssh "<hôte>" "cd /opt/{ns} && docker compose -p {ns} ps"')
+        out += _sh(f'ssh "$HOTE" "cd /opt/{ns} && docker compose -p {ns} ps"')
     return out
 
 
@@ -667,7 +675,7 @@ def _identity(ir: IR, files: dict[str, str]) -> list[str]:
         if identity.compose_target(ir):
             ns = ir.namespace(ir.envs[-1])
             first = ['# administrateur temporaire : admin-temporaire / KEYCLOAK_ADMIN_PASSWORD (deploy/secrets.sh)',
-                     f'ssh "<hôte>" "cd /opt/{ns} && docker compose -p {ns} logs keycloak | tail -n 5"']
+                     f'ssh "$HOTE" "cd /opt/{ns} && docker compose -p {ns} logs keycloak | tail -n 5"']
         else:
             first = ["kubectl -n keycloak wait keycloak/keycloak --for=condition=Ready --timeout=300s",
                      "kubectl -n keycloak get secret keycloak-initial-admin -o jsonpath='{.data.username}' | base64 -d; echo",

@@ -178,11 +178,13 @@ def main(argv: list[str] | None = None) -> int:
     it = sub.add_parser("init", help="Créer un projet à partir du dossier d'une application")
     it.add_argument("folder")
     it.add_argument("-o", "--output", required=True, help="Fichier projet à écrire (.devops.yaml)")
-    it.add_argument("--hosting", help="Hébergement : docker-host, vm, kubernetes, kubernetes-managed, serverless")
+    it.add_argument("--hosting", choices=["docker-host", "vm", "kubernetes", "kubernetes-managed", "serverless"],
+                    help="Hébergement : docker-host, vm, kubernetes, kubernetes-managed, serverless")
     it.add_argument("--cloud", help="Cloud pour kubernetes-managed ou serverless (aws, gcp, azure…)")
     it.add_argument("--database", choices=["none", "postgresql", "mysql", "mariadb", "mongodb"],
                     help="Base de données principale (par défaut : celle que l'analyse a détectée)")
-    it.add_argument("--envs", default="staging-prod", help="Modèle d'environnements (prod, staging-prod, …)")
+    it.add_argument("--envs", default="staging-prod", choices=["prod", "staging-prod", "dev-staging-prod", "dev-recette-prod"],
+                    help="Modèle d'environnements (prod, staging-prod, dev-staging-prod, dev-recette-prod)")
     raw = sys.argv[1:] if argv is None else argv
     if raw and raw[0].endswith((".yaml", ".yml")) and not raw[0].startswith("-"):
         # « devops-builder projet.devops.yaml » (ou un double-clic sur le fichier) : l'ouvrir dans l'interface

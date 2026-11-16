@@ -33,7 +33,6 @@ La CI s'authentifie par jeton OIDC (GitHub Actions), sans clé statique, avec de
 
 ```bash
 aws iam create-open-id-connect-provider --url https://token.actions.githubusercontent.com --client-id-list sts.amazonaws.com
-# déploiement : pousser l'image, obtenir l'accès au cluster
 cat > /tmp/trust-ci.json <<EOF
 {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Federated": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"}, "Action": "sts:AssumeRoleWithWebIdentity", "Condition": {"StringEquals": {"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"}, "StringLike": {"token.actions.githubusercontent.com:sub": ["repo:${REPO}:ref:refs/heads/main", "repo:${REPO}:environment:staging", "repo:${REPO}:environment:production"]}}}]}
 EOF
@@ -76,7 +75,6 @@ EOF
 aws iam create-role --role-name mon-app-ci --assume-role-policy-document file:///tmp/trust-ci.json
 aws iam put-role-policy --role-name mon-app-ci --policy-name deploiement --policy-document file:///tmp/policy-ci.json
 echo "AWS_ROLE_ARN=arn:aws:iam::$AWS_ACCOUNT_ID:role/mon-app-ci"
-# infrastructure : la pile crée des rôles IAM (EKS, External Secrets) et des réseaux
 cat > /tmp/trust-infra.json <<EOF
 {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Federated": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"}, "Action": "sts:AssumeRoleWithWebIdentity", "Condition": {"StringEquals": {"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"}, "StringLike": {"token.actions.githubusercontent.com:sub": ["repo:${REPO}:ref:refs/heads/main", "repo:${REPO}:pull_request", "repo:${REPO}:environment:production"]}}}]}
 EOF
@@ -84,6 +82,9 @@ aws iam create-role --role-name mon-app-ci-infra --assume-role-policy-document f
 aws iam attach-role-policy --role-name mon-app-ci-infra --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
 echo "AWS_INFRA_ROLE_ARN=arn:aws:iam::$AWS_ACCOUNT_ID:role/mon-app-ci-infra"
 ```
+
+- déploiement : pousser l'image, obtenir l'accès au cluster
+- infrastructure : la pile crée des rôles IAM (EKS, External Secrets) et des réseaux
 
 ## 3. Premier apply
 
@@ -97,7 +98,7 @@ tofu -chdir=infra/terraform apply plan.tfplan
 tofu -chdir=infra/terraform output
 ```
 
-- `cp infra/terraform/terraform.tfvars.example infr…` : valeurs à renseigner, fichier non versionné
+- `cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tf…` : valeurs à renseigner, fichier non versionné
 
 EKS donne l'administration du cluster à l'identité qui applique la pile : celle du poste au premier apply, puis le rôle d'infrastructure de la CI. Pour garder l'accès, déclarer son rôle IAM dans `cluster_admin_arns` (terraform.tfvars) ; le rôle de déploiement de la CI y entre par `ci_deploy_role_arn`.
 
@@ -166,7 +167,7 @@ docker compose -f dev/db/compose.yaml --profile outils up -d adminer
 ```
 
 - `set -a && . dev/db/app.env && set +a` : variables de connexion pour l'application lancée sur le poste
-- `docker compose -f dev/db/compose.yaml --profile…` : http://127.0.0.1:8081
+- `docker compose -f dev/db/compose.yaml --profile outils up -d adminer` : http://127.0.0.1:8081
 
 ## 10. Entretien
 

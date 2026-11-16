@@ -4,6 +4,16 @@
 
 Les gestes à faire une fois, dans l'ordre, avant le premier pipeline. Chaque section se vérifie avant de passer à la suivante. Les blocs se collent tels quels dans un terminal (bash ou zsh) ; les remarques sont sous chaque bloc.
 
+## Valeurs à adapter
+
+À poser une fois dans le terminal ; les commandes suivantes les reprennent.
+
+```bash
+export HOTE="192.168.1.10"
+```
+
+- `export HOTE="192.168.1.10"` : adresse de l'hôte Docker (nom ou IP)
+
 ## 1. Essai à la main, sans CI
 
 Le chemin le plus court pour voir tourner les outils du projet, avant de brancher la CI : sur un hôte Docker (labo, poste de travail, NAS), copier le dossier du projet puis, depuis ce dossier :
@@ -53,17 +63,24 @@ Nouvelle clé publique (arrivée ou départ) : la brique, puis `sops updatekeys 
 
 Sur chaque hôte : un compte `deploy` avec la clé publique de la CI (la clé privée va dans `SSH_PRIVATE_KEY`) et sudo sans mot de passe.
 
+Sur le poste, créer la paire de clés :
+
 ```bash
 ssh-keygen -t ed25519 -N '' -f ci_deploy -C ci-deploy
+cat ci_deploy.pub
+```
+
+Sur l'hôte (connexion `ssh "$HOTE"`), créer le compte ; la commande demande la clé publique affichée ci-dessus :
+
+```bash
 sudo useradd -m -s /bin/bash deploy
 sudo install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
-sudo tee /home/deploy/.ssh/authorized_keys < ci_deploy.pub
+read -rp "Clé publique de la CI : " CLE
+echo "$CLE" | sudo tee /home/deploy/.ssh/authorized_keys
 echo 'deploy ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/deploy
 ```
 
-- `ssh-keygen -t ed25519 -N '' -f ci_deploy -C ci-d…` : sur le poste
-
-Empreinte des hôtes dans `SSH_KNOWN_HOSTS` (facultatif, recommandé) : `ssh-keyscan <hôte>`.
+Empreinte des hôtes dans `SSH_KNOWN_HOSTS` (facultatif, recommandé) : `ssh-keyscan $HOTE`.
 
 Préparer les hôtes (Docker depuis son dépôt officiel), une fois par environnement :
 
@@ -92,7 +109,7 @@ bash scripts/ci-variables.sh
 Pousser sur la branche principale : chaque environnement se déploie dans l'ordre.
 
 ```bash
-ssh "<hôte>" "cd /opt/mon-app && docker compose -p mon-app ps"
+ssh "$HOTE" "cd /opt/mon-app && docker compose -p mon-app ps"
 ```
 
 ## 6. Zabbix
@@ -108,7 +125,7 @@ curl -fsS -H 'Content-Type: application/json-rpc' -H "Authorization: Bearer $tok
 ```
 
 - `ok='.result // error(.error | tostring)'` : réponse de l'API, ou son message d'erreur
-- `ZABBIX_ADMIN_PASSWORD="$(openssl rand -hex 16)";…` : à ranger
+- `ZABBIX_ADMIN_PASSWORD="$(openssl rand -hex 16)"; echo "$ZABBIX_ADMIN_PAS…` : à ranger
 
 Vérifier que l'agent fourni répond : l'hôte « Zabbix server » (le serveur lui-même) doit être disponible (`available` = 1 sur son interface ; ses contrôles par défaut sont passifs, `active_available` reste à 0) :
 

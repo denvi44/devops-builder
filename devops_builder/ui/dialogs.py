@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..generators import GenerationResult
+from ..messages import reason
 from ..model import ENV_ID_PATTERN, ENV_PRESETS, ENVIRONMENTS, LANGUAGES, TARGETS, Environment, Project, env_preset
 from .widgets import icon, muted
 
@@ -464,7 +465,13 @@ class GenerateDialog(QDialog):
         path, _ = QFileDialog.getSaveFileName(self, "Enregistrer l'archive", f"{name}.zip", "Archive zip (*.zip)")
         if not path:
             return
-        Path(path).write_bytes(self.result.zip_bytes())
+        try:
+            Path(path).write_bytes(self.result.zip_bytes())
+        except OSError as exc:
+            QMessageBox.warning(self, "Export impossible",
+                                f"L'archive n'a pas pu être écrite dans « {path} » : {reason(exc)}.\n"
+                                "Choisissez un autre dossier.")
+            return
         QMessageBox.information(self, "Export terminé",
                                 f"Archive enregistrée : {path}\nElle s'extrait dans son propre dossier, « {name} ».")
 

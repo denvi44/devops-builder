@@ -38,7 +38,7 @@ R_SEV = Qt.ItemDataRole.UserRole + 3
 R_KIND = Qt.ItemDataRole.UserRole + 4
 R_CURATED = Qt.ItemDataRole.UserRole + 5
 R_TOOL = Qt.ItemDataRole.UserRole + 6
-COLUMN_WIDTH = 236
+COLUMN_WIDTH = 212
 CARD_HEIGHT = 58
 
 
@@ -410,12 +410,13 @@ class PipelineCanvas(QScrollArea):
             col.setFixedWidth(theme.px(COLUMN_WIDTH))
             col.list.doItemsLayout()
 
-    def select(self, uid: str) -> None:
+    def select(self, uid: str, take_focus: bool = True) -> None:
         for col in self.columns.values():
             for i in range(col.list.count()):
                 item = col.list.item(i)
                 if item.data(R_UID) == uid:
                     col.list.setCurrentItem(item)
-                    col.list.setFocus()
+                    if take_focus:
+                        col.list.setFocus()
                     self.ensureWidgetVisible(col)
                     return

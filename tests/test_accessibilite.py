@@ -11,6 +11,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 pytest.importorskip("PySide6")
 
 from devops_builder.catalog import DATA_DIR  # noqa: E402
+from devops_builder.ui.canvas import COLUMN_WIDTH  # noqa: E402
 
 EXAMPLE = DATA_DIR / "examples" / "01-web-hote-docker.devops.yaml"
 
@@ -102,7 +103,7 @@ def test_taille_du_texte(win):
     win.set_text_scale(1.5)
     assert theme.scale() == 1.5 and win.settings.value("text_scale", type=float) == 1.5
     assert win.title_row.indexOf(win.title) >= 0  # titre sur sa propre ligne
-    assert win.canvas.columns["build"].width() == round(236 * 1.5)
+    assert win.canvas.columns["build"].width() == round(COLUMN_WIDTH * 1.5)
     win._step_text(1)
     assert theme.scale() == 2.0
     win.set_text_scale(1.0)

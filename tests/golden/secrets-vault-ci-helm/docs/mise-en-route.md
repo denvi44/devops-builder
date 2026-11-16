@@ -24,7 +24,7 @@ Sur le nœud serveur : `sudo bash infra/cluster/install-k3s.sh`, puis récupére
 Configurer le coffre (moteur KV, politiques, connexion de la CI) ; le script est relançable :
 
 ```bash
-export VAULT_TOKEN="<jeton racine>"
+read -rsp "Jeton racine du coffre : " VAULT_TOKEN; echo; export VAULT_TOKEN
 CI_REPO="$REPO" bash scripts/vault-setup.sh
 ```
 
@@ -41,7 +41,7 @@ Vérifier : `curl -s $VAULT_ADDR/v1/sys/health | jq` (`sealed: false`, `initiali
 Écrire les valeurs dans Vault, une fois par environnement (et à chaque rotation) :
 
 ```bash
-export VAULT_TOKEN="<jeton d'administration>"
+read -rsp "Jeton d'administration du coffre : " VAULT_TOKEN; echo; export VAULT_TOKEN
 POSTGRESQL_PASSWORD="$(openssl rand -hex 24)" bash scripts/secrets-seed.sh production
 ```
 
@@ -76,7 +76,7 @@ docker compose -f dev/db/compose.yaml --profile outils up -d adminer
 ```
 
 - `set -a && . dev/db/app.env && set +a` : variables de connexion pour l'application lancée sur le poste
-- `docker compose -f dev/db/compose.yaml --profile…` : http://127.0.0.1:8081
+- `docker compose -f dev/db/compose.yaml --profile outils up -d adminer` : http://127.0.0.1:8081
 
 ## 7. Entretien
 
