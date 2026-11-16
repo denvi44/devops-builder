@@ -10,6 +10,7 @@ mineure peut changer les fichiers générés ; chaque changement voulu est relu 
 - **Thème Verre — relief** : boutons, cartes d'étapes et panneaux ont un reflet en haut et un biseau (liseré clair en haut à gauche, sombre en bas à droite) ; les champs sont creusés, les boutons appuyés s'enfoncent. Des ombres portées sont dessinées sous les boutons, les cartes et le panneau Corrections.
 
 ### Corrigé
+- **Test bout en bout OpenBao** : le test attend que le pod `openbao-0` existe avant d'attendre qu'il tourne (course avec la création du StatefulSet, échec de la nuit du 15 novembre).
 - **Thème Verre — survol** : les boutons de la barre d'outils (Enregistrer, Annuler, Valider…) changeaient de forme et tronquaient leur texte au survol (bordures de 12 px de qt-material). Tous les états des boutons (survol, appui, coché, focus) sont maintenant déclarés : un survol éclaircit le verre et trace un liseré de la couleur principale.
 - **Thème Verre — rendu** : fond en dégradé plus marqué, panneaux bleutés au lieu de blanc franc, en-tête du tableau de diagnostics et panneau Corrections translucides ; survol et sélection lisibles dans les listes, arbres, menus et onglets. Couleurs principale, d'alerte et de bordure assombries pour garder le contraste sur le dégradé plus soutenu (audit : 0 constat sur les trois thèmes).
 
